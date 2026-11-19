@@ -1,0 +1,19 @@
+title: 'collectives-westend: restrict salary `payout_other` to the `Any` proxy (+ `PolkadotXcm` denial for `NonTransfer`)'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Applies the Collectives Polkadot fix from
+    [fellows/runtimes#1341](https://github.com/polkadot-fellows/runtimes/pull/1341) to Collectives
+    Westend: the `Fellowship`, `Ambassador` and `Secretary` proxies now admit only the
+    `pallet_salary` calls that pay the claimant itself, omitting `payout_other`, which pays the
+    claimant's salary to any account. `NonTransfer` also keeps denying `payout_other`, so only
+    `Any` proxies can redirect salary payouts. Since the salary proxies no longer admit
+    `payout_other`, `NonTransfer` remains a superset of `Fellowship`, `Ambassador` and (unlike on
+    Collectives Polkadot, where `NonTransfer` is an allowlist that does not cover the Secretary
+    calls) `Secretary`.
+
+    Additionally, `NonTransfer` now denies `PolkadotXcm`, whose `transfer_assets`,
+    `teleport_assets` and `execute` calls move assets to another chain.
+crates:
+- name: collectives-westend-runtime
+  bump: patch
