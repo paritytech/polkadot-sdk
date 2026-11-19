@@ -358,6 +358,7 @@ where
 			// on every relay parent.
 			let parent_hash = parent_search_result.best_parent_header.hash();
 			let parent_header = parent_search_result.best_parent_header;
+
 			// Distance from included block to best parent.
 			let initial_parent_depth =
 				(*parent_header.number()).saturating_sub(*included_header.number());
