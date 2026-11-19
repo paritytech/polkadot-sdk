@@ -51,6 +51,11 @@ def fetch_repo_labels():
         return None
 
 
+def is_org_member():
+    """Whether the user who triggered the command is an organization member (set by the workflow)"""
+    return os.environ.get('IS_ORG_MEMBER', 'false').lower() == 'true'
+
+
 def check_pr_status(pr_number):
     """Check PR status from environment (pre-fetched by workflow)"""
     status_json = os.environ.get('PR_STATUS')
@@ -294,6 +299,13 @@ def main():
 
         profile = "production"
 
+        # A `build.rs` runs arbitrary code on the runner, so only org members may benchmark PRs
+        # that change one. Anything but `false` counts as a change.
+        changes_build_scripts = os.environ.get('CHANGES_BUILD_SCRIPTS') != 'false'
+        if changes_build_scripts and not is_org_member():
+            print_and_log('❌ Only organization members can run benchmarks on PRs that change `build.rs` files.')
+            sys.exit(1)
+
         print(f'Provided runtimes: {args.runtime}')
         # convert to mapped dict
         runtimesMatrix = list(filter(lambda x: x['name'] in args.runtime, runtimesMatrix))
@@ -493,10 +505,9 @@ def main():
                     raise ValueError("Cannot modify labels on merged PRs or PRs in merge queue")
 
             # Check if user has permission to modify labels
-            is_org_member = os.environ.get('IS_ORG_MEMBER', 'false').lower() == 'true'
             is_pr_author = os.environ.get('IS_PR_AUTHOR', 'false').lower() == 'true'
 
-            if not is_org_member and not is_pr_author:
+            if not is_org_member() and not is_pr_author:
                 raise ValueError("Only the PR author or organization members can modify labels")
 
             # Get allowed labels dynamically
@@ -513,14 +524,12 @@ def main():
                 print(message)
 
             # Output labels as JSON for GitHub Action
-            import json
             labels_output = {"labels": final_labels}
             print_and_log(f"LABELS_JSON: {json.dumps(labels_output)}")
         except ValueError as e:
             print_and_log(f'❌ {e}')
 
             # Output error as JSON for GitHub Action
-            import json
             error_output = {
                 "error": "validation_failed",
                 "message": "Invalid labels found. Please check the suggestions below and try again.",

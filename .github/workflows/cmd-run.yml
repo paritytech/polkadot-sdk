@@ -54,6 +54,7 @@ jobs:
       run_url: ${{ steps.build-link.outputs.run_url }}
       repo_labels: ${{ steps.fetch-github-data.outputs.repo_labels }}
       pr_status: ${{ steps.fetch-github-data.outputs.pr_status }}
+      changes_build_scripts: ${{ steps.fetch-build-scripts.outputs.changes_build_scripts }}
     steps:
       - name: Build workflow link
         if: ${{ github.event.inputs.is_quiet == 'false' }}
@@ -145,6 +146,23 @@ jobs:
             core.setOutput('repo_labels', JSON.stringify(labelNames));
             core.setOutput('pr_status', JSON.stringify(prStatus));
 
+      - name: Check if the PR changes build scripts
+        id: fetch-build-scripts
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: Number(process.env.PR_NUM),
+              per_page: 100
+            });
+            // The API returns at most 3000 files; beyond that a `build.rs` could be hidden, so assume one changed.
+            const changesBuildScripts = files.length >= 3000 || files.some(f => f.filename.endsWith('build.rs'));
+            console.log(`Changes build scripts: ${changesBuildScripts}`);
+            core.setOutput('changes_build_scripts', changesBuildScripts);
+
   cmd:
     needs: [before-cmd]
     env:
@@ -193,6 +211,7 @@ jobs:
           IMAGE: ${{ github.event.inputs.image }}
           REPO_LABELS: ${{ needs.before-cmd.outputs.repo_labels }}
           PR_STATUS: ${{ needs.before-cmd.outputs.pr_status }}
+          CHANGES_BUILD_SCRIPTS: ${{ needs.before-cmd.outputs.changes_build_scripts }}
         run: |
           echo "Running command: "${CMD} ${PR_ARG}" on "${RUNNER}" runner, container: "${IMAGE}
           echo "RUST_NIGHTLY_VERSION: ${RUST_NIGHTLY_VERSION}"

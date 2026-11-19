@@ -58,6 +58,7 @@ class TestCmd(unittest.TestCase):
         self.patcher6 = patch('importlib.util.spec_from_file_location', return_value=MagicMock())
         self.patcher7 = patch('importlib.util.module_from_spec', return_value=MagicMock())
         self.patcher8 = patch('cmd.generate_prdoc.main', return_value=0)
+        self.patcher9 = patch.dict('os.environ', {'CHANGES_BUILD_SCRIPTS': 'false'})
 
         self.mock_open = self.patcher1.start()
         self.mock_json_load = self.patcher2.start()
@@ -67,6 +68,7 @@ class TestCmd(unittest.TestCase):
         self.mock_spec_from_file_location = self.patcher6.start()
         self.mock_module_from_spec = self.patcher7.start()
         self.mock_generate_prdoc_main = self.patcher8.start()
+        self.patcher9.start()
 
         # Ensure that cmd.py uses the mock_runtimes_matrix
         import cmd
@@ -81,6 +83,7 @@ class TestCmd(unittest.TestCase):
         self.patcher6.stop()
         self.patcher7.stop()
         self.patcher8.stop()
+        self.patcher9.stop()
 
     def test_bench_command_normal_execution_all_runtimes(self):
         self.mock_parse_args.return_value = (argparse.Namespace(
@@ -370,6 +373,38 @@ class TestCmd(unittest.TestCase):
             ]
 
             self.mock_system.assert_has_calls(expected_calls, any_order=True)
+
+    def bench_westend_args(self):
+        return (argparse.Namespace(
+            command='bench',
+            runtime=['westend'],
+            pallet=['pallet_balances'],
+            fail_fast=True,
+            quiet=False,
+            clean=False,
+            image=None
+        ), [])
+
+    def test_bench_refused_for_non_member_when_build_scripts_change(self):
+        self.mock_parse_args.return_value = self.bench_westend_args()
+        for changes_build_scripts in ['true', '']:
+            with self.subTest(changes_build_scripts=changes_build_scripts), \
+                    patch.dict('os.environ', {'CHANGES_BUILD_SCRIPTS': changes_build_scripts, 'IS_ORG_MEMBER': 'false'}), \
+                    patch('sys.exit', side_effect=SystemExit(1)):
+                import cmd
+                with self.assertRaises(SystemExit):
+                    cmd.main()
+                self.mock_system.assert_not_called()
+
+    @patch.dict('os.environ', {'CHANGES_BUILD_SCRIPTS': 'true', 'IS_ORG_MEMBER': 'true'})
+    def test_bench_allowed_for_member_when_build_scripts_change(self):
+        self.mock_parse_args.return_value = self.bench_westend_args()
+        self.mock_popen.return_value.read.return_value = "pallet_balances\n"
+        with patch('sys.exit') as mock_exit:
+            import cmd
+            cmd.main()
+            mock_exit.assert_not_called()
+            self.mock_system.assert_any_call("forklift cargo build -q -p westend-runtime --profile production --features=runtime-benchmarks")
 
     @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='fmt'), []))
     @patch('os.system', return_value=0)
