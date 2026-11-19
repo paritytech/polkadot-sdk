@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795043827376,
+  "lastUpdate": 1795084040133,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "180dc75fdd427c8ac17d51b9075ff6b71114f607",
-          "message": "Fix zombienet test throughput flakyness and enable more tests (#12001)\n\nI added waiting for PVF to be compiled before we measure tput. Even if\nwe wit for 1 block to be backed, doesn't mean that all validators in\ntest have compiled PVF. Let's see how stable the numbers get in CI\n\n\nAssetHub Westend ES test should pass with\nhttps://github.com/paritytech/polkadot-sdk/pull/12005 merged\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-07T17:20:51Z",
-          "tree_id": "9c9d47872f9ad434b76aa3e98616422f7c6196b9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/180dc75fdd427c8ac17d51b9075ff6b71114f607"
-        },
-        "date": 1778179468207,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.129522792,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.264968663266668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12771214983333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7b2027bb2897bf35018c02683bef5cae8bff137f",
+          "message": "bump zombienet to latest. (#13913)\n\nBump zombienet crates  to latest version.",
+          "timestamp": "2026-11-19T08:36:07Z",
+          "tree_id": "45145ab2ad322a5029860066f7c8944ca42f9a32",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7b2027bb2897bf35018c02683bef5cae8bff137f"
+        },
+        "date": 1795084004418,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12364788643333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.575955594733335,
             "unit": "seconds"
           }
         ]
