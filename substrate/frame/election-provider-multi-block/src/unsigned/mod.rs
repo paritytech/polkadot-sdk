@@ -88,10 +88,10 @@ mod pallet {
 		verifier::Verifier,
 		CommonError,
 	};
+	use alloc::boxed::Box;
 	use frame_support::pallet_prelude::*;
 	use frame_system::{offchain::CreateAuthorizedTransaction, pallet_prelude::*};
 	use sp_runtime::traits::SaturatedConversion;
-	use sp_std::prelude::*;
 
 	/// convert a [`crate::CommonError`] to a custom InvalidTransaction with the inner code being
 	/// the index of the variant.

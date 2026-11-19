@@ -20,7 +20,7 @@
 //!
 //! A peer can advertise the set of topics it is interested in as a space-efficient bloom filter
 //! ([`AffinityFilter`]). Once a peer has advertised one, only statements whose topics match the
-//! filter are propagated to it; statements with no topics always match, as they are broadcasts.
+//! filter are propagated to it.
 //!
 //! Filters received from the network are validated against `MAX_BLOOM_BITS` and `MAX_NUM_HASHES`
 //! to bound the memory and CPU a malicious peer can force. Hashing is platform-independent so that
@@ -195,13 +195,8 @@ impl AffinityFilter {
 	/// Check if a statement matches this affinity filter.
 	///
 	/// A statement matches if any of its topics is present in the bloom filter.
-	/// Statements with no topics always match (they are broadcast statements).
 	pub(crate) fn matches_statement(&self, statement: &Statement) -> bool {
-		let topics = statement.topics();
-		if topics.is_empty() {
-			return true;
-		}
-		topics.iter().any(|topic| self.contains(topic))
+		statement.topics().iter().any(|topic| self.contains(topic))
 	}
 }
 
@@ -330,15 +325,6 @@ mod tests {
 		// A non-inserted item should not match.
 		let absent: [u8; 32] = [0xFF; 32];
 		assert!(!decoded.contains(&absent), "absent item must not match");
-	}
-
-	#[test]
-	fn matches_statement_no_topics_always_matches() {
-		let filter = AffinityFilter::new(BLOOM_SEED, 0.01, 10);
-
-		let mut stmt = Statement::new();
-		stmt.set_plain_data(b"broadcast".to_vec());
-		assert!(filter.matches_statement(&stmt));
 	}
 
 	#[test]
@@ -491,11 +477,6 @@ mod tests {
 		stmt.set_plain_data(b"specific".to_vec());
 		stmt.set_topic(0, [0x01; 32].into());
 		assert!(!filter.matches_statement(&stmt));
-
-		// Topic-less (broadcast) statements still match — independent of affinity.
-		let mut broadcast = Statement::new();
-		broadcast.set_plain_data(b"broadcast".to_vec());
-		assert!(filter.matches_statement(&broadcast));
 	}
 
 	#[test]
