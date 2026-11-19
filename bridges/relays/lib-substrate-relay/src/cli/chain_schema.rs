@@ -99,8 +99,24 @@ macro_rules! declare_chain_connection_params_cli_schema {
 			#[derive(Debug, PartialEq, Eq, Clone, Parser)]
 			pub struct [<$chain ConnectionParams>] {
 				#[doc = "WS endpoint of " $chain ": full URI."]
+				#[arg(
+					long,
+					conflicts_with = stringify!([<$chain_prefix _chain_spec>]),
+					required_unless_present = stringify!([<$chain_prefix _chain_spec>]),
+				)]
+				pub [<$chain_prefix _uri>]: Option<String>,
+				#[doc = "Path to the chain spec of " $chain ". Connects through an embedded light client instead of a WS endpoint. Equivocation detection is not supported in this mode."]
 				#[arg(long)]
-				pub [<$chain_prefix _uri>]: String,
+				pub [<$chain_prefix _chain_spec>]: Option<std::path::PathBuf>,
+				#[doc = "Path to the relay chain spec, when " $chain " is a parachain. Requires the " $chain " chain spec."]
+				// `conflicts_with` too: clap waives `requires` when the required arg conflicts with a
+				// present one, so `--uri` alone would satisfy it
+				#[arg(
+					long,
+					requires = stringify!([<$chain_prefix _chain_spec>]),
+					conflicts_with = stringify!([<$chain_prefix _uri>]),
+				)]
+				pub [<$chain_prefix _relay_chain_spec>]: Option<std::path::PathBuf>,
 				#[doc = "Custom runtime version"]
 				#[command(flatten)]
 				pub [<$chain_prefix _runtime_version>]: [<$chain RuntimeVersionParams>],
@@ -115,10 +131,23 @@ macro_rules! declare_chain_connection_params_cli_schema {
 					let chain_runtime_version = self
 						.[<$chain_prefix _runtime_version>]
 						.into_runtime_version(Chain::RUNTIME_VERSION)?;
-					Ok(relay_substrate_client::new(relay_substrate_client::ConnectionParams {
-						transport: relay_substrate_client::Transport::Ws {
-							uri: self.[<$chain_prefix _uri>],
+					let transport = match (
+						self.[<$chain_prefix _uri>],
+						self.[<$chain_prefix _chain_spec>],
+					) {
+						(None, Some(chain_spec)) => relay_substrate_client::Transport::LightClient {
+							chain_spec,
+							relay_chain_spec: self.[<$chain_prefix _relay_chain_spec>],
 						},
+						(Some(uri), None) => relay_substrate_client::Transport::Ws { uri },
+						_ => return Err(anyhow::format_err!(
+							"Exactly one of options must be specified: '{}' or '{}'",
+							stringify!([<$chain_prefix _uri>]),
+							stringify!([<$chain_prefix _chain_spec>]),
+						)),
+					};
+					Ok(relay_substrate_client::new(relay_substrate_client::ConnectionParams {
+						transport,
 						chain_runtime_version,
 					})
 					.await
@@ -245,3 +274,58 @@ macro_rules! declare_chain_cli_schema {
 
 declare_chain_cli_schema!(Source, source);
 declare_chain_cli_schema!(Target, target);
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn connection_params_accept_uri_or_chain_spec() {
+		let params =
+			SourceConnectionParams::try_parse_from(["", "--source-uri", "ws://a:9944"]).unwrap();
+		assert_eq!(params.source_uri, Some("ws://a:9944".into()));
+		assert_eq!(params.source_chain_spec, None);
+
+		let params = SourceConnectionParams::try_parse_from([
+			"",
+			"--source-chain-spec",
+			"para.json",
+			"--source-relay-chain-spec",
+			"relay.json",
+		])
+		.unwrap();
+		assert_eq!(params.source_uri, None);
+		assert_eq!(params.source_chain_spec, Some("para.json".into()));
+		assert_eq!(params.source_relay_chain_spec, Some("relay.json".into()));
+	}
+
+	#[test]
+	fn connection_params_reject_invalid_combinations() {
+		// both transports
+		assert!(SourceConnectionParams::try_parse_from([
+			"",
+			"--source-uri",
+			"ws://a:9944",
+			"--source-chain-spec",
+			"x.json",
+		])
+		.is_err());
+		// no transport
+		assert!(SourceConnectionParams::try_parse_from([""]).is_err());
+		// relay chain spec without chain spec
+		assert!(SourceConnectionParams::try_parse_from([
+			"",
+			"--source-uri",
+			"ws://a:9944",
+			"--source-relay-chain-spec",
+			"relay.json",
+		])
+		.is_err());
+		assert!(SourceConnectionParams::try_parse_from([
+			"",
+			"--source-relay-chain-spec",
+			"relay.json"
+		])
+		.is_err());
+	}
+}
