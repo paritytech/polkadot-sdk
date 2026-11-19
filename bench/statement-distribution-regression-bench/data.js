@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795104428484,
+  "lastUpdate": 1795107455703,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "94f200baf9d331175b678cc090a7eb92bb41802c",
-          "message": "Pass -Zjson-target-spec when building with a .json target spec (#11992)\n\nRecent rustc requires `-Z json-target-spec` to opt into the JSON target\nspec format whenever `--target=*.json` is used. Without this, builds\nthat go through `polkavm-linker::target_json_path` fail with:\n\n  error: `.json` target specs require -Zjson-target-spec\n\nFix the two places in the workspace that invoke cargo with a JSON target\nspec for the Riscv runtime:\n\n- substrate-wasm-builder (`wasm_project.rs`): pass the flag for\n`RuntimeTarget::Riscv`. `RUSTC_BOOTSTRAP=1` is already set by the\npreceding `-Z build-std` block (Riscv always opts into build-std).\n- pallet-revive-fixtures (`builder.rs`): refactor the inline rustc\nversion detection to expose major/minor and derive both\n`new_immediate_abort` (1.92+) and `needs_json_target_spec` (1.95+) from\nthem.\n\nThe flag is gated on rustc 1.95+ where it was introduced. Older rustc\ndoesn't recognize it; later rustc requires it.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-06T11:41:37Z",
-          "tree_id": "91939c04d1951ca428ac9018d45388f45ca1b32c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/94f200baf9d331175b678cc090a7eb92bb41802c"
-        },
-        "date": 1778072585611,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.10799999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07611785094599992,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03778033529400001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038376111696,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gui.thiolliere@gmail.com",
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a41a7e7d7440b32b85059689e8aa53fb8646fa4d",
+          "message": "AHMv2 HRMP Part 3 : impl migration hooks (#13656)\n\nImplement the trait so the migrator can put the deposit in the\nhrmp-para.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-19T15:21:30Z",
+          "tree_id": "4c6e7c046130e55070d8de65964f2aab2c4160b5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a41a7e7d7440b32b85059689e8aa53fb8646fa4d"
+        },
+        "date": 1795107416048,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.132,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08746706138399991,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038932923806000004,
             "unit": "seconds"
           }
         ]
