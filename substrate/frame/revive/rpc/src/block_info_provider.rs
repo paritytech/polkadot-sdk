@@ -277,9 +277,12 @@ pub mod test {
 	use super::*;
 	use crate::BlockInfo;
 	use codec::Decode;
-	use std::sync::{
-		Mutex,
-		atomic::{AtomicBool, AtomicUsize, Ordering},
+	use std::{
+		sync::{
+			Mutex,
+			atomic::{AtomicBool, AtomicUsize, Ordering},
+		},
+		time::Duration,
 	};
 	use subxt::{
 		backend::LegacyBackend,
@@ -364,7 +367,7 @@ pub mod test {
 
 	/// A block at the given block number, on one of two branches.
 	#[derive(Clone, Copy)]
-	enum MockBlockId {
+	pub enum MockBlockId {
 		MainBranch(u64),
 		SideBranch(u64),
 	}
@@ -392,7 +395,7 @@ pub mod test {
 			H256::repeat_byte(offset + number as u8)
 		}
 
-		fn number(self) -> u64 {
+		pub fn number(self) -> u64 {
 			match self {
 				MockBlockId::MainBranch(number) | MockBlockId::SideBranch(number) => number,
 			}
@@ -430,6 +433,11 @@ pub mod test {
 		serde_json::from_str(raw.get()).expect("params decode into the parameter tuple")
 	}
 
+	/// Builds a dummy error.
+	fn mock_error() -> RpcError {
+		RpcError::User(UserError { code: -32000, message: "scripted failure".into(), data: None })
+	}
+
 	/// Build the incoming block that tests pass to `update_latest`.
 	async fn block_at(
 		api: &OnlineClient<SrcChainConfig>,
@@ -438,11 +446,11 @@ pub mod test {
 		Arc::new(api.at_block(block.hash()).await.unwrap())
 	}
 
-	/// The heads of the mocked chain.
+	/// A mocked node that answers eth-rpc's RPC calls.
 	#[derive(Clone)]
-	struct MockChainHeads {
+	pub struct MockNode {
 		/// The chain's best block.
-		best_block: Arc<Mutex<MockBlockId>>,
+		pub best_block: Arc<Mutex<MockBlockId>>,
 		/// The chain's finalized block.
 		finalized_block: MockBlockId,
 		/// The number of `chain_getBlockHash` calls received.
@@ -451,9 +459,13 @@ pub mod test {
 		fail_block_hash_lookups: Arc<AtomicBool>,
 		/// Answer best block requests with `null` while set.
 		report_no_best_block: Arc<AtomicBool>,
+		/// Fail `system_syncState` and `system_health` while set.
+		pub fail_system_queries: Arc<AtomicBool>,
+		/// Answer `system_syncState` and `system_health` only after this delay while set.
+		pub system_query_delay: Arc<Mutex<Option<Duration>>>,
 	}
 
-	impl Default for MockChainHeads {
+	impl Default for MockNode {
 		fn default() -> Self {
 			const INITIAL_BEST_BLOCK_NUMBER: u64 = 7;
 			const INITIAL_FINALIZED_BLOCK_NUMBER: u64 = 5;
@@ -465,11 +477,13 @@ pub mod test {
 				block_hash_lookup_count: Arc::default(),
 				fail_block_hash_lookups: Arc::default(),
 				report_no_best_block: Arc::default(),
+				fail_system_queries: Arc::default(),
+				system_query_delay: Arc::default(),
 			}
 		}
 	}
 
-	impl MockChainHeads {
+	impl MockNode {
 		/// The chain imports `block` as its new best and notifies `provider`.
 		async fn import_best(
 			&self,
@@ -483,36 +497,51 @@ pub mod test {
 				.await
 		}
 
-		/// Build the clients that talk to this mocked chain.
-		async fn clients(
+		/// Returns the response to a system query, delayed by `system_query_delay`: an error while
+		/// `fail_system_queries` is set, `value` otherwise.
+		fn system_query_response<T>(
 			&self,
-		) -> (OnlineClient<SrcChainConfig>, LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>) {
+			value: T,
+		) -> impl Future<Output = Result<Json<T>, RpcError>> + use<T> {
+			let delay = *self.system_query_delay.lock().unwrap();
+			let fail = self.fail_system_queries.load(Ordering::SeqCst);
+			async move {
+				if let Some(delay) = delay {
+					tokio::time::sleep(delay).await;
+				}
+				if fail {
+					return Err(mock_error());
+				}
+				Ok(Json(value))
+			}
+		}
+
+		/// Build the clients that talk to this mocked node.
+		pub async fn clients(
+			&self,
+		) -> (OnlineClient<SrcChainConfig>, RpcClient, LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>)
+		{
 			let config = chain_config();
 
 			let mock = MockRpcClient::builder()
 				.method_handler("chain_getBlockHash", {
-					let chain_heads = self.clone();
+					let node = self.clone();
 					move |params: Option<Box<serde_json::value::RawValue>>| {
 						let (number,): (Option<u64>,) = decode_params(params);
-						chain_heads.block_hash_lookup_count.fetch_add(1, Ordering::SeqCst);
-						let response = if chain_heads.fail_block_hash_lookups.load(Ordering::SeqCst)
-						{
-							Err(RpcError::User(UserError {
-								code: -32000,
-								message: "scripted failure".into(),
-								data: None,
-							}))
+						node.block_hash_lookup_count.fetch_add(1, Ordering::SeqCst);
+						let response = if node.fail_block_hash_lookups.load(Ordering::SeqCst) {
+							Err(mock_error())
 						} else {
 							match number {
 								None => {
-									if chain_heads.report_no_best_block.load(Ordering::SeqCst) {
+									if node.report_no_best_block.load(Ordering::SeqCst) {
 										Ok(None)
 									} else {
-										Ok(Some(chain_heads.best_block.lock().unwrap().hash()))
+										Ok(Some(node.best_block.lock().unwrap().hash()))
 									}
 								},
 								Some(number) => {
-									let best_block = *chain_heads.best_block.lock().unwrap();
+									let best_block = *node.best_block.lock().unwrap();
 									Ok(if number > best_block.number() {
 										None
 									} else if number == best_block.number() {
@@ -546,6 +575,32 @@ pub mod test {
 						async move { Json(header) }
 					},
 				)
+				// Answers the `version_declarations` call in `Client::new` with an empty map.
+				.method_handler(
+					"state_call",
+					|_params: Option<Box<serde_json::value::RawValue>>| async { Json("0x00") },
+				)
+				.method_handler("system_syncState", {
+					let node = self.clone();
+					move |_params: Option<Box<serde_json::value::RawValue>>| {
+						let best = node.best_block.lock().unwrap().number();
+						node.system_query_response(serde_json::json!({
+							"startingBlock": 0,
+							"currentBlock": best,
+							"highestBlock": best,
+						}))
+					}
+				})
+				.method_handler("system_health", {
+					let node = self.clone();
+					move |_params: Option<Box<serde_json::value::RawValue>>| {
+						node.system_query_response(serde_json::json!({
+							"peers": 1,
+							"isSyncing": false,
+							"shouldHavePeers": true,
+						}))
+					}
+				})
 				.build();
 
 			let rpc_client = RpcClient::new(mock);
@@ -554,14 +609,14 @@ pub mod test {
 				OnlineClient::<SrcChainConfig>::from_backend_with_config(config, Arc::new(backend))
 					.await
 					.unwrap();
-			let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client);
-			(api, rpc)
+			let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client.clone());
+			(api, rpc_client, rpc)
 		}
 
-		/// Build a `SubxtBlockInfoProvider` backed by this mocked chain, and the client
+		/// Build a `SubxtBlockInfoProvider` backed by this mocked node, and the client
 		/// used to construct the blocks the tests pass to `update_latest`.
 		async fn provider(&self) -> (SubxtBlockInfoProvider, OnlineClient<SrcChainConfig>) {
-			let (api, rpc) = self.clients().await;
+			let (api, _, rpc) = self.clients().await;
 			let provider = SubxtBlockInfoProvider::new(api.clone(), rpc).await.unwrap();
 			// Setup queries end here: tests count only their own block hash lookups.
 			self.block_hash_lookup_count.store(0, Ordering::SeqCst);
@@ -571,27 +626,27 @@ pub mod test {
 
 	#[tokio::test]
 	async fn construction_seeds_the_latest_and_finalized_blocks() {
-		let chain_heads = MockChainHeads::default();
-		let (provider, _api) = chain_heads.provider().await;
+		let node = MockNode::default();
+		let (provider, _api) = node.provider().await;
 
 		assert_eq!(
 			provider.latest_block().await.block_hash(),
-			chain_heads.best_block.lock().unwrap().hash(),
+			node.best_block.lock().unwrap().hash(),
 			"the latest block starts at the chain's best block"
 		);
 		assert_eq!(
 			provider.latest_finalized_block().await.block_hash(),
-			chain_heads.finalized_block.hash(),
+			node.finalized_block.hash(),
 			"the latest finalized block starts at the chain's finalized block"
 		);
 	}
 
 	#[tokio::test]
 	async fn construction_fails_without_a_best_block() {
-		let chain_heads = MockChainHeads::default();
-		let (api, rpc) = chain_heads.clients().await;
+		let node = MockNode::default();
+		let (api, _, rpc) = node.clients().await;
 
-		chain_heads.report_no_best_block.store(true, Ordering::SeqCst);
+		node.report_no_best_block.store(true, Ordering::SeqCst);
 		assert!(
 			matches!(SubxtBlockInfoProvider::new(api, rpc).await, Err(ClientError::BlockNotFound)),
 			"construction fails when the chain reports no best block"
@@ -600,13 +655,11 @@ pub mod test {
 
 	#[tokio::test]
 	async fn best_block_updates_follow_the_chain_head() {
-		let chain_heads = MockChainHeads::default();
-		let (provider, api) = chain_heads.provider().await;
-		let best = chain_heads.best_block.lock().unwrap().number();
+		let node = MockNode::default();
+		let (provider, api) = node.provider().await;
+		let best = node.best_block.lock().unwrap().number();
 
-		let head = chain_heads
-			.import_best(&provider, &api, MockBlockId::MainBranch(best + 1))
-			.await;
+		let head = node.import_best(&provider, &api, MockBlockId::MainBranch(best + 1)).await;
 		assert_eq!(
 			provider.latest_block().await.block_hash(),
 			MockBlockId::MainBranch(best + 1).hash(),
@@ -618,14 +671,12 @@ pub mod test {
 			"a higher block is returned as the new latest block"
 		);
 		assert_eq!(
-			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			node.block_hash_lookup_count.load(Ordering::SeqCst),
 			0,
 			"no block hash lookup for a higher block"
 		);
 
-		let head = chain_heads
-			.import_best(&provider, &api, MockBlockId::SideBranch(best + 1))
-			.await;
+		let head = node.import_best(&provider, &api, MockBlockId::SideBranch(best + 1)).await;
 		assert_eq!(
 			provider.latest_block().await.block_hash(),
 			MockBlockId::SideBranch(best + 1).hash(),
@@ -637,21 +688,19 @@ pub mod test {
 			"a same-number block from a side branch is returned as the new latest block"
 		);
 		assert_eq!(
-			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			node.block_hash_lookup_count.load(Ordering::SeqCst),
 			1,
 			"one block hash lookup to accept a same-number block from another branch"
 		);
 
-		chain_heads
-			.import_best(&provider, &api, MockBlockId::SideBranch(best + 2))
-			.await;
+		node.import_best(&provider, &api, MockBlockId::SideBranch(best + 2)).await;
 		assert_eq!(
 			provider.latest_block().await.block_hash(),
 			MockBlockId::SideBranch(best + 2).hash(),
 			"a higher side-branch block becomes the latest block"
 		);
 		assert_eq!(
-			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			node.block_hash_lookup_count.load(Ordering::SeqCst),
 			1,
 			"no block hash lookup for a higher side-branch block"
 		);
@@ -669,7 +718,7 @@ pub mod test {
 		);
 		assert!(head.is_none(), "a repeat of the latest block does not change it");
 		assert_eq!(
-			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			node.block_hash_lookup_count.load(Ordering::SeqCst),
 			1,
 			"no block hash lookup for a repeat of the latest block"
 		);
@@ -677,27 +726,25 @@ pub mod test {
 
 	#[tokio::test]
 	async fn reorgs_are_followed_and_replays_are_ignored() {
-		let chain_heads = MockChainHeads::default();
-		let (provider, api) = chain_heads.provider().await;
-		let best = chain_heads.best_block.lock().unwrap().number();
-		let finalized = chain_heads.finalized_block.number();
+		let node = MockNode::default();
+		let (provider, api) = node.provider().await;
+		let best = node.best_block.lock().unwrap().number();
+		let finalized = node.finalized_block.number();
 
-		chain_heads
-			.import_best(&provider, &api, MockBlockId::SideBranch(best - 1))
-			.await;
+		node.import_best(&provider, &api, MockBlockId::SideBranch(best - 1)).await;
 		assert_eq!(
 			provider.latest_block().await.block_hash(),
 			MockBlockId::SideBranch(best - 1).hash(),
 			"a lower block is accepted after a reorg to a shorter branch"
 		);
 		assert_eq!(
-			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			node.block_hash_lookup_count.load(Ordering::SeqCst),
 			1,
 			"one block hash lookup for the accepted lower block"
 		);
 
 		// The chain's best block moves back to the main branch without a notification.
-		*chain_heads.best_block.lock().unwrap() = MockBlockId::MainBranch(best);
+		*node.best_block.lock().unwrap() = MockBlockId::MainBranch(best);
 
 		provider
 			.update_latest(
@@ -711,20 +758,20 @@ pub mod test {
 			"a lower block is accepted once the latest block is no longer canonical"
 		);
 		assert_eq!(
-			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			node.block_hash_lookup_count.load(Ordering::SeqCst),
 			2,
 			"one block hash lookup for each accepted lower block"
 		);
 
 		// The chain's next notification carries its best block.
-		chain_heads.import_best(&provider, &api, MockBlockId::MainBranch(best)).await;
+		node.import_best(&provider, &api, MockBlockId::MainBranch(best)).await;
 		assert_eq!(
 			provider.latest_block().await.block_hash(),
 			MockBlockId::MainBranch(best).hash(),
 			"the chain's best block becomes the latest block"
 		);
 		assert_eq!(
-			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			node.block_hash_lookup_count.load(Ordering::SeqCst),
 			2,
 			"no block hash lookup for the chain's best block"
 		);
@@ -745,7 +792,7 @@ pub mod test {
 			"a lower block does not change a latest block that is still canonical"
 		);
 		assert_eq!(
-			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			node.block_hash_lookup_count.load(Ordering::SeqCst),
 			3,
 			"one more block hash lookup to ignore an old block"
 		);
@@ -762,7 +809,7 @@ pub mod test {
 			"a block below the finalized block is ignored"
 		);
 		assert_eq!(
-			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			node.block_hash_lookup_count.load(Ordering::SeqCst),
 			3,
 			"no block hash lookup for a block below the finalized block"
 		);
@@ -783,7 +830,7 @@ pub mod test {
 			"a block that contradicts the finalized block does not change the latest block"
 		);
 		assert_eq!(
-			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			node.block_hash_lookup_count.load(Ordering::SeqCst),
 			3,
 			"no block hash lookup for a block conflicting with the finalized block"
 		);
@@ -801,7 +848,7 @@ pub mod test {
 			 canonical"
 		);
 		assert_eq!(
-			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			node.block_hash_lookup_count.load(Ordering::SeqCst),
 			4,
 			"one more block hash lookup to ignore a same-number block"
 		);
@@ -809,12 +856,12 @@ pub mod test {
 
 	#[tokio::test]
 	async fn failed_block_hash_lookups_keep_the_stored_best_block() {
-		let chain_heads = MockChainHeads::default();
-		let (provider, api) = chain_heads.provider().await;
-		let best = chain_heads.best_block.lock().unwrap().number();
-		let finalized = chain_heads.finalized_block.number();
+		let node = MockNode::default();
+		let (provider, api) = node.provider().await;
+		let best = node.best_block.lock().unwrap().number();
+		let finalized = node.finalized_block.number();
 
-		chain_heads.fail_block_hash_lookups.store(true, Ordering::SeqCst);
+		node.fail_block_hash_lookups.store(true, Ordering::SeqCst);
 		provider
 			.update_latest(
 				block_at(&api, MockBlockId::MainBranch(finalized)).await,
@@ -827,22 +874,20 @@ pub mod test {
 			"an old block is ignored while the block hash lookup fails"
 		);
 		assert_eq!(
-			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			node.block_hash_lookup_count.load(Ordering::SeqCst),
 			1,
 			"one block hash lookup for the ignored old block"
 		);
 
-		chain_heads.fail_block_hash_lookups.store(false, Ordering::SeqCst);
-		chain_heads
-			.import_best(&provider, &api, MockBlockId::SideBranch(best - 1))
-			.await;
+		node.fail_block_hash_lookups.store(false, Ordering::SeqCst);
+		node.import_best(&provider, &api, MockBlockId::SideBranch(best - 1)).await;
 		assert_eq!(
 			provider.latest_block().await.block_hash(),
 			MockBlockId::SideBranch(best - 1).hash(),
 			"a lower block is accepted once the block hash lookup succeeds"
 		);
 		assert_eq!(
-			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			node.block_hash_lookup_count.load(Ordering::SeqCst),
 			2,
 			"one more block hash lookup for the accepted lower block"
 		);
@@ -850,10 +895,10 @@ pub mod test {
 
 	#[tokio::test]
 	async fn finalized_blocks_never_move_backwards() {
-		let chain_heads = MockChainHeads::default();
-		let (provider, api) = chain_heads.provider().await;
-		let best = chain_heads.best_block.lock().unwrap().number();
-		let finalized = chain_heads.finalized_block.number();
+		let node = MockNode::default();
+		let (provider, api) = node.provider().await;
+		let best = node.best_block.lock().unwrap().number();
+		let finalized = node.finalized_block.number();
 
 		provider
 			.update_latest(
@@ -902,9 +947,7 @@ pub mod test {
 			"the latest block follows a finalized block ahead of it"
 		);
 
-		chain_heads
-			.import_best(&provider, &api, MockBlockId::SideBranch(best + 2))
-			.await;
+		node.import_best(&provider, &api, MockBlockId::SideBranch(best + 2)).await;
 		provider
 			.update_latest(
 				block_at(&api, MockBlockId::MainBranch(best + 2)).await,
@@ -932,13 +975,13 @@ pub mod test {
 
 	#[tokio::test]
 	async fn stale_finalized_blocks_still_pull_up_the_latest_block() {
-		let inverted_best_block_number = MockChainHeads::default().finalized_block.number() - 2;
-		let chain_heads = MockChainHeads {
+		let inverted_best_block_number = MockNode::default().finalized_block.number() - 2;
+		let node = MockNode {
 			best_block: Arc::new(Mutex::new(MockBlockId::MainBranch(inverted_best_block_number))),
-			..MockChainHeads::default()
+			..MockNode::default()
 		};
-		let (provider, api) = chain_heads.provider().await;
-		let finalized = chain_heads.finalized_block.number();
+		let (provider, api) = node.provider().await;
+		let finalized = node.finalized_block.number();
 
 		assert!(
 			provider.latest_finalized_block().await.block_number() >
@@ -971,10 +1014,10 @@ pub mod test {
 
 	#[tokio::test]
 	async fn block_by_number_uses_the_cache_before_querying_the_chain() {
-		let chain_heads = MockChainHeads::default();
-		let (provider, _api) = chain_heads.provider().await;
-		let best = chain_heads.best_block.lock().unwrap().number();
-		let finalized = chain_heads.finalized_block.number();
+		let node = MockNode::default();
+		let (provider, _api) = node.provider().await;
+		let best = node.best_block.lock().unwrap().number();
+		let finalized = node.finalized_block.number();
 
 		let block = provider.block_by_number(best).await.unwrap().unwrap();
 		assert_eq!(
@@ -989,7 +1032,7 @@ pub mod test {
 			"the latest finalized block is returned for its number"
 		);
 		assert_eq!(
-			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			node.block_hash_lookup_count.load(Ordering::SeqCst),
 			0,
 			"no block hash lookup for the cached blocks"
 		);
@@ -1001,7 +1044,7 @@ pub mod test {
 			"an uncached block is fetched from the chain"
 		);
 		assert_eq!(
-			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			node.block_hash_lookup_count.load(Ordering::SeqCst),
 			1,
 			"one block hash lookup for an uncached block number"
 		);
@@ -1011,12 +1054,12 @@ pub mod test {
 			"no block exists above the chain's best block"
 		);
 		assert_eq!(
-			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			node.block_hash_lookup_count.load(Ordering::SeqCst),
 			2,
 			"one more block hash lookup for a number above the chain's best block"
 		);
 
-		chain_heads.fail_block_hash_lookups.store(true, Ordering::SeqCst);
+		node.fail_block_hash_lookups.store(true, Ordering::SeqCst);
 		assert!(
 			provider.block_by_number(best - 1).await.is_err(),
 			"a block hash lookup failure is returned as an error"
@@ -1025,10 +1068,10 @@ pub mod test {
 
 	#[tokio::test]
 	async fn block_by_hash_uses_the_cache_before_querying_the_chain() {
-		let chain_heads = MockChainHeads::default();
-		let (provider, _api) = chain_heads.provider().await;
-		let best = chain_heads.best_block.lock().unwrap().number();
-		let finalized = chain_heads.finalized_block.number();
+		let node = MockNode::default();
+		let (provider, _api) = node.provider().await;
+		let best = node.best_block.lock().unwrap().number();
+		let finalized = node.finalized_block.number();
 
 		let block = provider
 			.block_by_hash(&MockBlockId::MainBranch(best).hash())
@@ -1066,7 +1109,7 @@ pub mod test {
 		);
 
 		assert_eq!(
-			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			node.block_hash_lookup_count.load(Ordering::SeqCst),
 			0,
 			"fetching by hash never asks the chain for a block hash"
 		);
