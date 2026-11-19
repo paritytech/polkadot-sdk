@@ -22,8 +22,9 @@ use super::*;
 use core::array;
 use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_system::{Pallet as System, RawOrigin};
-use sp_core::{twox_128, Get};
-use sp_io::storage;
+use sp_core::Get;
+use sp_crypto_hashing::twox_128;
+use sp_io::{storage, KillStorageResult};
 use sp_runtime::traits::One;
 
 fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
@@ -227,19 +228,19 @@ mod benches {
 		let result;
 		#[block]
 		{
-			result = storage::clear_prefix(prefix, None, None);
+			result = storage::clear_prefix(&prefix, None);
 		}
 
 		// It will always reports no keys removed because they are still in the overlay.
 		// However, the benchmarking PoV results are correctly dependent on the amount of
 		// keys removed.
-
-		if result.maybe_cursor.is_none() {
-			// All the keys removed
-			#[cfg(not(test))]
-			ensure!(result.backend == n, "Not all keys are removed");
-		} else {
-			Err("Not all keys were removed")?
+		match result {
+			KillStorageResult::AllRemoved(_i) => {
+				// during the test the storage is not comitted and `i` will always be 0
+				#[cfg(not(test))]
+				ensure!(_i == n, "Not all keys are removed");
+			},
+			_ => Err("Not all keys were removed")?,
 		}
 
 		Ok(())

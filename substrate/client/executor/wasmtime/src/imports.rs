@@ -17,14 +17,13 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{host::HostContext, runtime::StoreData};
-use sc_executor_common::{error::WasmError, RuntimeAllocSanityChecker};
+use sc_executor_common::error::WasmError;
 use sp_wasm_interface::{FunctionContext, HostFunctions};
 use std::collections::HashMap;
 use wasmtime::{ExternType, FuncType, ImportType, Linker, Module};
 
 /// Goes over all imports of a module and prepares the given linker for instantiation of the module.
-/// Returns an error if there are imports that cannot be satisfied or if the runtime mixes both
-/// allocation sides.
+/// Returns an error if there are imports that cannot be satisfied.
 pub(crate) fn prepare_imports<H>(
 	linker: &mut Linker<StoreData>,
 	module: &Module,
@@ -33,7 +32,6 @@ pub(crate) fn prepare_imports<H>(
 where
 	H: HostFunctions,
 {
-	let mut alloc_sanity_checker = RuntimeAllocSanityChecker::new();
 	let mut pending_func_imports = HashMap::new();
 	for import_ty in module.imports() {
 		let name = import_ty.name();
@@ -45,8 +43,6 @@ where
 				name,
 			)));
 		}
-
-		alloc_sanity_checker.check(name);
 
 		match import_ty.ty() {
 			ExternType::Func(func_ty) => {
@@ -87,13 +83,6 @@ where
 				names
 			)));
 		}
-	}
-
-	if !alloc_sanity_checker.check_result() {
-		return Err(WasmError::Other(
-			"runtime imports functions that allocate on both the host and the runtime side"
-				.to_string(),
-		));
 	}
 
 	Ok(())

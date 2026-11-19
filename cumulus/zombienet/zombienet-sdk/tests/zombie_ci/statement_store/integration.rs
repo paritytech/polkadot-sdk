@@ -2,19 +2,30 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::common::{
-	assert_no_more_statements, assert_statements_match, base_dir, collator_default_args,
-	create_chain_spec_with_allowances, expect_one_statement, expect_statements_unordered,
-	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
-	subscribe_topic_filter,
+	add_filter_unstable, assert_no_more_statements, assert_statements_match, base_dir,
+	collator_args, create_chain_spec_with_allowances, expect_one_statement,
+	expect_statements_unordered, online_client_from_node, remove_filter_unstable, spawn_network,
+	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement,
+	submit_statement_unstable, subscribe_topic, subscribe_topic_filter, subscribe_unstable,
+	unstable_subscription_id, wait_for_first_block, UnstableAddFilterResponse,
+	UnstableStatementEvent, COLLATOR_INFO_LOG_FILTER, COLLATOR_TRACE_LOG_FILTER,
 };
 use codec::Encode;
 use futures::future::join_all;
 use log::{debug, info};
 use sc_network_statement::config::STATEMENTS_BURST_COEFFICIENT;
-use sc_statement_store::test_utils::{create_allowance_items, create_test_statement, get_keypair};
-use sp_core::Bytes;
+use sc_statement_store::{
+	subxt_client::{
+		create_attest_call, create_consumer_registration_params, create_increase_allowance_call,
+		submit_extrinsic, CustomConfig, MSG_PREFIX,
+	},
+	test_utils::{create_allowance_items, create_test_statement, get_keypair},
+};
+use sp_core::{sr25519, Bytes, Pair};
+use sp_runtime::BoundedVec;
 use sp_statement_store::{
-	RejectionReason, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
+	hash_encoded, RejectionReason, Statement, StatementAllowance, SubmitOutcome, SubmitResult,
+	Topic, TopicFilter,
 };
 use std::{
 	cell::Cell,
@@ -22,7 +33,57 @@ use std::{
 	sync::Arc,
 	time::{Duration, SystemTime, UNIX_EPOCH},
 };
+use subxt::transactions::Signer;
+use verifiable::{ring_vrf_impl::BandersnatchVrfVerifiable as Crypto, GenerateVerifiable};
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
+
+async fn expect_unstable_event(
+	subscription: &mut zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<
+		UnstableStatementEvent,
+	>,
+	timeout_secs: u64,
+) -> Result<UnstableStatementEvent, anyhow::Error> {
+	tokio::time::timeout(Duration::from_secs(timeout_secs), subscription.next())
+		.await
+		.map_err(|_| anyhow::anyhow!("Timeout waiting for unstable statement event"))?
+		.ok_or_else(|| anyhow::anyhow!("Unstable statement subscription ended"))?
+		.map_err(|e| anyhow::anyhow!("Unstable statement subscription error: {}", e))
+}
+
+async fn collect_unstable_replay(
+	subscription: &mut zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<
+		UnstableStatementEvent,
+	>,
+	filter_id: &str,
+) -> Result<Vec<Bytes>, anyhow::Error> {
+	let mut statements = Vec::new();
+	loop {
+		match expect_unstable_event(subscription, 20).await? {
+			UnstableStatementEvent::ReplayStatements { filter_id: id, statements: chunk }
+				if id == filter_id =>
+			{
+				statements.extend(chunk)
+			},
+			UnstableStatementEvent::ReplayDone { filter_id: id } if id == filter_id => {
+				return Ok(statements)
+			},
+			event => anyhow::bail!("Unexpected unstable event before replayDone: {:?}", event),
+		}
+	}
+}
+
+fn match_all_filter(topic: Topic) -> TopicFilter {
+	TopicFilter::MatchAll(BoundedVec::truncate_from(vec![topic]))
+}
+
+fn filter_id(response: UnstableAddFilterResponse) -> String {
+	match response {
+		UnstableAddFilterResponse::Ok(id) => id,
+		UnstableAddFilterResponse::LimitReached(result) => {
+			panic!("Expected filter id, got {result:?}")
+		},
+	}
+}
 
 /// Verifies basic statement propagation and data integrity across two nodes
 ///
@@ -57,6 +118,112 @@ async fn statement_store_basic_propagation() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
+/// End-to-end smoke test of the v2 unstable statement RPC API on a two-node network: replay and
+/// live delivery on the submitting node, cross-node live delivery, and multi-filter attribution
+/// plus filter removal
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_unstable_rpc_smoke() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	let network = spawn_network_with_injected_allowances(&["alice", "bob"], 6).await?;
+	let alice = network.get_node("alice")?;
+	let bob = network.get_node("bob")?;
+	let alice_rpc = alice.rpc().await?;
+	let bob_rpc = bob.rpc().await?;
+
+	let topic: Topic = [0xA1; 32].into();
+	let pre_existing = create_test_statement(&get_keypair(0), &[topic], None, vec![1], u32::MAX, 0);
+	assert_eq!(submit_statement_unstable(&alice_rpc, &pre_existing).await?, SubmitOutcome::New);
+
+	let mut subscription = subscribe_unstable(&alice_rpc).await?;
+	let subscription_id = unstable_subscription_id(&subscription)?;
+	let alice_filter = filter_id(
+		add_filter_unstable(&alice_rpc, &subscription_id, match_all_filter(topic)).await?,
+	);
+
+	let replayed = collect_unstable_replay(&mut subscription, &alice_filter).await?;
+	assert_eq!(replayed, vec![Bytes::from(pre_existing.encode())]);
+
+	let live = create_test_statement(&get_keypair(1), &[topic], None, vec![2], u32::MAX, 0);
+	assert_eq!(submit_statement_unstable(&alice_rpc, &live).await?, SubmitOutcome::New);
+
+	match expect_unstable_event(&mut subscription, 20).await? {
+		UnstableStatementEvent::NewStatements { statements } => {
+			assert_eq!(statements.len(), 1);
+			assert_eq!(statements[0].statement, Bytes::from(live.encode()));
+			assert_eq!(statements[0].filter_ids, vec![alice_filter.clone()]);
+		},
+		event => anyhow::bail!("Expected newStatements event, got {:?}", event),
+	}
+
+	// Cross-node: a statement submitted on alice reaches a subscription on bob live. A fresh topic
+	// keeps bob's replay empty, so the assertion does not race statement propagation
+	let cross_topic: Topic = [0xB2; 32].into();
+	let mut bob_sub = subscribe_unstable(&bob_rpc).await?;
+	let bob_sub_id = unstable_subscription_id(&bob_sub)?;
+	let bob_filter =
+		filter_id(add_filter_unstable(&bob_rpc, &bob_sub_id, match_all_filter(cross_topic)).await?);
+
+	let bob_replay = collect_unstable_replay(&mut bob_sub, &bob_filter).await?;
+	assert!(bob_replay.is_empty());
+
+	let cross = create_test_statement(&get_keypair(2), &[cross_topic], None, vec![3], u32::MAX, 0);
+	assert_eq!(submit_statement_unstable(&alice_rpc, &cross).await?, SubmitOutcome::New);
+
+	match expect_unstable_event(&mut bob_sub, 20).await? {
+		UnstableStatementEvent::NewStatements { statements } => {
+			assert_eq!(statements.len(), 1);
+			assert_eq!(statements[0].statement, Bytes::from(cross.encode()));
+			assert_eq!(statements[0].filter_ids, vec![bob_filter]);
+		},
+		event => anyhow::bail!("Expected cross-node newStatements on bob, got {:?}", event),
+	}
+
+	// Multi-filter attribution and removal: a statement matching two filters reports both ids;
+	// after the first filter is removed, the next statement reports only the remaining one
+	let second_topic: Topic = [0xA2; 32].into();
+	let alice_filter_2 = filter_id(
+		add_filter_unstable(&alice_rpc, &subscription_id, match_all_filter(second_topic)).await?,
+	);
+	let replay = collect_unstable_replay(&mut subscription, &alice_filter_2).await?;
+	assert!(replay.is_empty());
+
+	let multi =
+		create_test_statement(&get_keypair(3), &[topic, second_topic], None, vec![4], u32::MAX, 0);
+	assert_eq!(submit_statement_unstable(&alice_rpc, &multi).await?, SubmitOutcome::New);
+
+	match expect_unstable_event(&mut subscription, 20).await? {
+		UnstableStatementEvent::NewStatements { statements } => {
+			assert_eq!(statements.len(), 1);
+			assert_eq!(statements[0].statement, Bytes::from(multi.encode()));
+			let ids: HashSet<_> = statements[0].filter_ids.iter().cloned().collect();
+			assert_eq!(ids, HashSet::from([alice_filter.clone(), alice_filter_2.clone()]));
+		},
+		event => anyhow::bail!("Expected multi-filter newStatements on alice, got {:?}", event),
+	}
+
+	// The removal is enqueued to the single matcher channel before the notification for the next
+	// submit enters it, so the removed filter can never race into the next event
+	remove_filter_unstable(&alice_rpc, &subscription_id, &alice_filter).await?;
+
+	let after_remove =
+		create_test_statement(&get_keypair(4), &[topic, second_topic], None, vec![5], u32::MAX, 0);
+	assert_eq!(submit_statement_unstable(&alice_rpc, &after_remove).await?, SubmitOutcome::New);
+
+	match expect_unstable_event(&mut subscription, 20).await? {
+		UnstableStatementEvent::NewStatements { statements } => {
+			assert_eq!(statements.len(), 1);
+			assert_eq!(statements[0].statement, Bytes::from(after_remove.encode()));
+			assert_eq!(statements[0].filter_ids, vec![alice_filter_2]);
+		},
+		event => anyhow::bail!("Expected newStatements after removal, got {:?}", event),
+	}
+
+	Ok(())
+}
+
 /// Verifies concurrent propagation, quota enforcement, and priority eviction
 ///
 /// Spawns a single 4-node network with mixed allowances:
@@ -77,7 +244,9 @@ async fn statement_store_check_propagation_and_quota_invariants() -> Result<(), 
 	}
 	let items = create_allowance_items(&entries);
 
-	let network = spawn_network_sudo(&["alice", "bob", "charlie", "dave"], items).await?;
+	let network =
+		spawn_network_sudo(&["alice", "bob", "charlie", "dave"], items, COLLATOR_INFO_LOG_FILTER)
+			.await?;
 
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
@@ -213,7 +382,7 @@ async fn spawn_flooding_network(
 	let base_dir = base_dir()?;
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
 
-	let default_args = collator_default_args(participant_count);
+	let default_args = collator_args(participant_count, COLLATOR_TRACE_LOG_FILTER);
 	let mut bob_args = default_args.clone();
 	bob_args.push(format!("--statement-rate-limit={rate_limit}").as_str().into());
 
@@ -269,14 +438,7 @@ async fn statement_store_sustained_rate_flooding() -> Result<(), anyhow::Error> 
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
 
-	for node in [alice, bob] {
-		node.wait_metric_with_timeout(
-			"block_height{status=\"best\"}",
-			|height| height >= 1.0,
-			300u64,
-		)
-		.await?;
-	}
+	wait_for_first_block(&[alice, bob], 300).await?;
 
 	let bob_peers_before = Cell::new(0.0f64);
 	bob.wait_metric_with_timeout(
@@ -376,14 +538,7 @@ async fn statement_store_burst_flooding() -> Result<(), anyhow::Error> {
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
 
-	for node in [alice, bob] {
-		node.wait_metric_with_timeout(
-			"block_height{status=\"best\"}",
-			|height| height >= 1.0,
-			300u64,
-		)
-		.await?;
-	}
+	wait_for_first_block(&[alice, bob], 300).await?;
 
 	let bob_peers_before = Cell::new(0.0f64);
 	bob.wait_metric_with_timeout(
@@ -457,10 +612,12 @@ async fn statement_store_burst_flooding() -> Result<(), anyhow::Error> {
 ///
 /// Scenario:
 /// 1. Submit statements to alice and bob concurrently
-/// 2. Wait for bob to receive at least one alice statement (proving mid-sync)
+/// 2. Wait for bob to receive at least one alice statement; a dedicated subscription keeps counting
+///    until the kill, proving the crash caught the sync incomplete
 /// 3. Restart bob (simulating crash mid-sync)
 /// 4. While bob is restarting, submit statements to charlie
-/// 5. After bob recovers, verify all statements converge on every node
+/// 5. After bob recovers, verify all recoverable statements converge on every node, and that bob
+///    served most of them from its recovered database rather than re-sync
 ///
 /// Each node's statements use a distinct topic so we can track provenance.
 /// Statements are ~0.6 MiB each so only one fits per gossip notification,
@@ -499,13 +656,12 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 			.collect()
 	};
 
-	let hash_to_hex = |h: &[u8; 32]| format!("{:?}", sp_core::hexdisplay::HexDisplay::from(h));
-
 	let alice_stmts = make_statements(topic_alice, alice_count);
 	let bob_stmts = make_statements(topic_bob, bob_count);
 	let charlie_stmts = make_statements(topic_charlie, charlie_count);
-	let bob_stmt_hashes: HashSet<String> =
-		bob_stmts.iter().map(|s| hash_to_hex(&s.hash())).collect();
+	let hashes = |stmts: &[Statement]| stmts.iter().map(|s| s.hash()).collect::<HashSet<_>>();
+	let (alice_hashes, bob_hashes, charlie_hashes) =
+		(hashes(&alice_stmts), hashes(&bob_stmts), hashes(&charlie_stmts));
 
 	let network =
 		spawn_network_with_injected_allowances(&["alice", "bob", "charlie"], total_stmts as u32)
@@ -541,6 +697,20 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 		expect_statements_unordered(&mut bob_alice_sub, 1, 30).await
 	});
 
+	// Track bob's alice-sync progress on a dedicated subscription. It counts until the
+	// stream dies together with bob's RPC server, so the total is exactly the set of alice
+	// statements bob had been handed when it was killed: the proof that the crash was
+	// mid-sync, and the lower bound for the recovery check after the restart.
+	let bob_rpc = bob.rpc().await?;
+	let sync_progress_handle = tokio::spawn(async move {
+		let mut bob_alice_sub = subscribe_topic(&bob_rpc, topic_alice).await?;
+		let mut received = 0usize;
+		while let Ok(batch) = expect_statements_unordered(&mut bob_alice_sub, 1, 60).await {
+			received += batch.len();
+		}
+		Ok::<_, anyhow::Error>(received)
+	});
+
 	// Restart is chained via map to ensure it fires immediately after try_join
 	// completes, with no log output or other work in between that could give
 	// bob extra time to sync. Do not decouple these operations.
@@ -570,61 +740,176 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	// so it's fine if alice finishes submitting after bob's restart.
 	alice_handle.await?.expect("alice submissions failed");
 
-	// Wait for bob's store to finish populating from disk before reading logs
-	tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-
-	// Count how many of bob's own statements survived the crash.
-	// ParityDB fsyncs asynchronously, so SIGKILL can lose the last write
-	// even though SubmitResult::New was returned. Statements that were never
-	// propagated to another node before the kill are unrecoverable.
-	let bob_logs = bob.logs().await?;
-	let loaded_hashes: HashSet<String> = bob_logs
-		.lines()
-		.filter_map(|l| l.split("Statement loaded ").nth(1).map(|h| h.trim().to_string()))
-		.collect();
-
+	// The sync-progress subscription died with bob's RPC server, so its count is bob's
+	// alice-sync state at the moment of the kill.
+	let alice_at_kill = sync_progress_handle.await??;
+	info!("Bob had received {}/{} alice statements when it was killed", alice_at_kill, alice_count);
 	assert!(
-		!loaded_hashes.is_empty(),
-		"No 'Statement loaded' entries found in bob's logs. \
-		 The log format may have changed or statement-store=trace is not configured.",
+		alice_at_kill < alice_count,
+		"Bob had the complete alice set before the kill; the crash was not mid-sync",
 	);
 
-	let bob_loaded = bob_stmt_hashes.intersection(&loaded_hashes).count();
-	let bob_lost = bob_count - bob_loaded;
-	let alice_loaded = loaded_hashes.len().saturating_sub(bob_loaded);
-	let expected_count = total_stmts - bob_lost;
-
-	info!(
-		"Bob loaded {} statements from disk ({} bob, {} alice)",
-		loaded_hashes.len(),
-		bob_loaded,
-		alice_loaded,
-	);
-	if bob_lost == 1 {
-		log::warn!("Bob lost 1 statement due to crash (unflushed ParityDB write)");
-	}
-	assert!(bob_lost <= 1, "Bob lost {} statements, expected at most 1", bob_lost);
-	assert!(
-		alice_loaded > 0 && alice_loaded < alice_count,
-		"Expected partial alice sync (mid-sync crash), got {}/{} alice statements",
-		alice_loaded,
-		alice_count,
-	);
-
-	info!("Verifying all {} recoverable statements converge on every node", expected_count);
+	// Everything recoverable must converge on every node. Alice's and charlie's statements
+	// were submitted to nodes that never crashed, so none of them may be lost. Of bob's own,
+	// SIGKILL may cost the last write (ParityDB fsyncs asynchronously, so SubmitResult::New
+	// does not imply durability) — and that statement is only truly lost if it also never
+	// propagated before the kill.
+	let filter =
+		TopicFilter::MatchAny(vec![topic_alice, topic_bob, topic_charlie].try_into().unwrap());
 	let alice_rpc = alice.rpc().await?;
 	let bob_rpc = bob.rpc().await?;
 	let charlie_rpc = charlie.rpc().await?;
-	let filter =
-		TopicFilter::MatchAny(vec![topic_alice, topic_bob, topic_charlie].try_into().unwrap());
+	let mut node_sets = Vec::new();
 	for (name, rpc) in [("alice", &alice_rpc), ("bob", &bob_rpc), ("charlie", &charlie_rpc)] {
 		let mut sub = subscribe_topic_filter(rpc, filter.clone()).await?;
-		let received = expect_statements_unordered(&mut sub, expected_count, 120).await?;
-		assert_eq!(received.len(), expected_count, "Statement count mismatch on {}", name,);
-		debug!("{}: all {} statements verified", name, expected_count);
+		let mut received = expect_statements_unordered(&mut sub, total_stmts - 1, 120).await?;
+		// Whether the potentially-lost statement survived is only known once it shows up;
+		// give it a short grace period before concluding it is gone.
+		if let Ok(extra) = expect_statements_unordered(&mut sub, 1, 15).await {
+			received.extend(extra);
+		}
+		let set: HashSet<[u8; 32]> = received.iter().map(|encoded| hash_encoded(encoded)).collect();
+		assert!(alice_hashes.is_subset(&set), "{} lost alice statements", name);
+		assert!(charlie_hashes.is_subset(&set), "{} lost charlie statements", name);
+		let bob_missing = bob_hashes.difference(&set).count();
+		assert!(
+			bob_missing <= 1,
+			"{} lost {} bob statements, expected at most 1",
+			name,
+			bob_missing,
+		);
+		if bob_missing == 1 {
+			log::warn!("Bob lost 1 statement due to crash (unflushed ParityDB write)");
+		}
+		debug!("{}: {} statements verified", name, set.len());
+		node_sets.push(set);
 	}
+	assert!(
+		node_sets.iter().all(|set| set == &node_sets[0]),
+		"Nodes did not converge to the same statement set",
+	);
+	let converged_count = node_sets[0].len();
+	info!("All nodes converged to the same {} statements", converged_count);
+
+	// Distinguish recovery from re-sync: bob's post-restart metrics start at zero, so
+	// `submitted_statements` counts only what gossip refilled after the crash, and the rest
+	// of what bob serves now must have been recovered from its database. Bob had two write
+	// streams going when it was killed — its own submissions and the incoming alice
+	// statements — so allow for one unflushed tail write in each.
+	let bob_resubmitted = Cell::new(0.0f64);
+	bob.wait_metric_with_timeout(
+		"substrate_sub_statement_store_submitted_statements",
+		|v| {
+			bob_resubmitted.set(v);
+			true
+		},
+		10u64,
+	)
+	.await?;
+	let bob_resubmitted = bob_resubmitted.get() as usize;
+	assert!(
+		bob_resubmitted <= converged_count,
+		"Bob accepted {} statements after the restart but serves only {}",
+		bob_resubmitted,
+		converged_count,
+	);
+	let recovered = converged_count - bob_resubmitted;
+	info!("Bob recovered {} statements from disk and re-synced {}", recovered, bob_resubmitted);
+	assert!(
+		recovered + 2 >= bob_count + alice_at_kill,
+		"Bob recovered {} statements from its database, but at least {} were persisted \
+		 before the crash",
+		recovered,
+		bob_count + alice_at_kill - 2,
+	);
 
 	info!("Node crash recovery test passed");
+	Ok(())
+}
+
+/// Tests statement store submit+propagate using a lite person registered via extrinsics
+///
+/// Unlike the basic tests that use genesis-baked allowances, this test registers a lite person
+/// via real extrinsics (increase_attestation_allowance + attest), and then verifies the registered
+/// candidate can submit and propagate statements
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_lite_person_submit_and_propagate() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	let network = spawn_network(&["alice", "bob"], COLLATOR_INFO_LOG_FILTER).await?;
+
+	let alice_node = network.get_node("alice")?;
+	let bob_node = network.get_node("bob")?;
+	let para_client = online_client_from_node(alice_node).await?;
+
+	let alice = subxt_signer::sr25519::dev::alice();
+	let alice_account_id =
+		<subxt_signer::sr25519::Keypair as Signer<CustomConfig>>::account_id(&alice);
+
+	info!("Granting attestation allowance to Alice...");
+	let increase_call = create_increase_allowance_call(alice_account_id.0.to_vec(), 1);
+	let mut nonce = para_client.tx().await?.account_nonce(&alice_account_id).await?;
+	info!("Alice nonce before increase_allowance: {nonce}");
+	let _block_hash = submit_extrinsic(&para_client, &increase_call, &alice, nonce).await?;
+	nonce += 1;
+	info!("Attestation allowance granted");
+
+	let candidate_pair = sr25519::Pair::from_seed(&[77u8; 32]);
+	let candidate_account: [u8; 32] = candidate_pair.public().0;
+
+	// Generate ring-VRF keypair
+	let ring_secret = Crypto::new_secret([42u8; 32]);
+	let ring_member = Crypto::member_from_secret(&ring_secret);
+	let msg = {
+		let candidate_encoded = candidate_account.encode();
+		let ring_member_encoded = ring_member.encode();
+		[MSG_PREFIX.as_slice(), &candidate_encoded, &ring_member_encoded].concat()
+	};
+	let candidate_sig = candidate_pair.sign(&msg);
+
+	let proof_of_ownership =
+		Crypto::sign(&ring_secret, &msg).expect("ring VRF signing should succeed");
+
+	// Consumer registration: Alice registers herself as consumer.
+	// The consumer signs the payload; verifier is Alice (the attest origin)
+	let alice_sp_pair =
+		sr25519::Pair::from_string("//Alice", None).expect("Alice dev key should be valid");
+	let consumer_registration = create_consumer_registration_params(
+		&alice_sp_pair,
+		&alice_account_id.0,
+		&alice_account_id.0,
+	);
+
+	info!("Submitting PeopleLite::attest call with nonce {nonce}...");
+	let attest_call = create_attest_call(
+		candidate_account.to_vec(),
+		candidate_sig.0.to_vec(),
+		ring_member.0.to_vec(),
+		proof_of_ownership.to_vec(),
+		Some(consumer_registration),
+	);
+	submit_extrinsic(&para_client, &attest_call, &alice, nonce).await?;
+	info!("Attest call succeeded — lite person registered with consumer allowance");
+
+	let bob_rpc = bob_node.rpc().await?;
+	let topic: Topic = [0u8; 32].into();
+	let mut bob_sub = subscribe_topic(&bob_rpc, topic).await?;
+
+	// Statement must be signed by Alice (the consumer) who has the statement store allowance
+	let statement =
+		create_test_statement(&alice_sp_pair, &[topic], None, vec![1, 2, 3], u32::MAX, 0);
+	let expected: Bytes = statement.encode().into();
+
+	let alice_rpc = alice_node.rpc().await?;
+	let result = submit_statement(&alice_rpc, &statement).await?;
+	assert_eq!(result, SubmitResult::New);
+
+	let received = expect_one_statement(&mut bob_sub, 20).await?;
+	assert_eq!(received, expected);
+	assert_no_more_statements(&mut bob_sub, 20).await?;
+
 	Ok(())
 }
 
@@ -648,7 +933,8 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 		0,
 		StatementAllowance { max_count: TOTAL as u32, max_size: 1_000_000 },
 	)]);
-	let mut network = spawn_network_sudo(&["charlie", "alice"], items).await?;
+	let mut network =
+		spawn_network_sudo(&["charlie", "alice"], items, COLLATOR_TRACE_LOG_FILTER).await?;
 
 	let charlie = network.get_node("charlie")?;
 	let charlie_rpc = charlie.rpc().await?;

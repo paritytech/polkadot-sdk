@@ -34,9 +34,9 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem::overseer;
 use polkadot_node_subsystem_util::{runtime::RuntimeInfo, ControlledValidatorIndices};
 use polkadot_primitives::{
-	CandidateHash, CandidateReceiptV2 as CandidateReceipt, DisputeStatement, Hash, IndexedVec,
-	SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	CandidateReceiptV2 as CandidateReceipt, CoalescedApprovalCandidateHashes, DisputeStatement,
+	Hash, IndexedVec, SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId,
+	ValidatorIndex, ValidatorSignature,
 };
 
 use crate::LOG_TARGET;
@@ -562,7 +562,10 @@ impl ImportResult {
 	pub fn import_approval_votes(
 		self,
 		env: &CandidateEnvironment,
-		approval_votes: HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>,
+		approval_votes: HashMap<
+			ValidatorIndex,
+			(CoalescedApprovalCandidateHashes, ValidatorSignature),
+		>,
 		now: Timestamp,
 	) -> Self {
 		let Self {

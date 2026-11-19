@@ -74,7 +74,8 @@ impl Tracing for CallTracer {
 		&mut self,
 		from: H160,
 		to: H160,
-		delegate_call: Option<H160>,
+		_code_address: Option<H160>,
+		is_delegate_call: bool,
 		is_read_only: bool,
 		value: U256,
 		input: &[u8],
@@ -104,7 +105,7 @@ impl Tracing for CallTracer {
 				None => {
 					let call_type = if is_read_only {
 						CallType::StaticCall
-					} else if delegate_call.is_some() {
+					} else if is_delegate_call {
 						CallType::DelegateCall
 					} else {
 						CallType::Call
@@ -132,7 +133,7 @@ impl Tracing for CallTracer {
 		}
 	}
 
-	fn log_event(&mut self, address: H160, topics: &[H256], data: &[u8]) {
+	fn log_event(&mut self, address: H160, topics: &[H256], data: &[u8], log_index: u32) {
 		if !self.config.with_logs {
 			return;
 		}
@@ -145,6 +146,7 @@ impl Tracing for CallTracer {
 				topics: topics.to_vec(),
 				data: data.to_vec().into(),
 				position: trace.child_call_count,
+				index: log_index,
 			};
 
 			trace.logs.push(log);

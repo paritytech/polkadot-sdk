@@ -50,6 +50,11 @@ impl RuntimePublic for Public {
 	}
 
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool {
+		// Reject high-S signatures (BIP-62 malleability protection)
+		let sig_bytes: &[u8; 65] = signature.as_ref();
+		if !sp_core::ecdsa::is_signature_normalized(sig_bytes) {
+			return false;
+		}
 		sp_io::crypto::ecdsa_verify(signature, msg.as_ref(), self)
 	}
 
@@ -67,6 +72,11 @@ impl RuntimePublic for Public {
 		owner: &[u8],
 		key_proofs: &Self::Signature,
 	) -> bool {
+		// Reject high-S signatures (BIP-62 malleability protection)
+		let sig_bytes: &[u8; 65] = key_proofs.as_ref();
+		if !sp_core::ecdsa::is_signature_normalized(sig_bytes) {
+			return false;
+		}
 		let ownership_proof_statement = Pair::ownership_proof_statement(owner);
 		sp_io::crypto::ecdsa_verify(&key_proofs, &ownership_proof_statement, &self)
 	}

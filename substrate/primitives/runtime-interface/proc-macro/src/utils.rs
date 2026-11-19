@@ -43,7 +43,7 @@ mod attributes {
 pub struct RuntimeInterfaceFunction {
 	item: TraitItemFn,
 	should_trap_on_return: bool,
-	is_wrapped: bool,
+	is_raw_api: bool,
 }
 
 impl std::ops::Deref for RuntimeInterfaceFunction {
@@ -57,14 +57,13 @@ impl RuntimeInterfaceFunction {
 	fn new(item: &TraitItemFn) -> Result<Self> {
 		let mut item = item.clone();
 		let mut should_trap_on_return = false;
-		let mut is_wrapped = false;
-
+		let mut is_raw_api = false;
 		item.attrs.retain(|attr| {
 			if attr.path().is_ident("trap_on_return") {
 				should_trap_on_return = true;
 				false
-			} else if attr.path().is_ident("wrapped") {
-				is_wrapped = true;
+			} else if attr.path().is_ident("raw_api") {
+				is_raw_api = true;
 				false
 			} else {
 				true
@@ -78,15 +77,15 @@ impl RuntimeInterfaceFunction {
 			));
 		}
 
-		Ok(Self { item, should_trap_on_return, is_wrapped })
+		Ok(Self { item, should_trap_on_return, is_raw_api })
 	}
 
 	pub fn should_trap_on_return(&self) -> bool {
 		self.should_trap_on_return
 	}
 
-	pub fn is_wrapped(&self) -> bool {
-		self.is_wrapped
+	pub fn is_raw_api(&self) -> bool {
+		self.is_raw_api
 	}
 }
 
@@ -148,10 +147,16 @@ impl RuntimeInterfaceFunctionSet {
 	}
 }
 
+/// A `#[wrapper]` function of a runtime interface.
+pub struct Wrapper {
+	name: syn::Ident,
+	item: TraitItemFn,
+}
+
 /// All functions of a runtime interface grouped by the function names.
 pub struct RuntimeInterface {
 	items: BTreeMap<syn::Ident, RuntimeInterfaceFunctionSet>,
-	wrappers: BTreeMap<syn::Ident, TraitItemFn>,
+	wrappers: Vec<Wrapper>,
 }
 
 impl RuntimeInterface {
@@ -171,7 +176,7 @@ impl RuntimeInterface {
 	}
 
 	pub fn wrappers(&self) -> impl Iterator<Item = (&syn::Ident, &TraitItemFn)> {
-		self.wrappers.iter()
+		self.wrappers.iter().map(|wrapper| (&wrapper.name, &wrapper.item))
 	}
 }
 
@@ -322,13 +327,16 @@ fn get_item_version(item: &TraitItemFn) -> Result<Option<VersionAttribute>> {
 /// Returns all runtime interface members, with versions.
 pub fn get_runtime_interface(trait_def: &ItemTrait) -> Result<RuntimeInterface> {
 	let mut functions: BTreeMap<syn::Ident, RuntimeInterfaceFunctionSet> = BTreeMap::new();
-	let mut wrappers: BTreeMap<syn::Ident, TraitItemFn> = BTreeMap::new();
+	let mut wrappers: Vec<Wrapper> = Vec::new();
 
 	for item in get_trait_methods(trait_def) {
 		let name = item.sig.ident.clone();
-		let is_wrapper = item.attrs.iter().any(|attr| attr.path().is_ident("wrapper"));
-		if is_wrapper {
-			wrappers.insert(name.clone(), item.clone());
+
+		if item.attrs.iter().any(|attr| attr.path().is_ident("wrapper")) {
+			if item.default.is_none() {
+				return Err(Error::new(item.span(), "A `#[wrapper]` function must have a body"));
+			}
+			wrappers.push(Wrapper { name, item: item.clone() });
 			continue;
 		}
 
@@ -349,7 +357,7 @@ pub fn get_runtime_interface(trait_def: &ItemTrait) -> Result<RuntimeInterface> 
 	}
 
 	for function in functions.values() {
-		let mut next_expected = 1;
+		let mut next_expected = function.versions.keys().next().copied().unwrap_or(1);
 		for (version, item) in function.versions.iter() {
 			if next_expected != *version {
 				return Err(Error::new(
@@ -361,6 +369,27 @@ pub fn get_runtime_interface(trait_def: &ItemTrait) -> Result<RuntimeInterface> 
 				));
 			}
 			next_expected += 1;
+		}
+	}
+
+	for wrapper in &wrappers {
+		let Some((_, function)) =
+			functions.get(&wrapper.name).and_then(|set| set.latest_version_to_call())
+		else {
+			continue;
+		};
+		if !function.is_raw_api() {
+			let mut err = Error::new(
+				wrapper.item.span(),
+				"A `#[wrapper]` function cannot have the same name as a host function; mark the \
+				 host function as `#[raw_api]` to generate its bare function under the \
+				 `<name>__raw` name",
+			);
+			err.combine(Error::new(
+				function.span(),
+				"Host function with the same name defined here",
+			));
+			return Err(err);
 		}
 	}
 

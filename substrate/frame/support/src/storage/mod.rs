@@ -27,7 +27,6 @@ use crate::{
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, FullEncode};
 use core::marker::PhantomData;
-use sp_core::storage::ChildInfo;
 use sp_runtime::generic::{Digest, DigestItem};
 
 pub use self::{
@@ -37,6 +36,7 @@ pub use self::{
 	},
 	types::StorageEntryMetadataBuilder,
 };
+pub use sp_core::storage::ChildInfo;
 pub use sp_runtime::TransactionOutcome;
 pub use types::Key;
 
@@ -1484,7 +1484,7 @@ pub trait StorageDecodeLength: private::Sealed + codec::DecodeLength {
 	fn decode_len(key: &[u8]) -> Option<usize> {
 		// `Compact<u32>` is 5 bytes in maximum.
 		let mut data = [0u8; 5];
-		let len = sp_io::storage::read_partial(key, &mut data, 0)?;
+		let len = sp_io::storage::read(key, &mut data, 0)?;
 		let len = data.len().min(len as usize);
 		<Self as codec::DecodeLength>::len(&data[..len]).ok()
 	}
@@ -1507,7 +1507,7 @@ pub trait StorageDecodeNonDedupLength: private::Sealed + codec::DecodeLength {
 	/// Returns `None` if the storage value does not exist or the decoding failed.
 	fn decode_non_dedup_len(key: &[u8]) -> Option<usize> {
 		let mut data = [0u8; 5];
-		let len = sp_io::storage::read_partial(key, &mut data, 0)?;
+		let len = sp_io::storage::read(key, &mut data, 0)?;
 		let len = data.len().min(len as usize);
 		<Self as codec::DecodeLength>::len(&data[..len]).ok()
 	}

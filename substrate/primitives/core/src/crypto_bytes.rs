@@ -26,7 +26,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use scale_info::TypeInfo;
 
-use byte_slice_cast::FromByteSlice;
+use byte_slice_cast::{ToByteSlice, ToMutByteSlice};
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
@@ -162,43 +162,21 @@ impl<const N: usize, T> core::ops::Deref for CryptoBytes<N, T> {
 	}
 }
 
-// SAFETY: CryptoBytes<N, T> is #[repr(transparent)] over [u8; N] so it can be safely
-// instantiated from a byte slice of the corresponding lenght
-unsafe impl<const N: usize, T> FromByteSlice for CryptoBytes<N, T> {
-	fn from_byte_slice<U: AsRef<[u8]> + ?Sized>(
-		slice: &U,
-	) -> Result<&[Self], byte_slice_cast::Error> {
+// SAFETY: `CryptoBytes<N, T>` is `#[repr(transparent)]` over `[u8; N]`, so a slice of `M` of them
+// is exactly the `M * N` bytes it stores, without padding, and any byte pattern is a valid value.
+// `M * N` cannot overflow as the slice already exists in memory.
+unsafe impl<const N: usize, T> ToByteSlice for CryptoBytes<N, T> {
+	fn to_byte_slice<U: AsRef<[Self]> + ?Sized>(slice: &U) -> &[u8] {
 		let slice = slice.as_ref();
-		if slice.is_empty() {
-			return Ok(&[]);
-		}
-		if slice.len() % N != 0 {
-			return Err(byte_slice_cast::Error::LengthMismatch {
-				dst_type: "CryptoBytes",
-				src_slice_size: slice.len(),
-				dst_type_size: N,
-			});
-		}
-		unsafe { Ok(core::slice::from_raw_parts(slice.as_ptr().cast::<Self>(), slice.len() / N)) }
+		unsafe { core::slice::from_raw_parts(slice.as_ptr().cast::<u8>(), slice.len() * N) }
 	}
+}
 
-	fn from_mut_byte_slice<U: AsMut<[u8]> + ?Sized>(
-		slice: &mut U,
-	) -> Result<&mut [Self], byte_slice_cast::Error> {
+// SAFETY: see the `ToByteSlice` impl above.
+unsafe impl<const N: usize, T> ToMutByteSlice for CryptoBytes<N, T> {
+	fn to_mut_byte_slice<U: AsMut<[Self]> + ?Sized>(slice: &mut U) -> &mut [u8] {
 		let slice = slice.as_mut();
-		if slice.is_empty() {
-			return Ok(&mut []);
-		}
-		if slice.len() % N != 0 {
-			return Err(byte_slice_cast::Error::LengthMismatch {
-				dst_type: "CryptoBytes",
-				src_slice_size: slice.len(),
-				dst_type_size: N,
-			});
-		}
-		unsafe {
-			Ok(core::slice::from_raw_parts_mut(slice.as_mut_ptr().cast::<Self>(), slice.len() / N))
-		}
+		unsafe { core::slice::from_raw_parts_mut(slice.as_mut_ptr().cast::<u8>(), slice.len() * N) }
 	}
 }
 

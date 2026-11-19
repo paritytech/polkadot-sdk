@@ -24,7 +24,7 @@ use sc_executor::WasmExecutor;
 use sc_runtime_utilities::fetch_latest_metadata_from_code_blob;
 use scale_info::{form::PortableForm, Type, TypeDef, TypeDefPrimitive};
 use std::fmt::Display;
-use subxt_metadata::{Metadata, StorageEntryType};
+use subxt_metadata::Metadata;
 
 /// Expected parachain system pallet runtime type name.
 pub const DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME: &str = "ParachainSystem";
@@ -201,15 +201,15 @@ impl MetadataInspector {
 		pallet_name: &str,
 		entry_name: &str,
 	) -> Option<&Type<PortableForm>> {
-		self.metadata
+		let entry = self
+			.metadata
 			.pallet_by_name(pallet_name)?
 			.storage()?
-			.entry_by_name(entry_name)
-			.and_then(|entry| match entry.entry_type() {
-				StorageEntryType::Plain(ty_id) => Some(*ty_id),
-				_ => None,
-			})
-			.and_then(|ty_id| self.metadata.types().resolve(ty_id))
+			.entry_by_name(entry_name)?;
+		if entry.keys().len() != 0 {
+			return None;
+		}
+		self.metadata.types().resolve(entry.value_ty())
 	}
 
 	fn pallet_exists(&self, name: &str) -> bool {

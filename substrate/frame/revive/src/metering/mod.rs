@@ -73,6 +73,14 @@ pub type TransactionMeter<T> = ResourceMeter<T, Root>;
 /// The type of resource meter used for an execution frame.
 pub type FrameMeter<T> = ResourceMeter<T, Nested>;
 
+/// Snapshot of a [`ResourceMeter`]'s consumption at a point in time.
+///
+/// Produced by [`ResourceMeter::snapshot`] and consumed by [`ResourceMeter::delta_since`].
+pub struct MeterSnapshot<T: Config> {
+	weight: Weight,
+	gas: SignedGas<T>,
+}
+
 /// Resource meter tracking weight and storage deposit consumption.
 #[derive(DefaultNoBound)]
 pub struct ResourceMeter<T: Config, S: State> {
@@ -106,7 +114,12 @@ pub struct ResourceMeter<T: Config, S: State> {
 	_phantom: PhantomData<S>,
 }
 
-/// Transaction-wide resource limit configuration.
+/// Parameters required to construct a root [`TransactionMeter`].
+///
+/// Despite the name, the `EthereumGas` variant carries more than just limits: it also bundles
+/// the gas-conversion context (`eth_tx_info`) and any deposit already consumed before contract
+/// execution (`authorization_deposit`). It is the full set of inputs needed to build the root
+/// meter for an ethereum-style transaction, not a pure cap descriptor.
 ///
 /// Represents the two supported resource accounting modes:
 /// - EthereumGas: Single gas limit
@@ -123,6 +136,12 @@ pub enum TransactionLimits<T: Config> {
 		weight_limit: Weight,
 		/// Some extra information about the transaction that is required to calculate gas usage.
 		eth_tx_info: EthTxInfo<T>,
+		/// Net deposit movement caused by EIP-7702 authorization processing before contract
+		/// execution begins. Not a cap: applied to the meter at creation so the available deposit
+		/// budget reflects either a pre-charge (auths net to a charge) or a pre-credit (auths net
+		/// to a refund — e.g. pure-revoke). Only relevant at root meter construction; nested
+		/// frames do not see it.
+		authorization_deposit: StorageDeposit<BalanceOf<T>>,
 	},
 	/// Substrate execution mode: the transaction specifies a weight limit and a storage deposit
 	/// limit
@@ -447,16 +466,44 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 
 	/// Get the Ethereum gas that has been consumed during the lifetime of this meter
 	pub fn eth_gas_consumed(&self) -> BalanceOf<T> {
-		let signed_gas = match &self.transaction_limits {
+		self.eth_gas_consumed_signed().to_ethereum_gas().unwrap_or_default()
+	}
+
+	/// Same as [`Self::eth_gas_consumed`] but returns the unrounded [`SignedGas`].
+	///
+	/// Prefer this when computing a delta across two snapshots: subtracting in [`SignedGas`] form
+	/// avoids the double ceil-rounding that [`Self::eth_gas_consumed`] performs at each call.
+	pub fn eth_gas_consumed_signed(&self) -> SignedGas<T> {
+		match &self.transaction_limits {
 			TransactionLimits::EthereumGas { eth_tx_info, .. } => {
 				math::ethereum_execution::eth_gas_consumed(self, eth_tx_info)
 			},
 			TransactionLimits::WeightAndDeposit { .. } => {
 				math::substrate_execution::eth_gas_consumed(self)
 			},
-		};
+		}
+	}
 
-		signed_gas.to_ethereum_gas().unwrap_or_default()
+	/// Take a snapshot of the meter's current consumption for later use with
+	/// [`Self::delta_since`].
+	pub fn snapshot(&self) -> MeterSnapshot<T> {
+		MeterSnapshot { weight: self.weight_consumed(), gas: self.eth_gas_consumed_signed() }
+	}
+
+	/// Ethereum gas and weight consumed since `snapshot` was taken.
+	///
+	/// Gas subtraction happens in [`SignedGas`] form so that the ceil-rounding inside
+	/// `to_ethereum_gas` is applied once to the delta, not to each snapshot.
+	pub fn delta_since(&self, snapshot: &MeterSnapshot<T>) -> (u64, Weight) {
+		let gas = self
+			.eth_gas_consumed_signed()
+			.saturating_sub(&snapshot.gas)
+			.to_ethereum_gas()
+			.unwrap_or_default()
+			.try_into()
+			.unwrap_or(u64::MAX);
+		let weight = self.weight_consumed().saturating_sub(snapshot.weight);
+		(gas, weight)
 	}
 
 	/// Determine and set the new effective weight limit of the weight meter.
@@ -492,13 +539,23 @@ impl<T: Config> TransactionMeter<T> {
 		);
 
 		let mut transaction_meter = match transaction_limits {
-			TransactionLimits::EthereumGas { eth_gas_limit, weight_limit, eth_tx_info } => {
-				math::ethereum_execution::new_root(eth_gas_limit, weight_limit, eth_tx_info)
+			TransactionLimits::EthereumGas {
+				eth_gas_limit,
+				weight_limit,
+				eth_tx_info,
+				authorization_deposit,
+			} => {
+				let mut meter =
+					math::ethereum_execution::new_root(eth_gas_limit, weight_limit, eth_tx_info)?;
+				if !authorization_deposit.is_zero() {
+					meter.deposit.record_charge(&authorization_deposit);
+				}
+				meter
 			},
 			TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit } => {
-				math::substrate_execution::new_root(weight_limit, deposit_limit)
+				math::substrate_execution::new_root(weight_limit, deposit_limit)?
 			},
-		}?;
+		};
 
 		transaction_meter.adjust_effective_weight_limit()?;
 
@@ -637,6 +694,15 @@ impl<T: Config> FrameMeter<T> {
 	pub fn apply_pending_storage_changes(&self, info: &mut ContractInfo<T>) {
 		self.deposit.apply_pending_changes_to_contract(info);
 	}
+
+	/// See [`storage::RawMeter::bank_pending_changes`].
+	pub fn bank_pending_storage_changes(
+		&mut self,
+		contract: T::AccountId,
+		info: &mut ContractInfo<T>,
+	) {
+		self.deposit.bank_pending_changes(contract, info);
+	}
 }
 
 /// Ethereum transaction context for gas conversions.
@@ -675,6 +741,17 @@ impl<T: Config> EthTxInfo<T> {
 		));
 
 		deposit_gas.saturating_add(&weight_gas)
+	}
+
+	/// Compute the maximum deposit available from a gas budget assuming zero execution weight
+	/// and zero deposit consumed. This is the upper bound on how much deposit the transaction
+	/// could ever spend.
+	pub fn max_deposit(&self, eth_gas_limit: BalanceOf<T>) -> BalanceOf<T> {
+		let max_gas = SignedGas::<T>::from_ethereum_gas(eth_gas_limit);
+		let overhead_gas =
+			self.gas_consumption(&Weight::zero(), &DepositOf::<T>::Charge(Zero::zero()));
+		let remaining = max_gas.saturating_sub(&overhead_gas);
+		remaining.to_adjusted_deposit_charge().unwrap_or_default()
 	}
 
 	/// Calculate maximal possible remaining weight that can be consumed given a particular gas

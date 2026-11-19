@@ -30,7 +30,7 @@ use core::marker::PhantomData;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_arithmetic::traits::Bounded;
 use sp_core::Get;
-use sp_io::{hashing::twox_128, storage::clear_prefix};
+use sp_io::{hashing::twox_128, storage::clear_prefix, KillStorageResult};
 use sp_runtime::traits::Zero;
 
 /// Handles storage migration pallet versioning.
@@ -320,16 +320,15 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
 		let hashed_prefix = twox_128(P::get().as_bytes());
-		let r = clear_prefix(&hashed_prefix, None, None);
-		let keys_removed = match r.maybe_cursor {
-			Some(_) => {
+		let keys_removed = match clear_prefix(&hashed_prefix, None) {
+			KillStorageResult::AllRemoved(value) => value,
+			KillStorageResult::SomeRemaining(value) => {
 				log::error!(
 					"`clear_prefix` failed to remove all keys for {}. THIS SHOULD NEVER HAPPEN! 🚨",
 					P::get()
 				);
-				r.backend
+				value
 			},
-			None => r.backend,
 		} as u64;
 
 		log::info!("Removed {} {} keys 🧹", keys_removed, P::get());
@@ -428,16 +427,15 @@ impl<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>
 {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
 		let hashed_prefix = storage_prefix(P::get().as_bytes(), S::get().as_bytes());
-		let r = clear_prefix(&hashed_prefix, None, None);
-		let keys_removed = match r.maybe_cursor {
-			Some(_) => {
+		let keys_removed = match clear_prefix(&hashed_prefix, None) {
+			KillStorageResult::AllRemoved(value) => value,
+			KillStorageResult::SomeRemaining(value) => {
 				log::error!(
 					"`clear_prefix` failed to remove all keys for storage `{}` from pallet `{}`. THIS SHOULD NEVER HAPPEN! 🚨",
 					S::get(), P::get()
 				);
-				r.backend
+				value
 			},
-			None => r.backend,
 		} as u64;
 
 		log::info!("Removed `{}` `{}` `{}` keys 🧹", keys_removed, P::get(), S::get());

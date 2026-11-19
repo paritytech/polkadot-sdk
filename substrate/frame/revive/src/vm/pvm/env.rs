@@ -615,10 +615,14 @@ pub mod env {
 		out_ptr: u32,
 		out_len_ptr: u32,
 	) -> Result<(), TrapReason> {
-		// quering the length is free as it is stored with the contract metadata
-		let len = self.ext.immutable_data_len();
-		self.charge_gas(RuntimeCosts::GetImmutableData(len))?;
+		// `immutable_data_len` is exact for a frame executing its own code and the
+		// `IMMUTABLE_BYTES` cap when the code (and so the data) belongs to another account —
+		// delegate calls, and calls to EIP-7702 delegated EOAs. Charge it, then settle on the
+		// actual length.
+		let charge_len = self.ext.immutable_data_len();
+		let charged = self.charge_gas(RuntimeCosts::GetImmutableData(charge_len))?;
 		let data = self.ext.get_immutable_data()?;
+		self.adjust_gas(charged, RuntimeCosts::GetImmutableData(data.len() as u32));
 		self.write_sandbox_output(memory, out_ptr, out_len_ptr, &data, false, already_charged)?;
 		Ok(())
 	}
@@ -955,5 +959,31 @@ pub mod env {
 			self.adjust_gas(charged, RuntimeCosts::Terminate { code_removed: false });
 		}
 		Err(TrapReason::Termination)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use pallet_revive_types::runtime_api::*;
+	use strum::VariantArray;
+
+	#[test]
+	fn wire_has_all_syscalls() {
+		let wire_syscalls = PolkavmSyscallV1::VARIANTS
+			.iter()
+			.copied()
+			.map(<&'static str>::from)
+			.collect::<Vec<_>>();
+		let canonical_syscalls = list_trace_ops()
+			.iter()
+			.map(|bytes| str::from_utf8(bytes).unwrap())
+			.collect::<Vec<_>>();
+
+		assert_eq!(
+			wire_syscalls, canonical_syscalls,
+			"There is a difference between the syscalls defined for the wire and the syscalls \
+			available in the system. Wire = {wire_syscalls:?}. Available = {canonical_syscalls:?}"
+		)
 	}
 }

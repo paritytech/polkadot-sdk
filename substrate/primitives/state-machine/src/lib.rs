@@ -1582,10 +1582,7 @@ mod tests {
 	fn test_compact(remote_proof: StorageProof, remote_root: &sp_core::H256) -> StorageProof {
 		let compact_remote_proof =
 			remote_proof.into_compact_proof::<BlakeTwo256>(*remote_root).unwrap();
-		compact_remote_proof
-			.to_storage_proof::<BlakeTwo256>(Some(remote_root))
-			.unwrap()
-			.0
+		compact_remote_proof.to_storage_proof::<BlakeTwo256>(remote_root).unwrap().0
 	}
 
 	#[test]
@@ -1991,7 +1988,7 @@ mod tests {
 			let mut ext = Ext::new(&mut overlay, &backend, None);
 			ext.set_child_storage(&child_info_1, b"abc".to_vec(), b"def".to_vec());
 			ext.set_child_storage(&child_info_2, b"abc".to_vec(), b"def".to_vec());
-			ext.storage_root();
+			ext.storage_root(state_version);
 			overlay.drain_storage_changes(&backend, state_version).unwrap().transaction
 		};
 		let mut duplicate = false;

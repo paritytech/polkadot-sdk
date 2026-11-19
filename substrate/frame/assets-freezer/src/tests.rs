@@ -310,3 +310,23 @@ mod with_pallet_assets {
 		});
 	}
 }
+
+mod impl_inspect {
+	use super::*;
+	use frame::traits::fungibles::Inspect;
+
+	#[test]
+	fn is_sufficient_delegates_to_pallet_assets() {
+		new_test_ext(|| {
+			// The genesis asset is sufficient; the wrapper must report the same answer as
+			// the wrapped pallet rather than the trait's `false` default.
+			assert!(AssetsFreezer::is_sufficient(ASSET_ID));
+			assert_eq!(
+				AssetsFreezer::is_sufficient(ASSET_ID),
+				<Assets as Inspect<AccountId>>::is_sufficient(ASSET_ID),
+			);
+			// An unknown asset is not sufficient.
+			assert!(!AssetsFreezer::is_sufficient(ASSET_ID + 1));
+		});
+	}
+}

@@ -25,13 +25,13 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 mod sys {
 	#[polkavm_derive::polkavm_import]
 	extern "C" {
-		#[polkavm_import(symbol = 1u32)]
+		#[polkavm_import(symbol = "read_counter")]
 		pub fn read_counter(buf_ptr: *mut u8) -> u32;
-		#[polkavm_import(symbol = 2u32)]
+		#[polkavm_import(symbol = "increment_counter")]
 		pub fn increment_counter(buf_ptr: *const u8) -> u64;
-		#[polkavm_import(symbol = 3u32)]
+		#[polkavm_import(symbol = "exit")]
 		pub fn exit();
-		#[polkavm_import(symbol = 4u32)]
+		#[polkavm_import(symbol = "subcall")]
 		pub fn subcall();
 	}
 }

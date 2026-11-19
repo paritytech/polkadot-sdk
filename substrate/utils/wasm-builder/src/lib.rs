@@ -77,6 +77,10 @@
 //!   environment variable should only be required in certain circumstances.
 //! - `WASM_BUILD_RUSTFLAGS` - Extend `RUSTFLAGS` given to `cargo build` while building the wasm
 //!   binary.
+//! - `SUBSTRATE_JAM` - Build the runtime for the JAM host function set (`--cfg jam`): the RFC-145
+//!   host functions, which never make the host allocate runtime memory. This is implied when the
+//!   outer build itself is compiled with `--cfg jam` in its `RUSTFLAGS` or when
+//!   `WASM_BUILD_RUSTFLAGS` contains `--cfg jam`.
 //! - `WASM_BUILD_NO_COLOR` - Disable color output of the wasm build.
 //! - `WASM_TARGET_DIRECTORY` - Will copy any build Wasm binary to the given directory. The path
 //!   needs to be absolute.
@@ -173,6 +177,44 @@ const WASM_BUILD_CARGO_ARGS: &str = "WASM_BUILD_CARGO_ARGS";
 
 /// The target to use for the runtime. Valid values are `wasm` (default) or `riscv`.
 const RUNTIME_TARGET: &str = "SUBSTRATE_RUNTIME_TARGET";
+
+/// Environment variable that makes the runtime be built for the JAM host function set
+/// (`--cfg jam`), the same as when the outer build itself is compiled with that `cfg` in its
+/// `RUSTFLAGS`.
+const JAM_ENV: &str = "SUBSTRATE_JAM";
+
+/// Environment variable through which cargo tells the build script that the outer build is
+/// compiled with `--cfg jam`.
+const CARGO_CFG_JAM_ENV: &str = "CARGO_CFG_JAM";
+
+/// Returns `true` if the runtime should be built for the JAM host function set (`--cfg jam`).
+///
+/// That is the case when the outer build itself is compiled with `--cfg jam` (cargo exposes
+/// every `cfg` of the outer build to the build script as `CARGO_CFG_<NAME>`, so that a node built
+/// for the JAM host function set embeds a JAM runtime), when the `SUBSTRATE_JAM` environment
+/// variable is set to a truthy value (for runtime-only builds), or when `WASM_BUILD_RUSTFLAGS`
+/// passes the `cfg` to the runtime build directly.
+fn is_jam_build() -> bool {
+	let env_enabled = env::var(JAM_ENV)
+		.map(|v| !matches!(v.as_str(), "" | "0" | "false"))
+		.unwrap_or(false);
+
+	env::var_os(CARGO_CFG_JAM_ENV).is_some() ||
+		env_enabled ||
+		rustflags_enable_jam(&env::var(WASM_BUILD_RUSTFLAGS_ENV).unwrap_or_default())
+}
+
+/// Returns `true` if the given whitespace separated `rustc` flags contain `--cfg jam`.
+fn rustflags_enable_jam(flags: &str) -> bool {
+	let mut flags = flags.split_whitespace();
+	while let Some(flag) = flags.next() {
+		let cfg = if flag == "--cfg" { flags.next() } else { flag.strip_prefix("--cfg=") };
+		if cfg == Some("jam") {
+			return true;
+		}
+	}
+	false
+}
 
 /// Write to the given `file` if the `content` is different.
 fn write_file_if_changed(file: impl AsRef<Path>, content: impl AsRef<str>) {
@@ -332,6 +374,21 @@ impl CargoCommand {
 
 		// Check if major and minor are greater or equal than 1.68 or this is a nightly.
 		version.major > 1 || (version.major == 1 && version.minor >= 68) || version.is_nightly
+	}
+
+	/// Returns whether this cargo accepts the `-Z json-target-spec` flag.
+	///
+	/// Newer cargo requires the flag to be opted into for any `--target=*.json` invocation,
+	/// older cargo rejects it as unknown. It landed partway through the 1.95 cycle, so a
+	/// toolchain from early in that cycle reports 1.95 while its cargo does not know the
+	/// flag yet: no version comparison can express this, hence the probe.
+	fn supports_json_target_spec(&self) -> bool {
+		// `-Z` flags are nightly-only, so make a stable cargo answer as a nightly would.
+		self.command()
+			.env("RUSTC_BOOTSTRAP", "1")
+			.args(["-Z", "help"])
+			.output()
+			.is_ok_and(|out| String::from_utf8_lossy(&out.stdout).contains("json-target-spec"))
 	}
 
 	/// Returns whether this version of the toolchain supports the `wasm32v1-none` target.

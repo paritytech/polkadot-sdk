@@ -14,16 +14,12 @@ workspace = true
 codec = { workspace = true, default-features = false, features = ["bytes"] }
 log = { workspace = true }
 num_enum = { workspace = true, default-features = false }
-polkavm = { workspace = true }
-
 sp-runtime-interface = { workspace = true, default-features = false }
-sp-std = { workspace = true, default-features = false }
-sp-wasm-interface = { workspace = true, default-features = false }
 strum = { features = ["derive"], workspace = true }
 
-[dev-dependencies]
-sp-tracing = { workspace = true }
-sp-virtualization-test-fixture = { workspace = true }
+[target.'cfg(not(substrate_runtime))'.dependencies]
+sp-externalities = { workspace = true, default-features = true }
+sp-storage = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -31,10 +27,6 @@ std = [
 	"codec/std",
 	"log/std",
 	"num_enum/std",
-	"polkavm/std",
 	"sp-runtime-interface/std",
-	"sp-std/std",
-	"sp-tracing/std",
-	"sp-wasm-interface/std",
 	"strum/std",
 ]

@@ -735,6 +735,9 @@ impl PalletCmd {
 		extensions.register(OffchainDbExt::new(offchain));
 		extensions.register(TransactionPoolExt::new(pool));
 		extensions.register(ReadRuntimeVersionExt::new(exe));
+		extensions.register(sp_virtualization::VirtManagerExt::new(
+			sc_virtualization::VirtManager::default(),
+		));
 		if let Some(recorder) = maybe_recorder {
 			extensions.register(ProofSizeExt::new(recorder));
 		}
@@ -758,7 +761,7 @@ impl PalletCmd {
 					e
 				)
 			})?;
-			let hash = sp_core::blake2_256(&code).to_vec();
+			let hash = sp_crypto_hashing::blake2_256(&code).to_vec();
 			let wrapped_code = WrappedRuntimeCode(Cow::Owned(code));
 
 			Ok(FetchedCode::FromFile { wrapped_code, heap_pages: self.heap_pages, hash })

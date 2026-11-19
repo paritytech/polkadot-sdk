@@ -10,7 +10,8 @@ use log::{debug, info};
 use sc_statement_store::{
 	test_utils::get_keypair, DEFAULT_MAX_TOTAL_SIZE, DEFAULT_MAX_TOTAL_STATEMENTS,
 };
-use sp_core::{blake2_256, Bytes, Pair};
+use sp_core::{Bytes, Pair};
+use sp_crypto_hashing::blake2_256;
 use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFilter};
 use std::{cell::Cell, collections::HashMap, sync::Arc, time::Duration};
 use tokio::{sync::Barrier, time::timeout};
