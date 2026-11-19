@@ -1034,9 +1034,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 			let id: T::AssetId = id.into();
-			let (accounts, freezer_deposits) =
-				Self::do_destroy_accounts(id, T::RemoveItemsLimit::get())?;
-			Ok(Some(Self::destroy_accounts_weight(accounts, freezer_deposits)).into())
+			let (accounts, frozen) = Self::do_destroy_accounts(id, T::RemoveItemsLimit::get())?;
+			Ok(Some(Self::destroy_accounts_weight(accounts, frozen)).into())
 		}
 
 		/// Destroy all approvals associated with a given asset up to the max (T::RemoveItemsLimit).

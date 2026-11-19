@@ -720,7 +720,7 @@ fn destroying_asset_returns_freezer_deposits_of_frozen_accounts() {
 }
 
 #[test]
-fn destroying_accounts_charges_freezer_deposit_weight_only_for_returned_deposits() {
+fn destroying_accounts_charges_freezer_deposit_weight_for_frozen_accounts() {
 	use crate::WeightInfo;
 	use frame_support::traits::Get;
 	build_and_execute(|| {
@@ -731,7 +731,11 @@ fn destroying_accounts_charges_freezer_deposit_weight_only_for_returned_deposits
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 3, 100));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 4, 100));
+		assert_ok!(Assets::touch_other(RuntimeOrigin::signed(1), 0, 5));
 		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
+		// frozen without a freezer deposit, the lookup for one is still paid for
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 5));
+		assert!(!FreezerDeposits::<Test>::contains_key(0, &5));
 		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
 
 		let post = Assets::destroy_accounts(RuntimeOrigin::signed(1), 0).unwrap();
@@ -739,7 +743,7 @@ fn destroying_accounts_charges_freezer_deposit_weight_only_for_returned_deposits
 			post.actual_weight,
 			Some(
 				<() as WeightInfo>::destroy_accounts(2)
-					.saturating_add(<() as WeightInfo>::destroy_blocked_accounts(1))
+					.saturating_add(<() as WeightInfo>::destroy_blocked_accounts(2))
 			)
 		);
 
