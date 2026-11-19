@@ -1144,6 +1144,65 @@ mod redeem {
 		});
 	}
 
+	/// The rule applies only to a rest strictly between zero and the minimum. A redeem that
+	/// leaves exactly the minimum pays out in full, and so does one that clears the debt.
+	#[test]
+	fn redeem_pays_in_full_at_the_minimum_and_at_zero() {
+		new_test_ext().execute_with(|| {
+			let min_balance = 5;
+			set_min_balance(USDC_ASSET_ID, min_balance);
+			set_minting_fee(USDC_ASSET_ID, Permill::zero());
+			set_redemption_fee(USDC_ASSET_ID, Permill::zero());
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT,
+				Permill::zero(),
+			));
+			let alice_external = get_asset_balance(USDC_ASSET_ID, ALICE);
+
+			// Leaves exactly the minimum: no cap.
+			let first = 1_000 * INTERNAL_UNIT - min_balance;
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				first,
+				Permill::zero(),
+			));
+			assert_eq!(get_asset_balance(USDC_ASSET_ID, psm_account()), min_balance);
+			assert_eq!(PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID), min_balance);
+			assert_eq!(get_asset_balance(USDC_ASSET_ID, ALICE), alice_external + first);
+			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, ALICE), min_balance);
+
+			// The remaining 5 units are below min_swap_amount. Mint 100 units, then
+			// clear the whole debt in one redeem: full payout, reserve to zero.
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				100 * INTERNAL_UNIT,
+				Permill::zero(),
+			));
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				100 * INTERNAL_UNIT + min_balance,
+				Permill::zero(),
+			));
+			assert_eq!(get_asset_balance(USDC_ASSET_ID, psm_account()), 0);
+			assert_eq!(PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID), 0);
+			assert_eq!(
+				get_asset_balance(USDC_ASSET_ID, ALICE),
+				alice_external + 1_000 * INTERNAL_UNIT
+			);
+			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, ALICE), 0);
+			assert_ok!(crate::Pallet::<Test>::do_try_state());
+		});
+	}
+
 	/// If the redeem clears the debt, reserve dust backs nothing. The payout goes through in
 	/// full and also pays out the dust, so that the debt reaches zero and the external asset
 	/// can be removed. The event reports the dust as received.
