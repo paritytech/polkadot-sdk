@@ -429,10 +429,11 @@ where
 		}
 	}
 
-	/// Start the warp sync over if the state sync resumed at startup has a target too old to
-	/// download. A parachain is given its finalized head at startup, and the target is too old
-	/// when it is [`STALE_TARGET_DISTANCE`] blocks or more below that head. Other chains do not
-	/// know the finalized block of their peers: there the target is too old once
+	/// Start the warp sync over if the resumed state sync has a target too old to download.
+	///
+	/// A parachain is given its finalized head at startup, and the target is too old when it is
+	/// [`STALE_TARGET_DISTANCE`] blocks or more below that head. Other chains do not know the
+	/// finalized block of their peers: there the target is too old once
 	/// [`STALE_TARGET_FAILED_REQUESTS`] state requests in a row failed.
 	///
 	/// The old attempt is abandoned first, so no later start resumes it. Its nodes stay in the

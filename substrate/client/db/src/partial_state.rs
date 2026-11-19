@@ -16,9 +16,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! The database side of a state sync: the trie nodes of a block's state go into `STATE` chunk by
-//! chunk before the block is imported, and `STATE_META` records enough for a restart to resume
-//! the download or to finish an interrupted discard.
+//! The database side of a state sync.
+//!
+//! The trie nodes of a block's state go into `STATE` chunk by chunk before the block is imported,
+//! and `STATE_META` records enough for a restart to resume the download or to finish an
+//! interrupted discard.
 
 use crate::{
 	columns, stats::StateUsageStats, utils::Meta, BlockImportOperation, DbHash, StorageDb,
@@ -144,10 +146,11 @@ impl<Block: BlockT> DbPartialState<Block> {
 		Self { storage, meta, state_usage, status: Mutex::new(None) }
 	}
 
-	/// Locks the status for a whole block commit, but only while a state sync may be in progress:
-	/// once a finalized block has state `begin` refuses, so nothing is recorded, nothing is locked
-	/// and `None` comes back. Under the lock, a state commit other than the target's own import
-	/// discards a recorded attempt first.
+	/// Locks the status for a whole block commit, but only while a state sync may be in progress.
+	///
+	/// Once a finalized block has state, `begin` refuses, so nothing is recorded, nothing is
+	/// locked and `None` comes back. Under the lock, a state commit other than the target's own
+	/// import discards a recorded attempt first.
 	pub(crate) fn maybe_lock(
 		&self,
 		operation: &BlockImportOperation<Block>,
@@ -163,10 +166,11 @@ impl<Block: BlockT> DbPartialState<Block> {
 		Ok(Some(status))
 	}
 
-	/// The target block imports under the guard `maybe_lock` gave: its records go into the
-	/// block's own transaction, and the caller clears the status once the commit is through.
-	/// Refused unless `hash` is the recorded target: a synced state never lands on the wrong
-	/// attempt, a discarded one, or none at all.
+	/// Removes the sync's records in the target block's own transaction.
+	///
+	/// Called from the commit of the target block, with the guard `maybe_lock` gave. The caller
+	/// clears the status once the commit is through. Refused unless `hash` is the recorded
+	/// target: a synced state never lands on the wrong attempt, a discarded one, or none at all.
 	pub(crate) fn complete(
 		&self,
 		status: &Option<MutexGuard<'_, Option<PartialStateStatus<Block::Hash>>>>,
@@ -661,11 +665,12 @@ mod tests {
 		(remote, header)
 	}
 
-	/// Downloads `header`'s state from `remote` into `backend`, in the ranges the range prover
-	/// cuts at `size_limit` bytes and the verifier reads back, and returns the backend with the
-	/// number of chunks and of child trie copies reported. Unless the first chunk is the last, the
-	/// backend is closed and reopened on `db` after it and the download goes on from the recorded
-	/// cursor.
+	/// Downloads `header`'s state from `remote` into `backend`.
+	///
+	/// Each chunk is a range the range prover cuts at `size_limit` bytes, read back by the
+	/// verifier. After the first chunk, unless it is also the last, the backend is closed and
+	/// reopened on `db`, and the download goes on from the recorded cursor. Returns the backend
+	/// with the number of chunks and of child trie copies reported.
 	fn download(
 		remote: &sp_state_machine::InMemoryBackend<HashingFor<Block>>,
 		header: &Header,
@@ -736,13 +741,14 @@ mod tests {
 		keys
 	}
 
-	/// A real download, chunk by chunk as the range prover cuts it, for several size limits, with a
-	/// restart after the first chunk and one after the last. `begin` records the target, the
-	/// chunks write every position of the state exactly once, the twin child trie's positions
-	/// included, which come from the first twin's nodes. That matters on parity-db, where a second
-	/// write of a node raises its reference count for good. After the restart the download is
-	/// complete and nothing is written again. The block completes, the records are gone and every
-	/// key reads back.
+	/// A real download writes every position of the state exactly once.
+	///
+	/// That matters on parity-db, where a second write of a node raises its reference count for
+	/// good. The download goes chunk by chunk as the range prover cuts it, for several size
+	/// limits, with a restart after the first chunk and one after the last. `begin` records the
+	/// target, and the chunks write the twin child trie's positions too, which come from the first
+	/// twin's nodes. After the second restart the download is complete and nothing is written
+	/// again. The block completes, the records are gone and every key reads back.
 	///
 	/// The limits give a range per key, then ranges where one resumes inside the first twin,
 	/// reaches the second and takes the nodes it skipped from the first twin's, then a single
@@ -843,10 +849,11 @@ mod tests {
 		assert_eq!(state_pairs(&backend, &header), key_values);
 	}
 
-	/// The first real state commit discards the attempt it finds recorded: afterwards `STATE` is
-	/// shared with block state and could never be emptied. A whole state arrives either as the
-	/// genesis state a `--sync full` restart writes, or through `reset_storage`, which only tests
-	/// use; both discard.
+	/// The first real state commit discards the attempt it finds recorded.
+	///
+	/// The discard has to happen then, because afterwards `STATE` is shared with block state and
+	/// could never be emptied. A whole state arrives either as the genesis state a `--sync full`
+	/// restart writes, or through `reset_storage`, which only tests use; both discard.
 	#[test]
 	fn first_state_commit_discards_a_recorded_attempt() {
 		let whole_state_commits: [SetWholeState; 2] = [
@@ -931,10 +938,12 @@ mod tests {
 		backend.partial_state.begin(partial_state_target(&header)).unwrap();
 	}
 
-	/// A block other than the recorded target cannot complete the attempt. With another state root
-	/// neither the check nor a commit marked as synced accepts it. With the same state root the
-	/// check passes and the commit refuses. Neither failure discards anything: the recorded target
-	/// still completes. With nothing recorded, the synced commit is refused too.
+	/// A block other than the recorded target cannot complete the attempt.
+	///
+	/// With another state root neither the check nor a commit marked as synced accepts it. With
+	/// the same state root the check passes and the commit refuses. Neither failure discards
+	/// anything: the recorded target still completes. With nothing recorded, the synced commit is
+	/// refused too.
 	#[test]
 	fn completion_by_another_block_is_an_error() {
 		let key_values = vec![(vec![0u8; 40], vec![0u8; 1])];

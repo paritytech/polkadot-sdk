@@ -16,8 +16,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Partial state: the trie nodes of a block's state, written to the database chunk by chunk
-//! before the block itself is imported.
+//! Partial state: a block's state written to the database before the block is imported.
+//!
+//! A state sync writes the trie nodes chunk by chunk.
 
 use codec::{Decode, Encode};
 use futures::channel::oneshot;
@@ -77,10 +78,11 @@ pub trait PartialStateImport<Block: BlockT> {
 		target: PartialStateTarget<Block>,
 	) -> oneshot::Receiver<sp_blockchain::Result<()>>;
 
-	/// Write the chunk's nodes and its range end as the new cursor, in one transaction. A chunk
-	/// with no end marks the download complete. On `Err` nothing was written and the cursor did
-	/// not move. A chunk for another block or state root, one not starting at the cursor, or one
-	/// after the final chunk is refused.
+	/// Write the chunk's nodes and its range end as the new cursor, in one transaction.
+	///
+	/// A chunk with no end marks the download complete. On `Err` nothing was written and the
+	/// cursor did not move. A chunk for another block or state root, one not starting at the
+	/// cursor, or one after the final chunk is refused.
 	fn import_partial_state(
 		&self,
 		partial_state: &PartialStateFor<Block>,
@@ -98,10 +100,12 @@ pub trait PartialStateImport<Block: BlockT> {
 	fn abandon_partial_state(&self) -> sp_blockchain::Result<()>;
 }
 
-/// The backend side of a state sync: where the chunks go and what the database remembers of
-/// them. Taken from [`Backend::partial_state`](crate::Backend::partial_state). The store shares
-/// the backend's database and locks: its nodes land in the state column the backend reads, and
-/// the commit of the target block, marked with
+/// The backend side of a state sync.
+///
+/// This is where the chunks go and what the database remembers of them. Taken from
+/// [`Backend::partial_state`](crate::Backend::partial_state). The store shares the backend's
+/// database and locks: its nodes land in the state column the backend reads, and the commit of
+/// the target block, marked with
 /// [`BlockImportOperation::mark_state_synced`](crate::backend::BlockImportOperation::mark_state_synced),
 /// completes what the store began.
 pub trait PartialStateStore<Block: BlockT>: Send + Sync {
@@ -110,12 +114,12 @@ pub trait PartialStateStore<Block: BlockT>: Send + Sync {
 	/// nothing, if the database holds block state.
 	fn begin(&self, target: PartialStateTarget<Block>) -> sp_blockchain::Result<()>;
 
-	/// Write one chunk: the nodes its range covers, plus the range end as the cursor the download
-	/// continues from, in one transaction. A chunk for another block or state root, one not
-	/// starting at the cursor, or one after the final chunk is refused with nothing written. Each
-	/// node must be written once per position, or reference counting breaks, and a range written
-	/// over a hole would never complete. The cursor is kept in the database alone, so a restart
-	/// continues from it.
+	/// Write the chunk's nodes and its range end as the new cursor, in one transaction.
+	///
+	/// A chunk for another block or state root, one not starting at the cursor, or one after the
+	/// final chunk is refused with nothing written. Each node must be written once per position,
+	/// or reference counting breaks, and a range written over a hole would never complete. The
+	/// cursor is kept in the database alone, so a restart continues from it.
 	fn import(&self, chunk: &PartialStateFor<Block>) -> sp_blockchain::Result<()>;
 
 	/// The recorded state sync that was not completed. `None` if nothing is recorded, or while an
@@ -127,11 +131,12 @@ pub trait PartialStateStore<Block: BlockT>: Send + Sync {
 	/// the marker. Does nothing if nothing is recorded or the marker is already there.
 	fn abandon(&self) -> sp_blockchain::Result<()>;
 
-	/// Check that every node of the state trie at `state_root` is in the database, child tries
-	/// included. `state_root` must be the recorded target's, else fails and leaves everything as
-	/// it was. If a node is missing, fails and discards the sync: a state still incomplete after
-	/// the last chunk will never complete. Marking the target's import operation presumes this
-	/// passed; the mark itself walks nothing.
+	/// Check that the database holds every node of the state trie at `state_root`.
+	///
+	/// Child tries are included. `state_root` must be the recorded target's, else fails and
+	/// leaves everything as it was. If a node is missing, fails and discards the sync: a state
+	/// still incomplete after the last chunk will never complete. Marking the target's import
+	/// operation presumes this passed; the mark itself walks nothing.
 	fn check_complete(&self, state_root: Block::Hash) -> sp_blockchain::Result<()>;
 }
 

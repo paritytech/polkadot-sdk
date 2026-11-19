@@ -38,6 +38,7 @@ use sp_runtime::{
 use std::{fmt, sync::Arc};
 
 /// A resumed target this many blocks or more below the finalized block is too old to download.
+///
 /// Peers keep the state of the last 256 finalized blocks by default
 /// (`sc_state_db::DEFAULT_MAX_BLOCK_CONSTRAINT`) and refuse an older one. A parachain in warp
 /// sync measures from the finalized head it is given at startup, fast sync from the finalized
@@ -209,13 +210,14 @@ where
 	B: BlockT,
 	Client: ProofProvider<B> + PartialStateImport<B> + Send + Sync + 'static,
 {
-	/// Create a new instance. The client records the target so a restart can resume the download,
-	/// and first drops any earlier attempt that never completed. Dropping one removes its nodes
-	/// one by one, tens of seconds on a large state, so the client does all of this in a task of
-	/// its own and `new` returns at once. Until that task has ended the sync reports a pending
-	/// write: no state request goes out and a response is ignored. Then
-	/// [`StateSyncProvider::poll_pending_write`] lets the download start, or aborts the sync if
-	/// the target could not be recorded.
+	/// Create a new instance.
+	///
+	/// The client records the target so a restart can resume the download, and first drops any
+	/// earlier attempt that never completed. Dropping one removes its nodes one by one, tens of
+	/// seconds on a large state, so the client does all of this in a task of its own and `new`
+	/// returns at once. Until that task has ended the sync reports a pending write: no state
+	/// request goes out and a response is ignored. Then [`StateSyncProvider::poll_pending_write`]
+	/// lets the download start, or aborts the sync if the target could not be recorded.
 	pub fn new(
 		client: Arc<Client>,
 		target_header: B::Header,

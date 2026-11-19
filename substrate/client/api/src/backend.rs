@@ -272,11 +272,12 @@ pub trait BlockImportOperation<Block: BlockT> {
 	/// Configure whether to create a block gap if newly imported block is missing parent
 	fn set_create_gap(&mut self, create_gap: bool);
 
-	/// Mark that the pending block's state was written by a state sync, chunk by chunk through
-	/// the backend's [`PartialStateStore`], and checked complete. The import executes nothing and
-	/// writes no storage changes; the commit records the block as having state and forgets the
-	/// sync. The commit fails if the block is not the recorded target. A backend without a store
-	/// refuses the mark.
+	/// Mark that a state sync already wrote the pending block's state.
+	///
+	/// The state was written chunk by chunk through the backend's [`PartialStateStore`] and
+	/// checked complete. The import executes nothing and writes no storage changes; the commit
+	/// records the block as having state and forgets the sync. The commit fails if the block is
+	/// not the recorded target. A backend without a store refuses the mark.
 	fn mark_state_synced(&mut self) -> sp_blockchain::Result<()> {
 		Err(sp_blockchain::Error::Backend("state sync is not supported by this backend".into()))
 	}
@@ -713,10 +714,12 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	/// Tells whether the backend requires full-sync mode.
 	fn requires_full_sync(&self) -> bool;
 
-	/// The store a state sync writes into, if this backend has one. `None` means the backend
-	/// cannot state-sync, and the client refuses every state sync operation. The store shares the
-	/// backend's database and locks; the commit of the target block, marked with
-	/// [`BlockImportOperation::mark_state_synced`], completes what the store began.
+	/// The store a state sync writes into, if this backend has one.
+	///
+	/// `None` means the backend cannot state-sync, and the client refuses every state sync
+	/// operation. The store shares the backend's database and locks; the commit of the target
+	/// block, marked with [`BlockImportOperation::mark_state_synced`], completes what the store
+	/// began.
 	fn partial_state(&self) -> Option<&dyn PartialStateStore<Block>> {
 		None
 	}
