@@ -484,7 +484,7 @@ impl pallet_assets::Config<AssetsInstance> for Runtime {
 	type CallbackHandle = ();
 	type AssetIdAllocator = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
-	// `destroy_accounts` must fit the 0.5s block for this many accounts.
+	// `destroy_accounts` for this many accounts must fit `max_extrinsic` of the `Normal` class.
 	type RemoveItemsLimit = frame_support::traits::ConstU32<500>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = assets_common::benchmarks::LocationAssetsBenchmarkHelper;
@@ -508,7 +508,7 @@ pub type PoolAssetsInstance = pallet_assets::Instance3;
 impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
-	// `destroy_accounts` must fit the 0.5s block for this many accounts.
+	// `destroy_accounts` for this many accounts must fit `max_extrinsic` of the `Normal` class.
 	type RemoveItemsLimit = ConstU32<500>;
 	type AssetId = u32;
 	type AssetIdParameter = u32;
