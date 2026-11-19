@@ -188,6 +188,7 @@ fn create_signed_statement(id: usize, keypair: &sp_core::ed25519::Pair) -> State
 	let mut data = vec![0u8; STATEMENT_DATA_SIZE];
 	data[0..8].copy_from_slice(&id.to_le_bytes());
 	statement.set_plain_data(data);
+	statement.set_topic(0, [0xff; 32].into());
 
 	statement.sign_ed25519_private(keypair);
 	statement
