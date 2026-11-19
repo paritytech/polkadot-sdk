@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795043887623,
+  "lastUpdate": 1795084099740,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bbaa06f68d1e10fcd4aa43ee136819e16cf760eb",
-          "message": "Update `TargetBlockRate` impl to match configured runtime block processing velocity on all test chains (#12005)\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>",
-          "timestamp": "2026-05-07T07:17:47Z",
-          "tree_id": "46be5d023cdc50bbba42833314e69d5bc79bea93",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bbaa06f68d1e10fcd4aa43ee136819e16cf760eb"
-        },
-        "date": 1778143296093,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007080463880000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023974600393333326,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009727909479999977,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14114228176666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007556553473333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7b2027bb2897bf35018c02683bef5cae8bff137f",
+          "message": "bump zombienet to latest. (#13913)\n\nBump zombienet crates  to latest version.",
+          "timestamp": "2026-11-19T08:36:07Z",
+          "tree_id": "45145ab2ad322a5029860066f7c8944ca42f9a32",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7b2027bb2897bf35018c02683bef5cae8bff137f"
+        },
+        "date": 1795084064025,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.0243495887,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009747132366666638,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14715498714666675,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007518132193333335,
             "unit": "seconds"
           }
         ]
