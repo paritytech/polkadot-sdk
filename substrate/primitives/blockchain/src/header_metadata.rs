@@ -271,13 +271,25 @@ pub trait HeaderMetadata<Block: BlockT> {
 
 /// Caches header metadata in an in-memory LRU cache.
 pub struct HeaderMetadataCache<Block: BlockT> {
-	cache: Mutex<LruMap<Block::Hash, CachedHeaderMetadata<Block>>>,
+	cache: Mutex<HeaderMetadataCacheInner<Block>>,
+}
+
+struct HeaderMetadataCacheInner<Block: BlockT> {
+	entries: LruMap<Block::Hash, CachedHeaderMetadata<Block>>,
+	/// Hashes whose headers were removed, so a reader that read the header before the removal
+	/// does not cache it again.
+	deleted: LruMap<Block::Hash, ()>,
 }
 
 impl<Block: BlockT> HeaderMetadataCache<Block> {
 	/// Creates a new LRU header metadata cache with `capacity`.
 	pub fn new(capacity: u32) -> Self {
-		HeaderMetadataCache { cache: Mutex::new(LruMap::new(ByLength::new(capacity))) }
+		HeaderMetadataCache {
+			cache: Mutex::new(HeaderMetadataCacheInner {
+				entries: LruMap::new(ByLength::new(capacity)),
+				deleted: LruMap::new(ByLength::new(capacity)),
+			}),
+		}
 	}
 }
 
@@ -289,15 +301,31 @@ impl<Block: BlockT> Default for HeaderMetadataCache<Block> {
 
 impl<Block: BlockT> HeaderMetadataCache<Block> {
 	pub fn header_metadata(&self, hash: Block::Hash) -> Option<CachedHeaderMetadata<Block>> {
-		self.cache.lock().get(&hash).cloned()
+		self.cache.lock().entries.get(&hash).cloned()
 	}
 
 	pub fn insert_header_metadata(&self, hash: Block::Hash, metadata: CachedHeaderMetadata<Block>) {
-		self.cache.lock().insert(hash, metadata);
+		let mut cache = self.cache.lock();
+		cache.deleted.remove(&hash);
+		cache.entries.insert(hash, metadata);
+	}
+
+	/// Insert metadata read from the database, unless the header was removed in the meantime.
+	pub fn insert_header_metadata_if_not_deleted(
+		&self,
+		hash: Block::Hash,
+		metadata: CachedHeaderMetadata<Block>,
+	) {
+		let mut cache = self.cache.lock();
+		if cache.deleted.peek(&hash).is_none() {
+			cache.entries.insert(hash, metadata);
+		}
 	}
 
 	pub fn remove_header_metadata(&self, hash: Block::Hash) {
-		self.cache.lock().remove(&hash);
+		let mut cache = self.cache.lock();
+		cache.entries.remove(&hash);
+		cache.deleted.insert(hash, ());
 	}
 }
 

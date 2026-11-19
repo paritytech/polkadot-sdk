@@ -878,8 +878,10 @@ impl<Block: BlockT> HeaderMetadata<Block> for BlockchainDb<Block> {
 				self.header(hash)?
 					.map(|header| {
 						let header_metadata = CachedHeaderMetadata::from(&header);
-						self.header_metadata_cache
-							.insert_header_metadata(header_metadata.hash, header_metadata.clone());
+						self.header_metadata_cache.insert_header_metadata_if_not_deleted(
+							header_metadata.hash,
+							header_metadata.clone(),
+						);
 						header_metadata
 					})
 					.ok_or_else(|| {
@@ -5427,6 +5429,35 @@ pub(crate) mod tests {
 		assert!(backend.blockchain().header(blocks[1]).unwrap().is_none());
 		assert_eq!(backend.blockchain().leaves().unwrap(), vec![best_hash]);
 		assert_eq!(backend.blockchain().children(blocks[0]).unwrap(), vec![best_hash]);
+	}
+
+	#[test]
+	fn header_metadata_does_not_recache_removed_leaf() {
+		let backend = Backend::<Block>::new_test(10, 10);
+		let block0 = insert_header(&backend, 0, Default::default(), None, Default::default());
+		let block1 = insert_header(&backend, 1, block0, None, Default::default());
+		let best_hash = insert_header(&backend, 1, block0, None, sp_core::H256::random());
+		assert_eq!(backend.blockchain().info().best_hash, best_hash);
+
+		// A reader reads `block1` on a cache miss, then `remove_leaf_block` removes it before
+		// the reader inserts the metadata into the cache.
+		let header = backend.blockchain().header(block1).unwrap().unwrap();
+		backend.remove_leaf_block(block1).unwrap();
+		backend
+			.blockchain
+			.header_metadata_cache
+			.insert_header_metadata_if_not_deleted(block1, CachedHeaderMetadata::from(&header));
+
+		assert!(backend.blockchain.header_metadata_cache.header_metadata(block1).is_none());
+		assert!(matches!(
+			backend.blockchain.header_metadata(block1),
+			Err(sp_blockchain::Error::UnknownBlock(_))
+		));
+
+		// Re-importing the header through the normal insert path makes it cacheable again.
+		let reimported = insert_header(&backend, 1, block0, None, Default::default());
+		assert_eq!(reimported, block1);
+		assert!(backend.blockchain.header_metadata_cache.header_metadata(block1).is_some());
 	}
 
 	#[test]
