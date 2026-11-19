@@ -11349,8 +11349,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afdc06c6cc978c1cf3d0793cebf2d99bd104ae0dd000d64f6f9c22b7ca1e9f34"
+source = "git+https://github.com/paritytech/litep2p.git?branch=dm-contain-str0m#a1dba37eb54a3c31dd1fa05cb198d042a3c3d568"
 dependencies = [
  "async-trait",
  "bs58",
@@ -22520,6 +22519,7 @@ dependencies = [
  "sp-blockchain 28.0.0",
  "sp-consensus 0.32.0",
  "sp-core 28.0.0",
+ "sp-panic-handler 13.0.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "substrate-prometheus-endpoint 0.17.0",
