@@ -489,8 +489,8 @@ fn pick_probes(
 	}
 
 	// The subscriber's steering keeps one peer for the topic, its nearest known DHT node. The
-	// topic's nearest node is DHT-off and shares no sync link with the subscriber, so identify
-	// keeps it out of the subscriber's index
+	// topic's nearest node is DHT-off and lists no `statement/3`, so identify keeps it out of the
+	// subscriber's index
 	let nearest_dht_off = (0..TOPIC_SEARCH_LIMIT).find_map(|candidate| {
 		let topic = soak_topic(b"mixed-p2-hard", wave, candidate);
 		let order = ranked_by_distance(peer_keys, topic);

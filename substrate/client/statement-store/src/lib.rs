@@ -3095,25 +3095,26 @@ impl StatementStore for Store {
 	///    (`SubmitResult::Invalid(InvalidReason::AlreadyExpired)`).
 	/// 2. **Encoding size check** — reject if the encoded statement exceeds [`MAX_STATEMENT_SIZE`]
 	///    (`InvalidReason::EncodingTooLarge`).
-	/// 3. **Duplicate check** — a statement already in the store is reported `Known`: the hash
+	/// 3. **Topics check** — reject a statement without topics (`InvalidReason::NoTopics`).
+	/// 4. **Duplicate check** — a statement already in the store is reported `Known`: the hash
 	///    covers the whole content, so a duplicate carries nothing to renew. A recently evicted
 	///    statement may be resubmitted (renewed) by `Chain` and `Local` sources but not by
 	///    `Network` (`SubmitResult::KnownExpired`).
-	/// 4. **Proof & signature** — extract the account from the proof and verify the signature
+	/// 5. **Proof & signature** — extract the account from the proof and verify the signature
 	///    (`InvalidReason::NoProof` / `InvalidReason::BadProof`).
-	/// 5. **Allowance** — read the account's allowance (`StatementAllowance`: max count and size)
+	/// 6. **Allowance** — read the account's allowance (`StatementAllowance`: max count and size)
 	///    directly from chain state at the best block (via the `statement_allowance_key` storage
 	///    key — not a runtime call); reject with `SubmitResult::Rejected(NoAllowance)` if none is
 	///    set. The best block is used for responsiveness. Limit enforcement takes the larger of the
 	///    best and the finalized allowance, so a statement accepted here outlives the finality lag;
 	///    it is evicted later if the allowance it relied on leaves the best chain or a lower
 	///    allowance is finalized.
-	/// 6. **Constraint check & eviction** — check the account's record, enforcing per-account
+	/// 7. **Constraint check & eviction** — check the account's record, enforcing per-account
 	///    limits (count, size, one statement per channel, higher priority replaces lower) and
 	///    global limits ([`DEFAULT_MAX_TOTAL_STATEMENTS`], [`DEFAULT_MAX_TOTAL_SIZE`]), evicting
 	///    lower-priority statements of the same account as needed (`SubmitResult::Rejected` if it
 	///    still does not fit).
-	/// 7. **Persist** — commit the statement, its index rows, any evictions and the refreshed
+	/// 8. **Persist** — commit the statement, its index rows, any evictions and the refreshed
 	///    counters atomically, then update the caches and the in-memory query index.
 	///
 	/// Returns `SubmitResult::New` on success.
@@ -3152,6 +3153,18 @@ impl StatementStore for Store {
 				submitted_size: encoded_size,
 				max_size: MAX_STATEMENT_SIZE,
 			};
+			self.metrics.report(|metrics| {
+				metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
+			});
+			return SubmitResult::Invalid(reason);
+		}
+		if statement.topics().is_empty() {
+			log::debug!(
+				target: LOG_TARGET,
+				"Statement has no topics: {:?}",
+				HexDisplay::from(&hash),
+			);
+			let reason = InvalidReason::NoTopics;
 			self.metrics.report(|metrics| {
 				metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
 			});
@@ -4232,7 +4245,7 @@ mod tests {
 	}
 
 	pub fn signed_statement(data: u8) -> Statement {
-		signed_statement_with_topics(data, &[], None)
+		signed_statement_with_topics(data, &[default_topic()], None)
 	}
 
 	fn signed_statement_with_topics(
@@ -4253,6 +4266,11 @@ mod tests {
 		let kp = sp_core::ed25519::Pair::from_string("//Alice", None).unwrap();
 		statement.sign_ed25519_private(&kp);
 		statement
+	}
+
+	/// The topic of test statements that need none in particular.
+	fn default_topic() -> Topic {
+		Topic::from([0xff; 32])
 	}
 
 	fn topic(data: u64) -> Topic {
@@ -4314,6 +4332,7 @@ mod tests {
 		data.resize(data_len, 0);
 		statement.set_plain_data(data);
 		statement.set_expiry_from_parts(u32::MAX, priority);
+		statement.set_topic(0, default_topic());
 		if let Some(c) = c {
 			statement.set_channel(channel(c));
 		}
@@ -5927,8 +5946,8 @@ mod tests {
 	fn broadcasts_stmt_returns_encoded_statements() {
 		let (store, _tmp) = test_store();
 
-		// no key, no topic
-		let s0 = signed_statement_with_topics(0, &[], None);
+		// no key, a topic other than 42
+		let s0 = signed_statement_with_topics(0, &[topic(7)], None);
 		// same, but with a topic = 42
 		let s1 = signed_statement_with_topics(1, &[topic(42)], None);
 		// has a decryption key -> must NOT be returned by broadcasts_stmt
@@ -6949,6 +6968,7 @@ mod tests {
 		let mut base = Statement::new();
 		base.set_expiry(u64::MAX);
 		base.set_plain_data(vec![1]);
+		base.set_topic(0, default_topic());
 
 		let ed_kp = sp_core::ed25519::Pair::from_string("//Alice", None).unwrap();
 		let sr_kp = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
@@ -6985,6 +7005,20 @@ mod tests {
 			store.submit(wrong_signer, StatementSource::Network),
 			SubmitResult::Invalid(InvalidReason::BadProof)
 		);
+	}
+
+	#[test]
+	fn submit_rejects_statement_without_topics() {
+		let (store, _temp) = test_store();
+
+		for source in [StatementSource::Network, StatementSource::Local, StatementSource::Chain] {
+			let statement = signed_statement_with_topics(1, &[], None);
+			assert_eq!(
+				store.submit(statement, source),
+				SubmitResult::Invalid(InvalidReason::NoTopics)
+			);
+		}
+		assert_eq!(store.statements().unwrap().len(), 0);
 	}
 
 	#[test]
