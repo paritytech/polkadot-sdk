@@ -173,8 +173,7 @@ where
 
 	verify_blocks_form_chain::<B>(&blocks, &parent_header);
 
-	// The bundle's `Provides`, from the blocks' SPMS digests. Executing each block below checks
-	// its header digest against the one the runtime deposits.
+	// Executing each block below checks its header digest against the one the runtime deposits.
 	let provides = bundle_provides(blocks.iter().map(|block| block.header().digest()));
 
 	let mut processed_downward_messages = 0;
@@ -375,8 +374,6 @@ where
 		}
 	}
 
-	// A `signed_scheduling_info` overrides the block's emitted *scheduling* signals wholesale —
-	// they are ignored, not merged.
 	let scheduling_signals = match scheduling_override_inputs.as_ref() {
 		Some((signed_info, _)) => SchedulingSignals::from_scheduling_info(signed_info),
 		None => SchedulingSignals::from_block_signals(&upward_message_signals),

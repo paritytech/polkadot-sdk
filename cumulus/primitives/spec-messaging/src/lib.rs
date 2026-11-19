@@ -68,8 +68,7 @@ pub use streams_root::{
 };
 
 /// How `parachain-system` reads a block's consumption record without depending on the messaging
-/// pallet. `()` records nothing. `Provides` needs no hook: `validate_block` takes it from the
-/// blocks' [`SPMS_ENGINE_ID`] digests.
+/// pallet. `()` records nothing.
 pub trait ProvideConsumptionRecord {
 	/// The block's consumption record: what the messaging inherent did. The `validate_block`
 	/// wrapper calls it after executing each block of a bundle.
