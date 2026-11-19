@@ -92,7 +92,8 @@
 //! * `transfer_approved`: Transfer third-party's assets to another account.
 //! * `touch`: Create an asset account for non-provider assets. Caller must place a deposit.
 //! * `refund`: Return the deposit (if any) of the caller's asset account or a consumer reference
-//!   (if any) of the caller's account.
+//!   (if any) of the caller's account. A frozen or blocked account with a freezer deposit keeps a
+//!   zero-balance entry that cannot receive the asset.
 //! * `refund_other`: Return the deposit (if any) of a specified asset account.
 //! * `touch_other`: Create an asset account for specified account. Caller must place a deposit.
 //!
@@ -110,8 +111,10 @@
 //! * `mint`: Increases the asset balance of an account; called by the asset class's Issuer.
 //! * `burn`: Decreases the asset balance of an account; called by the asset class's Admin.
 //! * `force_transfer`: Transfers between arbitrary accounts; called by the asset class's Admin.
-//! * `freeze`: Disallows further `transfer`s from an account; called by the asset class's Freezer.
-//! * `thaw`: Allows further `transfer`s to and from an account; called by the asset class's Admin.
+//! * `freeze`: Disallows further `transfer`s from an account; called by the asset class's Freezer,
+//!   who places a deposit if the account's holder can `refund` it.
+//! * `thaw`: Allows further `transfer`s to and from an account, returns the freezer's deposit and
+//!   removes the entry a `refund` left behind; called by the asset class's Admin.
 //! * `transfer_ownership`: Changes an asset class's Owner; called by the asset class's Owner.
 //! * `set_team`: Changes an asset class's Admin, Freezer and Issuer; called by the asset class's
 //!   Owner.
@@ -120,7 +123,7 @@
 //! * `set_reserves`: Set the reserve information of an asset class; called by the asset class's
 //!   Owner.
 //! * `block`: Disallows further `transfer`s to and from an account; called by the asset class's
-//!   Freezer.
+//!   Freezer, who places a deposit if the account's holder can `refund` it.
 //!
 //! Please refer to the [`Call`] enum and its associated variants for documentation on each
 //! function.
