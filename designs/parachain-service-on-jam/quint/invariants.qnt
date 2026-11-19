@@ -200,7 +200,7 @@ module invariants {
             | Ok(ok) =>
               val direct = ok.paraId == p
                 and ok.headData == svc.paraInfo(p).headData
-              val viaMsg = ok.upwardMessages.foldl(false, (a, m) => match m {
+              val viaMsg = ok.upwardMessages.foldl(false, (a, m) => match m._2 {
                 | ParachainSetHead(payload) =>
                   a or (payload.paraId == p
                     and payload.newHead == svc.paraInfo(p).headData)
@@ -237,7 +237,7 @@ module invariants {
               // `parachain_set_head` messages (step 7), each a no-op for a
               // non-live target.
               ok.upwardMessages.foldl(heads.put(ok.paraId, ok.headData), (h, m) =>
-                match m {
+                match m._2 {
                   | ParachainSetHead(pl) =>
                     if (h.keys().contains(pl.paraId)) h.put(pl.paraId, pl.newHead) else h
                   | _ => h

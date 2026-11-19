@@ -209,7 +209,7 @@ module state_balance {
         jamSolicit: None,
         jamForget: None,
         retained: false,
-        log: Some(InsufficientStateBalance(FromSolicit({ hash: h, len: len })))
+        log: Some(InsufficientStateBalance)
       }
     } else {
       val wasEmpty = not(s.preimageRegistry.keys().contains((h, len))) or
@@ -316,7 +316,6 @@ module state_balance {
               jamForget: Some(h),
               retained: true,
               log: Some(ForgetAgainAt({
-                target: Parachain(para_id),
                 hash: h,
                 len: len,
                 due: now + ExpungePeriod
@@ -332,7 +331,7 @@ module state_balance {
               jamSolicit: None,
               jamForget: None,
               retained: true,
-              log: Some(ForgetAgainAt({ target: Parachain(para_id), hash: h, len: len, due: due }))
+              log: Some(ForgetAgainAt({ hash: h, len: len, due: due }))
             }
           | Rerequested(r) =>
             // Rescued preimage. JAM gates `forget` against the ORIGINAL
@@ -352,7 +351,6 @@ module state_balance {
               jamForget: Some(h),
               retained: true,
               log: Some(ForgetAgainAt({
-                target: Parachain(para_id),
                 hash: h,
                 len: len,
                 due: now + ExpungePeriod
@@ -362,7 +360,7 @@ module state_balance {
               jamSolicit: None,
               jamForget: None,
               retained: true,
-              log: Some(ForgetAgainAt({ target: Parachain(para_id), hash: h, len: len, due: due }))
+              log: Some(ForgetAgainAt({ hash: h, len: len, due: due }))
             }
         }
       }
@@ -387,7 +385,7 @@ module state_balance {
   }
 
   /// Replay a `SetKV`: upsert `keyValueStorage[(para_id, key)]`, delta-charged
-  /// per §6.1. Rejected (state unchanged, `FromSetKV` logged) when a positive
+  /// per §6.1. Rejected (state unchanged, `InsufficientStateBalance` logged) when a positive
   /// delta exceeds headroom.
   pure def applySetKV(
     s: ParachainServiceState, para_id: ParaId, key: List[int], value: List[int]
@@ -402,9 +400,7 @@ module state_balance {
     if (delta > 0 and not(pi.hasHeadroom(delta))) {
       {
         state: s,
-        log: Some(InsufficientStateBalance(FromSetKV({
-          keyHash: listHash(key)
-        })))
+        log: Some(InsufficientStateBalance)
       }
     } else {
       {

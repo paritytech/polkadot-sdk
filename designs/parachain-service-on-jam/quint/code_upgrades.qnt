@@ -52,7 +52,7 @@ module code_upgrades {
         jamSolicit: None,
         jamForget: None,
         retained: false,
-        log: Some(CodeUpgradeNotAvailable({ hash: h, len: codeLen }))
+        log: Some(CodeUpgradeNotAvailable)
       }
     } else {
       unchangedDelta({
@@ -79,7 +79,7 @@ module code_upgrades {
         jamSolicit: None,
         jamForget: None,
         retained: false,
-        log: Some(CodeUpgradeNotAnnounced({ hash: newHash.asPreimage(), len: codeLen }))
+        log: Some(CodeUpgradeNotAnnounced)
       }
     match pi.announcedUpgrade {
       | None => notAnnounced

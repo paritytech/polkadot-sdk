@@ -144,7 +144,8 @@ module main {
         | _ => c
       }))
     val body =
-      if (headFirst) headCalls.concat(sends(msgs)) else sends(msgs).concat(headCalls)
+      if (headFirst) headCalls.concat(sends(withIndexIds(msgs)))
+      else sends(withIndexIds(msgs)).concat(headCalls)
     { pkg: pkg, calls: parentCalls.concat(body).concat(codeEnd) }
   }
 
@@ -446,7 +447,6 @@ module main {
         len: FixedCodeLen,
         minItemGas: 0,
         minMemoGas: 100,
-        messageId: 1,
         desiredId: None,
         sourceSupervisorBalance: false,
         newSupervisorBalance: false
@@ -457,7 +457,6 @@ module main {
       len: FixedCodeLen,
       minItemGas: 0,
       minMemoGas: 0,
-      messageId: 2,
       desiredId: Some(MkServiceId(42)),
       sourceSupervisorBalance: false,
       newSupervisorBalance: false
@@ -470,7 +469,6 @@ module main {
       source: None,
       dest: created,
       amount: Exact(100),
-      id: 1,
       sourceSupervisorBalance: false,
       destSupervisorBalance: false,
       deferred: Some((0, 1000))
@@ -479,7 +477,6 @@ module main {
         source: None,
         dest: created,
         amount: Exact(100),
-        id: 2,
         sourceSupervisorBalance: false,
         destSupervisorBalance: false,
         deferred: None
@@ -488,7 +485,6 @@ module main {
         source: None,
         dest: ParachainServiceId,
         amount: Exact(100),
-        id: 3,
         sourceSupervisorBalance: false,
         destSupervisorBalance: true,
         deferred: None
@@ -497,7 +493,6 @@ module main {
         source: None,
         dest: ParachainServiceId,
         amount: Exact(100),
-        id: 4,
         sourceSupervisorBalance: true,
         destSupervisorBalance: false,
         deferred: None
@@ -506,7 +501,6 @@ module main {
         source: Some(created),
         dest: MkServiceId(42),
         amount: Exact(100),
-        id: 5,
         sourceSupervisorBalance: false,
         destSupervisorBalance: false,
         deferred: None
@@ -515,7 +509,6 @@ module main {
         source: None,
         dest: MkServiceId(9),
         amount: Exact(100),
-        id: 6,
         sourceSupervisorBalance: false,
         destSupervisorBalance: false,
         deferred: Some((0, 1000))
@@ -524,7 +517,6 @@ module main {
         source: None,
         dest: created,
         amount: Exact(100),
-        id: 7,
         sourceSupervisorBalance: false,
         destSupervisorBalance: false,
         deferred: Some((0, 10))
@@ -533,7 +525,6 @@ module main {
         source: None,
         dest: created,
         amount: Exact(TotalSupply),
-        id: 8,
         sourceSupervisorBalance: false,
         destSupervisorBalance: false,
         deferred: Some((0, 1000))
@@ -543,7 +534,6 @@ module main {
         source: None,
         dest: created,
         amount: Max(TotalSupply),
-        id: 9,
         sourceSupervisorBalance: false,
         destSupervisorBalance: false,
         deferred: Some((0, 1000))

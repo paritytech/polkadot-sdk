@@ -219,8 +219,10 @@ struct RefineLogEntry {
 
 struct AccumulateLogEntry {
     /// Events recorded while accumulating one of this parachain's work
-    /// packages. See §5.1.
-    entries: Vec<AccumulateLog>,
+    /// packages, each with the `message_id` of the upward message that caused
+    /// it. One message can cause several events, e.g. one per preimage of a
+    /// `Forget`. See §5.1.
+    entries: Vec<(MessageId, AccumulateLog)>,
 }
 
 /// Why Refine failed, as recorded in `parachain_log` (§5.1).
@@ -269,15 +271,6 @@ enum CodeUpgradePhase {
     Apply,
 }
 
-/// Why a state-balance reservation failed (see §6.1).
-enum InsufficientBalanceReason {
-    /// A `Solicit` of the preimage with `hash` and `len`.
-    Solicit { hash: Hash, len: Compact<u32> },
-    /// A `SetKV` write to `key_value_storage`, identified by the hash of its
-    /// key.
-    SetKV { key_hash: Hash },
-}
-
 /// Why `ParachainSetStateBalance` was rejected (see §6.1).
 enum StateBalanceRejection {
     /// `attempted < current_used`.
@@ -287,16 +280,10 @@ enum StateBalanceRejection {
 }
 
 enum AccumulateLog {
-    /// Available state balance insufficient for the operation described by
-    /// `reason`. See §6.1.
-    InsufficientStateBalance { reason: InsufficientBalanceReason },
-    /// `ParachainSetStateBalance { para_id, new_total: attempted }` was rejected for
-    /// `reason`. See §6.1.
-    StateBalanceUpdateRejected {
-        para_id: ParaId,
-        attempted: Compact<Balance>,
-        reason: StateBalanceRejection,
-    },
+    /// Available state balance insufficient for the operation. See §6.1.
+    InsufficientStateBalance,
+    /// `ParachainSetStateBalance` was rejected for `reason`. See §6.1.
+    StateBalanceUpdateRejected { reason: StateBalanceRejection },
     /// JAM `designate` rejected the assembled validator-key set of length
     /// `len`. See §5.3.
     DesignateRejected { len: Compact<u32> },
@@ -305,40 +292,40 @@ enum AccumulateLog {
     StagedValidatorKeysOverflow,
     /// Asset Hub does not reference the new code's preimage, or it is not
     /// available for lookup. See §5.4.
-    ServiceUpgradePreimageMissing { code_hash: Hash },
+    ServiceUpgradePreimageMissing,
     /// An `Announcement` whose code is not available. See §5.2.
-    CodeUpgradeNotAvailable { hash: Hash, len: Compact<u32> },
+    CodeUpgradeNotAvailable,
     /// An `Apply` that does not match the standing announcement. See §5.2.
-    CodeUpgradeNotAnnounced { hash: Hash, len: Compact<u32> },
+    CodeUpgradeNotAnnounced,
     /// A `Forget` naming code that is still in use. See §6.1.
     CanNotRemoveCode { hash: Hash, len: Compact<u32> },
     /// JAM rejected an `assign` because this service is no longer the core's
     /// assigner. See §5.1.
-    CoreNotAssignable { core: CoreIndex },
-    /// The JAM `transfer` for the `TransferOut` with this `id` failed. See §5.1.
-    TransferFailed { id: Compact<u64>, error: TransferError },
-    /// The `TransferOut` with this `id` and a `TransferAmount::Max` went through,
-    /// moving `amount`. See §5.1.
-    TransferredAmount { id: Compact<u64>, amount: Compact<Amount> },
+    CoreNotAssignable,
+    /// The JAM `transfer` for a `TransferOut` failed. See §5.1.
+    TransferFailed { error: TransferError },
+    /// A `TransferOut` with a `TransferAmount::Max` went through, moving
+    /// `amount`. See §5.1.
+    TransferredAmount { amount: Compact<Amount> },
     /// A `forget` left the preimage in place. `Forget` it again after `due`.
     /// See §6.1.
-    ForgetAgainAt { target: Target, hash: Hash, len: Compact<u32>, due: Timeslot },
+    ForgetAgainAt { hash: Hash, len: Compact<u32>, due: Timeslot },
     /// A `Service`-targeted `Forget` named a preimage the service never requested.
-    ServiceForgetNotRequested { service: ServiceId, hash: Hash, len: Compact<u32> },
+    ServiceForgetNotRequested { hash: Hash, len: Compact<u32> },
     /// A `RemoveServiceStorage` named a key the service does not hold. `key_hash`
     /// is the hash of that `key`.
-    ServiceKeyNotFound { service: ServiceId, key_hash: Hash },
+    ServiceKeyNotFound { key_hash: Hash },
     /// A `Service`-targeted `Solicit` failed.
-    ServiceSolicitFailed { service: ServiceId, error: ServiceSolicitError },
+    ServiceSolicitFailed { error: ServiceSolicitError },
     /// An `EjectService` failed.
-    ServiceEjectFailed { service: ServiceId, error: ServiceEjectError },
+    ServiceEjectFailed { error: ServiceEjectError },
     /// An `EjectService` succeeded. `credited` is the amount of regular plus
     /// supervisor balance that got credited back.
-    ServiceEjected { service: ServiceId, credited: Compact<Balance> },
+    ServiceEjected { credited: Compact<Balance> },
     /// A `SetServiceSupervisor` failed.
-    ServiceSupervisorFailed { service: ServiceId, error: ServiceSupervisorError },
-    /// Outcome of the `CreateService` with this `message_id`.
-    ServiceCreation { message_id: Compact<u64>, result: ServiceCreationResult },
+    ServiceSupervisorFailed { error: ServiceSupervisorError },
+    /// Outcome of a `CreateService`.
+    ServiceCreation { result: ServiceCreationResult },
     /// `ParachainCleanUp` was rejected because the parachain still holds state
     /// beyond its baseline and validation code(s). See §6.4.
     TooMuchStateHeld,
@@ -468,6 +455,10 @@ type HeadData = BoundedVec<u8, { 4 * 1024 }>;
 /// Fixed 128-byte transfer memo, matching Gray Paper `C_memosize = 128`.
 type Memo = [u8; 128];
 
+/// Caller-supplied identifier of an upward message, logged with every
+/// `AccumulateLog` the message causes. See §4.3.
+type MessageId = Compact<u64>;
+
 /// A validation code reference: its hash plus its SCALE-encoded byte length.
 struct ValidationCodeRef {
     hash: ValidationCodeHash,
@@ -549,8 +540,9 @@ enum ParachainWorkDigest {
         parent_head_hash: Hash,
         /// New head data produced by the parachain block.
         head_data: HeadData,
-        /// Upward messages in the order they were emitted. See §5.1 step 6.
-        upward_messages: Vec<UpwardMessage>,
+        /// Upward messages in the order they were emitted, each with the
+        /// `message_id` it was sent with (§4.3). See §5.1 step 6.
+        upward_messages: Vec<(MessageId, UpwardMessage)>,
         /// The work package's lookup-anchor timeslot.
         lookup_anchor: Timeslot,
     },
@@ -583,15 +575,13 @@ enum UpwardMessage {
     SetServiceSupervisor { service: ServiceId, new_supervisor: ServiceId },
     /// Create a service supervised by this one, funded from this service's
     /// balance. The amount is the new service's minimum balance, as defined by
-    /// the Gray Paper (`new`). `message_id` is a caller-supplied identifier,
-    /// echoed back in the `ServiceCreation` log entry so Asset Hub can match
-    /// the outcome to its request. **Asset Hub only.**
+    /// the Gray Paper (`new`). The outcome is logged in `ServiceCreation`.
+    /// **Asset Hub only.**
     CreateService {
         code_hash: Hash,
         len: Compact<u32>,
         min_item_gas: u64,
         min_memo_gas: u64,
-        message_id: Compact<u64>,
         /// Index to create the service at, in JAM's protected range. Only
         /// honoured while the Parachain Service is the registrar (§3).
         desired_id: Option<ServiceId>,
@@ -610,28 +600,26 @@ enum UpwardMessage {
     /// Remove `key_value_storage[(para_id, key)]`. An empty `key` aborts Refine with
     /// `Err(RefineLog::EmptyKVKeyOrValue)`. See §6.1.
     RemoveKV { para_id: ParaId, key: Vec<u8> },
-    /// Transfer balance via JAM `transfer`. `id` is a caller-supplied
-    /// identifier, echoed back in `TransferFailed` and `TransferredAmount` so
-    /// Asset Hub can match the outcome to its request. See §5.1.
-    /// **Asset Hub only.**
+    /// Transfer balance via JAM `transfer`. The outcome is logged in
+    /// `TransferFailed` or `TransferredAmount`. See §5.1. **Asset Hub only.**
     TransferOut {
         source: Option<ServiceId>,
         dest: ServiceId,
         amount: TransferAmount,
-        id: Compact<u64>,
         source_supervisor_balance: bool,
         dest_supervisor_balance: bool,
         deferred: Option<(Memo, u64)>,
     },
     /// Schedule a core's JAM `assign`. A queue violating either length rule
-    /// below aborts Refine with `Err(RefineLog::InvalidAuthorizerQueue)`.
+    /// below aborts Refine with `Err(RefineLog::InvalidAuthorizerQueue)`. Logs
+    /// `AccumulateLog::CoreNotAssignable` if another service owns the core.
     /// See §5.1 and §7.1. **Coretime chain only.**
     AssignCore {
         /// Must be below `C_corecount`, whether or not the core is currently
         /// active. Otherwise Refine fails with `Err(RefineLog::InvalidCoreIndex)`.
         core: CoreIndex,
         /// Between 1 and `AUTH_QUEUE_SIZE` authorizer hashes.
-        queue: Vec<AuthorizerHash>,
+        queue: BoundedVec<AuthorizerHash, AUTH_QUEUE_SIZE>,
         /// `None` keeps this service as the core's assigner. `Some(s)` hands the
         /// core to `s` and requires exactly `AUTH_QUEUE_SIZE` hashes. See §7.1.
         new_assigner: Option<ServiceId>,
@@ -808,12 +796,12 @@ Accumulate:
 |---|---|---|---|
 | 200 | `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on, as the hash of the parent `head_data`. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate, which checks it against the para's current head (§5.1 step 4). |
 | 201 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). Aborts Refine with `Err(RefineLog::HeadDataTooLarge)` if `new_head` exceeds the 4 KiB `HeadData` bound. The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 5). Distinct from the Coretime-only `ParachainSetHead`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
-| 202 | `send_upward_message(msg: UpwardMessage)` | `()` | Append one upward message to `ParachainWorkDigest.upward_messages`. Aborts Refine with `Err(RefineLog::UpwardMessagesTooLarge)` if the message would carry the encoded upward messages past the parachain's fixed **40 KiB** budget. Individual variants carry further requirements, documented on the variant. Panics if `msg` fails to decode. |
+| 202 | `send_upward_message(message_id: MessageId, msg: UpwardMessage)` | `()` | Append one upward message, together with its `message_id`, to `ParachainWorkDigest.upward_messages`. `message_id` is a caller-supplied identifier. Every `AccumulateLog` the message causes is logged with it (§5.1), so the parachain can match outcomes to its requests. Aborts Refine with `Err(RefineLog::UpwardMessagesTooLarge)` if the message would carry the encoded upward messages past the parachain's fixed **40 KiB** budget. Individual variants carry further requirements, documented on the variant. Panics if `msg` fails to decode. |
 | 203 | `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the validation code, failing Refine with `RefineLog::Opaque(data)`. Any bytes beyond 1024 are truncated. Never returns. This is the only way validation code records a reason for its failure. See §4.2. |
 
 `UpwardMessage` is part of the parachain-visible ABI. Its SCALE encoding is
 stable, so a message's `encoded_size()` is computable inside the validation code. The 40 KiB
-budget counts the encoded messages alone.
+budget counts the encoded `(message_id, message)` pairs alone.
 
 Variants marked **Asset Hub only** or **Coretime chain only** are accepted from
 that parachain alone. A variant carrying a `para_id` is further restricted to the
@@ -869,9 +857,10 @@ Due timeslots are kept only in `pending_assign_cores`, so Accumulate reads a cor
 - If the call succeeds, the core is dropped from both maps. The exception is a core that
   stays assigned to this service and whose queue needs rewriting every 80 timeslots (§7.1). It
   is re-armed 80 timeslots out.
-- If JAM rejects it because this service is no longer the core's assigner, the core is
-  dropped from both maps and `AccumulateLog::CoreNotAssignable` is recorded in the
-  Coretime chain's log.
+- JAM rejecting it because this service is no longer the core's assigner can not happen
+  here. That is checked when the `AssignCore` is replayed (step 6 below), which records
+  `AccumulateLog::CoreNotAssignable`. Should it happen anyway, the rejection is silently
+  ignored and the core is dropped from both maps.
 
 The cost of applying one due assign must be **benchmarked**, so the flush knows how many fit.
 The flush only applies as many due assigns as fit into the always-accumulate allowance,
@@ -972,7 +961,8 @@ writes no state, records no log entry, and prunes nothing. The steps are:
    updates, validator key updates, etc.). See the `UpwardMessage` variants in §3.3 for
    the full list. Refine already rejects messages the parachain was not entitled to
    emit, so any such message reaching Accumulate is dropped without a log entry. The
-   replay may emit `AccumulateLog` events.
+   replay may emit `AccumulateLog` events, each paired with the `message_id` of the
+   message that caused it.
 
 All `AccumulateLog` events emitted by the step 6 replay are collected and appended to
 `parachain_log[para_id]` as a single `LogEntry::Accumulate`, where `para_id` is the
@@ -1146,10 +1136,9 @@ Phase 1: Solicit
     (§6.1).
 
 Phase 2: Verify Solicit
-    Asset Hub waits for its next block to be built on top of a JAM
-    block whose state reflects the accumulated solicit, then reads
+    Asset Hub waits until the solicit was accumulated, then reads
     its parachain_log via the validation inputs and confirms no
-    AccumulateLog::InsufficientStateBalance for new_code_hash. If
+    AccumulateLog::InsufficientStateBalance for the Solicit. If
     insufficient, Asset Hub aborts.
 
 Phase 3: Upgrade
@@ -1279,7 +1268,7 @@ an existing `ParaId`, it overwrites `total_state_balance` in place.
 
 In either case the call is applied only if `new_total >= used_state_balance`, so
 `total_state_balance` always covers the parachain's state. Otherwise nothing changes, and an
-`AccumulateLog::StateBalanceUpdateRejected { para_id, attempted, reason }` with reason
+`AccumulateLog::StateBalanceUpdateRejected { reason }` with reason
 `BelowUsed { current_total, current_used }` is appended to the Coretime chain's
 `parachain_log` (§5.1) so it can observe the rejection and size a retry. A deregistering
 `ParaId` (§6.4) is rejected the same way with reason `ParachainIsDeregistering`. To free
@@ -1310,7 +1299,7 @@ refunds its footprint right away. Removing the last referencer of an *available*
 takes **two steps**. A JAM `forget` does not delete it but marks the request unavailable. Only a **second** `forget`, no earlier than
 `C_expungeperiod = 19 200` timeslots (~32 h) later, expunges it. The service keeps no
 bookkeeping for this. When a `forget` removes the last referencer without expunging the
-preimage, Accumulate appends an `AccumulateLog::ForgetAgainAt { target, hash, len, due }`, where
+preimage, Accumulate appends an `AccumulateLog::ForgetAgainAt { hash, len, due }`, where
 `due = now + C_expungeperiod`, to the log of the parachain that emitted the `Forget`
 (§5.1). The last referencer stays in `referencers` and is still charged the full
 footprint. That parachain emits `Forget { target: Parachain(para_id), preimages: [(hash, len)] }` again

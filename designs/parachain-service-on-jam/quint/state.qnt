@@ -327,9 +327,7 @@ module state {
 
   /// Exact SCALE size of one AccumulateLog event: 1 B discriminant + body.
   /// Hash/ValidationCodeHash = 32 B, u32 = 4 B; balances are `Compact<u64>`,
-  /// charged at their actual `compactLen`. The InsufficientStateBalance body is
-  /// its reason's 1 B discriminant plus a 32 B hash (FromSolicit's preimage
-  /// hash, FromSetKV's key hash). `StagedValidatorKeysOverflow` is nullary.
+  /// charged at their actual `compactLen`.
 
   /// Payload octets a `ServiceCreationResult` carries beyond its discriminant:
   /// the assigned ServiceId on `Created`, nothing on the failures.
@@ -338,45 +336,39 @@ module state {
 
   pure def accumulateLogSize(e: AccumulateLog): int =
     1 + match e {
-      | InsufficientStateBalance(r) =>
-        1 + match r {
-          // hash 32 + Compact<u32> len.
-          | FromSolicit(p) => 32 + compactLen(p.len)
-          | FromSetKV(_) => 32
-        }
-      // ParaId 4 + Compact attempted + reason discriminant 1 + reason body.
+      | InsufficientStateBalance => 0
+      // reason discriminant 1 + reason body.
       | StateBalanceUpdateRejected(p) =>
-        4 + compactLen(p.attempted) + 1 + match p.reason {
+        1 + match p.reason {
           | BelowUsed(r) => compactLen(r.currentTotal) + compactLen(r.currentUsed)
           | ParachainIsDeregistering => 0
         }
       | DesignateRejected(p) => compactLen(p.len)
       | StagedValidatorKeysOverflow => 0
-      | ServiceUpgradePreimageMissing(_) => 32
+      | ServiceUpgradePreimageMissing => 0
+      | CodeUpgradeNotAvailable => 0
+      | CodeUpgradeNotAnnounced => 0
       // hash 32 + Compact<u32> len.
-      | CodeUpgradeNotAvailable(p) => 32 + compactLen(p.len)
-      | CodeUpgradeNotAnnounced(p) => 32 + compactLen(p.len)
       | CanNotRemoveCode(p) => 32 + compactLen(p.len)
-      // core index, a fixed u16.
-      | CoreNotAssignable(_) => 2
-      // id Compact<u64> + TransferError tag 1.
-      | TransferFailed(p) => compactLen(p.id) + 1
-      // id Compact<u64> + amount Compact<u64>.
-      | TransferredAmount(p) => compactLen(p.id) + compactLen(p.amount)
-      // Target (1 tag + 4 id) + hash 32 + Compact<u32> len + due (Timeslot, fixed u32).
-      | ForgetAgainAt(p) => 5 + 32 + compactLen(p.len) + 4
-      // service 4 + error tag 1, for each of the three failure entries.
-      | ServiceSolicitFailed(_) => 5
-      | ServiceEjectFailed(_) => 5
-      | ServiceSupervisorFailed(_) => 5
-      // service 4 + hash 32 + Compact<u32> len.
-      | ServiceForgetNotRequested(p) => 36 + compactLen(p.len)
-      // service 4 + key hash 32.
-      | ServiceKeyNotFound(_) => 36
-      // service 4 + Compact<Balance> credited.
-      | ServiceEjected(p) => 4 + compactLen(p.credited)
-      // messageId Compact<u64> + result (1 tag, + 4 when Created).
-      | ServiceCreation(p) => compactLen(p.messageId) + 1 + creationPayload(p.result)
+      | CoreNotAssignable => 0
+      // TransferError tag 1.
+      | TransferFailed(_) => 1
+      // amount Compact<u64>.
+      | TransferredAmount(p) => compactLen(p.amount)
+      // hash 32 + Compact<u32> len + due (Timeslot, fixed u32).
+      | ForgetAgainAt(p) => 32 + compactLen(p.len) + 4
+      // error tag 1, for each of the three failure entries.
+      | ServiceSolicitFailed(_) => 1
+      | ServiceEjectFailed(_) => 1
+      | ServiceSupervisorFailed(_) => 1
+      // hash 32 + Compact<u32> len.
+      | ServiceForgetNotRequested(p) => 32 + compactLen(p.len)
+      // key hash 32.
+      | ServiceKeyNotFound(_) => 32
+      // Compact<Balance> credited.
+      | ServiceEjected(p) => compactLen(p.credited)
+      // result (1 tag, + 4 when Created).
+      | ServiceCreation(p) => 1 + creationPayload(p.result)
       | TooMuchStateHeld => 0
     }
 
@@ -393,14 +385,15 @@ module state {
   /// SCALE size of one (Timeslot, LogEntry) pair:
   ///   4 B timeslot + 1 B LogEntry discriminant + variant body.
   /// Refine body: refineLogSize(error) + auth_trace compact-len + authTrace.
-  /// Accumulate body: 1 (vec compact-len prefix) + Σ accumulateLogSize per event.
+  /// Accumulate body: 1 (vec compact-len prefix) + Σ (Compact<u64> message id +
+  /// accumulateLogSize) per event.
   /// authTrace is an int (abstract length proxy) bounded to 256 by its type.
   pure def logEntrySize(e: (Timeslot, LogEntry)): int =
     4 + 1 + match e._2 {
       | Refine(r) =>
         refineLogSize(r.error) + compactLen(r.authTrace) + r.authTrace
       | Accumulate(evs) =>
-        1 + evs.foldl(0, (a, ev) => a + accumulateLogSize(ev))
+        1 + evs.foldl(0, (a, ev) => a + compactLen(ev._1) + accumulateLogSize(ev._2))
     }
 
   /// Total SCALE byte size of a ParachainLog: the outer `Vec` compact-length
@@ -495,7 +488,7 @@ module state {
     s: ParachainServiceState,
     para_id: ParaId,
     now: Timeslot,
-    entries: List[AccumulateLog]
+    entries: List[(MessageId, AccumulateLog)]
   ): ParachainServiceState =
     if (not(s.isLive(para_id)) or entries == List()) s
     else {

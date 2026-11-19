@@ -110,7 +110,7 @@ module code_upgrades_test {
     val d = announceCodeUpgrade(s0, para, h, FixedCodeLen, 0)
     all {
       assert(d.state.paraInfo(para).announcedUpgrade == None),
-      assert(d.log == Some(CodeUpgradeNotAvailable({ hash: h.asPreimage(), len: FixedCodeLen }))),
+      assert(d.log == Some(CodeUpgradeNotAvailable)),
       assert(d.state == s0),
       init
     }
@@ -130,7 +130,7 @@ module code_upgrades_test {
       assert(s0.preimageAvailable(h.asPreimage(), FixedCodeLen)),
       assert(not(s0.hasReferencer(h.asPreimage(), FixedCodeLen, para))),
       assert(d.state.paraInfo(para).announcedUpgrade == None),
-      assert(d.log == Some(CodeUpgradeNotAvailable({ hash: h.asPreimage(), len: FixedCodeLen }))),
+      assert(d.log == Some(CodeUpgradeNotAvailable)),
       init
     }
   }
@@ -157,7 +157,7 @@ module code_upgrades_test {
         .paraInfo(para).announcedUpgrade == Some({ hash: h, len: FixedCodeLen })
     all {
       assert(announceCodeUpgrade(provided, para, h, FixedCodeLen, 8).log
-        == Some(CodeUpgradeNotAvailable({ hash: p, len: FixedCodeLen }))),
+        == Some(CodeUpgradeNotAvailable)),
       assert(not(accepted(provided, 9))),
       assert(accepted(provided, 10)),
       assert(not(accepted(unrequested, 19))),
@@ -184,9 +184,9 @@ module code_upgrades_test {
     val d1 = applyCodeUpgrade(s2, para, hC, FixedCodeLen)
     all {
       assert(d0.state == initialState),
-      assert(d0.log == Some(CodeUpgradeNotAnnounced({ hash: hB.asPreimage(), len: FixedCodeLen }))),
+      assert(d0.log == Some(CodeUpgradeNotAnnounced)),
       assert(d1.state == s2),
-      assert(d1.log == Some(CodeUpgradeNotAnnounced({ hash: hC.asPreimage(), len: FixedCodeLen }))),
+      assert(d1.log == Some(CodeUpgradeNotAnnounced)),
       assert(activeCodeHashOr(d1.state.paraInfo(para), NoCodeHash) == activeBefore),
       assert(announcedHashOf(d1.state.paraInfo(para)) == Some(hB)),
       init
@@ -234,7 +234,7 @@ module code_upgrades_test {
     all {
       assert(s3 == s2),
       assert(refused.logs == List(
-        CanNotRemoveCode({ hash: hB.asPreimage(), len: FixedCodeLen })
+        (0, CanNotRemoveCode({ hash: hB.asPreimage(), len: FixedCodeLen }))
       )),
       assert(isValidationCodeOf(s3.paraInfo(para), hB.asPreimage(), FixedCodeLen)),
       assert(announcedHashOf(s4.paraInfo(para)) == Some(hC)),

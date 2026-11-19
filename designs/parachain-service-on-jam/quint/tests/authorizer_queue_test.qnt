@@ -28,13 +28,13 @@ module authorizer_queue_test {
     // X = 10 tiles exactly: 8 copies fill 80.
     val ten = range(0, 10).foldl(List(), (acc, i) => acc.append({ authBytes: i }))
     val tiled = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
+      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0, 0,
       AssignCore({ core: core, queue: ten, newAssigner: None, jamSlot: 0 })
     )
     // A full 80-hash queue is installed as-is.
     val h80: AuthorizerHash = { authBytes: 1 }
     val eighty = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
+      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0, 0,
       AssignCore({ core: core, queue: fullQ(h80), newAssigner: None, jamSlot: 0 })
     )
     all {
@@ -65,7 +65,7 @@ module authorizer_queue_test {
       foreign: Map()
     }
     val cached = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
+      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0, 0,
       AssignCore({ core: core, queue: ten, newAssigner: None, jamSlot: 50 })
     ).state
     val beforeDue = applyAlwaysAccumulate(cached, 49)
@@ -103,11 +103,11 @@ module authorizer_queue_test {
       foreign: Map()
     }
     val empty = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 1, 1,
+      baseAcc, CoretimeParaId, FixedCodeLen, 1, 1, 0,
       AssignCore({ core: core, queue: List(), newAssigner: None, jamSlot: 0 })
     )
     val tooLong = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 1, 1,
+      baseAcc, CoretimeParaId, FixedCodeLen, 1, 1, 0,
       AssignCore({
         core: core,
         queue: fullQ({ authBytes: 1 }).append({ authBytes: 2 }),
@@ -117,7 +117,7 @@ module authorizer_queue_test {
     )
     // A handoff must carry exactly 80 hashes, so a short one is malformed.
     val shortHandoff = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 1, 1,
+      baseAcc, CoretimeParaId, FixedCodeLen, 1, 1, 0,
       AssignCore({
         core: core,
         queue: List(storedHash),
@@ -127,7 +127,7 @@ module authorizer_queue_test {
     )
     // Due later, so nothing would call `assign` yet: only caching it is at stake.
     val unknownCore = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 1, 1,
+      baseAcc, CoretimeParaId, FixedCodeLen, 1, 1, 0,
       AssignCore({ core: CoreCount, queue: List(storedHash), newAssigner: None, jamSlot: 100 })
     )
     all {
@@ -159,7 +159,7 @@ module authorizer_queue_test {
     }
     // Cached at now = 0 for a future jam_slot of 40.
     val stored = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
+      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0, 0,
       AssignCore({ core: core, queue: q, newAssigner: None, jamSlot: 40 })
     )
     val beforeDue = applyAlwaysAccumulate(stored.state, 39)
@@ -262,11 +262,11 @@ module authorizer_queue_test {
       foreign: Map()
     }
     val after1 = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
+      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0, 0,
       AssignCore({ core: core, queue: q1, newAssigner: None, jamSlot: 100 })
     )
     val after2 = applyUpwardMessage(
-      after1, CoretimeParaId, FixedCodeLen, 5, 5,
+      after1, CoretimeParaId, FixedCodeLen, 5, 5, 0,
       AssignCore({ core: core, queue: q2, newAssigner: None, jamSlot: 150 })
     )
     all {
@@ -298,19 +298,19 @@ module authorizer_queue_test {
     }
     // Handoff with the required full queue, due inline.
     val out = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
+      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0, 0,
       AssignCore({ core: core, queue: h80, newAssigner: Some(assigner), jamSlot: 0 })
     )
     // A later assign for the SAME core, which `assigner` now controls. JAM
     // rejects it: nothing takes effect or is scheduled, and it is logged.
     val after = applyUpwardMessage(
-      { ...out, jamAssigns: List(), logs: List() }, CoretimeParaId, FixedCodeLen, 0, 0,
+      { ...out, jamAssigns: List(), logs: List() }, CoretimeParaId, FixedCodeLen, 0, 0, 0,
       AssignCore({ core: core, queue: three, newAssigner: None, jamSlot: 0 })
     )
     // A keep-assigner short queue is kept as usual, from a state where the core
     // was never handed away.
     val stored = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
+      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0, 0,
       AssignCore({ core: core, queue: three, newAssigner: None, jamSlot: 0 })
     )
     all {
@@ -321,7 +321,7 @@ module authorizer_queue_test {
       assert(not(out.state.pendingAssignCores.keys().contains(core))),
       // ...and one-way: naming no new assigner does NOT win the core back.
       assert(after.jamAssigns == List()),
-      assert(after.logs == List(CoreNotAssignable({ core: core }))),
+      assert(after.logs == List((0, CoreNotAssignable))),
       assert(after.state == out.state),
       // A short keep-assigner queue is kept for its rewrite, `None` resolving to
       // this service.
@@ -391,7 +391,7 @@ module authorizer_queue_test {
       foreign: Map()
     }
     val scheduled = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 1, 1,
+      baseAcc, CoretimeParaId, FixedCodeLen, 1, 1, 0,
       AssignCore({ core: core, queue: three, newAssigner: None, jamSlot: 10 })
     )
     val flushed = applyAlwaysAccumulate(scheduled.state, 10)
@@ -400,18 +400,18 @@ module authorizer_queue_test {
       assert(scheduled.logs == List()),
       assert(scheduled.jamAssigns == List()),
       assert(scheduled.state.pendingAssignCores.get(core) == 10),
-      // Flush at `jam_slot`: JAM rejects, the entry goes, the rejection is logged.
+      // Flush at `jam_slot`: JAM rejects and the entry goes, without a log entry.
       assert(flushed.assigns == List()),
       assert(not(flushed.state.pendingAssigns.keys().contains(core))),
       assert(not(flushed.state.pendingAssignCores.keys().contains(core))),
-      assert(flushed.logs == List(CoreNotAssignable({ core: core }))),
+      assert(flushed.state.parachainLog == scheduled.state.parachainLog),
       init
     }
   }
 
   /// A rewrite left armed on a core that has since been handed away is
-  /// rejected by JAM when it falls due: it takes no effect, the entry is
-  /// dropped, and the rejection is logged (§7.1).
+  /// rejected by JAM when it falls due: it takes no effect and the entry is
+  /// dropped, without a log entry (§5.1).
   run dueFlushDropsHandedAwayCoreTest = {
     val core = 3
     val other = MkServiceId(7)
@@ -435,11 +435,10 @@ module authorizer_queue_test {
       // The dead entry is dropped, not left to retry every block.
       assert(not(flushed.state.pendingAssigns.keys().contains(core))),
       assert(not(flushed.state.pendingAssignCores.keys().contains(core))),
-      assert(flushed.logs == List(CoreNotAssignable({ core: core }))),
+      assert(flushed.state.parachainLog == armed.parachainLog),
       assert(owned.isAssignerOf(core)),
       assert(flushedOwned.assigns ==
         List({ core: core, assigner: ParachainServiceId, queue: assignQueueFor(three, 10) })),
-      assert(flushedOwned.logs == List()),
       // Applied late at slot 10, it is still due again at 5 + 80.
       assert(flushedOwned.state.pendingAssignCores.get(core) == 85),
       init
@@ -470,7 +469,7 @@ module authorizer_queue_test {
       foreign: Map()
     }
     val replayed = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 10, 10,
+      baseAcc, CoretimeParaId, FixedCodeLen, 10, 10, 0,
       AssignCore({ core: core, queue: three, newAssigner: None, jamSlot: 5 })
     )
     // JAM reads entry `t % 80` at slot `t`, which must be hash `t % 3`.

@@ -55,7 +55,7 @@ module accumulate_test {
       assert(not(solicited.preimageAvailable(newCode, len))),
       // Rejected while unprovided: code hash untouched, rejection logged.
       assert(onlySolicited.state.serviceCodeHash == initialState.serviceCodeHash),
-      assert(onlySolicited.logs == List(ServiceUpgradePreimageMissing({ codeHash: newCode }))),
+      assert(onlySolicited.logs == List((0, ServiceUpgradePreimageMissing))),
       // Accepted once available.
       assert(provided.preimageAvailable(newCode, len)),
       assert(whenProvided.state.serviceCodeHash == newCode),
@@ -89,7 +89,7 @@ module accumulate_test {
       assert(theirs.preimageAvailable(newCode, len)),
       assert(not(theirs.hasReferencer(newCode, len, ah))),
       assert(refused.state.serviceCodeHash == initialState.serviceCodeHash),
-      assert(refused.logs == List(ServiceUpgradePreimageMissing({ codeHash: newCode }))),
+      assert(refused.logs == List((0, ServiceUpgradePreimageMissing))),
       assert(replay(shared, ah, 0, msg).state.serviceCodeHash == newCode),
       init
     }
@@ -240,7 +240,7 @@ module accumulate_test {
       assert(Set(own, byCoretime).forall(out => and {
         out.state == held,
         out.preimageOps == List(),
-        out.logs == List(CanNotRemoveCode({ hash: ownCode, len: len }))
+        out.logs == List((0, CanNotRemoveCode({ hash: ownCode, len: len })))
       })),
       assert(held.hasReferencer(ownCode, len, ah)),
       // Controls: both are released as usual.
@@ -250,7 +250,7 @@ module accumulate_test {
       assert(otherLen.state.hasReferencer(ownCode, len, ah)),
       assert(otherLen.logs == List()),
       assert(batched.state.hasReferencer(ownCode, len, ah)),
-      assert(batched.logs == List(CanNotRemoveCode({ hash: ownCode, len: len }))),
+      assert(batched.logs == List((0, CanNotRemoveCode({ hash: ownCode, len: len })))),
       assert(batched.preimageOps
         == List(Forgotten((ah, otherCode, len)), Forgotten((ah, ownCode, 100)))),
       init

@@ -54,13 +54,13 @@ module refine_test {
 
   /// A Refine invocation emitting more than `MaxUpwardMessages` (1024) upward
   /// messages is rejected with `TooManyUpwardMessages`. Exactly 1024 is accepted.
-  /// Uses `Solicit` (unrestricted, 39 B each) so 1025 stay under the 40 KiB
-  /// budget: the count cap, not the byte budget, must be the reason.
+  /// Uses `RemoveKV` (unrestricted, 7 B each plus its `MessageId`) so 1025 stay
+  /// under the 40 KiB budget: the count cap, not the byte budget, must be the reason.
   run tooManyUpwardMessagesTest = {
     val pkg: WorkPackage = {
       items: List({ paraId: CoretimeParaId, validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
     }
-    val msg = Solicit({ target: Parachain(CoretimeParaId), hash: { hashBytes: 7 }, len: 1 })
+    val msg = RemoveKV({ paraId: CoretimeParaId, key: List(1) })
     val over = range(0, MaxUpwardMessages + 1).foldl(List(), (acc, _) => acc.append(msg))
     val atCap = range(0, MaxUpwardMessages).foldl(List(), (acc, _) => acc.append(msg))
     val overOut =
@@ -96,20 +96,20 @@ module refine_test {
     val pi0 = initialState.paraInfo(para)
     // 1. Solicit at the code's OWN len: already the active code, so this
     //    changes nothing: no new entry, no charge.
-    val resolicit = applyUpwardMessage(baseAcc, para, FixedCodeLen, 0, 0,
+    val resolicit = applyUpwardMessage(baseAcc, para, FixedCodeLen, 0, 0, 0,
       Solicit({ target: Parachain(para), hash: h, len: FixedCodeLen }))
     // 2. Solicit the SAME hash at a different len: a genuinely distinct entry,
     //    charged, and it must NOT disturb the active code.
-    val sol = applyUpwardMessage({ ...baseAcc, state: resolicit.state }, para, FixedCodeLen, 0, 0,
+    val sol = applyUpwardMessage({ ...baseAcc, state: resolicit.state }, para, FixedCodeLen, 0, 0, 0,
       Solicit({ target: Parachain(para), hash: h, len: otherLen }))
     val pi1 = sol.state.paraInfo(para)
     // 3. Forget that distinct entry: released (never provided -> one-step drop),
     //    and the active code is untouched.
-    val fgt = applyUpwardMessage({ ...baseAcc, state: sol.state }, para, FixedCodeLen, 0, 0,
+    val fgt = applyUpwardMessage({ ...baseAcc, state: sol.state }, para, FixedCodeLen, 0, 0, 0,
       Forget({ target: Parachain(para), preimages: List((h, otherLen)) }))
     val pi2 = fgt.state.paraInfo(para)
     // 4. Forget at the code's OWN len: it is the active code, so refused.
-    val refused = applyUpwardMessage({ ...baseAcc, state: fgt.state }, para, FixedCodeLen, 0, 0,
+    val refused = applyUpwardMessage({ ...baseAcc, state: fgt.state }, para, FixedCodeLen, 0, 0, 0,
       Forget({ target: Parachain(para), preimages: List((h, FixedCodeLen)) }))
     all {
       assert(isValidationCodeOf(pi0, h, FixedCodeLen)),
@@ -127,7 +127,7 @@ module refine_test {
       // (4) correct len is refused: nothing changes, and it is logged.
       assert(refused.state == fgt.state),
       assert(refused.logs == List(
-        CanNotRemoveCode({ hash: h, len: FixedCodeLen })
+        (0, CanNotRemoveCode({ hash: h, len: FixedCodeLen }))
       )),
       assert(refused.state.preimageRegistry.keys().contains((h, FixedCodeLen))),
       init
@@ -265,10 +265,10 @@ module refine_test {
     val pi = initialState.paraInfo(ah)
     val parent = SetParentHeadHash(headHash(pi.headData))
     val setHead = SetHead(pi.headData + 1)
-    val emptyAssign = Send(AssignCore({ core: 0, queue: List(), newAssigner: None, jamSlot: 0 }))
-    val solicit = Solicit({ target: Parachain(ah), hash: { hashBytes: 7 }, len: 1 })
+    val emptyAssign = Send((0, AssignCore({ core: 0, queue: List(), newAssigner: None, jamSlot: 0 })))
+    val removeKV = RemoveKV({ paraId: ah, key: List(1) })
     val tooMany =
-      sends(range(0, MaxUpwardMessages + 1).foldl(List(), (acc, _) => acc.append(solicit)))
+      sends(withIndexIds(range(0, MaxUpwardMessages + 1).foldl(List(), (acc, _) => acc.append(removeKV))))
     val oneKey = SetValidatorKeys({ keys: List(0), isLast: false })
     val overKeys = SetValidatorKeys({
       keys: range(0, SetValidatorKeysMaxKeys + 1).foldl(List(), (acc, _) => acc.append(0)),
@@ -284,7 +284,7 @@ module refine_test {
       assert(refineCalls(initialState, ah, List(parent).concat(tooMany).append(SetHeadOversized))
         == refineCallsErr(initialState, ah, TooManyUpwardMessages)),
       // The chunk size comes before the repetition.
-      assert(refineCalls(initialState, ah, List(parent, setHead, Send(oneKey), Send(overKeys)))
+      assert(refineCalls(initialState, ah, List(parent, setHead, Send((0, oneKey)), Send((1, overKeys))))
         == refineCallsErr(initialState, ah, TooManyValidatorKeys)),
       // `report_error` records its reason only if nothing aborted before it.
       assert(refineCalls(initialState, ah, List(parent, setHead, emptyAssign, ReportError(1)))

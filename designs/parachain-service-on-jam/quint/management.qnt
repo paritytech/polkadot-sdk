@@ -36,8 +36,6 @@ module management {
             jamSolicit: Set(),
             jamForget: Set(),
             logs: List(StateBalanceUpdateRejected({
-              paraId: para_id,
-              attempted: newTotal,
               reason: BelowUsed({ currentTotal: 0, currentUsed: baselineFor(para_id) })
             }))
           }
@@ -55,11 +53,7 @@ module management {
         state: s,
         jamSolicit: Set(),
         jamForget: Set(),
-        logs: List(StateBalanceUpdateRejected({
-          paraId: para_id,
-          attempted: newTotal,
-          reason: ParachainIsDeregistering
-        }))
+        logs: List(StateBalanceUpdateRejected({ reason: ParachainIsDeregistering }))
       }
     } else {
       val pi = s.paraInfo(para_id)
@@ -69,8 +63,6 @@ module management {
           jamSolicit: Set(),
           jamForget: Set(),
           logs: List(StateBalanceUpdateRejected({
-            paraId: para_id,
-            attempted: newTotal,
             reason: BelowUsed({
               currentTotal: pi.totalStateBalance,
               currentUsed: pi.usedStateBalance

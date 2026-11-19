@@ -16,7 +16,7 @@ module state_balance_test {
   /// - Coretime sets para 6's active code, consuming that headroom.
   /// - Para 6 emits a `Solicit` upward message for a distinct preimage,
   ///   `addReferencer` finds no headroom, appends
-  ///   `InsufficientStateBalance(FromSolicit(...))` to the parachain log, and
+  ///   `InsufficientStateBalance` to the parachain log, and
   ///   leaves the registry and `usedStateBalance` unchanged.
   run solicitRejectedAtBalanceCapTest = {
     val para = MkParaId(6)
@@ -48,16 +48,11 @@ module state_balance_test {
         svc.paraInfo(para).usedStateBalance == cap,
         // The rejected solicit is not recorded in the ghost history.
         not(solicitedSet.contains((para, soliciteeHash, soliciteeLen))),
-        // Accumulate log carries InsufficientStateBalance(FromSolicit(...)) for this block.
+        // Accumulate log carries InsufficientStateBalance for the solicit (message 0) in
+        // this block.
         svc.paraLog(para).foldl(false, (found, pair) =>
           found or (pair._1 == now and match pair._2 {
-            | Accumulate(evs) => evs.foldl(false, (a, e) => match e {
-              | InsufficientStateBalance(reason) => match reason {
-                | FromSolicit(p) => a or (p.hash == soliciteeHash and p.len == soliciteeLen)
-                | FromSetKV(_) => a
-              }
-              | _ => a
-            })
+            | Accumulate(evs) => evs.foldl(false, (a, e) => a or e == (0, InsufficientStateBalance))
             | Refine(_) => false
           }))
       }))
@@ -105,7 +100,7 @@ module state_balance_test {
       assert(atDue.state.preimageRegistry.keys().contains((h, 512))),
       assert(atDue.retained),
       assert(atDue.jamForget == None),
-      assert(atDue.log == Some(ForgetAgainAt({ target: Parachain(para), hash: h, len: 512, due: ExpungePeriod }))),
+      assert(atDue.log == Some(ForgetAgainAt({ hash: h, len: 512, due: ExpungePeriod }))),
       // now == due + 1 -> expunged.
       assert(not(pastDue.state.preimageRegistry.keys().contains((h, 512)))),
       assert(not(pastDue.state.preimageStatus.keys().contains((h, 512)))),
@@ -175,7 +170,7 @@ module state_balance_test {
       assert(d5.state.preimageRegistry.keys().contains((h, 512))),
       assert(d5.retained),
       assert(d5.jamForget == None),
-      assert(d5.log == Some(ForgetAgainAt({ target: Parachain(p2), hash: h, len: 512, due: 10 + ExpungePeriod }))),
+      assert(d5.log == Some(ForgetAgainAt({ hash: h, len: 512, due: 10 + ExpungePeriod }))),
       // Status is unchanged (still Rerequested(10)).
       assert(d5.state.preimageStatus.get((h, 512)) == Rerequested({ providedSince: 0, unrequestedSince: 10, rerequestedSince: 20 })),
       init
@@ -259,12 +254,12 @@ module state_balance_test {
       assert(first.state == d3.state),
       assert(first.jamForget == None),
       assert(first.retained),
-      assert(first.log == Some(ForgetAgainAt({ target: Parachain(p2), hash: h, len: 512, due: 10 + ExpungePeriod }))),
+      assert(first.log == Some(ForgetAgainAt({ hash: h, len: 512, due: 10 + ExpungePeriod }))),
       assert(second.state.preimageStatus.get((h, 512)) == Unrequested({ providedSince: 11, unrequestedSince: t2 })),
       assert(second.state.preimageRegistry.get((h, 512)).referencers == Set(p2)),
       assert(second.jamForget == Some(h)),
       assert(second.retained),
-      assert(second.log == Some(ForgetAgainAt({ target: Parachain(p2), hash: h, len: 512, due: t2 + ExpungePeriod }))),
+      assert(second.log == Some(ForgetAgainAt({ hash: h, len: 512, due: t2 + ExpungePeriod }))),
       assert(not(third.state.preimageRegistry.keys().contains((h, 512)))),
       assert(not(third.state.preimageStatus.keys().contains((h, 512)))),
       assert(third.jamForget == Some(h)),
