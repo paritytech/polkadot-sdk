@@ -19,8 +19,9 @@
 //! Statement handling to plug on top of the network service.
 //!
 //! This crate implements gossip-based propagation of statements between nodes, layered on the
-//! substrate notifications protocol. Two protocol versions are negotiated per peer: `statement/2`
-//! (preferred) with `statement/1` as a fallback.
+//! substrate notifications protocol. The protocol version is negotiated per peer: `statement/2`
+//! (preferred) with `statement/1` as a fallback. A node on the v2 DHT path prefers `statement/3`
+//! and falls back to both.
 //!
 //! ## Propagation
 //!
@@ -104,10 +105,13 @@
 //! those statements in an initial burst on connect. Full nodes receive all statements unless they
 //! opt into an affinity.
 //!
-//! With the v2 DHT path enabled, every `statement/2` peer sends its affinity filter as the first
-//! message on connect, and the initial sync waits for the peer's filter, replaying the statements
-//! it matches and those the peer is a DHT routing target for. Propagation targets are chosen by
-//! the orchestrator, so the outbox drain applies no affinity filter of its own.
+//! With the v2 DHT path enabled, the node speaks `statement/3`, which carries the `statement/2`
+//! messages between two nodes on that path. Every `statement/3` peer sends its affinity filter as
+//! the first message on connect, and the initial sync waits for the peer's filter, replaying the
+//! statements it matches and those the peer is a DHT routing target for. A full peer that falls
+//! back to `statement/2` or `statement/1` floods instead of routing, so it gets every statement
+//! from the moment it connects. Propagation targets are chosen by the orchestrator, so the outbox
+//! drain applies no affinity filter of its own.
 //!
 //! ## Usage
 //!
@@ -194,14 +198,28 @@ enum PeerProtocolVersion {
 	V1,
 	/// V2: messages are encoded as `StatementMessage` enum (supports topic affinity).
 	V2,
+	/// V3: the V2 messages, between two nodes on the v2 DHT path.
+	V3,
 }
 
 impl PeerProtocolVersion {
+	/// The version negotiated on a substream: `negotiated_fallback` names the fallback protocol
+	/// the peer settled for, and without one the peer speaks the main protocol, `statement/3`
+	/// when `v2dht` is on.
+	fn negotiated(negotiated_fallback: Option<&str>, v2dht: bool) -> Self {
+		match negotiated_fallback {
+			Some(name) if name.ends_with(STATEMENT_PROTOCOL_V1) => PeerProtocolVersion::V1,
+			Some(_) => PeerProtocolVersion::V2,
+			None if v2dht => PeerProtocolVersion::V3,
+			None => PeerProtocolVersion::V2,
+		}
+	}
+
 	/// Returns the encoding envelope overhead for this protocol version.
 	fn envelope_overhead(&self) -> usize {
 		match self {
 			PeerProtocolVersion::V1 => V1_ENVELOPE_OVERHEAD,
-			PeerProtocolVersion::V2 => V2_ENVELOPE_OVERHEAD,
+			PeerProtocolVersion::V2 | PeerProtocolVersion::V3 => V2_ENVELOPE_OVERHEAD,
 		}
 	}
 }
@@ -260,6 +278,9 @@ mod rep {
 }
 
 const LOG_TARGET: &str = "statement-gossip";
+/// V3 statement protocol suffix: the V2 messages between two nodes on the v2 DHT path, so the
+/// protocol a peer negotiates tells whether it routes or floods.
+const STATEMENT_PROTOCOL_V3: &str = "statement/3";
 /// V2 statement protocol suffix: topic affinity filters, shipped since stable2606.
 const STATEMENT_PROTOCOL_V2: &str = "statement/2";
 /// V1 statement protocol suffix: flood gossip without affinity filters. No breaking changes will
@@ -275,12 +296,6 @@ const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::fr
 const INITIAL_SYNC_SCAN_LIMIT: usize = 4096;
 /// Interval for processing pending topic affinity changes from peers.
 const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
-/// How long a full `statement/2` peer may stay silent about its affinity before it is treated as
-/// wanting every statement.
-///
-/// A full node without the v2 DHT path never sends a filter, so the wait is what tells it apart
-/// from a v2 peer whose filter is still in flight.
-const AFFINITY_FILTER_GRACE_PERIOD: std::time::Duration = std::time::Duration::from_secs(10);
 /// Interval between sweeps that evict statement-store peers unseen for the staleness TTL, so the
 /// topology converges on live peers even while discovery is quiet.
 const PEER_EVICTION_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
@@ -327,8 +342,6 @@ struct Metrics {
 	affinity_flooding_detected: Counter<U64>,
 	send_failures: CounterVec<U64>,
 	undelivered_statements: CounterVec<U64>,
-	peers_assumed_match_all: Counter<U64>,
-	late_affinity_filters: Counter<U64>,
 }
 
 mod send_failure {
@@ -350,8 +363,8 @@ mod send_failure {
 mod peer_route {
 	/// We use the v2 DHT path and send only what the peer's filter asks for.
 	pub const DHT: &str = "dht";
-	/// We send the peer everything. This covers v1 peers, v2 peers that sent no filter within the
-	/// grace period, and every peer while this node runs without the v2 DHT.
+	/// We send the peer everything. This covers v1 peers, full v2 peers, and every peer while this
+	/// node runs without the v2 DHT.
 	pub const LEGACY: &str = "legacy";
 }
 
@@ -556,21 +569,28 @@ impl Metrics {
 				)?,
 				r,
 			)?,
-			peers_assumed_match_all: register(
-				Counter::new(
-					"substrate_sync_statement_peers_assumed_match_all_total",
-					"Total v2 peers that sent no affinity filter within the grace period and are now sent everything",
-				)?,
-				r,
-			)?,
-			late_affinity_filters: register(
-				Counter::new(
-					"substrate_sync_statement_late_affinity_filters_total",
-					"Total affinity filters that arrived after the grace period and moved their peer back to the v2 DHT path",
-				)?,
-				r,
-			)?,
 		})
+	}
+}
+
+/// The main protocol name and its fallbacks, most preferred first. Only a node on the v2 DHT path
+/// offers `statement/3`.
+fn protocol_names(
+	genesis_hash_hex: &str,
+	fork_id: Option<&str>,
+	v2dht: bool,
+) -> (String, Vec<String>) {
+	let protocol = |version: &str| match fork_id {
+		Some(fork_id) => format!("/{genesis_hash_hex}/{fork_id}/{version}"),
+		None => format!("/{genesis_hash_hex}/{version}"),
+	};
+	if v2dht {
+		(
+			protocol(STATEMENT_PROTOCOL_V3),
+			vec![protocol(STATEMENT_PROTOCOL_V2), protocol(STATEMENT_PROTOCOL_V1)],
+		)
+	} else {
+		(protocol(STATEMENT_PROTOCOL_V2), vec![protocol(STATEMENT_PROTOCOL_V1)])
 	}
 }
 
@@ -600,14 +620,7 @@ impl StatementHandlerPrototype {
 	) -> (Self, Net::NotificationProtocolConfig) {
 		let genesis_hash = genesis_hash.as_ref();
 		let hex = array_bytes::bytes2hex("", genesis_hash);
-		let (protocol_name, fallback_name) = if let Some(fork_id) = fork_id {
-			(
-				format!("/{hex}/{fork_id}/{STATEMENT_PROTOCOL_V2}"),
-				format!("/{hex}/{fork_id}/{STATEMENT_PROTOCOL_V1}"),
-			)
-		} else {
-			(format!("/{hex}/{STATEMENT_PROTOCOL_V2}"), format!("/{hex}/{STATEMENT_PROTOCOL_V1}"))
-		};
+		let (protocol_name, fallback_names) = protocol_names(&hex, fork_id, v2dht_enabled());
 		// The default set holds `--in-peers-light` only as part of its inbound total, so the
 		// light allowance is recovered the way the sync engine recovers it.
 		let default_set = &network_config.default_peers_set;
@@ -635,7 +648,7 @@ impl StatementHandlerPrototype {
 		};
 		let (config, notification_service) = Net::notification_config(
 			protocol_name.clone().into(),
-			vec![fallback_name.into()],
+			fallback_names.into_iter().map(Into::into).collect(),
 			MAX_STATEMENT_NOTIFICATION_SIZE,
 			None,
 			set_config,
@@ -799,7 +812,6 @@ impl StatementHandlerPrototype {
 				Box::pin(pending().fuse())
 			},
 			pending_initial_syncs: HashMap::new(),
-			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -869,8 +881,6 @@ pub struct StatementHandler<
 	peer_eviction_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
 	/// Pending initial syncs per peer.
 	pending_initial_syncs: HashMap<PeerId, PendingInitialSync>,
-	/// Full `statement/2` peers whose affinity filter is still due, keyed by connection time.
-	awaiting_affinity_filter: HashMap<PeerId, Instant>,
 	/// Queue for round-robin processing of initial syncs.
 	initial_sync_peer_queue: VecDeque<PeerId>,
 	/// Next value to hand out as [`PendingInitialSync::sync_id`].
@@ -997,8 +1007,6 @@ pub struct Peer {
 	/// Set when a new `ExplicitTopicAffinity` arrives; consumed by the main loop
 	/// once any in-progress initial sync for this peer completes.
 	pending_topic_affinity: Option<AffinityFilter>,
-	/// The peer sent no filter in time, so it is served as a full node without the v2 DHT path.
-	assumed_match_all: bool,
 	/// One past the newest admission covered by the peer's initial syncs.
 	sync_watermark: u64,
 }
@@ -1235,9 +1243,14 @@ fn has_received_from(
 }
 
 impl Peer {
-	/// The peer floods instead of routing, so it is served like a v1 peer.
+	/// The peer floods instead of routing, so it is served like a v1 peer. A light peer on
+	/// `statement/2` is served by its filter instead.
 	fn without_dht(&self) -> bool {
-		self.protocol_version == PeerProtocolVersion::V1 || self.assumed_match_all
+		match self.protocol_version {
+			PeerProtocolVersion::V1 => true,
+			PeerProtocolVersion::V2 => !self.is_light,
+			PeerProtocolVersion::V3 => false,
+		}
 	}
 
 	/// Create a new peer for testing/benchmarking purposes.
@@ -1252,7 +1265,6 @@ impl Peer {
 			is_light: false,
 			inbound: true,
 			pending_topic_affinity: None,
-			assumed_match_all: false,
 			sync_watermark: 0,
 		}
 	}
@@ -1260,9 +1272,9 @@ impl Peer {
 	/// Whether this peer is ready to receive statements.
 	///
 	/// Light V2 peers must set their topic affinity before receiving any statements; with the
-	/// v2 DHT path on, every V2 peer must.
+	/// v2 DHT path on, every peer past V1 must.
 	fn can_receive(&self) -> bool {
-		!(self.protocol_version == PeerProtocolVersion::V2 &&
+		!(self.protocol_version != PeerProtocolVersion::V1 &&
 			self.topic_affinity.is_none() &&
 			(self.is_light || v2dht_enabled()))
 	}
@@ -1351,7 +1363,6 @@ where
 			pending_affinities_timeout: Box::pin(pending().fuse()),
 			peer_eviction_timeout: Box::pin(pending().fuse()),
 			pending_initial_syncs: HashMap::new(),
-			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -1448,7 +1459,6 @@ where
 						self.v2dht.on_pending_affinities();
 						self.v2dht.refresh_connections(&self.network);
 					}
-					self.assume_match_all_after_filter_grace().await;
 					self.process_pending_affinities();
 					self.pending_affinities_timeout =
 						Box::pin(tokio::time::sleep(PENDING_AFFINITIES_INTERVAL).fuse());
@@ -1518,17 +1528,14 @@ where
 		});
 	}
 
-	/// Advertise a changed affinity filter to every connected peer past V1. A peer assumed
-	/// match-all is skipped: any filter restarts the receiver's initial sync, and it already has
-	/// the match-all one.
+	/// Advertise a changed affinity filter to every connected peer that reads one. A peer without
+	/// the DHT path is skipped: it floods, and a filter would narrow what it sends.
 	async fn broadcast_local_filter(&mut self, filter: AffinityFilter) {
 		let encoded = StatementMessage::ExplicitTopicAffinity(filter).encode();
 		let peers: Vec<PeerId> = self
 			.peers
 			.iter()
-			.filter(|(_, peer)| {
-				peer.protocol_version != PeerProtocolVersion::V1 && !peer.assumed_match_all
-			})
+			.filter(|(_, peer)| !peer.without_dht())
 			.map(|(peer_id, _)| *peer_id)
 			.collect();
 		log::debug!(
@@ -1543,17 +1550,10 @@ where
 
 	/// Send this node's affinity filter to a newly connected peer.
 	async fn send_local_filter(&mut self, peer: &PeerId) {
-		if self.peers.get(peer).map(|p| p.protocol_version) == Some(PeerProtocolVersion::V1) {
+		if self.peers.get(peer).is_none_or(Peer::without_dht) {
 			return;
 		}
 		let encoded = StatementMessage::ExplicitTopicAffinity(self.v2dht.local_filter()).encode();
-		self.send_notification(peer, encoded).await;
-	}
-
-	/// Ask `peer` for everything.
-	async fn send_match_all_filter(&mut self, peer: &PeerId) {
-		let encoded =
-			StatementMessage::ExplicitTopicAffinity(AffinityFilter::match_all(0)).encode();
 		self.send_notification(peer, encoded).await;
 	}
 
@@ -1756,7 +1756,7 @@ where
 	fn allowed_during_major_sync(&self, peer: &PeerId, notification: &[u8]) -> bool {
 		v2dht_enabled() &&
 			self.peers.get(peer).is_some_and(|peer_data| {
-				peer_data.protocol_version == PeerProtocolVersion::V2 &&
+				peer_data.protocol_version != PeerProtocolVersion::V1 &&
 					notification.starts_with(&[AFFINITY_VARIANT_INDEX])
 			})
 	}
@@ -1802,13 +1802,12 @@ where
 				handshake,
 				direction,
 			} => {
-				// If negotiated_fallback is Some, the peer connected on a fallback protocol
-				// (v1). If None, the peer connected on the main protocol (v2).
-				let protocol_version = if negotiated_fallback.is_some() {
-					PeerProtocolVersion::V1
-				} else {
-					PeerProtocolVersion::V2
-				};
+				// If negotiated_fallback is Some, the peer connected on a fallback protocol.
+				// If None, the peer connected on the main protocol.
+				let protocol_version = PeerProtocolVersion::negotiated(
+					negotiated_fallback.as_deref(),
+					v2dht_enabled(),
+				);
 				let Some(peer_role) = self.network.peer_role(peer, handshake) else {
 					log::debug!(
 						target: LOG_TARGET,
@@ -1839,7 +1838,6 @@ where
 						is_light,
 						inbound: direction.is_inbound(),
 						pending_topic_affinity: None,
-						assumed_match_all: false,
 						sync_watermark: 0,
 					},
 				);
@@ -1854,7 +1852,7 @@ where
 				if v2dht_enabled() {
 					if protocol_version == PeerProtocolVersion::V1 {
 						// A V1 peer cannot decode a filter and wants everything, so it is served
-						// like a peer assumed match-all and stays out of the DHT index.
+						// like a peer without the DHT path and stays out of the DHT index.
 						self.v2dht.on_peer_filter_update(peer, AffinityFilter::match_all(0));
 					} else if !is_light {
 						self.v2dht.on_substream_opened(peer);
@@ -1867,12 +1865,13 @@ where
 				}
 
 				// Peers awaiting their affinity filter are synced by the pending-affinity tick.
-				// Light peers owe the filter by protocol; full peers owe it only with the v2 DHT
-				// path on, so they get [`AFFINITY_FILTER_GRACE_PERIOD`] to deliver it.
-				if self.peers.get(&peer).map_or(false, |p| p.can_receive()) {
+				// Light peers owe the filter by protocol; full peers owe it only on `statement/3`.
+				// A full `statement/2` peer floods, so with the v2 DHT path on it is served at
+				// once.
+				if v2dht_enabled() && protocol_version == PeerProtocolVersion::V2 && !is_light {
+					self.serve_without_dht(peer);
+				} else if self.peers.get(&peer).map_or(false, |p| p.can_receive()) {
 					self.schedule_initial_sync_for_peer(peer, None);
-				} else if !is_light {
-					self.awaiting_affinity_filter.insert(peer, Instant::now());
 				}
 				self.update_peers_without_dht();
 			},
@@ -1882,7 +1881,6 @@ where
 				}
 				let removed_peer = self.peers.remove(&peer);
 				debug_assert!(removed_peer.is_some());
-				self.awaiting_affinity_filter.remove(&peer);
 				self.update_peers_without_dht();
 
 				if let Some(removed_peer) = removed_peer {
@@ -1953,7 +1951,7 @@ where
 							}
 						}
 					},
-					PeerProtocolVersion::V2 => {
+					PeerProtocolVersion::V2 | PeerProtocolVersion::V3 => {
 						// V2 peers send StatementMessage enum.
 						if let Ok(message) = StatementMessage::decode(&mut notification.as_ref()) {
 							match message {
@@ -1984,7 +1982,6 @@ where
 									// stored statements it newly matches. Without this a late
 									// subscriber sees only the statements that arrive after it
 									// subscribes.
-									let mut was_assumed_match_all = false;
 									if let Some(peer_data) = self.peers.get_mut(&peer) {
 										log::debug!(
 											target: LOG_TARGET,
@@ -1993,20 +1990,6 @@ where
 										// Defer both the affinity update and sync scheduling
 										// to the main loop tick.
 										peer_data.pending_topic_affinity = Some(filter);
-										was_assumed_match_all =
-											std::mem::take(&mut peer_data.assumed_match_all);
-										self.awaiting_affinity_filter.remove(&peer);
-									}
-									if was_assumed_match_all {
-										if let Some(ref metrics) = self.metrics {
-											metrics.late_affinity_filters.inc();
-										}
-										// A late filter means the peer runs the v2 DHT path.
-										if v2dht_enabled() {
-											self.v2dht.on_substream_opened(peer);
-										}
-										self.send_local_filter(&peer).await;
-										self.update_peers_without_dht();
 									}
 								},
 							}
@@ -2273,8 +2256,8 @@ where
 				continue;
 			};
 
-			// A V2 peer without a filter is skipped: the initial sync that follows its filter,
-			// or the match-all filter after the grace period, resends everything skipped here.
+			// A peer that still owes its filter is skipped: the initial sync that follows the
+			// filter resends everything skipped here.
 			if !peer.can_receive() {
 				continue;
 			}
@@ -2495,7 +2478,9 @@ where
 			let send_stmts: Vec<_> = statements.iter().map(|(_, stmt)| stmt).collect();
 			let encoded = match peer_version {
 				PeerProtocolVersion::V1 => send_stmts.encode(),
-				PeerProtocolVersion::V2 => StatementMessage::encode_statement_refs(&send_stmts),
+				PeerProtocolVersion::V2 | PeerProtocolVersion::V3 => {
+					StatementMessage::encode_statement_refs(&send_stmts)
+				},
 			};
 			let bytes_sent = encoded.len() as u64;
 			let Some(message_sink) = self.notification_service.message_sink(&who) else {
@@ -2760,42 +2745,21 @@ where
 		true
 	}
 
-	/// Treat peers silent past [`AFFINITY_FILTER_GRACE_PERIOD`] as nodes without the v2 DHT path:
-	/// a match-all filter, the v1 meaning of no filter, no place in the DHT index, an initial
-	/// sync, and a match-all filter in return.
-	async fn assume_match_all_after_filter_grace(&mut self) {
-		let now = Instant::now();
-		let expired: Vec<PeerId> = self
-			.awaiting_affinity_filter
-			.iter()
-			.filter(|(_, connected_at)| {
-				now.duration_since(**connected_at) >= AFFINITY_FILTER_GRACE_PERIOD
-			})
-			.map(|(peer, _)| *peer)
-			.collect();
-		for peer in expired {
-			self.awaiting_affinity_filter.remove(&peer);
-			let Some(peer_data) = self.peers.get_mut(&peer) else {
-				continue;
-			};
-			log::warn!(
-				target: LOG_TARGET,
-				"No affinity filter from {peer} within the grace period, assuming it wants everything"
-			);
-			// The seed is irrelevant to a filter with every bit set.
-			let filter = AffinityFilter::match_all(0);
-			peer_data.topic_affinity = Some(filter.clone());
-			peer_data.assumed_match_all = true;
-			self.metrics.as_ref().map(|metrics| metrics.peers_assumed_match_all.inc());
-			if v2dht_enabled() {
-				// The propagation plan reads peer filters from the orchestrator.
-				self.v2dht.on_peer_filter_update(peer, filter);
-				self.v2dht.on_peer_without_dht(peer);
-			}
-			self.schedule_initial_sync_for_peer(peer, None);
-			self.send_match_all_filter(&peer).await;
+	/// Serve a full `statement/2` peer as a node without the v2 DHT path: a match-all filter, the
+	/// v1 meaning of no filter, no place in the DHT index, and an initial sync.
+	fn serve_without_dht(&mut self, peer: PeerId) {
+		let Some(peer_data) = self.peers.get_mut(&peer) else {
+			return;
+		};
+		// The seed is irrelevant to a filter with every bit set.
+		let filter = AffinityFilter::match_all(0);
+		peer_data.topic_affinity = Some(filter.clone());
+		if v2dht_enabled() {
+			// The propagation plan reads peer filters from the orchestrator.
+			self.v2dht.on_peer_filter_update(peer, filter);
+			self.v2dht.on_peer_without_dht(peer);
 		}
-		self.update_peers_without_dht();
+		self.schedule_initial_sync_for_peer(peer, None);
 	}
 
 	/// Count the connected peers served as nodes without the v2 DHT path.
@@ -3029,7 +2993,9 @@ where
 		let send_stmts: Vec<_> = batch.statements.iter().map(|(_, stmt)| stmt).collect();
 		let encoded = match peer_version {
 			PeerProtocolVersion::V1 => send_stmts.encode(),
-			PeerProtocolVersion::V2 => StatementMessage::encode_statement_refs(&send_stmts),
+			PeerProtocolVersion::V2 | PeerProtocolVersion::V3 => {
+				StatementMessage::encode_statement_refs(&send_stmts)
+			},
 		};
 		let bytes_to_send = encoded.len() as u64;
 		let Some(message_sink) = self.notification_service.message_sink(&peer_id) else {
@@ -3730,7 +3696,6 @@ mod tests {
 					is_light: false,
 					inbound: true,
 					pending_topic_affinity: None,
-					assumed_match_all: false,
 					sync_watermark: 0,
 				},
 			);
@@ -3763,7 +3728,6 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
-			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -4903,7 +4867,6 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
-			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -4971,7 +4934,6 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
-			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -6679,10 +6641,10 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn a_peer_silent_past_the_grace_period_is_asked_for_everything() {
-		let (mut handler, _statement_store, _network, notification_service) =
+	async fn a_full_v2_peer_is_served_without_the_dht_path() {
+		let (mut handler, statement_store, _network, notification_service) =
 			build_handler_no_peers();
-		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
+		statement_store.insert(new_live_statement());
 		let peer_id = PeerId::random();
 		handler
 			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
@@ -6692,40 +6654,37 @@ mod tests {
 				negotiated_fallback: None,
 			})
 			.await;
-		// With the gate off a full peer owes no filter, so the wait is set up by hand.
-		handler
-			.awaiting_affinity_filter
-			.insert(peer_id, Instant::now() - AFFINITY_FILTER_GRACE_PERIOD);
+		handler.pending_initial_syncs.remove(&peer_id);
+		handler.initial_sync_peer_queue.clear();
 		notification_service.clear_sent_notifications();
 
-		handler.assume_match_all_after_filter_grace().await;
+		// With the gate off a connection never leads here, so the call is made by hand.
+		handler.serve_without_dht(peer_id);
 
 		let peer = handler.peers.get(&peer_id).unwrap();
-		assert!(peer.assumed_match_all);
 		assert!(peer.topic_affinity.as_ref().is_some_and(|filter| filter.contains(&[0xAA; 32])));
-		let match_all =
-			StatementMessage::ExplicitTopicAffinity(AffinityFilter::match_all(0)).encode();
-		assert_eq!(notification_service.get_sent_notifications(), vec![(peer_id, match_all)]);
-		let metrics = handler.metrics.as_ref().unwrap();
-		assert_eq!(metrics.peers_assumed_match_all.get(), 1);
-		assert_eq!(metrics.late_affinity_filters.get(), 0);
+		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
+		assert!(notification_service.get_sent_notifications().is_empty(), "it gets no filter");
 
-		// A late filter clears the mark and gets the real filter in return.
+		// A filter the peer sends later narrows what it gets.
+		handler.pending_initial_syncs.remove(&peer_id);
+		handler.initial_sync_peer_queue.clear();
 		send_affinity(&mut handler, peer_id, [0xAA; 32]).await;
+		handler.process_pending_affinities();
 
-		assert!(!handler.peers.get(&peer_id).unwrap().assumed_match_all);
-		assert_eq!(handler.metrics.as_ref().unwrap().late_affinity_filters.get(), 1);
-		let local = StatementMessage::ExplicitTopicAffinity(handler.v2dht.local_filter()).encode();
-		assert_eq!(notification_service.get_sent_notifications().last(), Some(&(peer_id, local)));
+		let filter = handler.peers.get(&peer_id).unwrap().topic_affinity.as_ref().unwrap();
+		assert!(filter.contains(&[0xAA; 32]));
+		assert!(!filter.contains(&[0xBB; 32]));
 	}
 
 	#[tokio::test]
-	async fn a_filter_broadcast_skips_a_peer_assumed_match_all() {
+	async fn a_filter_broadcast_skips_a_peer_without_dht() {
 		let (mut handler, _statement_store, _network, notification_service) =
 			build_handler_no_peers();
-		let assumed = PeerId::random();
-		let other = PeerId::random();
-		for peer in [assumed, other] {
+		let without_dht = PeerId::random();
+		let with_dht = PeerId::random();
+		let light = PeerId::random();
+		for peer in [without_dht, with_dht, light] {
 			handler
 				.handle_notification_event(NotificationEvent::NotificationStreamOpened {
 					peer,
@@ -6735,7 +6694,8 @@ mod tests {
 				})
 				.await;
 		}
-		handler.peers.get_mut(&assumed).unwrap().assumed_match_all = true;
+		handler.peers.get_mut(&with_dht).unwrap().protocol_version = PeerProtocolVersion::V3;
+		handler.peers.get_mut(&light).unwrap().is_light = true;
 		notification_service.clear_sent_notifications();
 
 		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
@@ -6743,7 +6703,47 @@ mod tests {
 		handler.broadcast_local_filter(filter.clone()).await;
 
 		let encoded = StatementMessage::ExplicitTopicAffinity(filter).encode();
-		assert_eq!(notification_service.get_sent_notifications(), vec![(other, encoded)]);
+		let sent: HashSet<_> = notification_service.get_sent_notifications().into_iter().collect();
+		assert_eq!(sent, HashSet::from([(with_dht, encoded.clone()), (light, encoded)]));
+	}
+
+	#[test]
+	fn the_negotiated_protocol_tells_the_peer_version() {
+		let v1 = format!("/genesis/{STATEMENT_PROTOCOL_V1}");
+		let v2 = format!("/genesis/{STATEMENT_PROTOCOL_V2}");
+		for v2dht in [false, true] {
+			assert_eq!(PeerProtocolVersion::negotiated(Some(&v1), v2dht), PeerProtocolVersion::V1);
+		}
+		assert_eq!(PeerProtocolVersion::negotiated(Some(&v2), true), PeerProtocolVersion::V2);
+		assert_eq!(PeerProtocolVersion::negotiated(None, true), PeerProtocolVersion::V3);
+		assert_eq!(PeerProtocolVersion::negotiated(None, false), PeerProtocolVersion::V2);
+	}
+
+	#[test]
+	fn only_a_node_on_the_dht_path_offers_statement_3() {
+		let (main, fallbacks) = protocol_names("aa", None, false);
+		assert_eq!(main, "/aa/statement/2");
+		assert_eq!(fallbacks, vec!["/aa/statement/1"]);
+
+		let (main, fallbacks) = protocol_names("aa", Some("fork"), true);
+		assert_eq!(main, "/aa/fork/statement/3");
+		assert_eq!(fallbacks, vec!["/aa/fork/statement/2", "/aa/fork/statement/1"]);
+	}
+
+	#[test]
+	fn full_peers_below_statement_3_flood() {
+		let burst = NonZeroU32::new(1).unwrap();
+		let mut peer = Peer::new_for_testing(burst, burst);
+		assert!(peer.without_dht(), "a v1 peer floods");
+
+		peer.protocol_version = PeerProtocolVersion::V2;
+		assert!(peer.without_dht(), "a full v2 peer floods");
+		peer.is_light = true;
+		assert!(!peer.without_dht(), "a light v2 peer is served by its filter");
+
+		peer.is_light = false;
+		peer.protocol_version = PeerProtocolVersion::V3;
+		assert!(!peer.without_dht());
 	}
 
 	async fn send_affinity(
@@ -7316,7 +7316,6 @@ mod tests {
 				is_light,
 				inbound: true,
 				pending_topic_affinity: None,
-				assumed_match_all: false,
 				sync_watermark: 0,
 			}
 		};
@@ -7490,7 +7489,6 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
-			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -7591,7 +7589,6 @@ mod tests {
 				is_light: false,
 				inbound: true,
 				pending_topic_affinity: None,
-				assumed_match_all: false,
 				sync_watermark: 0,
 			},
 		);
@@ -7997,7 +7994,6 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
-			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -8156,7 +8152,6 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
-			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -8223,7 +8218,6 @@ mod tests {
 				is_light: false,
 				inbound: true,
 				pending_topic_affinity: None,
-				assumed_match_all: false,
 				sync_watermark: 0,
 			},
 		);
@@ -8255,7 +8249,6 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
-			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -8340,7 +8333,6 @@ mod tests {
 			is_light: false,
 			inbound: true,
 			pending_topic_affinity: None,
-			assumed_match_all: false,
 			sync_watermark: 0,
 		};
 
@@ -8378,7 +8370,6 @@ mod tests {
 					pending_affinities_timeout: Box::pin(futures::future::pending()),
 					peer_eviction_timeout: Box::pin(futures::future::pending()),
 					pending_initial_syncs: HashMap::new(),
-					awaiting_affinity_filter: HashMap::new(),
 					initial_sync_peer_queue: VecDeque::new(),
 					next_initial_sync_id: 0,
 					initial_sync_in_flight_bytes: 0,
@@ -8449,7 +8440,6 @@ mod tests {
 			is_light: false,
 			inbound: true,
 			pending_topic_affinity: None,
-			assumed_match_all: false,
 			sync_watermark: 0,
 		};
 		let who = PeerId::random();
@@ -8514,7 +8504,6 @@ mod tests {
 			is_light: false,
 			inbound: true,
 			pending_topic_affinity: None,
-			assumed_match_all: false,
 			sync_watermark: 0,
 		};
 		let who = PeerId::random();
@@ -8583,7 +8572,6 @@ mod tests {
 			is_light: false,
 			inbound: true,
 			pending_topic_affinity: None,
-			assumed_match_all: false,
 			sync_watermark: 0,
 		};
 		let previous = filter_over(&[topic(7)]);

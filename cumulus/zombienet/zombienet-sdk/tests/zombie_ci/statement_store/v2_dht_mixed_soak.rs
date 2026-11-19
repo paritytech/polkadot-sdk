@@ -7,12 +7,12 @@
 //! it speaks statement/2 but never advertises a filter
 //!
 //! The two kinds meet on sync links only, as a DHT-off node opens statement substreams to its sync
-//! peers alone. A DHT node serves a DHT-off peer silent past the filter grace as a node that wants
-//! everything: it pushes the peer every statement, sends it a match-all filter so the peer pushes
-//! everything back, and keeps it out of the DHT index. A DHT node without a link to the DHT-off
-//! node cannot tell it apart and keeps it in its index. So for each DHT-off node among a topic's K
-//! closest, one DHT node past them holds a replica only if it is linked to the DHT-off nodes ahead,
-//! and the soak does not check that node's store
+//! peers alone. A DHT-off peer settles for statement/2, and a DHT node serves it from then on as a
+//! node that wants everything: it pushes the peer every statement, sends it no filter so the peer
+//! pushes everything back, and keeps it out of the DHT index. A DHT node without a link to the
+//! DHT-off node learns the same from identify, which lists no statement/3, but a DHT-off peer
+//! returns to the index when its link closes. So for each DHT-off node among a topic's K closest,
+//! one DHT node past them may hold a replica or not, and the soak does not check that node's store
 //!
 //! Every wave checks delivery in all four directions, entry kind to subscriber kind:
 //! - ring load on the wave topic, submitted round-robin through every node, with one subscriber of
