@@ -22,21 +22,23 @@
 //! given URL.
 //!
 //! By default, the panic handler aborts the process by calling [`std::process::exit`]. This can
-//! temporarily be disabled by using an [`AbortGuard`].
+//! temporarily be disabled by using an [`AbortGuard`] or [`abort_on_unwind`].
 
 use backtrace::Backtrace;
 use regex::Regex;
 use std::{
+	any::Any,
 	cell::Cell,
 	io::{self, Write},
 	marker::PhantomData,
-	panic::{self, PanicHookInfo},
-	sync::LazyLock,
+	panic::{self, PanicHookInfo, UnwindSafe},
+	sync::{Arc, LazyLock},
 	thread,
 };
 
 thread_local! {
 	static ON_PANIC: Cell<OnPanic> = Cell::new(OnPanic::Abort);
+	static DEFERRED_REPORT: Cell<Option<Box<PanicReport>>> = const { Cell::new(None) };
 }
 
 /// Panic action.
@@ -46,6 +48,8 @@ enum OnPanic {
 	Abort,
 	/// Unwind when panic occurs.
 	Unwind,
+	/// Unwind, printing only a summary and deferring the full panic report.
+	DeferReport,
 	/// Always unwind even if someone changes strategy to Abort afterwards.
 	NeverAbort,
 }
@@ -57,11 +61,8 @@ enum OnPanic {
 /// The `bug_url` parameter is an invitation for users to visit that URL to submit a bug report
 /// in the case where a panic happens.
 pub fn set(bug_url: &str, version: &str) {
-	panic::set_hook(Box::new({
-		let version = version.to_string();
-		let bug_url = bug_url.to_string();
-		move |c| panic_hook(c, &bug_url, &version)
-	}));
+	let context = Arc::new(ReportContext { url: bug_url.to_owned(), version: version.to_owned() });
+	panic::set_hook(Box::new(move |info| panic_hook(info, &context)));
 }
 
 macro_rules! ABOUT_PANIC {
@@ -79,7 +80,7 @@ fn set_abort(on_panic: OnPanic) -> OnPanic {
 	ON_PANIC.with(|val| {
 		let prev = val.get();
 		match prev {
-			OnPanic::Abort | OnPanic::Unwind => val.set(on_panic),
+			OnPanic::Abort | OnPanic::Unwind | OnPanic::DeferReport => val.set(on_panic),
 			OnPanic::NeverAbort => (),
 		}
 		prev
@@ -101,23 +102,27 @@ pub struct AbortGuard {
 }
 
 impl AbortGuard {
+	fn new(action: OnPanic) -> Self {
+		Self { previous_val: set_abort(action), _not_send: PhantomData }
+	}
+
 	/// Create a new guard. While the guard is alive, panics that happen in the current thread will
 	/// unwind the stack (unless another guard is created afterwards).
 	pub fn force_unwind() -> AbortGuard {
-		AbortGuard { previous_val: set_abort(OnPanic::Unwind), _not_send: PhantomData }
+		Self::new(OnPanic::Unwind)
 	}
 
 	/// Create a new guard. While the guard is alive, panics that happen in the current thread will
 	/// abort the process (unless another guard is created afterwards).
 	pub fn force_abort() -> AbortGuard {
-		AbortGuard { previous_val: set_abort(OnPanic::Abort), _not_send: PhantomData }
+		Self::new(OnPanic::Abort)
 	}
 
 	/// Create a new guard. While the guard is alive, panics that happen in the current thread will
 	/// **never** abort the process (even if `AbortGuard::force_abort()` guard will be created
 	/// afterwards).
 	pub fn never_abort() -> AbortGuard {
-		AbortGuard { previous_val: set_abort(OnPanic::NeverAbort), _not_send: PhantomData }
+		Self::new(OnPanic::NeverAbort)
 	}
 }
 
@@ -125,6 +130,48 @@ impl Drop for AbortGuard {
 	fn drop(&mut self) {
 		set_abort(self.previous_val);
 	}
+}
+
+struct DeferredPanicReport {
+	previous_report: Option<Box<PanicReport>>,
+	_abort: AbortGuard,
+}
+
+impl DeferredPanicReport {
+	fn enter() -> Self {
+		Self {
+			previous_report: DEFERRED_REPORT.take(),
+			_abort: AbortGuard::new(OnPanic::DeferReport),
+		}
+	}
+}
+
+impl Drop for DeferredPanicReport {
+	fn drop(&mut self) {
+		DEFERRED_REPORT.set(self.previous_report.take());
+	}
+}
+
+/// Run `f`, reporting panics caught inside it with a single line instead of the full report.
+///
+/// A panic that escapes `f` prints the full report and exits the process, even if the hook isn't
+/// [`set`]. A panic that aborts the process without unwinding, like one in a destructor during
+/// unwinding, is only reported with a single line.
+pub fn abort_on_unwind<T>(f: impl FnOnce() -> T + UnwindSafe) -> T {
+	// The payload is kept until the exit: its destructor may panic.
+	let (_payload, report) = {
+		let _scope = DeferredPanicReport::enter();
+		match panic::catch_unwind(f) {
+			Ok(value) => return value,
+			Err(payload) => (payload, DEFERRED_REPORT.take()),
+		}
+	};
+
+	// `None` if the hook has printed the report itself or isn't installed.
+	if let Some(mut report) = report {
+		report.print();
+	}
+	std::process::exit(1)
 }
 
 // NOTE: When making any changes here make sure to also change this function in `sc-tracing`.
@@ -148,44 +195,89 @@ fn strip_control_codes(input: &str) -> std::borrow::Cow<'_, str> {
 	RE.replace_all(input, "")
 }
 
-/// Function being called when a panic happens.
-fn panic_hook(info: &PanicHookInfo, report_url: &str, version: &str) {
-	let location = info.location();
-	let file = location.as_ref().map(|l| l.file()).unwrap_or("<unknown>");
-	let line = location.as_ref().map(|l| l.line()).unwrap_or(0);
+fn panic_message(payload: &(dyn Any + Send)) -> &str {
+	payload
+		.downcast_ref::<&str>()
+		.copied()
+		.or_else(|| payload.downcast_ref::<String>().map(String::as_str))
+		.unwrap_or("Box<Any>")
+}
 
-	let msg = match info.payload().downcast_ref::<&'static str>() {
-		Some(s) => *s,
-		None => match info.payload().downcast_ref::<String>() {
-			Some(s) => &s[..],
-			None => "Box<Any>",
-		},
-	};
+/// Report of a panic that may still be caught.
+///
+/// Carries its own message: a payload re-raised with `resume_unwind` skips the hook, so the
+/// escaped payload isn't necessarily the one of the reported panic.
+struct PanicReport {
+	context: Arc<ReportContext>,
+	backtrace: Backtrace,
+	message: String,
+	file: String,
+	line: u32,
+}
 
-	let msg = strip_control_codes(msg);
+impl PanicReport {
+	fn print(&mut self) {
+		self.backtrace.resolve();
+		self.context.print(&self.backtrace, &self.message, &self.file, self.line);
+	}
+}
 
+struct ReportContext {
+	url: String,
+	version: String,
+}
+
+impl ReportContext {
+	fn print(&self, backtrace: &Backtrace, message: &str, file: &str, line: u32) {
+		let mut stderr = io::stderr();
+
+		let _ = writeln!(stderr);
+		let _ = writeln!(stderr, "====================");
+		let _ = writeln!(stderr);
+		let _ = writeln!(stderr, "Version: {}", self.version);
+		let _ = writeln!(stderr);
+		let _ = writeln!(stderr, "{:?}", backtrace);
+		let _ = writeln!(stderr);
+		print_summary(&mut stderr, message, file, line);
+		let _ = writeln!(stderr, ABOUT_PANIC!(), self.url);
+	}
+}
+
+/// Print the one-line panic summary.
+fn print_summary(stderr: &mut io::Stderr, message: &str, file: &str, line: u32) {
+	let message = strip_control_codes(message);
 	let thread = thread::current();
 	let name = thread.name().unwrap_or("<unnamed>");
 
-	let backtrace = Backtrace::new();
+	let _ = writeln!(stderr, "Thread '{}' panicked at '{}', {}:{}", name, message, file, line);
+}
 
-	let mut stderr = io::stderr();
+fn panic_hook(info: &PanicHookInfo, context: &Arc<ReportContext>) {
+	let (file, line) = info
+		.location()
+		.map_or(("<unknown>", 0), |location| (location.file(), location.line()));
+	let message = panic_message(info.payload());
+	let action = ON_PANIC.get();
 
-	let _ = writeln!(stderr);
-	let _ = writeln!(stderr, "====================");
-	let _ = writeln!(stderr);
-	let _ = writeln!(stderr, "Version: {}", version);
-	let _ = writeln!(stderr);
-	let _ = writeln!(stderr, "{:?}", backtrace);
-	let _ = writeln!(stderr);
-	let _ = writeln!(stderr, "Thread '{}' panicked at '{}', {}:{}", name, msg, file, line);
+	if action == OnPanic::DeferReport {
+		// The only report of a panic that is caught, or that aborts the process without unwinding.
+		print_summary(&mut io::stderr(), message, file, line);
+		DEFERRED_REPORT.set(Some(Box::new(PanicReport {
+			context: Arc::clone(context),
+			backtrace: Backtrace::new_unresolved(),
+			message: message.to_owned(),
+			file: file.to_owned(),
+			line,
+		})));
+		return;
+	}
 
-	let _ = writeln!(stderr, ABOUT_PANIC!(), report_url);
-	ON_PANIC.with(|val| {
-		if val.get() == OnPanic::Abort {
-			::std::process::exit(1);
-		}
-	})
+	// Must not be mistaken for the report of this panic.
+	let _ = DEFERRED_REPORT.try_with(|report| report.set(None));
+	context.print(&Backtrace::new(), message, file, line);
+	if action == OnPanic::Abort {
+		std::process::exit(1);
+	}
 }
 
 #[cfg(test)]
@@ -221,9 +313,15 @@ mod tests {
 				.output()
 				.unwrap();
 
-			assert!(output.status.success());
 			Some(output)
 		}
+	}
+
+	/// Only present in the full report.
+	const FULL_REPORT: &str = "Version: 1.2.3";
+
+	fn stderr(output: &std::process::Output) -> String {
+		String::from_utf8_lossy(&output.stderr).into_owned()
 	}
 
 	#[test]
@@ -241,9 +339,107 @@ mod tests {
 		);
 
 		if let Some(output) = output {
+			assert!(output.status.success());
 			let stderr = String::from_utf8(output.stderr).unwrap();
 			assert!(!stderr.contains(RAW_LINE));
 			assert!(stderr.contains(SANITIZED_LINE));
+		}
+	}
+
+	#[test]
+	fn caught_panic_prints_summary_only() {
+		let output = run_test_in_another_process("caught_panic_prints_summary_only", || {
+			set("test", "1.2.3");
+			abort_on_unwind(|| {
+				assert!(panic::catch_unwind::<_, ()>(|| panic!("caught")).is_err());
+			});
+		});
+
+		if let Some(output) = output {
+			assert!(output.status.success());
+			let stderr = stderr(&output);
+			assert!(stderr.contains("panicked at 'caught'"));
+			assert!(stderr.contains("lib.rs:"));
+			assert!(!stderr.contains(FULL_REPORT));
+		}
+	}
+
+	#[test]
+	fn escaped_panic_prints_report_and_exits() {
+		let output = run_test_in_another_process("escaped_panic_prints_report_and_exits", || {
+			set("test", "1.2.3");
+			abort_on_unwind::<()>(|| panic!("escaped"));
+		});
+
+		if let Some(output) = output {
+			assert_eq!(output.status.code(), Some(1));
+			let stderr = stderr(&output);
+			assert_eq!(stderr.matches(FULL_REPORT).count(), 1);
+			assert!(stderr.contains("panicked at 'escaped'"));
+		}
+	}
+
+	#[test]
+	fn escaped_panic_reported_by_hook_is_not_printed_twice() {
+		let output = run_test_in_another_process(
+			"escaped_panic_reported_by_hook_is_not_printed_twice",
+			|| {
+				set("test", "1.2.3");
+				let _guard = AbortGuard::never_abort();
+				abort_on_unwind::<()>(|| panic!("escaped"));
+			},
+		);
+
+		if let Some(output) = output {
+			assert_eq!(output.status.code(), Some(1));
+			assert_eq!(stderr(&output).matches(FULL_REPORT).count(), 1);
+		}
+	}
+
+	#[test]
+	fn report_is_not_mixed_with_reraised_payload() {
+		let output =
+			run_test_in_another_process("report_is_not_mixed_with_reraised_payload", || {
+				set("test", "1.2.3");
+				abort_on_unwind::<()>(|| {
+					let _ = panic::catch_unwind::<_, ()>(|| panic!("caught"));
+					panic::resume_unwind(Box::new("reraised"));
+				});
+			});
+
+		if let Some(output) = output {
+			assert_eq!(output.status.code(), Some(1));
+			let stderr = stderr(&output);
+			assert!(stderr.contains(FULL_REPORT));
+			assert!(stderr.contains("panicked at 'caught'"));
+			assert!(!stderr.contains("panicked at 'reraised'"));
+		}
+	}
+
+	#[test]
+	fn non_unwinding_panic_prints_summary() {
+		struct PanicOnDrop;
+
+		impl Drop for PanicOnDrop {
+			fn drop(&mut self) {
+				panic!("in destructor");
+			}
+		}
+
+		let output = run_test_in_another_process("non_unwinding_panic_prints_summary", || {
+			set("test", "1.2.3");
+			abort_on_unwind::<()>(|| {
+				let _panic_on_drop = PanicOnDrop;
+				panic!("first");
+			});
+		});
+
+		if let Some(output) = output {
+			// Aborted by the runtime: a panic in a destructor during unwinding can't unwind.
+			assert!(!output.status.success());
+			let stderr = stderr(&output);
+			assert!(stderr.contains("panicked at 'first'"));
+			assert!(stderr.contains("panicked at 'in destructor'"));
 		}
 	}
 }
