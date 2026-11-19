@@ -1,16 +1,12 @@
-title: Remove `pallet-election-provider-multi-phase`
+title: Deprecate `pallet-election-provider-multi-phase`
 doc:
 - audience: Runtime Dev
   description: |-
-    Removes `pallet-election-provider-multi-phase` and its e2e test crate, in favor of `pallet-election-provider-multi-block` with `pallet-staking-async`.
+    `pallet-election-provider-multi-phase` is deprecated and will be removed after May 2027. Use `pallet-staking-async` with `pallet-election-provider-multi-block`, or `onchain::OnChainExecution` with `pallet-staking`.
 
-    A runtime that uses the pallet must remove it and clear its storage, for example with `frame_support::migrations::RemovePallet`. Then it can move to `pallet-staking-async` with `pallet-election-provider-multi-block`, or keep `pallet-staking` and set `ElectionProvider` to `onchain::OnChainExecution` or `NoElection`.
-
-    Users of the `polkadot-sdk` umbrella crate must remove the `pallet-election-provider-multi-phase` feature.
+    A runtime that removes the pallet must clear its storage, for example with `frame_support::migrations::RemovePallet`.
 crates:
-- name: polkadot-sdk
-  bump: major
+- name: pallet-election-provider-multi-phase
+  bump: minor
 - name: polkadot-runtime-common
-  bump: major
-- name: pallet-election-provider-multi-block
-  bump: none
+  bump: minor
