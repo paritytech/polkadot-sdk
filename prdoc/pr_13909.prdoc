@@ -4,4 +4,4 @@ doc:
   description: Also check the leaf count when verifying the ancestry proof
 crates:
   - name: pallet-beefy-mmr
-    bump: patch
+    bump: minor
