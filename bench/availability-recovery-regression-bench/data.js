@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795104249920,
+  "lastUpdate": 1795107318225,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f2bc410c455ea0a82162d92ce4dcc41ae644c143",
-          "message": "ci: new ci-unified with updated forklift and resolc (#12019)\n\ncc https://github.com/paritytech/devops/issues/5285",
-          "timestamp": "2026-05-08T12:01:00Z",
-          "tree_id": "d8731de162658dcfd33d371c1d0d6ac3aa6a182d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f2bc410c455ea0a82162d92ce4dcc41ae644c143"
-        },
-        "date": 1778246685468,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.123937378833336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13313679609999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12029609200000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gui.thiolliere@gmail.com",
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a41a7e7d7440b32b85059689e8aa53fb8646fa4d",
+          "message": "AHMv2 HRMP Part 3 : impl migration hooks (#13656)\n\nImplement the trait so the migrator can put the deposit in the\nhrmp-para.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-19T15:21:30Z",
+          "tree_id": "4c6e7c046130e55070d8de65964f2aab2c4160b5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a41a7e7d7440b32b85059689e8aa53fb8646fa4d"
+        },
+        "date": 1795107279586,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.619282952433332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12419779253333334,
             "unit": "seconds"
           }
         ]
