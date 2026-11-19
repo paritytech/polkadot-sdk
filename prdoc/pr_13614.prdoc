@@ -1,0 +1,14 @@
+title: Skip unaffected Subsystem Benchmarks on pull requests
+
+doc:
+  - audience: Node Dev
+    description: |
+      Skip the five Subsystem Benchmarks when a pull request changes no modeled
+      benchmark inputs. Select using local Cargo dependencies and shared build inputs,
+      with a sparse checkout and verification of the actual CI merge commit.
+      Run the full suite for unknown inputs, source paths outside their owning crate,
+      selector failures, or missing outputs. Preserve cancellation and preflight checks.
+      Match shared preflight's documentation exclusions while treating code under
+      docs/ as a build input. Keep full benchmark runs on master and the merge queue.
+      Include regression tests and historical PR replay validation. No crates require publishing.
+crates: []

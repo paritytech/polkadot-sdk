@@ -21,9 +21,39 @@ jobs:
   preflight:
     needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
+  select-benchmarks:
+    needs: [preflight]
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    outputs:
+      run_benchmarks: ${{ steps.select.outcome == 'success' && steps.select.outputs.run_benchmarks || 'true' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+          sparse-checkout: |
+            **/Cargo.toml
+            /.github/scripts/subsystem_benchmarks_filter.py
+            /.github/scripts/test_subsystem_benchmarks_filter.py
+            /.github/workflows/benchmarks-subsystem.yml
+          sparse-checkout-cone-mode: false
+      - name: Validate the benchmark selector
+        run: python3 .github/scripts/test_subsystem_benchmarks_filter.py
+      - name: Select benchmarks
+        id: select
+        run: python3 .github/scripts/subsystem_benchmarks_filter.py
   build:
     timeout-minutes: 80
-    needs: [preflight]
+    needs: [preflight, select-benchmarks]
+    # Skip only after successful PR selection; errors or absent outputs run the full suite.
+    if: >-
+      ${{ !cancelled() && needs.preflight.result == 'success' &&
+          (github.event_name != 'pull_request' ||
+           needs.select-benchmarks.result != 'success' ||
+           needs.select-benchmarks.outputs.run_benchmarks != 'false') }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
