@@ -502,6 +502,10 @@ fn ensure_updated_works() {
 	#![allow(deprecated)]
 	new_test_ext().execute_with(|| {
 		let alice = 2;
+		// every round below re-inserts the same 100 un-migrated preimages, each reserving a
+		// deposit of 123, and nothing releases the deposits or tickets of the records it
+		// overwrites. Fund alice for all of them.
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), alice, 100 * 100 * 123));
 
 		for i in 0..100 {
 			let hashes =
