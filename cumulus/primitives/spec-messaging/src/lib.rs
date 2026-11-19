@@ -71,7 +71,8 @@ pub use streams_root::{
 /// pallet. `()` records nothing.
 pub trait ProvideConsumptionRecord {
 	/// The block's consumption record: what the messaging inherent did. The `validate_block`
-	/// wrapper calls it after executing each block of a bundle.
+	/// wrapper calls it after executing each block of a bundle. It must read only storage the
+	/// block wrote, since the PoV holds no other proof nodes.
 	fn consumption_record() -> ConsumptionRecord;
 }
 
