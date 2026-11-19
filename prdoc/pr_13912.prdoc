@@ -2,7 +2,7 @@ title: Deprecate `pallet-election-provider-multi-phase`
 doc:
 - audience: Runtime Dev
   description: |-
-    `pallet-election-provider-multi-phase` is deprecated and will be removed after May 2027. Use `pallet-staking-async` with `pallet-election-provider-multi-block`, or `onchain::OnChainExecution` with `pallet-staking`.
+    `pallet-election-provider-multi-phase` is deprecated and will be removed after May 2027. Use `pallet-staking-async` with `pallet-election-provider-multi-block` instead.
 
     A runtime that removes the pallet must clear its storage, for example with `frame_support::migrations::RemovePallet`.
 crates:
