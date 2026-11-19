@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795098261988,
+  "lastUpdate": 1795101454326,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -148715,6 +148715,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2998003751,
             "range": "± 33676251",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "41743d82f8a0593f6c0e84ac336f90dee5beebee",
+          "message": "statement-store: keep the recovery replay when the filter changes during major sync (#13879)\n\n## Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13871.\n\nA node in major sync drops every incoming statement. After the sync it\nsends its affinity filter again, and a peer answers an unchanged filter\nwith a full replay. A peer answers a changed filter with only the\ndifference. If an RPC client subscribed or unsubscribed during the sync,\nthe filter differed, every peer sent the difference, and the statements\ndropped on the unchanged topics stayed missing.\n\nThe fix has two sides, and the wire format stays as it is.\n\nThe recovering node remembers the filter that it advertised last. After\nthe sync, if its topics changed, it sends that filter first and the\nchanged one second. A newly connected peer receives the remembered\nfilter too, so every peer holds the same one however often the topics\nchange during the sync.\n\nThe peer remembers that a sender repeated its latest filter. The next\nsync for that sender sends everything, also when a changed filter\nreplaced the repeated one before the sync was scheduled.\n\n## Integration\n\nNo action for node operators. A peer without the change keeps only the\nlatest filter and sends the difference, so the loss ends on a link once\nboth sides run the change.\n\nA peer that connects between a topic change and the next filter\nbroadcast receives the previous filter first and the changed one a tick\nlater.",
+          "timestamp": "2026-11-19T14:00:28Z",
+          "tree_id": "f9f8ac81f12c5d1935335a7c9d6340a103020803",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/41743d82f8a0593f6c0e84ac336f90dee5beebee"
+        },
+        "date": 1795101418181,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19397719,
+            "range": "± 196369",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19917856,
+            "range": "± 171111",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21219168,
+            "range": "± 166023",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25537823,
+            "range": "± 103900",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57613430,
+            "range": "± 759216",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 339553493,
+            "range": "± 3356260",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2597092597,
+            "range": "± 134036631",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16917292,
+            "range": "± 123475",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16994889,
+            "range": "± 160039",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17464410,
+            "range": "± 71372",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22039317,
+            "range": "± 100549",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 57923647,
+            "range": "± 684580",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 334968765,
+            "range": "± 1689333",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2710099859,
+            "range": "± 29326516",
             "unit": "ns/iter"
           }
         ]
