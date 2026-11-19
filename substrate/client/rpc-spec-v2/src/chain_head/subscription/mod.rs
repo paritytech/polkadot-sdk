@@ -218,13 +218,13 @@ impl<Block: BlockT, BE: Backend<Block>> ReservedSubscription<Block, BE> {
 		match std::mem::replace(&mut self.state, ConnectionState::Empty) {
 			ConnectionState::Reserved(reserved) => {
 				let registered_token = reserved.register(sub_id.clone())?;
-				self.state = ConnectionState::Registered {
-					_unregister_on_drop: registered_token,
-					sub_id: sub_id.clone(),
-				};
-
 				let mut inner = self.inner.write();
-				inner.insert_subscription(sub_id, runtime_updates)
+				let subscription = inner.insert_subscription(sub_id.clone(), runtime_updates)?;
+				// The guard owns cleanup only after the shared entry has been inserted.
+				self.state =
+					ConnectionState::Registered { _unregister_on_drop: registered_token, sub_id };
+
+				Some(subscription)
 			},
 			// Cannot insert multiple subscriptions into one single reserved space.
 			ConnectionState::Registered { .. } | ConnectionState::Empty => {
