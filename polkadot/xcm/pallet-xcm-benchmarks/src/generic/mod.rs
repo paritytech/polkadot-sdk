@@ -79,10 +79,6 @@ pub mod pallet {
 		/// asset to trigger the Trader::buy_execution in the XCM executor
 		/// Used to buy weight in benchmarks, for example in
 		/// `refund_surplus`.
-		///
-		/// The asset should be the most expensive one for the trader, e.g. one it swaps when
-		/// buying and swaps back when refunding. It is minted into holding unless holding already
-		/// has it.
 		fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError>;
 
 		/// Return an unlocker, owner and assets that can be locked and unlocked.

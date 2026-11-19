@@ -43,20 +43,6 @@ fn assets_to_holding<T: crate::Config>(assets: &Assets) -> Result<AssetsInHoldin
 	Ok(holding)
 }
 
-/// `worst_case_holding(depositable_count)` with `fee_asset` minted into it unless it has it.
-fn holding_with_fee_asset<T: Config>(
-	depositable_count: u32,
-	fee_asset: &Asset,
-) -> Result<AssetsInHolding, BenchmarkError> {
-	let mut holding = T::worst_case_holding(depositable_count);
-	if !holding.fungible.contains_key(&fee_asset.id) {
-		let minted = assets_to_holding::<T>(&fee_asset.clone().into())
-			.map_err(|_| BenchmarkError::Stop("failed to mint the asset for fees"))?;
-		holding.subsume_assets(minted);
-	}
-	Ok(holding)
-}
-
 #[benchmarks]
 mod benchmarks {
 	use super::*;
@@ -133,13 +119,14 @@ mod benchmarks {
 	// by the `deep` and `shallow` implementation.
 	#[benchmark]
 	fn buy_execution() -> Result<(), BenchmarkError> {
-		// The worst case we want for buy execution in terms of
-		// fee asset and weight
-		let (fee_asset, weight_limit) = T::worst_case_for_trader()?;
-		let holding = holding_with_fee_asset::<T>(0, &fee_asset)?;
+		let holding = T::worst_case_holding(0);
 
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding);
+
+		// The worst case we want for buy execution in terms of
+		// fee asset and weight
+		let (fee_asset, weight_limit) = T::worst_case_for_trader()?;
 
 		let instruction = Instruction::<XcmCallOf<T>>::BuyExecution {
 			fees: fee_asset,
@@ -157,13 +144,14 @@ mod benchmarks {
 
 	#[benchmark]
 	fn pay_fees() -> Result<(), BenchmarkError> {
-		let (fee_asset, _) = T::worst_case_for_trader()?;
-		let holding = holding_with_fee_asset::<T>(0, &fee_asset)?;
+		let holding = T::worst_case_holding(0);
 
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding);
 		// Set some weight to be paid for.
 		executor.set_message_weight(Weight::from_parts(100_000_000, 100_000));
+
+		let (fee_asset, _): (Asset, WeightLimit) = T::worst_case_for_trader().unwrap();
 
 		let instruction = Instruction::<XcmCallOf<T>>::PayFees { asset: fee_asset };
 
@@ -241,13 +229,13 @@ mod benchmarks {
 	#[benchmark]
 	fn refund_surplus() -> Result<(), BenchmarkError> {
 		let mut executor = new_executor::<T>(Default::default());
-		let (asset_for_fees, _) = T::worst_case_for_trader()?;
-		let holding_assets = holding_with_fee_asset::<T>(1, &asset_for_fees)?;
+		let holding_assets = T::worst_case_holding(1);
+		// We can already buy execution since we'll load the holding register manually
+		let (asset_for_fees, _): (Asset, WeightLimit) = T::worst_case_for_trader().unwrap();
 
-		// Buying more than is refunded, as a swapping trader refunds only less than it was paid.
 		let previous_xcm = Xcm(vec![BuyExecution {
 			fees: asset_for_fees,
-			weight_limit: Limited(Weight::from_parts(2 * 1337, 2 * 1337)),
+			weight_limit: Limited(Weight::from_parts(1337, 1337)),
 		}]);
 		executor.set_holding(holding_assets);
 		executor.set_total_surplus(Weight::from_parts(1337, 1337));
