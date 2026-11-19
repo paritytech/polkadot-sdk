@@ -117,6 +117,31 @@ fn user_unnote_preimage_works() {
 }
 
 #[test]
+fn unnote_preserves_preimage_and_deposit_if_release_fails() {
+	for requested in [false, true] {
+		new_test_ext().execute_with(|| {
+			let hash = hashed([1]);
+			assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(2), vec![1]));
+			if requested {
+				assert_ok!(Preimage::request_preimage(RuntimeOrigin::signed(1), hash));
+			}
+
+			FailDepositRelease::set(true);
+			assert_noop!(
+				Preimage::unnote_preimage(RuntimeOrigin::signed(2), hash),
+				DEPOSIT_RELEASE_ERROR
+			);
+			assert_storage_noop!(<Preimage as StorePreimage>::unnote(&hash));
+
+			FailDepositRelease::set(false);
+			assert_ok!(Preimage::unnote_preimage(RuntimeOrigin::signed(2), hash));
+			assert_eq!(Balances::balance_on_hold(&PreimageHoldReason::get(), &2), 0);
+			assert_eq!(Preimage::get_preimage(&hash), requested.then(|| vec![1]));
+		});
+	}
+}
+
+#[test]
 fn manager_unnote_preimage_works() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(1), vec![1]));
