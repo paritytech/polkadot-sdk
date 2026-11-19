@@ -331,60 +331,103 @@ pub struct Client {
 	is_archive: bool,
 	/// Whether historic backfill has completed. `false` if not started or in progress.
 	backfill_complete: Arc<AtomicBool>,
-	/// Queue for backfilling blocks missed during subscription reconnects.
+	/// Queue for backfilling blocks the subscriptions did not index.
 	subscription_gap_queue: SubscriptionGapQueue,
 	/// Hands out the version-aware runtime API of specific blocks.
 	runtime_api_provider: VersionAwareRuntimeApiProvider,
 }
 
-/// A request to backfill a range of missed blocks (both bounds inclusive).
+/// A request to backfill a range of blocks the subscriptions did not index (both bounds
+/// inclusive).
 pub(crate) struct GapFillRequest {
 	pub from_inclusive: SubstrateBlockNumber,
 	pub to_inclusive: SubstrateBlockNumber,
+	/// Hash of `from_inclusive` when the producer knows it. The range then starts from that
+	/// block rather than from the block its number resolves to, which can be a retracted
+	/// sibling still cached as the best block.
+	pub from_hash: Option<H256>,
 }
 
-/// Queues gap-fill requests for blocks missed during subscription reconnects.
+/// Queues gap-fill requests for blocks the finalized subscription did not index: ranges
+/// skipped by the stream, after a reconnect or between the block the backward sync starts
+/// from and the first streamed block (archive mode), and finalized blocks whose processing
+/// failed (archive mode).
 #[derive(Clone)]
 pub(crate) struct SubscriptionGapQueue {
 	/// Sender half of the gap-fill queue.
 	tx: mpsc::Sender<GapFillRequest>,
 	/// Queued + in-flight gap fills. Channel length alone is insufficient
 	/// because it drops to zero as soon as the receiver dequeues the item.
+	/// Requests abandoned after the last attempt or dropped on a full queue stay
+	/// counted for the rest of the process lifetime; only a restart clears them.
 	pending: Arc<AtomicUsize>,
 }
 
 impl SubscriptionGapQueue {
 	pub(crate) fn new() -> (Self, mpsc::Receiver<GapFillRequest>) {
-		// Each reconnect produces one gap-fill request for the entire missed range,
-		// so 32 allows for 32 rapid disconnects before the consumer processes any.
+		// Reconnects produce one request per missed range and, in archive mode, failed
+		// finalized blocks one request each, served by a single consumer that holds a
+		// failing request for its whole retry schedule (about 30 s). While every finalized
+		// block fails, the queue gains one request per block and loses one per schedule, so
+		// at 6 s blocks that producer alone fills it after about four minutes; reconnect gaps
+		// and the startup range share the same slots. A request that does not fit is dropped
+		// but stays pending, which freezes the sync head exactly as an abandoned fill does.
+		// Only a restart recovers from that: its backward sync re-indexes the dropped range
+		// like any other gap.
 		let (tx, rx) = mpsc::channel(32);
 		(Self { tx, pending: Arc::new(AtomicUsize::new(0)) }, rx)
 	}
 
-	/// If `current` is not consecutive to `last`, queue a gap-fill for the missing range.
-	pub fn detect_and_queue(&self, current: SubstrateBlockNumber, last: SubstrateBlockNumber) {
-		if current.saturating_sub(last) <= 1 {
-			return;
-		}
+	/// The blocks between the finalized block `last` and the next streamed one, `current`, as
+	/// `(from_inclusive, to_inclusive)`, or `None` when `current` is consecutive to `last`.
+	pub fn missing_range(
+		current: SubstrateBlockNumber,
+		last: SubstrateBlockNumber,
+	) -> Option<(SubstrateBlockNumber, SubstrateBlockNumber)> {
+		(current.saturating_sub(last) > 1)
+			.then(|| (current.saturating_sub(1), last.saturating_add(1)))
+	}
 
-		let from_inclusive = current.saturating_sub(1);
-		let to_inclusive = last.saturating_add(1);
+	/// Queue a gap-fill for `from_inclusive` down to `to_inclusive`.
+	#[cfg(test)]
+	pub fn queue(&self, from_inclusive: SubstrateBlockNumber, to_inclusive: SubstrateBlockNumber) {
+		self.queue_range(from_inclusive, to_inclusive, None);
+	}
+
+	/// Queue a gap-fill for the single block `number` with hash `hash`.
+	pub fn queue_block(&self, number: SubstrateBlockNumber, hash: H256) {
+		self.queue_range(number, number, Some(hash));
+	}
+
+	/// Queue a gap-fill for `from_inclusive` down to `to_inclusive`, starting at the block
+	/// `from_hash` when it is known.
+	fn queue_range(
+		&self,
+		from_inclusive: SubstrateBlockNumber,
+		to_inclusive: SubstrateBlockNumber,
+		from_hash: Option<H256>,
+	) {
+		let request = GapFillRequest { from_inclusive, to_inclusive, from_hash };
 		let gap_len = from_inclusive.saturating_sub(to_inclusive) + 1;
 		self.pending.fetch_add(1, Ordering::Release);
-		match self.tx.try_send(GapFillRequest { from_inclusive, to_inclusive }) {
+		match self.tx.try_send(request) {
 			Ok(_) => {
 				log::info!(target: LOG_TARGET,
 					"🔄 Subscription gap queue: queued #{from_inclusive} down to #{to_inclusive} ({gap_len} blocks)");
 			},
+			// The range is not indexed by this process, so it stays counted as pending for
+			// the rest of the process lifetime: in archive mode the sync head cannot advance
+			// over it until a restart's backward sync fills it.
 			Err(err) => {
-				self.pending.fetch_sub(1, Ordering::Release);
-				log::warn!(target: LOG_TARGET,
-					"🔄 Subscription gap queue error, dropping #{from_inclusive}..#{to_inclusive} ({gap_len} blocks): {err}");
+				log::error!(target: LOG_TARGET,
+					"🔄 Subscription gap queue error, dropping #{from_inclusive}..#{to_inclusive} ({gap_len} blocks): {err}. \
+					 These blocks stay unindexed; in archive mode the sync head stays at its current block until a restart fills the gap");
 			},
 		}
 	}
 
-	/// Mark one request as processed.
+	/// Mark one request as finished: its backward sync returned without error. Abandoned and
+	/// dropped requests are never marked done.
 	pub fn mark_done(&self) {
 		let res = self
 			.pending
@@ -396,7 +439,7 @@ impl SubscriptionGapQueue {
 		}
 	}
 
-	/// Returns `true` if there are pending gap-fill requests.
+	/// Returns `true` if any gap-fill request is queued, in flight, abandoned or dropped.
 	pub fn has_pending(&self) -> bool {
 		self.pending.load(Ordering::Acquire) > 0
 	}
@@ -532,7 +575,8 @@ impl Client {
 	}
 
 	/// Advance the sync_state head label if safe to do so.
-	/// Requires: archive mode, historic backfill complete, and no pending gap fills.
+	/// Requires: archive mode, historic backfill complete, and no pending gap fills. An
+	/// abandoned or dropped gap fill stays pending until a restart, so the head stays here.
 	async fn advance_sync_head(&self, block_number: SubstrateBlockNumber, hash: H256) {
 		if !self.is_archive ||
 			!self.backfill_complete.load(Ordering::Acquire) ||
@@ -585,7 +629,8 @@ impl Client {
 			.unwrap_or(0)
 	}
 
-	/// Subscribe to new blocks, and execute the async closure for each block.
+	/// Subscribe to new blocks, and execute the async closure for each block. The finalized
+	/// stream queues the gaps listed on [`SubscriptionGapQueue`].
 	async fn subscribe_new_blocks<F, Fut>(
 		&self,
 		subscription_type: SubscriptionType,
@@ -603,7 +648,17 @@ impl Client {
 			log::error!(target: LOG_TARGET, "Failed to subscribe to blocks: {err:?}");
 		})?;
 
-		let mut last_finalized_seen: Option<SubstrateBlockNumber> = None;
+		// The backward sync starts no lower than the finalized block the provider holds here,
+		// while the stream starts at the finalized block of its own start, which can be further
+		// ahead. Seeding with the provider's block lets the first streamed block queue the range
+		// in between; a first block at or below the seed queues nothing, and blocks the backward
+		// sync indexes as well are skipped one by one. Pruning mode has no sync head to hold.
+		let mut last_finalized_seen = match subscription_type {
+			SubscriptionType::FinalizedBlocks if self.is_archive => {
+				Some(self.block_provider.latest_finalized_block().await.block_number())
+			},
+			_ => None,
+		};
 
 		while let Some(block) = block_stream.next().await {
 			let block = match block {
@@ -626,14 +681,15 @@ impl Client {
 
 			// Resolution fails for pruned/retracted blocks and on transient RPC errors;
 			// erroring out here would kill the essential subscription task and with it the
-			// whole server. Skip instead: a skipped finalized block doesn't advance
-			// `last_finalized_seen`, so the gap filler backfills it.
+			// whole server. Gap detection compares each finalized block with
+			// `last_finalized_seen`, so a later block backfills an unresolved one.
+			let parent_hash = block.header().parent_hash;
 			let block = match block.at().await {
 				Ok(block) => block,
 				Err(err) => {
 					log::warn!(
 						target: LOG_TARGET,
-						"Failed to resolve streamed {subscription_type:?} block #{} ({:?}), skipping: {err:?}",
+						"Failed to resolve streamed {subscription_type:?} block #{} ({:?}): {err:?}",
 						block.number(),
 						block.hash(),
 					);
@@ -645,19 +701,36 @@ impl Client {
 			let _guard = self.subscription_lock.lock().await;
 
 			let block_number = block.block_number();
+			let block_hash = block.block_hash();
 
 			// Only check finalized blocks for gaps.
 			if subscription_type == SubscriptionType::FinalizedBlocks {
-				if let Some(last) = last_finalized_seen {
-					self.subscription_gap_queue.detect_and_queue(block_number, last);
+				if let Some((from, to)) = last_finalized_seen
+					.and_then(|last| SubscriptionGapQueue::missing_range(block_number, last))
+				{
+					// `from` is the streamed block's parent, so its hash pins the range to the
+					// finalized chain.
+					self.subscription_gap_queue.queue_range(from, to, Some(parent_hash));
 				}
-				// Update unconditionally — a callback failure doesn't mean the block was missed.
+				// The stream position advances whatever the callback does, so gap detection
+				// only sees stream gaps; a failed finalized block is queued separately below.
 				last_finalized_seen = Some(block_number);
 			}
 
 			log::trace!(target: LOG_TARGET_SUBSCRIPTION, "⏳ Processing {subscription_type:?} block: {block_number}");
 			if let Err(err) = callback(block).await {
-				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
+				log::error!(target: LOG_TARGET,
+					"Failed to process block {block_number} ({subscription_type:?}): {err:?}");
+				// The callback fails only before the block is indexed. The block is queued
+				// rather than retried here, so a failing block does not stall both streams
+				// behind `subscription_lock` for a whole retry schedule; the gap filler
+				// re-indexes it and keeps the sync head from advancing past it until then.
+				// Pruning mode has no sync head, and rows the gap filler writes bypass its
+				// eviction, as those of reconnect gaps already do, so there the block stays
+				// unindexed.
+				if subscription_type == SubscriptionType::FinalizedBlocks && self.is_archive {
+					self.subscription_gap_queue.queue_block(block_number, block_hash);
+				}
 			} else {
 				log::trace!(target: LOG_TARGET_SUBSCRIPTION, "✅ Processed {subscription_type:?} block: {block_number}");
 			}
@@ -788,14 +861,21 @@ impl Client {
 						.await;
 					self.advance_sync_head(block_number, hash).await;
 
+					// The block is indexed by now. A failed read here only costs the subscribers
+					// this block's logs; returning the error would hand an indexed block to the
+					// gap filler.
 					if self.log_subscription_tx.receiver_count() > 0 {
 						let logs = match receipt_infos {
 							Some(infos) => infos.into_iter().flat_map(|r| r.logs).collect(),
-							None => {
-								self.receipt_provider
-									.logs_by_block_number(block_number, eth_hash)
-									.await?
-							},
+							None => self
+								.receipt_provider
+								.logs_by_block_number(block_number, eth_hash)
+								.await
+								.unwrap_or_else(|err| {
+									log::error!(target: LOG_TARGET,
+										"Failed to read the logs of finalized block #{block_number} for log subscribers: {err:?}");
+									Vec::new()
+								}),
 						};
 						for log in logs {
 							let _ = self.log_subscription_tx.send(log);
@@ -1431,5 +1511,35 @@ mod tests {
 		assert!(rpc_user_error(-32602).recorded_unavailable_reason().is_none());
 		assert!(ClientError::EthExtrinsicNotFound.recorded_unavailable_reason().is_none());
 		assert!(ClientError::BlockNotFound.recorded_unavailable_reason().is_none());
+	}
+
+	#[test]
+	fn gap_dropped_on_full_queue_stays_pending() {
+		let (queue, mut rx) = SubscriptionGapQueue::new();
+		let capacity = rx.max_capacity() as SubstrateBlockNumber;
+
+		// One more gap than the channel holds; the last one is dropped.
+		for i in 0..=capacity {
+			queue.queue(i * 10 + 4, i * 10 + 1);
+		}
+
+		for _ in 0..capacity {
+			rx.try_recv().expect("queued gap fill");
+			queue.mark_done();
+		}
+		assert!(rx.try_recv().is_err());
+		assert!(queue.has_pending(), "dropped gap must keep the sync head from advancing");
+	}
+
+	#[test]
+	fn consecutive_or_older_finalized_block_misses_nothing() {
+		for (current, last) in [(6, 5), (5, 5), (3, 5)] {
+			assert_eq!(SubscriptionGapQueue::missing_range(current, last), None);
+		}
+	}
+
+	#[test]
+	fn skipped_finalized_block_is_missing() {
+		assert_eq!(SubscriptionGapQueue::missing_range(7, 5), Some((6, 6)));
 	}
 }

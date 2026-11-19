@@ -537,19 +537,24 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		self.receipt_extractor.extract_from_block(block).await
 	}
 
-	/// Like [`Self::insert_block_receipts`] but writes only to the DB (no cache update).
-	/// Used for historic sync where fork detection is unnecessary.
+	/// Like [`Self::insert_block_receipts`] but writes the block's rows only. It neither consults
+	/// nor updates the fork cache, so a sibling indexed earlier at the same height is not
+	/// evicted, and neither the fee history nor the log subscribers see the block. Used for
+	/// historic sync and by the gap filler. A block that is already indexed is skipped before
+	/// its receipts are extracted.
 	pub async fn insert_block_receipts_past(
 		&self,
 		block: &SubstrateBlock,
 		ethereum_hash: &H256,
 	) -> Result<(), ClientError> {
+		if self.is_indexed(&block.block_hash()).await? {
+			return Ok(());
+		}
 		let receipts = self
 			.receipt_extractor
 			.extract_from_block_with_eth_hash(block, *ethereum_hash)
 			.await?;
-		self.insert_into_db(block, &receipts, ethereum_hash).await?;
-		Ok(())
+		self.write_block(block, &receipts, ethereum_hash).await
 	}
 
 	/// Insert pre-extracted receipts and update the block cache (with fork detection).
@@ -563,6 +568,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Insert receipts into the provider, updating the in-memory block cache for fork detection.
+	/// When any database write fails, the cache entry this call added is removed again, so only
+	/// committed rows report a block as processed; an entry that was cached before the call is
+	/// kept. Entries the same call dropped for a fork or by `keep_latest_n_blocks` are not
+	/// restored: if their eviction failed, their rows stay and nothing evicts them later; if the
+	/// eviction committed and the insert failed, their rows are gone and the height has no entry.
 	///
 	/// Note: Can be merged into `insert_block_receipts` once <https://github.com/paritytech/subxt/issues/1883> is fixed and subxt let
 	/// us create Mock `SubstrateBlock`
@@ -573,9 +583,20 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		ethereum_hash: &H256,
 	) -> Result<(), ClientError> {
 		let block_map = BlockHashMap::new(block.hash(), *ethereum_hash);
-		self.prune_blocks(block.number(), &block_map).await?;
-		self.insert_into_db(block, receipts, ethereum_hash).await?;
-		Ok(())
+		let was_cached =
+			self.block_number_to_hashes.lock().await.get(&block.number()) == Some(&block_map);
+		let result = async {
+			self.prune_blocks(block.number(), &block_map).await?;
+			self.insert_into_db(block, receipts, ethereum_hash).await
+		}
+		.await;
+		if result.is_err() && !was_cached {
+			let mut block_number_to_hash = self.block_number_to_hashes.lock().await;
+			if block_number_to_hash.get(&block.number()) == Some(&block_map) {
+				block_number_to_hash.remove(&block.number());
+			}
+		}
+		result
 	}
 
 	/// Handle fork detection (always) and DB pruning (temporary mode only).
@@ -631,8 +652,43 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(())
 	}
 
-	/// Insert receipts into the database without updating the in-memory block cache.
+	/// Whether the block's hash mapping exists. The mapping is written in the same transaction as
+	/// the block's transaction hashes and logs, so it stands for all of the block's rows.
+	async fn is_indexed(&self, substrate_hash: &H256) -> Result<bool, ClientError> {
+		let substrate_hash_ref = substrate_hash.as_ref();
+		let result = sqlx::query!(
+			r#"SELECT EXISTS(SELECT 1 FROM eth_to_substrate_blocks WHERE substrate_block_hash = $1) AS "exists!:bool""#, substrate_hash_ref
+		)
+		.fetch_one(&self.db_ctx.pool)
+		.await?;
+		Ok(result.exists)
+	}
+
+	/// Insert receipts into the database without updating the in-memory block cache, unless the
+	/// block is already indexed.
 	async fn insert_into_db(
+		&self,
+		block: &impl BlockInfo,
+		receipts: &[(TransactionSigned, ReceiptInfo)],
+		ethereum_hash: &H256,
+	) -> Result<(), ClientError> {
+		// Check if mapping already exists (eg. added when processing best block and we are now
+		// processing finalized block)
+		if self.is_indexed(&block.hash()).await? {
+			log::trace!(target: LOG_TARGET,
+				"Skipping receipt insert for block #{} ({:?}): mapping already exists. \
+				 ETH hash: {ethereum_hash:?}, receipts count: {count}",
+				block.number(),
+				block.hash(),
+				count = receipts.len(),
+			);
+			return Ok(());
+		}
+		self.write_block(block, receipts, ethereum_hash).await
+	}
+
+	/// Write the block's rows in one transaction, without checking whether it is indexed.
+	async fn write_block(
 		&self,
 		block: &impl BlockInfo,
 		receipts: &[(TransactionSigned, ReceiptInfo)],
@@ -644,25 +700,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		let ethereum_hash_ref = ethereum_hash.as_ref();
 
 		log::trace!(target: LOG_TARGET, "Inserting receipts for block #{block_number} ethereum: {ethereum_hash:?} substrate: {substrate_block_hash:?}");
-
-		// Check if mapping already exists (eg. added when processing best block and we are now
-		// processing finalized block)
-		let result = sqlx::query!(
-			r#"SELECT EXISTS(SELECT 1 FROM eth_to_substrate_blocks WHERE substrate_block_hash = $1) AS "exists!:bool""#, substrate_hash_ref
-		)
-		.fetch_one(&self.db_ctx.pool)
-		.await?;
-
-		// Assuming that if no mapping exists then no relevant entries in transaction_hashes and
-		// logs exist
-		if result.exists {
-			log::trace!(target: LOG_TARGET,
-				"Skipping receipt insert for block #{block_number} ({substrate_block_hash:?}): \
-				 mapping already exists. ETH hash: {ethereum_hash:?}, receipts count: {count}",
-				count = receipts.len(),
-			);
-			return Ok(());
-		}
 
 		let mut db_tx = self.db_ctx.pool.begin().await?;
 
@@ -1088,6 +1125,92 @@ mod tests {
 		provider.remove(&[block_map]).await?;
 		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", Some(block.hash())).await, 0);
 		assert_eq!(count(&provider.db_ctx.pool, "logs", Some(ethereum_hash)).await, 0);
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_failed_insert_does_not_mark_block_processed(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool.clone()).await;
+		let block = MockBlockInfo { hash: H256::from([7_u8; 32]), number: 5 };
+		let receipts = vec![(TransactionSigned::default(), ReceiptInfo::default())];
+		let ethereum_hash = H256::from([1_u8; 32]);
+
+		sqlx::query("DROP TABLE transaction_hashes").execute(&pool).await?;
+		assert!(provider.insert(&block, &receipts, &ethereum_hash).await.is_err());
+
+		assert_eq!(provider.get_processed_eth_block_hash(block.number(), block.hash()).await, None);
+		assert_eq!(provider.get_ethereum_hash(&block.hash()).await, None);
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_failed_fork_eviction_does_not_mark_block_processed(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool.clone()).await;
+		let receipts = vec![(TransactionSigned::default(), ReceiptInfo::default())];
+		let block_a = MockBlockInfo { hash: H256::from([7_u8; 32]), number: 5 };
+		provider.insert(&block_a, &receipts, &H256::from([1_u8; 32])).await?;
+
+		// Inserting a fork at the same height evicts block A; the eviction fails on `logs`.
+		sqlx::query("DROP TABLE logs").execute(&pool).await?;
+		let block_b = MockBlockInfo { hash: H256::from([8_u8; 32]), number: 5 };
+		assert!(provider.insert(&block_b, &receipts, &H256::from([2_u8; 32])).await.is_err());
+
+		assert_eq!(provider.get_ethereum_hash(&block_b.hash()).await, None);
+		assert_eq!(
+			provider.get_processed_eth_block_hash(block_b.number(), block_b.hash()).await,
+			None
+		);
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_is_indexed(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool.clone()).await;
+		let receipts = vec![(TransactionSigned::default(), ReceiptInfo::default())];
+		let block = MockBlockInfo { hash: H256::from([7_u8; 32]), number: 5 };
+
+		assert!(!provider.is_indexed(&block.hash()).await?);
+		provider.insert(&block, &receipts, &H256::from([1_u8; 32])).await?;
+		assert!(provider.is_indexed(&block.hash()).await?);
+
+		sqlx::query("DROP TABLE eth_to_substrate_blocks").execute(&pool).await?;
+		assert!(provider.is_indexed(&block.hash()).await.is_err());
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_failed_reinsert_keeps_block_processed(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool.clone()).await;
+		let receipts = vec![(TransactionSigned::default(), ReceiptInfo::default())];
+		let block_a = MockBlockInfo { hash: H256::from([7_u8; 32]), number: 5 };
+		let ethereum_hash_a = H256::from([1_u8; 32]);
+		provider.insert(&block_a, &receipts, &ethereum_hash_a).await?;
+
+		// Replaying the committed block fails on the existence check.
+		sqlx::query("ALTER TABLE eth_to_substrate_blocks RENAME TO renamed")
+			.execute(&pool)
+			.await?;
+		assert!(provider.insert(&block_a, &receipts, &ethereum_hash_a).await.is_err());
+		sqlx::query("ALTER TABLE renamed RENAME TO eth_to_substrate_blocks")
+			.execute(&pool)
+			.await?;
+
+		assert_eq!(
+			provider.get_processed_eth_block_hash(block_a.number(), block_a.hash()).await,
+			Some(ethereum_hash_a)
+		);
+		// The kept entry lets a fork at the same height evict the block.
+		let block_b = MockBlockInfo { hash: H256::from([8_u8; 32]), number: 5 };
+		provider.insert(&block_b, &receipts, &H256::from([2_u8; 32])).await?;
+		assert_eq!(provider.get_ethereum_hash(&block_a.hash()).await, None);
+		assert_eq!(
+			count(&provider.db_ctx.pool, "transaction_hashes", Some(block_a.hash())).await,
+			0
+		);
 		Ok(())
 	}
 

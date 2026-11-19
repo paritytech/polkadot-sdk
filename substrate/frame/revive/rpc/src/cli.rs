@@ -19,6 +19,7 @@ use crate::{
 	DbContext, DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, LOG_TARGET,
 	PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
 	SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
+	block_sync::GapFillRetry,
 	client::{
 		Client, ClientError, SubscriptionGapQueue, SubscriptionType, connect,
 		version_aware_runtime_api::VersionAwareRuntimeApiProvider,
@@ -432,9 +433,10 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 				futures.push(Box::pin(client.sync_backward()));
 			}
 
-			// Backfill gaps caused by subscription reconnects.
+			// Backfill the blocks the finalized subscription did not index, see
+			// `SubscriptionGapQueue`.
 			futures.push(Box::pin(async {
-				client.run_subscription_gap_filler(gap_fill_rx).await;
+				client.run_subscription_gap_filler(gap_fill_rx, GapFillRetry::default()).await;
 				Ok::<_, ClientError>(())
 			}));
 

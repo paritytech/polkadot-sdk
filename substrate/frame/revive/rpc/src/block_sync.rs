@@ -22,6 +22,7 @@ use crate::{
 	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber},
 };
 use pallet_revive::evm::H256;
+use std::time::Duration;
 use tokio::sync::mpsc;
 
 const LOG_TARGET: &str = "eth-rpc::block-sync";
@@ -35,9 +36,11 @@ pub enum SyncLabel {
 	/// Lowest synced block. Only decreases.
 	#[display(fmt = "sync-tail")]
 	Tail,
-	/// Highest synced block. Absent means no sync has started.
-	/// During backfill: upper boundary being filled.
-	/// After backfill: advanced by the finalized-block subscription.
+	/// Every block from `Tail` up to this one is indexed in a database written by this version or
+	/// later; earlier versions could leave holes below it. Absent means no sync has started.
+	/// During backfill: upper boundary being filled. After backfill: advanced by
+	/// the finalized-block subscription only while no subscription gap fill is pending, so it
+	/// can stay behind indexed blocks until a restart.
 	#[display(fmt = "sync-head")]
 	Head,
 }
@@ -78,10 +81,27 @@ impl SyncCheckpoint {
 /// How often (in blocks) the backward sync checkpoints are persisted to the database.
 const BLOCK_INTERVAL: u32 = 128;
 
+/// Retry schedule of one subscription gap fill.
+pub struct GapFillRetry {
+	/// Attempts before the request is left pending.
+	pub max_attempts: u32,
+	/// Delay before the first retry, doubled for each further retry.
+	pub backoff: Duration,
+}
+
+impl Default for GapFillRetry {
+	fn default() -> Self {
+		Self { max_attempts: 5, backoff: Duration::from_secs(2) }
+	}
+}
+
 /// Options for [`Client::sync_backward_range`].
 struct BackwardSyncRange {
 	from: SubstrateBlockNumber,
 	to: SubstrateBlockNumber,
+	/// Hash of `from`; when set, the range starts from that exact block instead of whatever
+	/// block the provider resolves `from` to.
+	from_hash: Option<H256>,
 	/// Set `Head` label after syncing the first block.
 	set_head: bool,
 	/// Checkpoint `Tail` label periodically and at end.
@@ -218,6 +238,7 @@ impl Client {
 		self.sync_backward_range(BackwardSyncRange {
 			from: latest_finalized,
 			to: first_evm,
+			from_hash: None,
 			set_head: true,
 			checkpoint_tail: true,
 			persist_first_evm_block: true,
@@ -238,10 +259,15 @@ impl Client {
 
 		let top_gap = async {
 			// Top gap: sync from latest_finalized down to head + 1.
-			if head.block_number < latest_finalized.block_number {
+			if head.block_number >= latest_finalized.block_number {
+				return Ok(());
+			}
+			let (from, to) = (latest_finalized.block_number, head.block_number.saturating_add(1));
+			async {
 				self.sync_backward_range(BackwardSyncRange {
-					from: latest_finalized.block_number,
-					to: head.block_number.saturating_add(1),
+					from,
+					to,
+					from_hash: None,
 					set_head: false,
 					checkpoint_tail: false,
 					persist_first_evm_block: false,
@@ -251,32 +277,47 @@ impl Client {
 				// Mark top gap complete so a restart won't redo it.
 				self.receipt_provider()
 					.advance_sync_label(SyncLabel::Head, latest_finalized)
-					.await?;
+					.await
 			}
-			Ok::<_, ClientError>(())
+			.await
+			.inspect_err(|err| {
+				log::error!(target: LOG_TARGET,
+					"🗄️ Sync of new blocks #{from}..#{to} stopped due to {err}. The sync head stays \
+					 at #{} until a restart syncs them; a backfill of older history still running \
+					 continues", head.block_number);
+			})
 		};
 
 		let bottom_gap = async {
 			// Bottom gap: sync from tail - 1 down to the first EVM block.
 			let first_evm = self.receipt_provider().first_evm_block().unwrap_or(0);
 			if tail.block_number > first_evm {
+				let from = tail.block_number.saturating_sub(1);
 				self.sync_backward_range(BackwardSyncRange {
-					from: tail.block_number.saturating_sub(1),
+					from,
 					to: first_evm,
+					from_hash: None,
 					set_head: false,
 					checkpoint_tail: true,
 					persist_first_evm_block: true,
 				})
-				.await?;
+				.await
+				.inspect_err(|err| {
+					log::error!(target: LOG_TARGET,
+						"🗄️ Backfill of older history #{from}..#{first_evm} stopped due to {err}");
+				})?;
 			} else {
 				log::debug!(target: LOG_TARGET, "🗄️ No backward gap to fill");
 			}
 			Ok::<_, ClientError>(())
 		};
 
-		tokio::try_join!(top_gap, bottom_gap)?;
-
-		Ok(())
+		// The gaps are independent: a block that fails in the top gap must not cancel the
+		// backfill of older history, which otherwise restarts from its checkpoint every time.
+		// Each gap logs its own failure, as `sync_backward` reports only one of them, and only
+		// once both have ended.
+		let (top, bottom) = tokio::join!(top_gap, bottom_gap);
+		top.and(bottom)
 	}
 
 	/// Backward sync from block `from` down to block `to` (inclusive).
@@ -286,6 +327,7 @@ impl Client {
 		BackwardSyncRange {
 			from,
 			to,
+			from_hash,
 			set_head,
 			checkpoint_tail,
 			persist_first_evm_block,
@@ -298,11 +340,18 @@ impl Client {
 
 		log::info!(target: LOG_TARGET, "⬇️ Backward sync: #{from} down to #{to}");
 
-		let mut block = self
-			.block_provider()
-			.block_by_number(from)
-			.await?
-			.ok_or(ClientError::BlockNotFound)?;
+		let mut block = match from_hash {
+			Some(hash) => self.block_provider().block_by_hash(&hash).await,
+			None => self.block_provider().block_by_number(from).await,
+		}
+		.map_err(Into::into)
+		.and_then(|opt| opt.ok_or(ClientError::BlockNotFound))
+		.inspect_err(|err| match from_hash {
+			Some(hash) => log::error!(target: LOG_TARGET,
+				"⚠️ Could not fetch start block #{from} ({hash:?}): {err:?}, stopping"),
+			None => log::error!(target: LOG_TARGET,
+				"⚠️ Could not fetch start block #{from}: {err:?}, stopping"),
+		})?;
 
 		let mut blocks_synced = 0u64;
 		let mut last_synced: Option<(SubstrateBlockNumber, H256)> = None;
@@ -381,7 +430,14 @@ impl Client {
 			}
 
 			if block_number > to {
-				let parent_hash = block.block_header().await?.parent_hash;
+				let parent_hash = match block.block_header().await {
+					Ok(header) => header.parent_hash,
+					Err(err) => {
+						log::error!(target: LOG_TARGET,
+							"⚠️ Could not fetch header of #{block_number}: {err:?}, stopping");
+						break Err(err.into());
+					},
+				};
 				match self
 					.block_provider()
 					.block_by_hash(&parent_hash)
@@ -416,30 +472,154 @@ impl Client {
 	}
 
 	/// Run the background subscription gap filler, processing requests sequentially.
-	pub(crate) async fn run_subscription_gap_filler(&self, mut rx: mpsc::Receiver<GapFillRequest>) {
+	pub(crate) async fn run_subscription_gap_filler(
+		&self,
+		mut rx: mpsc::Receiver<GapFillRequest>,
+		retry: GapFillRetry,
+	) {
 		log::info!(target: LOG_TARGET, "🔄 Subscription gap filler started");
 
-		while let Some(GapFillRequest { from_inclusive, to_inclusive }) = rx.recv().await {
-			log::info!(target: LOG_TARGET, "🔄 Subscription gap filler: processing #{from_inclusive} down to #{to_inclusive}");
-			if let Err(err) = self
-				.sync_backward_range(BackwardSyncRange {
-					from: from_inclusive,
-					to: to_inclusive,
-					set_head: false,
-					checkpoint_tail: false,
-					persist_first_evm_block: false,
-				})
-				.await
-			{
-				log::error!(target: LOG_TARGET, "🔄 Subscription gap fill failed for #{from_inclusive}..#{to_inclusive}: {err:?}");
-			} else {
-				log::info!(target: LOG_TARGET, "🔄 Subscription gap filler: done with #{from_inclusive}..#{to_inclusive}");
-			}
-			// Mark done unconditionally — mirrors how subscribe_new_blocks handles
-			// callback errors: log and move on.
-			self.subscription_gap_queue().mark_done();
+		while let Some(request) = rx.recv().await {
+			self.fill_subscription_gap(request, &retry).await;
 		}
 
 		log::info!(target: LOG_TARGET, "🔄 Subscription gap filler stopped");
+	}
+
+	/// Sync one gap-fill range, retrying failures with exponential backoff.
+	///
+	/// The request is marked done once a backward sync of the range returns without error,
+	/// which includes stopping early at a block without an EVM hash. Every attempt walks the
+	/// range from the top again; blocks indexed by an earlier attempt are skipped before
+	/// extraction but still fetched. A range that still fails
+	/// after `retry.max_attempts` stays pending, which keeps [`Client::advance_sync_head`]
+	/// from moving the `Head` label over the missing blocks. In archive mode the next
+	/// restart's backward sync walks from the finalized block down to the block after `Head`
+	/// and fills them, provided neither their cause nor that of a failing block above them
+	/// persists: the walk stops at the first block it cannot index, leaves everything below it
+	/// unvisited, and the label stays where it is until a restart gets past that block.
+	async fn fill_subscription_gap(
+		&self,
+		GapFillRequest { from_inclusive, to_inclusive, from_hash }: GapFillRequest,
+		retry: &GapFillRetry,
+	) {
+		log::info!(target: LOG_TARGET, "🔄 Subscription gap filler: processing #{from_inclusive} down to #{to_inclusive}");
+
+		let max_attempts = retry.max_attempts;
+		let result = retry_with_backoff(max_attempts, retry.backoff, |attempt| async move {
+			self.sync_backward_range(BackwardSyncRange {
+				from: from_inclusive,
+				to: to_inclusive,
+				from_hash,
+				set_head: false,
+				checkpoint_tail: false,
+				persist_first_evm_block: false,
+			})
+			.await
+			.inspect_err(|err| {
+				log::warn!(target: LOG_TARGET,
+					"🔄 Subscription gap fill #{from_inclusive}..#{to_inclusive} attempt {attempt} failed: {err:?}");
+			})
+		})
+		.await;
+
+		match result {
+			Ok(()) => {
+				log::info!(target: LOG_TARGET, "🔄 Subscription gap filler: done with #{from_inclusive}..#{to_inclusive}");
+				self.subscription_gap_queue().mark_done();
+			},
+			Err(err) => {
+				log::error!(target: LOG_TARGET,
+					"🔄 Subscription gap fill #{from_inclusive}..#{to_inclusive} failed after {max_attempts} attempts: {err:?}. \
+					 The blocks it did not reach stay unindexed; in archive mode the sync head stays at its current block until a restart fills the gap");
+			},
+		}
+	}
+}
+
+/// Run `attempt` until it succeeds, waiting `backoff` before the second try and twice the
+/// previous wait before each later one. Makes at most `max_attempts` tries, and at least one,
+/// then returns the last error.
+async fn retry_with_backoff<F, Fut>(
+	max_attempts: u32,
+	backoff: Duration,
+	mut attempt: F,
+) -> Result<(), ClientError>
+where
+	F: FnMut(u32) -> Fut,
+	Fut: std::future::Future<Output = Result<(), ClientError>>,
+{
+	let mut delay = backoff;
+	let mut attempts = 1;
+	loop {
+		match attempt(attempts).await {
+			Ok(()) => return Ok(()),
+			Err(err) if attempts >= max_attempts => return Err(err),
+			Err(_) => {
+				tokio::time::sleep(delay).await;
+				delay = delay.saturating_mul(2);
+				attempts += 1;
+			},
+		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use std::cell::Cell;
+	use tokio::time::Instant;
+
+	#[tokio::test(start_paused = true)]
+	async fn retry_with_backoff_succeeds_after_failures() {
+		let calls = Cell::new(0);
+		let start = Instant::now();
+
+		let result = retry_with_backoff(5, Duration::from_secs(2), |attempt| {
+			calls.set(calls.get() + 1);
+			std::future::ready(if attempt < 4 { Err(ClientError::BlockNotFound) } else { Ok(()) })
+		})
+		.await;
+
+		assert!(result.is_ok());
+		assert_eq!(calls.get(), 4);
+		assert_eq!(start.elapsed(), Duration::from_secs(2 + 4 + 8));
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn retry_with_backoff_gives_up_after_max_attempts() {
+		let calls = Cell::new(0);
+		let start = Instant::now();
+
+		let result = retry_with_backoff(5, Duration::from_secs(2), |_| {
+			calls.set(calls.get() + 1);
+			std::future::ready(Err(ClientError::BlockNotFound))
+		})
+		.await;
+
+		assert!(result.is_err());
+		assert_eq!(calls.get(), 5);
+		assert_eq!(start.elapsed(), Duration::from_secs(2 + 4 + 8 + 16));
+	}
+
+	#[test]
+	fn gap_fill_retry_default_is_five_attempts_from_two_seconds() {
+		let retry = GapFillRetry::default();
+
+		assert_eq!((retry.max_attempts, retry.backoff), (5, Duration::from_secs(2)));
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn retry_with_backoff_makes_at_least_one_attempt() {
+		let calls = Cell::new(0);
+
+		let result = retry_with_backoff(0, Duration::ZERO, |_| {
+			calls.set(calls.get() + 1);
+			std::future::ready(Err(ClientError::BlockNotFound))
+		})
+		.await;
+
+		assert!(result.is_err());
+		assert_eq!(calls.get(), 1);
 	}
 }
