@@ -289,9 +289,7 @@ impl V2DhtOrchestrator {
 	}
 
 	pub(crate) fn on_substream_closed(&mut self, peer: PeerId) {
-		if self.peers_topology.on_substream_closed(peer) {
-			self.publish_dht_affinity();
-		}
+		self.peers_topology.on_substream_closed(peer);
 		self.peer_steering.on_substream_closed(peer);
 		// The filter arrived over this substream, so it lives exactly as long.
 		self.explicit_affinity.on_substream_closed(peer);
@@ -431,7 +429,7 @@ impl V2DhtOrchestrator {
 				.peers_for_routing(|peer| self.peer_steering.is_unreachable(peer)),
 		);
 		// A reserved peer without the DHT path stays reserved: releasing a peer this node dialed
-		// closes its substream, which returns the peer to the index and gets it dialed again.
+		// closes its substream, and steering dials no peer outside the index again.
 		desired.extend(
 			self.peer_steering
 				.reserved_peers()
@@ -845,7 +843,7 @@ mod tests {
 	}
 
 	#[test]
-	fn a_peer_without_dht_returns_to_the_index_when_its_substream_closes() {
+	fn a_peer_without_dht_stays_out_of_the_index_until_identify_lists_it() {
 		let mut orchestrator = orchestrator_with(1, topology_config(1, 1));
 		let handle = RetentionHandle::new(peer(1), nz(1));
 		orchestrator.set_retention_handle(handle.clone());
@@ -856,7 +854,7 @@ mod tests {
 		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::DHT_AFFINITY);
 
 		orchestrator.on_substream_closed(remote);
-		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::DHT_AFFINITY);
 
 		orchestrator.on_peer_identified(remote, true);
 		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
