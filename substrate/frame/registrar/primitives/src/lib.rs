@@ -400,6 +400,12 @@ pub trait ReceiveMigratedParas<AccountId> {
 
 	/// Adopt the next free para id from the source chain.
 	fn receive_next_free_para_id(para_id: ParaId);
+
+	/// The weight of [`Self::receive_para`].
+	fn weight_of_receive_para() -> sp_runtime::Weight;
+
+	/// The weight of [`Self::receive_next_free_para_id`].
+	fn weight_of_receive_next_free_para_id() -> sp_runtime::Weight;
 }
 
 impl<AccountId> ReceiveMigratedParas<AccountId> for () {
@@ -408,4 +414,12 @@ impl<AccountId> ReceiveMigratedParas<AccountId> for () {
 	}
 
 	fn receive_next_free_para_id(_: ParaId) {}
+
+	fn weight_of_receive_para() -> sp_runtime::Weight {
+		sp_runtime::Weight::zero()
+	}
+
+	fn weight_of_receive_next_free_para_id() -> sp_runtime::Weight {
+		sp_runtime::Weight::zero()
+	}
 }
