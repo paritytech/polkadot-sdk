@@ -1,0 +1,19 @@
+title: 'statement-store: restore the retention tracks at startup and check the size limit on a retrack'
+doc:
+- audience: Node Dev
+  description: |-
+    A node that runs with `--statement-v2-dht` restores the retention track of every transient
+    and explicit-only statement from the account index at startup. Before, the tracks lived only
+    in memory, so after a restart the retention sweep saw nothing: the statements stayed on disk
+    until they expired and kept counting toward the size limit of their track. Transient
+    statements found at startup wait for propagation again, so a peer may receive one twice.
+    The first sweep after a restart removes the explicit-only statements that no affinity
+    covers, among them the statements of a database older than version 3.
+
+    The retention sweep also checks the size limit of the track that it moves a statement to.
+    While that track is full, the statement stays on its current track and the next sweep tries
+    again. Before, the move could push the track above its limit, which then rejected every new
+    statement for it.
+crates:
+- name: sc-statement-store
+  bump: patch
