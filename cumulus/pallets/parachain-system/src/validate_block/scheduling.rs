@@ -54,6 +54,10 @@ pub enum SchedulingValidationError {
 	/// `signed_scheduling_info.payload.internal_scheduling_parent` does not match the
 	/// derived ISP, i.e. the signature was made for a different scheduling context.
 	SignedSchedulingInfoIspMismatch,
+	/// `signed_scheduling_info.payload.para_head` is not this candidate's, i.e. the signature
+	/// was made for a different candidate. Without this check a signed payload lifted from one
+	/// PoV would schedule any other candidate into the signer's slot.
+	SignedSchedulingInfoParaHeadMismatch,
 	/// Signed `claim_queue_offset` exceeds the runtime-enforced maximum.
 	ClaimQueueOffsetTooLarge { offset: u8, max: u8 },
 }
@@ -77,12 +81,16 @@ pub struct ValidatedScheduling {
 /// Only validates the *shape* of the proof; signature verification on
 /// `signed_scheduling_info` is the caller's responsibility (see `validate_block`,
 /// which invokes `PSC::SchedulingSignatureVerifier`).
+///
+/// `candidate_para_head` is [`cumulus_primitives_core::para_head_of`] the PoV's last block; a
+/// signed payload must commit to it.
 pub fn validate_v3_scheduling(
 	v3_enabled: bool,
 	extension: &Option<ValidationParamsExtension>,
 	scheduling_proof: Option<&SchedulingProof>,
 	expected_header_chain_length: u32,
 	max_claim_queue_offset: u8,
+	candidate_para_head: RelayHash,
 ) -> Option<ValidatedScheduling> {
 	match (v3_enabled, extension) {
 		(false, None) => {
@@ -115,6 +123,7 @@ pub fn validate_v3_scheduling(
 				*scheduling_parent,
 				expected_header_chain_length,
 				max_claim_queue_offset,
+				candidate_para_head,
 			) {
 				Ok(_isp) => Some(ValidatedScheduling {
 					internal_scheduling_parent_header: scheduling_proof
@@ -136,6 +145,9 @@ pub fn validate_v3_scheduling(
 /// - **Resubmission** (`relay_parent` is an ancestor of ISP): `signed_scheduling_info` is required
 ///   and its `payload.internal_scheduling_parent` must match the derived ISP.
 ///
+/// Whenever a signed payload is present, its `para_head` must equal `candidate_para_head`, the
+/// candidate this PoV produces.
+///
 /// Signature verification is the caller's responsibility (see `validate_block`).
 pub fn check_scheduling(
 	scheduling_proof: &SchedulingProof,
@@ -143,6 +155,7 @@ pub fn check_scheduling(
 	scheduling_parent: RelayHash,
 	expected_header_chain_length: u32,
 	max_claim_queue_offset: u8,
+	candidate_para_head: RelayHash,
 ) -> Result<RelayHash, SchedulingValidationError> {
 	let header_chain = &scheduling_proof.header_chain;
 
@@ -203,11 +216,14 @@ pub fn check_scheduling(
 		return Err(SchedulingValidationError::MissingSignedSchedulingInfo);
 	}
 
-	// 7. When present, the signed payload must commit to the derived ISP and its
-	// claim_queue_offset must be within the runtime cap.
+	// 7. When present, the signed payload must commit to the derived ISP and to this
+	// candidate, and keep its claim_queue_offset within the runtime cap.
 	if let Some(signed_info) = &scheduling_proof.signed_scheduling_info {
 		if signed_info.payload.internal_scheduling_parent != internal_scheduling_parent {
 			return Err(SchedulingValidationError::SignedSchedulingInfoIspMismatch);
+		}
+		if signed_info.payload.para_head != candidate_para_head {
+			return Err(SchedulingValidationError::SignedSchedulingInfoParaHeadMismatch);
 		}
 		if signed_info.payload.claim_queue_offset > max_claim_queue_offset {
 			return Err(SchedulingValidationError::ClaimQueueOffsetTooLarge {
@@ -236,20 +252,31 @@ mod tests {
 	/// `pallet_parachain_system::max_claim_queue_offset()`.
 	const TEST_MAX_CQ_OFFSET: u8 = 2;
 
+	/// The `para_head` of the candidate under validation. Signed payloads built by the helpers
+	/// commit to it.
+	const TEST_PARA_HEAD: RelayHash = RelayHash::repeat_byte(0xD4);
+
 	/// Creates a dummy signature blob for testing (not cryptographically valid).
 	fn dummy_signature() -> [u8; 64] {
 		[0u8; 64]
 	}
 
 	/// Builds a `SignedSchedulingInfo` with the given core selector, ISP, and a dummy
-	/// signature. `claim_queue_offset` and `peer_id` use default/zero values.
+	/// signature. `claim_queue_offset` and `peer_id` use default/zero values and the payload
+	/// commits to `TEST_PARA_HEAD`.
 	///
 	/// `check_scheduling` cross-checks `payload.internal_scheduling_parent` against the
 	/// ISP derived from the proof, so callers must pass the ISP the proof points to (or
 	/// a deliberately-mismatched value to exercise the rejection path).
 	fn dummy_signed(core_selector: CoreSelector, isp: RelayHash) -> SignedSchedulingInfo {
 		SignedSchedulingInfo {
-			payload: SchedulingInfoPayload::new(core_selector, 0, Default::default(), isp),
+			payload: SchedulingInfoPayload::new(
+				core_selector,
+				0,
+				Default::default(),
+				isp,
+				TEST_PARA_HEAD,
+			),
 			signature: dummy_signature(),
 		}
 	}
@@ -363,6 +390,7 @@ mod tests {
 			scheduling_parent,
 			len as u32,
 			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
 		)
 		.expect("valid chain should pass");
 		assert_eq!(result, relay_parent);
@@ -381,9 +409,15 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: None,
 		};
-		let result =
-			check_scheduling(&proof, relay_parent, scheduling_parent, 0, TEST_MAX_CQ_OFFSET)
-				.expect("valid empty chain should pass");
+		let result = check_scheduling(
+			&proof,
+			relay_parent,
+			scheduling_parent,
+			0,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		)
+		.expect("valid empty chain should pass");
 		assert_eq!(result, scheduling_parent);
 	}
 
@@ -406,8 +440,14 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: None,
 		};
-		let result =
-			check_scheduling(&proof, relay_parent, scheduling_parent, 3, TEST_MAX_CQ_OFFSET);
+		let result = check_scheduling(
+			&proof,
+			relay_parent,
+			scheduling_parent,
+			3,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		);
 
 		assert_eq!(
 			result,
@@ -431,8 +471,14 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: None,
 		};
-		let result =
-			check_scheduling(&proof, relay_parent, wrong_scheduling_parent, 3, TEST_MAX_CQ_OFFSET);
+		let result = check_scheduling(
+			&proof,
+			relay_parent,
+			wrong_scheduling_parent,
+			3,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		);
 
 		assert_eq!(result, Err(SchedulingValidationError::SchedulingParentMismatch));
 	}
@@ -462,8 +508,14 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: None,
 		};
-		let result =
-			check_scheduling(&proof, relay_parent, scheduling_parent, 3, TEST_MAX_CQ_OFFSET);
+		let result = check_scheduling(
+			&proof,
+			relay_parent,
+			scheduling_parent,
+			3,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		);
 
 		// Chain breaks at index 0 (first header's parent doesn't match second header's hash)
 		assert_eq!(result, Err(SchedulingValidationError::BrokenHeaderChain { index: 0 }));
@@ -493,6 +545,7 @@ mod tests {
 			scheduling_parent,
 			3,
 			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
 		);
 
 		assert_eq!(result, Err(SchedulingValidationError::RelayParentInHeaderChain));
@@ -518,8 +571,14 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: Some(signed_info),
 		};
-		let result =
-			check_scheduling(&proof, relay_parent, scheduling_parent, 3, TEST_MAX_CQ_OFFSET);
+		let result = check_scheduling(
+			&proof,
+			relay_parent,
+			scheduling_parent,
+			3,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		);
 
 		// Validation passes - signed_scheduling_info is optional for initial submission
 		assert!(result.is_ok());
@@ -539,8 +598,14 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: None,
 		};
-		let result =
-			check_scheduling(&proof, older_relay_parent, scheduling_parent, 3, TEST_MAX_CQ_OFFSET);
+		let result = check_scheduling(
+			&proof,
+			older_relay_parent,
+			scheduling_parent,
+			3,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		);
 
 		assert_eq!(result, Err(SchedulingValidationError::MissingSignedSchedulingInfo));
 	}
@@ -563,8 +628,14 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: Some(signed_info),
 		};
-		let result =
-			check_scheduling(&proof, older_relay_parent, scheduling_parent, 3, TEST_MAX_CQ_OFFSET);
+		let result = check_scheduling(
+			&proof,
+			older_relay_parent,
+			scheduling_parent,
+			3,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		);
 
 		// Validation passes - signature verification is done separately
 		let result = result.expect("valid resubmission proof");
@@ -595,7 +666,8 @@ mod tests {
 
 	#[test]
 	fn v3_disabled_no_extension_returns_none() {
-		let result = validate_v3_scheduling(false, &None, None, 0, TEST_MAX_CQ_OFFSET);
+		let result =
+			validate_v3_scheduling(false, &None, None, 0, TEST_MAX_CQ_OFFSET, TEST_PARA_HEAD);
 		assert!(result.is_none());
 	}
 
@@ -606,13 +678,13 @@ mod tests {
 			relay_parent: RelayHash::default(),
 			scheduling_parent: RelayHash::default(),
 		};
-		validate_v3_scheduling(false, &Some(ext), None, 0, TEST_MAX_CQ_OFFSET);
+		validate_v3_scheduling(false, &Some(ext), None, 0, TEST_MAX_CQ_OFFSET, TEST_PARA_HEAD);
 	}
 
 	#[test]
 	#[should_panic(expected = "V3 scheduling is enabled but no V3 extension present")]
 	fn v3_enabled_no_extension_panics() {
-		validate_v3_scheduling(true, &None, None, 0, TEST_MAX_CQ_OFFSET);
+		validate_v3_scheduling(true, &None, None, 0, TEST_MAX_CQ_OFFSET, TEST_PARA_HEAD);
 	}
 
 	#[rstest]
@@ -620,9 +692,15 @@ mod tests {
 	#[case::len_3(3)]
 	fn v3_enabled_valid_initial_submission(#[case] chain_len: u32) {
 		let (ext, proof, expected) = make_v3_initial_submission(chain_len);
-		let result =
-			validate_v3_scheduling(true, &Some(ext), Some(&proof), chain_len, TEST_MAX_CQ_OFFSET)
-				.expect("valid initial submission");
+		let result = validate_v3_scheduling(
+			true,
+			&Some(ext),
+			Some(&proof),
+			chain_len,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		)
+		.expect("valid initial submission");
 		assert_eq!(result.internal_scheduling_parent_header.hash(), expected);
 	}
 
@@ -631,7 +709,7 @@ mod tests {
 	fn v3_enabled_missing_scheduling_proof_panics() {
 		let (ext, _, _) = make_v3_initial_submission(3);
 		// Pass None as scheduling_proof to simulate a V0/V1 POV
-		validate_v3_scheduling(true, &Some(ext), None, 3, TEST_MAX_CQ_OFFSET);
+		validate_v3_scheduling(true, &Some(ext), None, 3, TEST_MAX_CQ_OFFSET, TEST_PARA_HEAD);
 	}
 
 	#[test]
@@ -639,7 +717,14 @@ mod tests {
 	fn v3_enabled_invalid_header_chain_length_panics() {
 		let (ext, proof, _) = make_v3_initial_submission(3);
 		// Expect 5 headers but proof only has 3
-		validate_v3_scheduling(true, &Some(ext), Some(&proof), 5, TEST_MAX_CQ_OFFSET);
+		validate_v3_scheduling(
+			true,
+			&Some(ext),
+			Some(&proof),
+			5,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		);
 	}
 
 	#[test]
@@ -658,7 +743,14 @@ mod tests {
 			signed_scheduling_info: Some(dummy_signed(CoreSelector(0), internal_scheduling_parent)),
 		};
 
-		let result = validate_v3_scheduling(true, &Some(ext), Some(&proof), 3, TEST_MAX_CQ_OFFSET);
+		let result = validate_v3_scheduling(
+			true,
+			&Some(ext),
+			Some(&proof),
+			3,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		);
 		let result = result.expect("should succeed");
 		assert_eq!(result.internal_scheduling_parent_header.hash(), internal_scheduling_parent);
 		assert!(result.signed_scheduling_info.is_some());
@@ -680,7 +772,14 @@ mod tests {
 		};
 
 		// Should panic because resubmission requires signed_scheduling_info
-		validate_v3_scheduling(true, &Some(ext), Some(&proof), 3, TEST_MAX_CQ_OFFSET);
+		validate_v3_scheduling(
+			true,
+			&Some(ext),
+			Some(&proof),
+			3,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		);
 	}
 
 	#[test]
@@ -696,8 +795,14 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: Some(dummy_signed(CoreSelector(0), scheduling_parent)),
 		};
-		let result =
-			check_scheduling(&proof, relay_parent, scheduling_parent, 0, TEST_MAX_CQ_OFFSET);
+		let result = check_scheduling(
+			&proof,
+			relay_parent,
+			scheduling_parent,
+			0,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		);
 		assert!(result.is_ok());
 	}
 
@@ -716,9 +821,15 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: Some(dummy_signed(CoreSelector(0), scheduling_parent)),
 		};
-		let result =
-			check_scheduling(&proof, relay_parent, scheduling_parent, 0, TEST_MAX_CQ_OFFSET)
-				.unwrap();
+		let result = check_scheduling(
+			&proof,
+			relay_parent,
+			scheduling_parent,
+			0,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		)
+		.unwrap();
 		assert_eq!(result, scheduling_parent);
 	}
 
@@ -734,8 +845,14 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: None,
 		};
-		let result =
-			check_scheduling(&proof, relay_parent, scheduling_parent, 0, TEST_MAX_CQ_OFFSET);
+		let result = check_scheduling(
+			&proof,
+			relay_parent,
+			scheduling_parent,
+			0,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		);
 		assert_eq!(result, Err(SchedulingValidationError::MissingSignedSchedulingInfo));
 	}
 
@@ -761,8 +878,14 @@ mod tests {
 			internal_scheduling_parent_header: unrelated_isp_header,
 			signed_scheduling_info: None,
 		};
-		let result =
-			check_scheduling(&proof, relay_parent, scheduling_parent, 3, TEST_MAX_CQ_OFFSET);
+		let result = check_scheduling(
+			&proof,
+			relay_parent,
+			scheduling_parent,
+			3,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		);
 		assert_eq!(result, Err(SchedulingValidationError::InternalSchedulingParentHeaderMismatch));
 	}
 
@@ -785,8 +908,14 @@ mod tests {
 			internal_scheduling_parent_header: isp_header,
 			signed_scheduling_info: Some(signed_info),
 		};
-		let result =
-			check_scheduling(&proof, older_relay_parent, scheduling_parent, 3, TEST_MAX_CQ_OFFSET);
+		let result = check_scheduling(
+			&proof,
+			older_relay_parent,
+			scheduling_parent,
+			3,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		);
 		assert_eq!(result, Err(SchedulingValidationError::SignedSchedulingInfoIspMismatch));
 	}
 
@@ -807,6 +936,7 @@ mod tests {
 				offset,
 				Default::default(),
 				scheduling_parent,
+				TEST_PARA_HEAD,
 			),
 			signature: dummy_signature(),
 		};
@@ -825,8 +955,14 @@ mod tests {
 		// bound must be re-applied here (the in-block check is bypassed).
 		let (proof, relay_parent, scheduling_parent) =
 			resubmission_proof_with_offset(TEST_MAX_CQ_OFFSET + 1);
-		let result =
-			check_scheduling(&proof, relay_parent, scheduling_parent, 0, TEST_MAX_CQ_OFFSET);
+		let result = check_scheduling(
+			&proof,
+			relay_parent,
+			scheduling_parent,
+			0,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		);
 		assert_eq!(
 			result,
 			Err(SchedulingValidationError::ClaimQueueOffsetTooLarge {
@@ -841,7 +977,59 @@ mod tests {
 		// An offset exactly at the cap is within bounds and passes.
 		let (proof, relay_parent, scheduling_parent) =
 			resubmission_proof_with_offset(TEST_MAX_CQ_OFFSET);
-		check_scheduling(&proof, relay_parent, scheduling_parent, 0, TEST_MAX_CQ_OFFSET)
-			.expect("offset at cap is valid");
+		check_scheduling(
+			&proof,
+			relay_parent,
+			scheduling_parent,
+			0,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		)
+		.expect("offset at cap is valid");
+	}
+
+	// =========================================================================
+	// para_head binding (step 7) tests
+	// =========================================================================
+
+	#[rstest]
+	#[case::resubmission(true)]
+	#[case::signed_initial_submission(false)]
+	fn reject_signed_info_for_another_candidate(#[case] resubmission: bool) {
+		// The signed payload travels in the PoV, so anyone can lift it. It must only be usable
+		// with the candidate it was signed for, on resubmission and on a signed initial
+		// submission alike.
+		let (headers, isp_header) = make_header_chain(3);
+		let scheduling_parent = headers[0].hash();
+		let relay_parent =
+			if resubmission { RelayHash::repeat_byte(0xBB) } else { isp_header.hash() };
+		let signed_info = dummy_signed(CoreSelector(0), isp_header.hash());
+		let proof = SchedulingProof {
+			header_chain: headers,
+			internal_scheduling_parent_header: isp_header,
+			signed_scheduling_info: Some(signed_info),
+		};
+
+		let other_candidate = RelayHash::repeat_byte(0xEE);
+		let result = check_scheduling(
+			&proof,
+			relay_parent,
+			scheduling_parent,
+			3,
+			TEST_MAX_CQ_OFFSET,
+			other_candidate,
+		);
+		assert_eq!(result, Err(SchedulingValidationError::SignedSchedulingInfoParaHeadMismatch));
+
+		// Same proof, the candidate it was signed for: passes.
+		check_scheduling(
+			&proof,
+			relay_parent,
+			scheduling_parent,
+			3,
+			TEST_MAX_CQ_OFFSET,
+			TEST_PARA_HEAD,
+		)
+		.expect("payload commits to this candidate");
 	}
 }

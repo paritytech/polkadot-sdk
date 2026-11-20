@@ -1065,7 +1065,8 @@ struct BuildCollationParams<
 /// nothing to submit, or (for a resubmission) the scheduling info could not be signed.
 ///
 /// V2 carries no proof. V3 signs only for a resubmission — validators require the signature there,
-/// and reject an unsigned resubmission — while a fresh V3 submission goes out unsigned.
+/// and reject an unsigned resubmission — while a fresh V3 submission goes out unsigned. On a
+/// resubmission every candidate the segment will carry gets its own signature, keyed by its tip.
 fn assemble_core_submission<Block, P>(
 	builder: CollatorMessageBuilder<Block>,
 	v3_descendants: Option<Vec<RelayHeader>>,
@@ -1093,24 +1094,30 @@ where
 		.crediting_peer(collator_peer_id)
 		.keystore(keystore);
 
-	let scheduling_proof = if is_resubmitting {
-		match proof_builder.build_with_signed_payload(author_pub) {
-			Ok(scheduling_proof) => scheduling_proof,
-			Err(err) => {
-				tracing::error!(
-					target: LOG_TARGET,
-					?err,
-					?core_index,
-					core_selector = ?core_info.selector,
-					"Could not sign the scheduling info; skipping the core.",
-				);
+	let mut signed_infos = HashMap::new();
+	if is_resubmitting {
+		for tip in builder.candidate_tips() {
+			match proof_builder.sign_for(author_pub, tip) {
+				Ok(signed_info) => {
+					signed_infos.insert(tip.hash(), signed_info);
+				},
+				Err(err) => {
+					tracing::error!(
+						target: LOG_TARGET,
+						?err,
+						?core_index,
+						core_selector = ?core_info.selector,
+						candidate = ?tip.hash(),
+						"Could not sign the scheduling info; skipping the core.",
+					);
 
-				return None;
-			},
+					return None;
+				},
+			}
 		}
-	} else {
-		proof_builder.build()
-	};
+	}
+
+	let scheduling_proof = proof_builder.build();
 
 	tracing::debug!(
 		target: LOG_TARGET,
@@ -1118,10 +1125,14 @@ where
 		relay_parent = ?relay_parent_header.hash(),
 		scheduling_parent = ?scheduling_proof.scheduling_parent(),
 		header_chain_len = scheduling_proof.header_chain.len(),
+		signed_candidates = signed_infos.len(),
 		"Submitting V3 segment with scheduling proof",
 	);
 
-	builder.with_scheduling_proof(scheduling_proof).build()
+	builder
+		.with_scheduling_proof(scheduling_proof)
+		.with_signed_infos(signed_infos)
+		.build()
 }
 
 /// Build one core's collation (possibly multiple blocks) and return its [`CollationParts`].

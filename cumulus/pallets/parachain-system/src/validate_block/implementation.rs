@@ -20,6 +20,7 @@ use super::{scheduling, trie_cache, trie_recorder, MemoryOptimizedValidationPara
 use alloc::vec::Vec;
 use codec::Encode;
 use cumulus_primitives_core::{
+	para_head_of,
 	relay_chain::{
 		BlockNumber as RNumber, Hash as RHash, Header as RelayChainHeader, MAX_HEAD_DATA_SIZE,
 		UMP_SEPARATOR,
@@ -139,13 +140,20 @@ where
 
 	// V3 scheduling validation (chain-shape only). Signature verification of
 	// `signed_scheduling_info` happens here at the call site so the verifier wiring
-	// stays out of the pure shape check.
+	// stays out of the pure shape check. A signed payload must commit to this candidate's
+	// `para_head`, i.e. the last block's header, which is what `head_data` below becomes.
+	let candidate_para_head = block_data
+		.blocks()
+		.last()
+		.map(|block| para_head_of(block.header()))
+		.unwrap_or_default();
 	let validated_scheduling = scheduling::validate_v3_scheduling(
 		PSC::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED,
 		&extension.0,
 		block_data.scheduling_proof(),
 		PSC::RelayParentOffset::get(),
 		crate::Pallet::<PSC>::max_claim_queue_offset(),
+		candidate_para_head,
 	);
 
 	// The override inputs (signed payload + the ISP header), present whenever the proof carried a

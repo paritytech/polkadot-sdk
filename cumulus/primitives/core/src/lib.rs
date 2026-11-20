@@ -45,8 +45,8 @@ pub use polkadot_primitives::{
 	PersistedValidationData,
 };
 pub use scheduling::{
-	SchedulingInfoPayload, SchedulingProof, SchedulingSignals, SignedSchedulingInfo,
-	VerifySchedulingSignature,
+	para_head_of, SchedulingInfoPayload, SchedulingProof, SchedulingSignals, SignedSchedulingInfo,
+	VerifySchedulingSignature, SCHEDULING_INFO_SIGNING_CONTEXT,
 };
 pub use sp_runtime::{
 	generic::{Digest, DigestItem},

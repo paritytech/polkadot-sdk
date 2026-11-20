@@ -168,6 +168,7 @@ where
 			},
 			CollatorMessage::Segment {
 				scheduling_proof,
+				signed_infos,
 				core_index,
 				resubmittable_headers,
 				bundle,
@@ -191,12 +192,26 @@ where
 				let total = resubmitted + fresh;
 
 				// Parts that fail to build or whose session lookup fails are skipped — they do not
-				// abort the whole segment.
+				// abort the whole segment. Each PoV gets the shared proof skeleton completed with
+				// the candidate's own signed scheduling info; on a resubmission every candidate
+				// was signed for, so a missing entry is a bug and the part is skipped rather
+				// than submitted to certain rejection.
 				let mut collations = Vec::with_capacity(all_parts.len());
 				for parts in all_parts {
-					if let Some(collation) =
-						self.build_collation(parts, Some(scheduling_proof.clone())).await
-					{
+					let tip_hash = parts.tip_header().map(|header| header.hash());
+					let signed_info = tip_hash.and_then(|hash| signed_infos.get(&hash).cloned());
+					if signed_info.is_none() && !signed_infos.is_empty() {
+						tracing::error!(
+							target: LOG_TARGET,
+							?core_index,
+							?tip_hash,
+							"No signed scheduling info for a resubmitted candidate; skipping it.",
+						);
+						continue;
+					}
+					let mut proof = scheduling_proof.clone();
+					proof.signed_scheduling_info = signed_info;
+					if let Some(collation) = self.build_collation(parts, Some(proof)).await {
 						collations.push(collation);
 					}
 				}

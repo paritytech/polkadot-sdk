@@ -566,7 +566,6 @@ fn verify_and_remove_seal_rejects_seal_not_at_last_position() {
 mod scheduling_verifier_tests {
 	use super::*;
 	use crate::signature_verifier::AuraSchedulingVerifier;
-	use codec::Encode;
 	use cumulus_primitives_core::{
 		relay_chain::{ApprovedPeerId, Hash as RelayHash, Slot},
 		SchedulingInfoPayload, SignedSchedulingInfo, VerifySchedulingSignature,
@@ -618,13 +617,15 @@ mod scheduling_verifier_tests {
 	// -------------------------------------------------------------------------
 
 	/// Build a payload for verifier tests. The verifier signs/checks over the whole encoded
-	/// payload but does not inspect `internal_scheduling_parent`, so a default ISP is fine.
+	/// payload but does not inspect `internal_scheduling_parent` or `para_head`, so default
+	/// values are fine.
 	fn make_payload() -> SchedulingInfoPayload {
 		SchedulingInfoPayload::new(
 			cumulus_primitives_core::CoreSelector(0),
 			0,
 			ApprovedPeerId::default(),
 			RelayHash::default(),
+			Default::default(),
 		)
 	}
 
@@ -662,8 +663,10 @@ mod scheduling_verifier_tests {
 			set_authorities::<Test>(vec![Sr25519Id::from(Sr25519Keyring::Alice.public())]);
 			let payload = make_payload();
 			let signer = if eligible_signer { Sr25519Keyring::Alice } else { Sr25519Keyring::Bob };
-			let signed =
-				SignedSchedulingInfo { signature: signer.sign(&payload.encode()).0, payload };
+			let signed = SignedSchedulingInfo {
+				signature: signer.sign(&payload.signing_message()).0,
+				payload,
+			};
 			assert_eq!(
 				AuraSchedulingVerifier::<Test>::verify(&signed, Slot::from(7)),
 				eligible_signer
@@ -678,12 +681,13 @@ mod scheduling_verifier_tests {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
 			set_authorities::<Test>(vec![Sr25519Id::from(Sr25519Keyring::Alice.public())]);
 			let original = make_payload();
-			let signature = Sr25519Keyring::Alice.sign(&original.encode()).0;
+			let signature = Sr25519Keyring::Alice.sign(&original.signing_message()).0;
 			let tampered = SchedulingInfoPayload::new(
 				cumulus_primitives_core::CoreSelector(99),
 				0,
 				ApprovedPeerId::default(),
 				RelayHash::default(),
+				Default::default(),
 			);
 			let signed = SignedSchedulingInfo { signature, payload: tampered };
 			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, Slot::from(7)));
@@ -716,7 +720,7 @@ mod scheduling_verifier_tests {
 
 			let payload = make_payload();
 			let signed = SignedSchedulingInfo {
-				signature: keys[signer_idx].sign(&payload.encode()).0,
+				signature: keys[signer_idx].sign(&payload.signing_message()).0,
 				payload,
 			};
 			assert_eq!(
@@ -757,7 +761,7 @@ mod scheduling_verifier_tests {
 
 			let payload = make_payload();
 			let signed = SignedSchedulingInfo {
-				signature: keys[signer_idx].sign(&payload.encode()).0,
+				signature: keys[signer_idx].sign(&payload.signing_message()).0,
 				payload,
 			};
 			assert_eq!(
@@ -776,7 +780,7 @@ mod scheduling_verifier_tests {
 			set_authorities::<Test>(Vec::<Sr25519Id>::new());
 			let payload = make_payload();
 			let signed = SignedSchedulingInfo {
-				signature: Sr25519Keyring::Alice.sign(&payload.encode()).0,
+				signature: Sr25519Keyring::Alice.sign(&payload.signing_message()).0,
 				payload,
 			};
 			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, Slot::from(7)));
@@ -792,7 +796,7 @@ mod scheduling_verifier_tests {
 			set_authorities::<Test>(vec![Sr25519Id::from(Sr25519Keyring::Alice.public())]);
 			let payload = make_payload();
 			let signed = SignedSchedulingInfo {
-				signature: Sr25519Keyring::Alice.sign(&payload.encode()).0,
+				signature: Sr25519Keyring::Alice.sign(&payload.signing_message()).0,
 				payload,
 			};
 			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, Slot::from(7)));
@@ -809,7 +813,7 @@ mod scheduling_verifier_tests {
 			set_authorities::<Test>(vec![Sr25519Id::from(Sr25519Keyring::Alice.public())]);
 			let payload = make_payload();
 			let signed = SignedSchedulingInfo {
-				signature: Sr25519Keyring::Alice.sign(&payload.encode()).0,
+				signature: Sr25519Keyring::Alice.sign(&payload.signing_message()).0,
 				payload,
 			};
 			assert!(!AuraSchedulingVerifier::<Test>::verify(&signed, Slot::from(u64::MAX)));
@@ -831,7 +835,7 @@ mod scheduling_verifier_tests {
 
 			let payload = make_payload();
 			let signed = SignedSchedulingInfo {
-				signature: Ed25519Keyring::Alice.sign(&payload.encode()).0,
+				signature: Ed25519Keyring::Alice.sign(&payload.signing_message()).0,
 				payload,
 			};
 			assert!(AuraSchedulingVerifier::<Ed25519Test>::verify(&signed, Slot::from(7)));

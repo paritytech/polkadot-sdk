@@ -18,12 +18,13 @@
 //! The `builder -> collator` channel: the [`CollatorMessage`] payload and its
 //! [`CollatorMessageBuilder`]. Pure data; the collation task builds and submits the collations.
 
-use cumulus_primitives_core::SchedulingProof;
+use cumulus_primitives_core::{SchedulingProof, SignedSchedulingInfo};
 use polkadot_primitives::{
 	CoreIndex, Hash as RelayHash, PersistedValidationData, SessionIndex, ValidationCodeHash,
 };
 use sp_api::StorageProof;
 use sp_runtime::traits::Block as BlockT;
+use std::collections::HashMap;
 
 /// A message from the block builder to the collation task: a single V2 collation, or a V3 segment.
 pub(super) enum CollatorMessage<Block: BlockT> {
@@ -31,8 +32,13 @@ pub(super) enum CollatorMessage<Block: BlockT> {
 	Collation { core_index: CoreIndex, parts: CollationParts<Block> },
 	/// A V3 segment: collations sharing a scheduling parent and target core.
 	Segment {
-		/// Shared by the whole segment; V3/V4-only, so always present.
+		/// Shared by the whole segment, unsigned; V3/V4-only, so always present. Each
+		/// candidate's PoV completes it with its own entry from `signed_infos`.
 		scheduling_proof: SchedulingProof,
+		/// One signed scheduling info per candidate, keyed by the hash of its last block (the
+		/// hydrated bundle's tip). Empty when nothing is resubmitted: a fresh V3 submission goes
+		/// out unsigned. Otherwise every candidate, the fresh one included, has an entry.
+		signed_infos: HashMap<Block::Hash, SignedSchedulingInfo>,
 		core_index: CoreIndex,
 		/// This core's resubmittable-block headers, oldest first. Hydrated into `CollationParts`
 		/// by the collation task (off the hot path) and prepended, ahead of `bundle`.
@@ -68,11 +74,18 @@ pub(super) struct CollatorMessageBuilder<Block: BlockT> {
 	bundle: Option<CollationParts<Block>>,
 	resubmittable_headers: Vec<Block::Header>,
 	scheduling_proof: Option<SchedulingProof>,
+	signed_infos: HashMap<Block::Hash, SignedSchedulingInfo>,
 }
 
 impl<Block: BlockT> CollatorMessageBuilder<Block> {
 	pub(super) fn new(core_index: CoreIndex) -> Self {
-		Self { core_index, bundle: None, resubmittable_headers: Vec::new(), scheduling_proof: None }
+		Self {
+			core_index,
+			bundle: None,
+			resubmittable_headers: Vec::new(),
+			scheduling_proof: None,
+			signed_infos: HashMap::new(),
+		}
 	}
 
 	/// Attach the freshly-built bundle.
@@ -91,9 +104,28 @@ impl<Block: BlockT> CollatorMessageBuilder<Block> {
 		self
 	}
 
-	/// Attach a V3 scheduling proof.
+	/// The last header of every candidate the segment will carry, oldest first: one per
+	/// resubmitted bundle, then the fresh bundle's tip. Each needs its own signed scheduling
+	/// info on a resubmission.
+	pub(super) fn candidate_tips(&self) -> Vec<&Block::Header> {
+		let mut tips =
+			super::resubmittable_segment::bundle_tips::<Block>(&self.resubmittable_headers);
+		tips.extend(self.bundle.as_ref().and_then(CollationParts::tip_header));
+		tips
+	}
+
+	/// Attach the V3 scheduling proof skeleton.
 	pub(super) fn with_scheduling_proof(mut self, scheduling_proof: SchedulingProof) -> Self {
 		self.scheduling_proof = Some(scheduling_proof);
+		self
+	}
+
+	/// Attach the per-candidate signed scheduling infos, keyed by candidate tip hash.
+	pub(super) fn with_signed_infos(
+		mut self,
+		signed_infos: HashMap<Block::Hash, SignedSchedulingInfo>,
+	) -> Self {
+		self.signed_infos = signed_infos;
 		self
 	}
 
@@ -107,6 +139,7 @@ impl<Block: BlockT> CollatorMessageBuilder<Block> {
 
 				Some(CollatorMessage::Segment {
 					scheduling_proof,
+					signed_infos: self.signed_infos,
 					core_index: self.core_index,
 					resubmittable_headers: self.resubmittable_headers,
 					bundle: self.bundle,

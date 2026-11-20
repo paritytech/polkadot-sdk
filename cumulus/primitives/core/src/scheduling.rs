@@ -13,20 +13,30 @@
 //! If a candidate isn't backed in time, another collator can resubmit it with a fresh
 //! `scheduling_parent` — same `relay_parent`, no re-execution — by providing a
 //! `signed_scheduling_info` proving it is the eligible author for the slot at
-//! `internal_scheduling_parent`.
+//! `internal_scheduling_parent`. Each candidate carries its own signature: the payload commits to
+//! the candidate's `para_head` and is made under its own signing context, so a signed payload
+//! lifted from one PoV cannot schedule a different candidate, fork or parachain into the signer's
+//! slot.
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use polkadot_primitives::{
-	ApprovedPeerId, ClaimQueueOffset, CoreSelector, Header as RelayChainHeader, Slot, UMPSignal,
-	UMP_SEPARATOR,
+	ApprovedPeerId, ClaimQueueOffset, CoreSelector, HeadData, Header as RelayChainHeader, Slot,
+	UMPSignal, UMP_SEPARATOR,
 };
 use sp_runtime::traits::{BlakeTwo256, Hash as HashT};
 
+/// Domain tag prefixed to a [`SchedulingInfoPayload`] before it is signed or verified, so a
+/// signature made for any other protocol that signs with an Aura key cannot verify here.
+pub const SCHEDULING_INFO_SIGNING_CONTEXT: &[u8] = b"cumulus/scheduling_info/v3";
+
 /// Payload a collator signs to resubmit a candidate.
 ///
-/// Binds the core selection and credited peer to an internal scheduling parent, preventing replay
-/// across scheduling contexts.
+/// Binds the core selection and credited peer to an internal scheduling parent and to the
+/// candidate. The scheduling parent prevents replay across scheduling contexts; the `para_head`
+/// stops anyone who sees the signed payload (it travels in the PoV) from attaching it to a
+/// different candidate, and with it a different fork or parachain, and occupying the signer's
+/// slot with it.
 #[derive(Clone, Encode, Decode, Debug, PartialEq, Eq)]
 pub struct SchedulingInfoPayload {
 	/// Which core to use (indexes into the parachain's assigned cores).
@@ -38,6 +48,17 @@ pub struct SchedulingInfoPayload {
 	/// The internal scheduling parent whose slot decides the eligible author that must sign this
 	/// payload.
 	pub internal_scheduling_parent: polkadot_primitives::Hash,
+	/// The candidate's `para_head`: the [`HeadData::hash`] of its head data, as the candidate
+	/// descriptor carries it. See [`para_head_of`].
+	pub para_head: polkadot_primitives::Hash,
+}
+
+/// The `para_head` of a candidate whose last block has `header`: the [`HeadData::hash`] of the
+/// SCALE-encoded header, which is what its descriptor carries.
+///
+/// Shared by the signing collator and the PVF so the two cannot drift.
+pub fn para_head_of<H: Encode>(header: &H) -> polkadot_primitives::Hash {
+	HeadData(header.encode()).hash()
 }
 
 /// Signed scheduling info for candidate resubmission: a [`SchedulingInfoPayload`] plus the
@@ -49,7 +70,8 @@ pub struct SchedulingInfoPayload {
 pub struct SignedSchedulingInfo {
 	/// The scheduling information.
 	pub payload: SchedulingInfoPayload,
-	/// The eligible collator's signature over the SCALE-encoded [`SchedulingInfoPayload`].
+	/// The eligible collator's signature over
+	/// [`SchedulingInfoPayload::signing_message`].
 	///
 	/// A fixed 64-byte blob, decodable as either sr25519 or ed25519 (both are 64 bytes).
 	pub signature: [u8; 64],
@@ -62,8 +84,17 @@ impl SchedulingInfoPayload {
 		claim_queue_offset: u8,
 		peer_id: ApprovedPeerId,
 		internal_scheduling_parent: polkadot_primitives::Hash,
+		para_head: polkadot_primitives::Hash,
 	) -> Self {
-		Self { core_selector, claim_queue_offset, peer_id, internal_scheduling_parent }
+		Self { core_selector, claim_queue_offset, peer_id, internal_scheduling_parent, para_head }
+	}
+
+	/// The bytes the eligible author signs: [`SCHEDULING_INFO_SIGNING_CONTEXT`] followed by the
+	/// SCALE-encoded payload. The verifier checks the signature over the same bytes.
+	pub fn signing_message(&self) -> Vec<u8> {
+		let mut message = SCHEDULING_INFO_SIGNING_CONTEXT.to_vec();
+		self.encode_to(&mut message);
+		message
 	}
 }
 
@@ -239,6 +270,7 @@ mod tests {
 				core_selector,
 				claim_queue_offset,
 				peer_id,
+				Default::default(),
 				Default::default(),
 			),
 			signature: [0u8; 64],

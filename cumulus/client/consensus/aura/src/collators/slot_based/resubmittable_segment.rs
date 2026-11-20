@@ -65,38 +65,15 @@ impl<Block: BlockT> ResubmittableSegment<Block> {
 		Self(headers)
 	}
 
-	/// Regroup the (oldest-first) headers into their original bundles: a run of consecutive
-	/// `BlockBundleInfo` indices from 0. Keyed off the index, not `is_last`, which a truncated
-	/// bundle lacks.
-	///
-	/// A bundle must start at index 0 (or be a digest-less standalone); a non-zero start is a
-	/// skipped index or a partial leading bundle, i.e. a corrupt sequence, and errors. Completeness
-	/// is not checked: `find_parent` already trims a mid-bundle tail, so the trailing bundle is
-	/// whole.
+	/// Regroup the (oldest-first) headers into their original bundles. See [`bundle_starts`].
 	fn into_bundles(self) -> Result<Vec<Vec<Block::Header>>, HydrateError> {
-		let mut bundles = Vec::new();
-		let mut current = Vec::new();
-		let mut prev_index: Option<u8> = None;
-		for header in self.0 {
-			let index =
-				CumulusDigestItem::find_block_bundle_info(header.digest()).map(|info| info.index);
-			let continues = matches!((prev_index, index), (Some(prev), Some(idx)) if prev.checked_add(1) == Some(idx));
-			if !continues {
-				if let Some(idx) = index {
-					if idx != 0 {
-						return Err(HydrateError::MalformedBundleStart(idx));
-					}
-				}
-				if !current.is_empty() {
-					bundles.push(core::mem::take(&mut current));
-				}
-			}
-			prev_index = index;
-			current.push(header);
+		let starts = bundle_starts::<Block>(&self.0)?;
+		let mut headers = self.0;
+		let mut bundles = Vec::with_capacity(starts.len());
+		for start in starts.into_iter().rev() {
+			bundles.push(headers.split_off(start));
 		}
-		if !current.is_empty() {
-			bundles.push(current);
-		}
+		bundles.reverse();
 		Ok(bundles)
 	}
 
@@ -158,6 +135,52 @@ impl<Block: BlockT> ResubmittableSegment<Block> {
 
 		parts
 	}
+}
+
+/// The indices at which the (oldest-first) `headers` start a new bundle: a run of consecutive
+/// `BlockBundleInfo` indices from 0. Keyed off the index, not `is_last`, which a truncated bundle
+/// lacks.
+///
+/// A bundle must start at index 0 (or be a digest-less standalone); a non-zero start is a skipped
+/// index or a partial leading bundle, i.e. a corrupt sequence, and errors. Completeness is not
+/// checked: `find_parent` already trims a mid-bundle tail, so the trailing bundle is whole.
+fn bundle_starts<Block: BlockT>(headers: &[Block::Header]) -> Result<Vec<usize>, HydrateError> {
+	let mut starts = Vec::new();
+	let mut prev_index: Option<u8> = None;
+	for (position, header) in headers.iter().enumerate() {
+		let index =
+			CumulusDigestItem::find_block_bundle_info(header.digest()).map(|info| info.index);
+		let continues = matches!((prev_index, index), (Some(prev), Some(idx)) if prev.checked_add(1) == Some(idx));
+		if !continues {
+			if let Some(idx) = index {
+				if idx != 0 {
+					return Err(HydrateError::MalformedBundleStart(idx));
+				}
+			}
+			starts.push(position);
+		}
+		prev_index = index;
+	}
+	Ok(starts)
+}
+
+/// The last header of each bundle in the (oldest-first) resubmittable `headers`: one per
+/// candidate [`ResubmittableSegment::hydrate`] will produce. A malformed sequence yields none, as
+/// hydration would skip it too.
+pub(super) fn bundle_tips<Block: BlockT>(headers: &[Block::Header]) -> Vec<&Block::Header> {
+	let starts = match bundle_starts::<Block>(headers) {
+		Ok(starts) => starts,
+		Err(err) => {
+			tracing::warn!(target: LOG_TARGET, %err, "Malformed resubmittable segment; no bundle tips.");
+			return Vec::new();
+		},
+	};
+	starts
+		.iter()
+		.skip(1)
+		.map(|&next_start| &headers[next_start - 1])
+		.chain(headers.last())
+		.collect()
 }
 
 /// Rebuild [`CollationParts`] for one bundle: merge the per-block store proofs into one PoV,

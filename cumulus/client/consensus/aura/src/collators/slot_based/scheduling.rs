@@ -26,7 +26,7 @@ use codec::Encode;
 use cumulus_client_consensus_common::get_relay_slot;
 use cumulus_primitives_aura::Slot;
 use cumulus_primitives_core::{
-	CoreInfo, SchedulingInfoPayload, SchedulingProof, SignedSchedulingInfo,
+	para_head_of, CoreInfo, SchedulingInfoPayload, SchedulingProof, SignedSchedulingInfo,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::{
@@ -269,8 +269,8 @@ pub(crate) enum SchedulingSignError {
 }
 
 /// Assembles a V3 [`SchedulingProof`], converting collator-side values into the shapes the proof
-/// needs: relay parent descendants become the backwards header chain, and the core assignment plus
-/// collator peer id become a signed [`SchedulingInfoPayload`].
+/// needs: relay parent descendants become the backwards header chain, and the core assignment
+/// and collator peer id become, per candidate, a signed [`SchedulingInfoPayload`].
 pub(crate) struct SchedulingProofBuilder<'a, P: Pair> {
 	internal_scheduling_parent_header: RelayHeader,
 	header_chain: Vec<RelayHeader>,
@@ -326,31 +326,24 @@ where
 		self
 	}
 
-	/// Assemble the proof unsigned, for an initial submission
-	/// (`relay_parent == internal scheduling parent`). An initial submission must stay valid
-	/// without any additional signed data. Core selection comes from the block's UMP signals.
+	/// Assemble the proof unsigned. This is the whole proof for an initial submission
+	/// (`relay_parent == internal scheduling parent`), which must stay valid without any
+	/// additional signed data: core selection comes from the block's UMP signals. For a
+	/// resubmission it is the skeleton every candidate's PoV shares, completed per candidate
+	/// with [`sign_for`](Self::sign_for).
 	pub(crate) fn build(self) -> SchedulingProof {
 		SchedulingProof::new(self.header_chain, self.internal_scheduling_parent_header, None)
 	}
 
-	/// Assemble the proof around a signed scheduling info, for a resubmission (`relay_parent` an
-	/// ancestor of the internal scheduling parent). Validators require the signature there.
-	/// Everything it commits to has to be supplied first. `author_pub` is the key eligible for
-	/// the slot at the internal scheduling parent.
-	pub(crate) fn build_with_signed_payload(
-		self,
+	/// Sign the scheduling info for one candidate, given by the header of its last block, for a
+	/// resubmission (`relay_parent` an ancestor of the internal scheduling parent). Validators
+	/// require the signature there. Everything it commits to has to be supplied first.
+	/// `author_pub` is the key eligible for the slot at the internal scheduling parent.
+	pub(crate) fn sign_for<H: Encode>(
+		&self,
 		author_pub: &P::Public,
-	) -> Result<SchedulingProof, SchedulingSignError> {
-		let signed_scheduling_info = self.sign(author_pub)?;
-
-		Ok(SchedulingProof::new(
-			self.header_chain,
-			self.internal_scheduling_parent_header,
-			Some(signed_scheduling_info),
-		))
-	}
-
-	fn sign(&self, author_pub: &P::Public) -> Result<SignedSchedulingInfo, SchedulingSignError> {
+		last_block_header: &H,
+	) -> Result<SignedSchedulingInfo, SchedulingSignError> {
 		use SchedulingSignError::*;
 
 		let core_info = self.core_info.ok_or(MissingInput("core info"))?;
@@ -362,6 +355,7 @@ where
 			core_info.claim_queue_offset.0,
 			ApprovedPeerId::try_from(peer_id.to_bytes()).map_err(|_| PeerId)?,
 			self.internal_scheduling_parent_header.hash(),
+			para_head_of(last_block_header),
 		);
 
 		let signature = keystore
@@ -369,7 +363,7 @@ where
 				<P::Public as AppCrypto>::ID,
 				<P::Public as AppCrypto>::CRYPTO_ID,
 				author_pub.as_slice(),
-				&payload.encode(),
+				&payload.signing_message(),
 			)
 			.map_err(|_| Keystore)?
 			.ok_or(NoKey)?;
@@ -406,17 +400,18 @@ mod tests {
 		Duration::from_millis(relay_slot * 6000 + ms_into_slot)
 	}
 
-	/// The core info and peer id a signed payload commits to, alongside a relay header to act as
-	/// the internal scheduling parent.
-	fn signing_inputs() -> (RelayHeader, CoreInfo, PeerId) {
+	/// The core info, peer id and candidate a signed payload commits to, alongside a relay header
+	/// to act as the internal scheduling parent.
+	fn signing_inputs() -> (RelayHeader, CoreInfo, PeerId, sp_runtime::testing::Header) {
 		let header = tests::relay_header_with_slot(1, Default::default(), PRODUCTION_SLOT);
 		let core_info = CoreInfo {
 			selector: cumulus_primitives_core::CoreSelector(7),
 			claim_queue_offset: cumulus_primitives_core::ClaimQueueOffset(3),
 			number_of_cores: 2u16.into(),
 		};
+		let candidate_header = sp_runtime::testing::Header::new_from_number(42);
 
-		(header, core_info, PeerId::random())
+		(header, core_info, PeerId::random(), candidate_header)
 	}
 
 	#[test]
@@ -425,21 +420,20 @@ mod tests {
 		// The receipt's commitments come from the blocks' own signals. The payload must carry the
 		// same core info and peer id the blocks emitted, or the commitments check fails at
 		// backing.
-		let (header, core_info, peer_id) = signing_inputs();
+		let (header, core_info, peer_id, candidate_header) = signing_inputs();
 		let keystore: KeystorePtr = MemoryKeystore::new().into();
 		let author_pub: AuthorityId = keystore
 			.sr25519_generate_new(sp_application_crypto::key_types::AURA, Some("//Alice"))
 			.expect("can generate a key in a memory keystore; qed")
 			.into();
 
-		let proof = SchedulingProofBuilder::<AuthorityPair>::new(header.clone())
+		let signed = SchedulingProofBuilder::<AuthorityPair>::new(header.clone())
 			.for_core(&core_info)
 			.crediting_peer(peer_id)
 			.keystore(&keystore)
-			.build_with_signed_payload(&author_pub)
+			.sign_for(&author_pub, &candidate_header)
 			.expect("the key is in the keystore; qed");
 
-		let signed = proof.signed_scheduling_info.expect("built with a signature; qed");
 		assert_eq!(signed.payload.core_selector, core_info.selector);
 		assert_eq!(signed.payload.claim_queue_offset, core_info.claim_queue_offset.0);
 		assert_eq!(
@@ -447,10 +441,11 @@ mod tests {
 			ApprovedPeerId::try_from(peer_id.to_bytes()).expect("a peer id fits; qed")
 		);
 		assert_eq!(signed.payload.internal_scheduling_parent, header.hash());
+		assert_eq!(signed.payload.para_head, para_head_of(&candidate_header));
 
 		assert!(AuthorityPair::verify(
 			&sp_core::sr25519::Signature::from_raw(signed.signature).into(),
-			signed.payload.encode(),
+			signed.payload.signing_message(),
 			&author_pub,
 		));
 	}
@@ -459,7 +454,7 @@ mod tests {
 	fn initial_submission_stays_unsigned_even_with_signing_inputs() {
 		// The unsigned terminal ignores the signing inputs and cannot fail. An unsignable
 		// keystore proves it.
-		let (header, core_info, peer_id) = signing_inputs();
+		let (header, core_info, peer_id, _) = signing_inputs();
 		let keystore: KeystorePtr = MemoryKeystore::new().into();
 
 		let proof = SchedulingProofBuilder::<AuthorityPair>::new(header)
@@ -475,7 +470,7 @@ mod tests {
 	fn signing_fails_when_the_keystore_has_no_key() {
 		// The collator only reaches here holding the slot claim for `author_pub`, so an empty
 		// keystore is a defect; the caller skips the slot rather than submitting unsigned.
-		let (header, core_info, peer_id) = signing_inputs();
+		let (header, core_info, peer_id, candidate_header) = signing_inputs();
 		let keystore: KeystorePtr = MemoryKeystore::new().into();
 		let author_pub: AuthorityId = sp_keyring::Sr25519Keyring::Alice.public().into();
 
@@ -483,7 +478,7 @@ mod tests {
 			.for_core(&core_info)
 			.crediting_peer(peer_id)
 			.keystore(&keystore)
-			.build_with_signed_payload(&author_pub)
+			.sign_for(&author_pub, &candidate_header)
 			.expect_err("nothing in the keystore can sign for this key; qed");
 
 		assert!(matches!(err, SchedulingSignError::NoKey), "unexpected error: {err:?}");
@@ -491,13 +486,13 @@ mod tests {
 
 	#[test]
 	fn signing_fails_when_an_input_is_missing() {
-		let (header, _, _) = signing_inputs();
+		let (header, _, _, candidate_header) = signing_inputs();
 		let keystore: KeystorePtr = MemoryKeystore::new().into();
 		let author_pub: AuthorityId = sp_keyring::Sr25519Keyring::Alice.public().into();
 
 		let err = SchedulingProofBuilder::<AuthorityPair>::new(header)
 			.keystore(&keystore)
-			.build_with_signed_payload(&author_pub)
+			.sign_for(&author_pub, &candidate_header)
 			.expect_err("no core info was supplied; qed");
 
 		assert!(matches!(err, SchedulingSignError::MissingInput(_)), "unexpected error: {err:?}");

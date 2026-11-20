@@ -10,7 +10,7 @@
 //! signature in [`SignedSchedulingInfo`] over the encoded `SchedulingInfoPayload`.
 
 use crate::{Authorities, Config};
-use codec::{Decode, Encode};
+use codec::Decode;
 use cumulus_primitives_core::{
 	relay_chain::RELAY_CHAIN_SLOT_DURATION_MILLIS, SignedSchedulingInfo, VerifySchedulingSignature,
 };
@@ -80,6 +80,6 @@ where
 			},
 		};
 
-		author.verify(&signed_info.payload.encode(), &signature)
+		author.verify(&signed_info.payload.signing_message(), &signature)
 	}
 }
