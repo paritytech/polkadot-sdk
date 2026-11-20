@@ -847,7 +847,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// - `msg`: The message, should be decodable as a [VersionedXcm](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedXcm.html),
 	///   traps otherwise.
-	/// - `output`: A reference to the output data buffer to write the [Outcome](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/v3/enum.Outcome.html)
+	/// - `output`: A reference to the output data buffer to write the [Outcome](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/v5/enum.Outcome.html)
 	///
 	/// # Return
 	///

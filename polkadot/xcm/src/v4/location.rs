@@ -17,7 +17,7 @@
 //! XCM `Location` datatype.
 
 use super::{traits::Reanchorable, Junction, Junctions};
-use crate::{v3::MultiLocation as OldLocation, v5::Location as NewLocation, VersionedLocation};
+use crate::{v5::Location as NewLocation, VersionedLocation};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::result;
 use scale_info::TypeInfo;
@@ -476,20 +476,6 @@ impl Reanchorable for Location {
 	}
 }
 
-impl TryFrom<OldLocation> for Option<Location> {
-	type Error = ();
-	fn try_from(value: OldLocation) -> result::Result<Self, Self::Error> {
-		Ok(Some(Location::try_from(value)?))
-	}
-}
-
-impl TryFrom<OldLocation> for Location {
-	type Error = ();
-	fn try_from(x: OldLocation) -> result::Result<Self, ()> {
-		Ok(Location { parents: x.parents, interior: x.interior.try_into()? })
-	}
-}
-
 impl TryFrom<NewLocation> for Option<Location> {
 	type Error = ();
 	fn try_from(new: NewLocation) -> result::Result<Self, Self::Error> {
@@ -559,7 +545,7 @@ xcm_procedural::impl_conversion_functions_for_location_v4!();
 
 #[cfg(test)]
 mod tests {
-	use crate::v4::prelude::*;
+	use crate::{v4::prelude::*, v5::Location as NewLocation};
 	use codec::{Decode, Encode};
 
 	#[test]
@@ -740,8 +726,6 @@ mod tests {
 
 	#[test]
 	fn conversion_from_other_types_works() {
-		use crate::v3;
-
 		fn takes_location<Arg: Into<Location>>(_arg: Arg) {}
 
 		takes_location(Parent);
@@ -759,11 +743,10 @@ mod tests {
 		takes_location(ParentThen([Parachain(75)].into()));
 		takes_location([Parachain(100), PalletInstance(3)]);
 
-		assert_eq!(v3::Location::from(v3::Junctions::Here).try_into(), Ok(Location::here()));
-		assert_eq!(v3::Location::from(v3::Parent).try_into(), Ok(Location::parent()));
+		assert_eq!(Location::try_from(NewLocation::here()), Ok(Location::here()));
+		assert_eq!(Location::try_from(NewLocation::parent()), Ok(Location::parent()));
 		assert_eq!(
-			v3::Location::from((v3::Parent, v3::Parent, v3::Junction::GeneralIndex(42u128),))
-				.try_into(),
+			Location::try_from(NewLocation::new(2, [crate::v5::Junction::GeneralIndex(42u128)])),
 			Ok(Location { parents: 2, interior: [GeneralIndex(42u128)].into() }),
 		);
 	}

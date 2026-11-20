@@ -143,8 +143,6 @@ pub fn relay_era_payout(params: EraPayoutParams) -> (Balance, Balance) {
 	MaxEncodedLen,
 )]
 pub enum VersionedLocatableAsset {
-	#[codec(index = 3)]
-	V3 { location: xcm::v3::Location, asset_id: xcm::v3::AssetId },
 	#[codec(index = 4)]
 	V4 { location: xcm::v4::Location, asset_id: xcm::v4::AssetId },
 	#[codec(index = 5)]
@@ -167,16 +165,6 @@ impl TryConvert<VersionedLocatableAsset, xcm_builder::LocatableAssetId>
 		asset: VersionedLocatableAsset,
 	) -> Result<xcm_builder::LocatableAssetId, VersionedLocatableAsset> {
 		match asset {
-			VersionedLocatableAsset::V3 { location, asset_id } => {
-				let v4_location: xcm::v4::Location =
-					location.try_into().map_err(|_| asset.clone())?;
-				let v4_asset_id: xcm::v4::AssetId =
-					asset_id.try_into().map_err(|_| asset.clone())?;
-				Ok(xcm_builder::LocatableAssetId {
-					location: v4_location.try_into().map_err(|_| asset.clone())?,
-					asset_id: v4_asset_id.try_into().map_err(|_| asset.clone())?,
-				})
-			},
 			VersionedLocatableAsset::V4 { ref location, ref asset_id } => {
 				Ok(xcm_builder::LocatableAssetId {
 					location: location.clone().try_into().map_err(|_| asset.clone())?,
@@ -197,10 +185,6 @@ impl TryConvert<&VersionedLocation, xcm::latest::Location> for VersionedLocation
 		location: &VersionedLocation,
 	) -> Result<xcm::latest::Location, &VersionedLocation> {
 		let latest = match location.clone() {
-			VersionedLocation::V3(l) => {
-				let v4_location: xcm::v4::Location = l.try_into().map_err(|_| location)?;
-				v4_location.try_into().map_err(|_| location)?
-			},
 			VersionedLocation::V4(l) => l.try_into().map_err(|_| location)?,
 			VersionedLocation::V5(l) => l,
 		};
@@ -218,20 +202,6 @@ where
 	fn contains(asset: &VersionedLocatableAsset) -> bool {
 		use VersionedLocatableAsset::*;
 		let (location, asset_id) = match asset.clone() {
-			V3 { location, asset_id } => {
-				let v4_location: xcm::v4::Location = match location.try_into() {
-					Ok(l) => l,
-					Err(_) => return false,
-				};
-				let v4_asset_id: xcm::v4::AssetId = match asset_id.try_into() {
-					Ok(a) => a,
-					Err(_) => return false,
-				};
-				match (v4_location.try_into(), v4_asset_id.try_into()) {
-					(Ok(l), Ok(a)) => (l, a),
-					_ => return false,
-				}
-			},
 			V4 { location, asset_id } => match (location.try_into(), asset_id.try_into()) {
 				(Ok(l), Ok(a)) => (l, a),
 				_ => return false,

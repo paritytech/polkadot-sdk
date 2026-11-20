@@ -31,7 +31,9 @@ use parachains_runtimes_test_utils::{
 	SlotDurations, ValidatorIdOf, XcmReceivedFrom,
 };
 use sp_runtime::{traits::StaticLookup, Saturating};
-use xcm::{latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedXcm};
+use xcm::{
+	latest::prelude::*, prelude::MIN_XCM_VERSION, VersionedAssetId, VersionedAssets, VersionedXcm,
+};
 use xcm_builder::{CreateMatcher, MatchXcm};
 use xcm_executor::{
 	traits::{ConvertLocation, TransferType},
@@ -99,7 +101,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 		.with_collators(collator_session_keys.collators())
 		.with_session_keys(collator_session_keys.session_keys())
 		.with_tracing()
-		.with_safe_xcm_version(3)
+		.with_safe_xcm_version(MIN_XCM_VERSION)
 		.with_para_id(runtime_para_id.into())
 		.build()
 		.execute_with(|| {

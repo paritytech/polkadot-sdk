@@ -1,0 +1,46 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove XCM v3
+
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      XCM v3 is removed. The minimum supported version is now v4: `xcm::v3`, the `V3`
+      variants of all `Versioned*` types, `AlwaysV3` and `VersionedLocatableAsset::V3`
+      are gone. Types that v4 and v5 re-exported from v3 (`Error`, `SendError`, `XcmHash`,
+      `BodyId`, `BodyPart`, `OriginKind`, `WeightLimit`, ...) now live in `xcm::v4`, which
+      renames their metadata type paths.
+
+      v4 and v5 encodings are unchanged, but v3-encoded data can no longer be decoded.
+      Before upgrading, chains must have run `pallet_xcm::migration::MigrateToLatestXcmVersion`
+      and migrated any own storage holding v3 types. Assets trapped under a v3 hash become
+      unclaimable and v3-only destinations become unreachable.
+
+crates:
+  - name: staging-xcm
+    bump: major
+  - name: xcm-procedural
+    bump: major
+  - name: pallet-xcm
+    bump: minor
+  - name: polkadot-runtime-common
+    bump: major
+  - name: parachains-common
+    bump: patch
+  - name: staging-xcm-builder
+    bump: minor
+  - name: pallet-xcm-precompiles
+    bump: none
+  - name: xcm-runtime-apis
+    bump: none
+  - name: asset-hub-rococo-runtime
+    bump: major
+  - name: asset-test-utils
+    bump: patch
+  - name: snowbridge-pallet-inbound-queue
+    bump: minor
+  - name: cumulus-pallet-xcmp-queue
+    bump: none
+  - name: pallet-contracts-uapi
+    bump: none

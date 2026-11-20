@@ -27,17 +27,10 @@
 //!   holding account.
 
 use super::{InteriorLocation, Location, Reanchorable};
-use crate::{
-	v3::{
-		AssetId as OldAssetId, AssetInstance as OldAssetInstance, Fungibility as OldFungibility,
-		MultiAsset as OldAsset, MultiAssetFilter as OldAssetFilter, MultiAssets as OldAssets,
-		WildFungibility as OldWildFungibility, WildMultiAsset as OldWildAsset,
-	},
-	v5::{
-		Asset as NewAsset, AssetFilter as NewAssetFilter, AssetId as NewAssetId,
-		AssetInstance as NewAssetInstance, Assets as NewAssets, Fungibility as NewFungibility,
-		WildAsset as NewWildAsset, WildFungibility as NewWildFungibility,
-	},
+use crate::v5::{
+	Asset as NewAsset, AssetFilter as NewAssetFilter, AssetId as NewAssetId,
+	AssetInstance as NewAssetInstance, Assets as NewAssets, Fungibility as NewFungibility,
+	WildAsset as NewWildAsset, WildFungibility as NewWildFungibility,
 };
 use alloc::{vec, vec::Vec};
 use bounded_collections::{BoundedVec, ConstU32};
@@ -81,21 +74,6 @@ pub enum AssetInstance {
 
 	/// A 32-byte fixed-length datum.
 	Array32([u8; 32]),
-}
-
-impl TryFrom<OldAssetInstance> for AssetInstance {
-	type Error = ();
-	fn try_from(value: OldAssetInstance) -> Result<Self, Self::Error> {
-		use OldAssetInstance::*;
-		Ok(match value {
-			Undefined => Self::Undefined,
-			Index(n) => Self::Index(n),
-			Array4(n) => Self::Array4(n),
-			Array8(n) => Self::Array8(n),
-			Array16(n) => Self::Array16(n),
-			Array32(n) => Self::Array32(n),
-		})
-	}
 }
 
 impl TryFrom<NewAssetInstance> for AssetInstance {
@@ -348,17 +326,6 @@ impl<T: Into<AssetInstance>> From<T> for Fungibility {
 	}
 }
 
-impl TryFrom<OldFungibility> for Fungibility {
-	type Error = ();
-	fn try_from(value: OldFungibility) -> Result<Self, Self::Error> {
-		use OldFungibility::*;
-		Ok(match value {
-			Fungible(n) => Self::Fungible(n),
-			NonFungible(i) => Self::NonFungible(i.try_into()?),
-		})
-	}
-}
-
 /// Classification of whether an asset is fungible or not.
 #[derive(
 	Copy,
@@ -381,17 +348,6 @@ pub enum WildFungibility {
 	Fungible,
 	/// The asset is not fungible.
 	NonFungible,
-}
-
-impl TryFrom<OldWildFungibility> for WildFungibility {
-	type Error = ();
-	fn try_from(value: OldWildFungibility) -> Result<Self, Self::Error> {
-		use OldWildFungibility::*;
-		Ok(match value {
-			Fungible => Self::Fungible,
-			NonFungible => Self::NonFungible,
-		})
-	}
 }
 
 impl TryFrom<NewWildFungibility> for WildFungibility {
@@ -426,17 +382,6 @@ pub struct AssetId(pub Location);
 impl<T: Into<Location>> From<T> for AssetId {
 	fn from(x: T) -> Self {
 		Self(x.into())
-	}
-}
-
-impl TryFrom<OldAssetId> for AssetId {
-	type Error = ();
-	fn try_from(old: OldAssetId) -> Result<Self, ()> {
-		use OldAssetId::*;
-		Ok(match old {
-			Concrete(l) => Self(l.try_into()?),
-			Abstract(_) => return Err(()),
-		})
 	}
 }
 
@@ -576,13 +521,6 @@ impl Reanchorable for Asset {
 	}
 }
 
-impl TryFrom<OldAsset> for Asset {
-	type Error = ();
-	fn try_from(old: OldAsset) -> Result<Self, ()> {
-		Ok(Self { id: old.id.try_into()?, fun: old.fun.try_into()? })
-	}
-}
-
 impl TryFrom<NewAsset> for Asset {
 	type Error = ();
 	fn try_from(new: NewAsset) -> Result<Self, Self::Error> {
@@ -629,18 +567,6 @@ impl Decode for Assets {
 			BoundedVec::<Asset, ConstU32<{ MAX_ITEMS_IN_ASSETS as u32 }>>::decode(input)?;
 		Self::from_sorted_and_deduplicated(bounded_instructions.into_inner())
 			.map_err(|()| "Out of order".into())
-	}
-}
-
-impl TryFrom<OldAssets> for Assets {
-	type Error = ();
-	fn try_from(old: OldAssets) -> Result<Self, ()> {
-		let v = old
-			.into_inner()
-			.into_iter()
-			.map(Asset::try_from)
-			.collect::<Result<Vec<_>, ()>>()?;
-		Ok(Assets(v))
 	}
 }
 
@@ -862,21 +788,6 @@ pub enum WildAsset {
 	},
 }
 
-impl TryFrom<OldWildAsset> for WildAsset {
-	type Error = ();
-	fn try_from(old: OldWildAsset) -> Result<WildAsset, ()> {
-		use OldWildAsset::*;
-		Ok(match old {
-			AllOf { id, fun } => Self::AllOf { id: id.try_into()?, fun: fun.try_into()? },
-			All => Self::All,
-			AllOfCounted { id, fun, count } => {
-				Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count }
-			},
-			AllCounted(count) => Self::AllCounted(count),
-		})
-	}
-}
-
 impl TryFrom<NewWildAsset> for WildAsset {
 	type Error = ();
 	fn try_from(new: NewWildAsset) -> Result<Self, ()> {
@@ -1051,16 +962,6 @@ impl TryFrom<NewAssetFilter> for AssetFilter {
 		Ok(match new {
 			Definite(x) => Self::Definite(x.try_into()?),
 			Wild(x) => Self::Wild(x.try_into()?),
-		})
-	}
-}
-
-impl TryFrom<OldAssetFilter> for AssetFilter {
-	type Error = ();
-	fn try_from(old: OldAssetFilter) -> Result<AssetFilter, ()> {
-		Ok(match old {
-			OldAssetFilter::Definite(x) => Self::Definite(x.try_into()?),
-			OldAssetFilter::Wild(x) => Self::Wild(x.try_into()?),
 		})
 	}
 }
