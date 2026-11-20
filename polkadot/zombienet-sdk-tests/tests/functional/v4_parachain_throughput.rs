@@ -8,6 +8,9 @@
 //! `elastic-scaling-v3` runtime, at relay parent offset 0 and 1. Over a 100-relay-block window
 //! both cores stay fed, backing 260-300 candidates while finality stays close. The range is a
 //! loose throughput band, not a gate on any single mechanism.
+//!
+//! The heavy-PoV case has glutton read about 5 MiB of incompressible storage per block, so each
+//! candidate's PoV carries that much proof.
 
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
@@ -20,14 +23,17 @@ use zombienet_sdk::{
 };
 
 #[rstest]
-#[case::single(1, "elastic-scaling-v3")]
-#[case::three(3, "elastic-scaling-v3")]
-#[case::single_rpo1(1, "elastic-scaling-v3-rpo-1")]
-#[case::three_rpo1(3, "elastic-scaling-v3-rpo-1")]
+#[case::single(1, "elastic-scaling-v3", None)]
+#[case::three(3, "elastic-scaling-v3", None)]
+#[case::single_rpo1(1, "elastic-scaling-v3-rpo-1", None)]
+#[case::three_rpo1(3, "elastic-scaling-v3-rpo-1", None)]
+#[case::single_rpo1_heavy_pov(1, "elastic-scaling-v3-rpo-1", Some("1.0"))]
 #[tokio::test(flavor = "multi_thread")]
 async fn v4_parachain_throughput(
 	#[case] num_collators: usize,
 	#[case] chain: &str,
+	// Share of each block's remaining proof size glutton fills, if set.
+	#[case] glutton_storage: Option<&str>,
 ) -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
@@ -74,6 +80,16 @@ async fn v4_parachain_throughput(
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_chain(chain)
+				// Glutton needs some compute share to read storage; 8000 KiB of trash data covers
+				// the reads. Without `glutton_storage` it stays idle, as by default.
+				.with_genesis_overrides(json!({
+					"glutton": {
+						"compute": if glutton_storage.is_some() { "0.1" } else { "0" },
+						"storage": glutton_storage.unwrap_or("0"),
+						"trashDataCount": if glutton_storage.is_some() { 8000 } else { 0 },
+						"blockLength": "0"
+					}
+				}))
 				.with_default_args(vec![
 					("-lparachain=debug,aura=debug,parachain::collator-protocol=trace,aura::cumulus=debug,basic-authorship=debug,aura::resubmission=trace").into(),
 					"--authoring=slot-based".into(),
