@@ -21,15 +21,14 @@
 //! [`Config::AllowedCalls`] for the XCM execution weight at most [`Config::MaxWeight`], and at most
 //! [`Config::MaxPerWindow`] of them per [`Config::Window`], be executed without payment.
 //!
-//! A message is counted before its call is decoded, so that a parachain gets only that many calls
-//! decoded for free: one whose call does not decode or is not in [`Config::AllowedCalls`] is
-//! counted too.
+//! The barrier does not decode the call: it only reads its first two bytes, which are its pallet
+//! index and its call index, and looks for them in [`Config::AllowedCalls`]. Only the messages
+//! that the barrier lets through are counted.
 //!
 //! The storage footprint is paid by the parachain deposit, for offboarded parachains it is removed
 //! lazily with the free call [`Call::remove_offboarded`] triggered from the offchain worker.
 
 use crate::paras;
-use codec::DecodeLimit;
 use core::marker::PhantomData;
 use frame_support::{
 	ensure,
@@ -43,7 +42,7 @@ use frame_system::{
 use polkadot_parachain_primitives::primitives::IsSystem;
 use polkadot_primitives::Id as ParaId;
 use sp_runtime::traits::{Saturating, Zero};
-use xcm::{latest::prelude::*, MAX_XCM_DECODE_DEPTH};
+use xcm::latest::prelude::*;
 use xcm_executor::traits::{Properties, ShouldExecute};
 
 pub use pallet::*;
@@ -84,8 +83,12 @@ pub mod pallet {
 	pub trait Config:
 		frame_system::Config + paras::Config + CreateAuthorizedTransaction<Call<Self>>
 	{
-		/// The calls a parachain gets dispatched without payment.
-		type AllowedCalls: Contains<<Self as frame_system::Config>::RuntimeCall>;
+		/// The calls a parachain gets dispatched without payment, each as its pallet index and
+		/// its call index: the first two bytes of the encoded call.
+		///
+		/// A whole call is never decoded to be looked for in here, so its arguments can not be
+		/// filtered.
+		type AllowedCalls: Contains<(u8, u8)>;
 
 		/// The heaviest message a parachain gets executed without payment, as the XCM executor
 		/// weighs it.
@@ -93,8 +96,6 @@ pub mod pallet {
 
 		/// How many messages a parachain gets executed without payment in one
 		/// [`Config::Window`].
-		///
-		/// The messages that are refused for their call, after it is decoded, count too.
 		#[pallet::constant]
 		type MaxPerWindow: Get<u32>;
 
@@ -215,10 +216,10 @@ impl<T: Config> Pallet<T> {
 /// limit or one of at least the weight of the message, followed by one `Transact` with
 /// `OriginKind::Native`.
 ///
-/// A message is counted before its call is decoded, and the call is not decoded for a parachain
-/// that has no message left in its window. So a message is counted even if it is then refused
-/// because its call does not decode or is not in [`Config::AllowedCalls`], and whether its call
-/// succeeds or not. A message that is refused for any other reason is not counted.
+/// The call is not decoded: only its first two bytes are read, its pallet index and its call
+/// index, to be looked for in [`Config::AllowedCalls`]. So a message is let through, and counted,
+/// even if the rest of its call does not decode, and whether its call succeeds or not. A message
+/// that is refused is not counted.
 pub struct AllowUnpaidTransact<T>(PhantomData<T>);
 impl<T: Config> ShouldExecute for AllowUnpaidTransact<T> {
 	fn should_execute<RuntimeCall>(
@@ -245,23 +246,21 @@ impl<T: Config> ShouldExecute for AllowUnpaidTransact<T> {
 		};
 		ensure!(is_covered, ProcessMessageError::Unsupported);
 
-		// The structure is valid to qualify for an unpaid XCM from the parachain, we now count
-		// the attempt, before decoding the call which is an expensive operation.
+		// The call is not decoded, which is expensive and which the executor does not weigh for
+		// a barrier: its first two bytes are enough to tell which call it is.
+		let &[pallet_index, call_index, ..] = call.encoded() else {
+			return Err(ProcessMessageError::Unsupported);
+		};
+		ensure!(
+			T::AllowedCalls::contains(&(pallet_index, call_index)),
+			ProcessMessageError::Unsupported
+		);
+
+		// The message qualifies, it is let through if the parachain has one left in its window.
 		//
 		// This reads and may write storage, which the executor does not weigh for a barrier.
 		// It may be abusive.
 		Pallet::<T>::try_count(para).map_err(|_| ProcessMessageError::Unsupported)?;
-		// `RuntimeCall` is not known to be decodable here: decode the bytes of the call as the
-		// runtime's, the way the executor does.
-		//
-		// This decodes the call, which the executor does not weigh for a barrier.
-		// It may be abusive. But the rate limit at least already applied.
-		let call = <T as frame_system::Config>::RuntimeCall::decode_all_with_depth_limit(
-			MAX_XCM_DECODE_DEPTH,
-			&mut call.encoded(),
-		)
-		.map_err(|_| ProcessMessageError::BadFormat)?;
-		ensure!(T::AllowedCalls::contains(&call), ProcessMessageError::Unsupported);
 		Ok(())
 	}
 }

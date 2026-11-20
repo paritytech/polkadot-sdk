@@ -18,18 +18,19 @@ use super::*;
 use crate::{
 	hrmp,
 	mock::{
-		new_test_ext, MockGenesisConfig, RuntimeCall, RuntimeOrigin, System, Test, UnpaidTransact,
-		UnpaidTransactCleanupPeriod, UnpaidTransactMaxPerWindow, UnpaidTransactMaxWeight,
-		UnpaidTransactWindow,
+		new_test_ext, Hrmp, MockGenesisConfig, RuntimeCall, RuntimeOrigin, System, Test,
+		UnpaidTransact, UnpaidTransactCleanupPeriod, UnpaidTransactMaxPerWindow,
+		UnpaidTransactMaxWeight, UnpaidTransactWindow,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 };
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
-	traits::{Authorize, Hooks},
+	traits::{Authorize, GetCallIndex, Hooks, PalletInfoAccess},
 };
 use frame_system::RawOrigin;
+use polkadot_parachain_primitives::primitives::HrmpChannelId;
 use polkadot_primitives::{BlockNumber, HeadData};
 use polkadot_primitives_test_helpers::dummy_validation_code;
 use sp_core::offchain::{
@@ -126,7 +127,7 @@ fn window_restarts_at_the_next_message() {
 	});
 }
 
-/// A message that is refused before its call is looked at is not counted.
+/// A message that is refused for anything but its call is not counted.
 #[test]
 fn other_messages_are_refused_and_not_counted() {
 	new_test_ext(Default::default()).execute_with(|| {
@@ -177,50 +178,56 @@ fn other_messages_are_refused_and_not_counted() {
 	});
 }
 
-/// A message that is refused for its call is counted: the call is decoded only for a parachain
-/// that has messages left in its window.
+/// The call is told by its first two bytes only: its pallet index and its call index.
 #[test]
-fn messages_refused_for_their_call_are_counted() {
+fn call_is_told_by_its_indices() {
 	new_test_ext(Default::default()).execute_with(|| {
-		System::set_block_number(5);
-		let max = UnpaidTransactMaxPerWindow::get();
-		use ProcessMessageError::{BadFormat, Unsupported};
+		let hrmp_index = <Hrmp as PalletInfoAccess>::index() as u8;
+		let accept = hrmp::Call::<Test>::hrmp_accept_open_channel { sender: 2001.into() };
+		let close = hrmp::Call::<Test>::hrmp_close_channel {
+			channel_id: HrmpChannelId { sender: PARA.into(), recipient: 2001.into() },
+		};
+		let remark = frame_system::Call::<Test>::remark { remark: vec![] };
 
-		// A call that is not allowed.
-		let remark =
-			RuntimeCall::from(frame_system::Call::<Test>::remark { remark: vec![] }).encode();
-		// A call followed by more bytes.
-		let mut trailing = allowed_call();
-		trailing.push(0);
+		// The indices the barrier reads are the ones of the call.
+		assert_eq!(allowed_call()[..2], [hrmp_index, accept.get_call_index()]);
+		// And they are the first bytes of the call of a message that is decoded: the length of
+		// the call is not in them.
+		let decoded = Xcm::<RuntimeCall>::decode(&mut &message(allowed_call()).encode()[..]);
+		let Ok([_, Transact { call, .. }]) = decoded.as_ref().map(|xcm| xcm.inner()) else {
+			panic!("the message decodes into its two instructions");
+		};
+		assert_eq!(call.encoded(), allowed_call());
 
-		let mut para = PARA;
-		for (call, error) in [
-			(remark, Unsupported),
-			(vec![], BadFormat),
-			(vec![0xff], BadFormat),
-			(trailing, BadFormat),
+		let refused = |call: Vec<u8>| {
+			assert_storage_noop!(assert_eq!(
+				run(Parachain(PARA).into(), message(call), Weight::zero()),
+				Err(ProcessMessageError::Unsupported)
+			));
+		};
+		// Another call of the same pallet.
+		refused(RuntimeCall::from(close).encode());
+		// The same call index in another pallet.
+		refused(vec![hrmp_index + 1, accept.get_call_index()]);
+		refused(RuntimeCall::from(remark).encode());
+		// Not long enough to have both indices.
+		refused(vec![]);
+		refused(vec![hrmp_index]);
+
+		// The rest of the call is not looked at: it is for the executor to decode it.
+		for call in [
+			vec![hrmp_index, accept.get_call_index()],
+			[allowed_call(), vec![0xff]].concat(),
+			RuntimeCall::from(hrmp::Call::<Test>::hrmp_init_open_channel {
+				recipient: 2001.into(),
+				proposed_max_capacity: 1,
+				proposed_max_message_size: 1,
+			})
+			.encode(),
 		] {
-			// Each on a parachain of its own, to have every refusal start from no window.
-			para += 1;
-			assert_eq!(run(Parachain(para).into(), message(call), Weight::zero()), Err(error));
-			assert_eq!(window(para), Some((5, 1)));
+			assert_ok!(run(Parachain(PARA).into(), message(call), Weight::zero()));
 		}
-
-		// They use up the window, as the allowed ones do.
-		assert_ok!(run_allowed(PARA));
-		for used in 2..=max {
-			assert_eq!(
-				run(Parachain(PARA).into(), message(vec![0xff]), Weight::zero()),
-				Err(BadFormat)
-			);
-			assert_eq!(window(PARA), Some((5, used)));
-		}
-		assert_storage_noop!(assert_eq!(run_allowed(PARA), Err(Unsupported)));
-		// With no message left the call is not decoded: the error is not the one of the call.
-		assert_storage_noop!(assert_eq!(
-			run(Parachain(PARA).into(), message(vec![0xff]), Weight::zero()),
-			Err(Unsupported)
-		));
+		assert_eq!(window(PARA), Some((System::block_number(), 3)));
 	});
 }
 

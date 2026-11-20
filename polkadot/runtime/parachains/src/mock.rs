@@ -37,7 +37,7 @@ use frame_support::{
 	dispatch::GetDispatchInfo,
 	parameter_types,
 	traits::{
-		Contains, Currency, ProcessMessage, ProcessMessageError, ValidatorSet,
+		Contains, Currency, PalletInfoAccess, ProcessMessage, ProcessMessageError, ValidatorSet,
 		ValidatorSetWithIdentification,
 	},
 	weights::{Weight, WeightMeter},
@@ -295,11 +295,13 @@ parameter_types! {
 	pub const UnpaidTransactCleanupPeriod: BlockNumber = 100;
 }
 
-/// The calls that are dispatched without payment in tests: those of HRMP.
+/// The calls that are dispatched without payment in tests: `hrmp_init_open_channel` and
+/// `hrmp_accept_open_channel`, the calls 0 and 1 of HRMP.
 pub struct UnpaidTransactCalls;
-impl Contains<RuntimeCall> for UnpaidTransactCalls {
-	fn contains(call: &RuntimeCall) -> bool {
-		matches!(call, RuntimeCall::Hrmp(..))
+impl Contains<(u8, u8)> for UnpaidTransactCalls {
+	fn contains((pallet_index, call_index): &(u8, u8)) -> bool {
+		usize::from(*pallet_index) == <Hrmp as PalletInfoAccess>::index() &&
+			matches!(call_index, 0 | 1)
 	}
 }
 
