@@ -1,0 +1,19 @@
+title: "pallet-identity: return username deposits to the authority that paid them"
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fixes #13680. A username deposit is reserved from the authority that grants the username,
+      but `remove_expired_approval`, `remove_username` and `kill_username` refunded or slashed
+      whichever account was the authority of the suffix at that time. After the suffix was moved
+      to another account with `add_username_authority`, the previous authority's deposits stayed
+      reserved forever, and the new authority had unrelated reserved funds released, or was
+      slashed instead. After `remove_username_authority`, the deposits could not be released at
+      all.
+
+      The pallet now records the depositor of each deposit-backed username in the new storage
+      item `UsernameDepositor`, and the three calls refund or slash that account. Usernames
+      granted before this change have no record and keep the previous behaviour, so no migration
+      is needed.
+crates:
+  - name: pallet-identity
+    bump: minor
