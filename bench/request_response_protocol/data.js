@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795127647089,
+  "lastUpdate": 1795171104082,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -149147,6 +149147,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2830560530,
             "range": "± 62933879",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8b4099b950d971448ed272587ba9c9d63f7f6196",
+          "message": "Fix validations failing for a session after a restart near a session change (#13780)\n\nA validator restarted shortly before a session change failed every\nbacking and approval validation of the new session with \"Session params\nunavailable (no active leaf?)\" until the next session change. Seen on\nWestend on 2026-11-09.\n\nTwo defects combined:\n\n- candidate-validation: with TASK_LIMIT validations in flight, the main\nloop reads only signals, and it dropped ActiveLeaves. recv_signal()\nstill counts a signal as received, so the overseer delivered requests\nfor the new session while state.last_active_leaf was still a block of\nthe previous one. Since #11604 the session params are fetched at that\nleaf, and it has no executor params for the new session. Leaves are now\napplied at the task limit too, with the same handler as below it.\n\n- runtime-api: SessionExecutorParams results were cached by session\nindex alone, None included, so one query at a block from before the\nsession failed every later request for that session, from any relay\nparent. Only Some results are cached now, as #11108 did for\nValidationCodeByHash.\n\nThe loop moves into run_loop, generic over the validation backend, so\nthat a test can drive it. Regression tests, both failing without the\nfix: leaf_activated_at_task_limit_is_applied and\nsession_executor_params_does_not_cache_none.\n\nDiscovered while doing testing for:\nhttps://github.com/paritytech/metanode/issues/46.",
+          "timestamp": "2026-11-20T09:17:04Z",
+          "tree_id": "308938a49c42dc60d68fb3abe851095d69ccd358",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8b4099b950d971448ed272587ba9c9d63f7f6196"
+        },
+        "date": 1795171065787,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19795600,
+            "range": "± 207907",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20363242,
+            "range": "± 216967",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21626788,
+            "range": "± 175076",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25953001,
+            "range": "± 201599",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59916321,
+            "range": "± 771205",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 372290907,
+            "range": "± 4777198",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2529619835,
+            "range": "± 42171664",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17100532,
+            "range": "± 244525",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17046840,
+            "range": "± 192370",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17718990,
+            "range": "± 208661",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22214034,
+            "range": "± 123650",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60549047,
+            "range": "± 393875",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 374711334,
+            "range": "± 5475452",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2783065465,
+            "range": "± 29209718",
             "unit": "ns/iter"
           }
         ]
