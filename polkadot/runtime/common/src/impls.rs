@@ -190,6 +190,16 @@ impl TryConvert<VersionedLocatableAsset, xcm_builder::LocatableAssetId>
 	}
 }
 
+/// Canonicalizes a [`VersionedLocatableAsset`] to the latest XCM version spelling, so that
+/// different version spellings of the same asset are treated as one asset kind.
+pub struct CanonicalLocatableAsset;
+impl pallet_treasury::CanonicalizeAssetKind<VersionedLocatableAsset> for CanonicalLocatableAsset {
+	fn canonicalize(kind: VersionedLocatableAsset) -> Result<VersionedLocatableAsset, ()> {
+		let asset = LocatableAssetConverter::try_convert(kind).map_err(|_| ())?;
+		Ok((asset.location, asset.asset_id).into())
+	}
+}
+
 /// Converts the [`VersionedLocation`] to the [`xcm::latest::Location`].
 pub struct VersionedLocationConverter;
 impl TryConvert<&VersionedLocation, xcm::latest::Location> for VersionedLocationConverter {
@@ -400,6 +410,7 @@ mod tests {
 		type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
 		type BalanceConverter = UnityAssetBalanceConversion;
 		type PayoutPeriod = ConstU64<0>;
+		type CanonicalizeAssetKind = ();
 		type BlockNumberProvider = System;
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper = ();
