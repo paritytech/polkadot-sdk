@@ -1,0 +1,13 @@
+title: '`pallet-broker`: test `process_revenue` ignored and dropped paths'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds tests for the three previously untested `process_revenue` outcomes: duplicate
+      revenue for a known timeslice emits `HistoryIgnored` and leaves the record untouched,
+      zero converted revenue emits `HistoryDropped`, and revenue with only system
+      contributions pays out to the system and emits `HistoryDropped`. Test-only.
+
+crates:
+  - name: pallet-broker
+    bump: none
