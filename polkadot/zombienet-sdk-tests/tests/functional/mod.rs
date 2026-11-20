@@ -26,5 +26,6 @@ mod sync_backing;
 mod systematic_chunk_recovery;
 mod v3_dynamic_enablement;
 mod v3_node_feature_rolling_enablement;
+mod v4_authority_handover;
 mod v4_parachain_throughput;
 mod validator_disabling;
