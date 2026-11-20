@@ -504,7 +504,8 @@ struct MetaUpdate<Block: BlockT> {
 	pub number: NumberFor<Block>,
 	pub is_best: bool,
 	pub is_finalized: bool,
-	pub with_state: bool,
+	/// Update the finalized-state checkpoint independently of header finality.
+	pub update_finalized_state: bool,
 }
 
 fn cache_header<Hash: std::cmp::Eq + std::hash::Hash, Header>(
@@ -543,7 +544,7 @@ impl<Block: BlockT> BlockchainDb<Block> {
 	}
 
 	fn update_meta(&self, update: MetaUpdate<Block>) {
-		let MetaUpdate { hash, number, is_best, is_finalized, with_state } = update;
+		let MetaUpdate { hash, number, is_best, is_finalized, update_finalized_state } = update;
 		let mut meta = self.meta.write();
 		if number.is_zero() {
 			meta.genesis_hash = hash;
@@ -554,10 +555,11 @@ impl<Block: BlockT> BlockchainDb<Block> {
 			meta.best_hash = hash;
 		}
 
+		if update_finalized_state {
+			meta.finalized_state = Some((hash, number));
+		}
+
 		if is_finalized {
-			if with_state {
-				meta.finalized_state = Some((hash, number));
-			}
 			meta.finalized_number = number;
 			meta.finalized_hash = hash;
 
@@ -1416,7 +1418,7 @@ impl<Block: BlockT> Backend<Block> {
 				number: info.finalized_number,
 				is_best: info.finalized_hash == info.best_hash,
 				is_finalized: true,
-				with_state: true,
+				update_finalized_state: true,
 			});
 		}
 
@@ -1574,7 +1576,13 @@ impl<Block: BlockT> Backend<Block> {
 			);
 			current_transaction_justifications.insert(hash, justification);
 		}
-		Ok(MetaUpdate { hash, number, is_best: false, is_finalized: true, with_state })
+		Ok(MetaUpdate {
+			hash,
+			number,
+			is_best: false,
+			is_finalized: true,
+			update_finalized_state: with_state,
+		})
 	}
 
 	// performs forced canonicalization with a delay after importing a non-finalized block.
@@ -1716,7 +1724,7 @@ impl<Block: BlockT> Backend<Block> {
 				transaction.set(columns::META, meta_keys::GENESIS_HASH, hash.as_ref());
 
 				if operation.commit_state {
-					transaction.set_from_vec(columns::META, meta_keys::FINALIZED_STATE, lookup_key);
+					transaction.set(columns::META, meta_keys::FINALIZED_STATE, &lookup_key);
 				} else {
 					// When we don't want to commit the genesis state, we still preserve it in
 					// memory to bootstrap consensus. It is queried for an initial list of
@@ -1794,12 +1802,14 @@ impl<Block: BlockT> Backend<Block> {
 						>,
 					)?;
 					apply_state_commit(&mut transaction, commit);
+					// Restore the state checkpoint without moving the finalized header head.
+					transaction.set(columns::META, meta_keys::FINALIZED_STATE, &lookup_key);
 					meta_updates.push(MetaUpdate {
 						hash,
 						number,
 						is_best: false,
-						is_finalized: true,
-						with_state: true,
+						is_finalized: false,
+						update_finalized_state: true,
 					});
 				}
 
@@ -1983,7 +1993,7 @@ impl<Block: BlockT> Backend<Block> {
 				number,
 				is_best: pending_block.leaf_state.is_best(),
 				is_finalized: finalized,
-				with_state: operation.commit_state,
+				update_finalized_state: finalized && operation.commit_state,
 			});
 			Some((pending_block.header, hash))
 		} else {
@@ -2004,7 +2014,7 @@ impl<Block: BlockT> Backend<Block> {
 					number: *number,
 					is_best: true,
 					is_finalized: false,
-					with_state: false,
+					update_finalized_state: false,
 				});
 			} else {
 				return Err(sp_blockchain::Error::UnknownBlock(format!(
@@ -2657,7 +2667,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 							number: number_to_revert,
 							is_best,
 							is_finalized: update_finalized,
-							with_state: false,
+							update_finalized_state: false,
 						});
 					},
 					None => return Ok(c.saturated_into::<NumberFor<Block>>()),
@@ -5478,6 +5488,86 @@ pub(crate) mod tests {
 		backend.commit_operation(op).unwrap();
 
 		assert_eq!(backend.blockchain().info().finalized_hash, block1);
+	}
+
+	#[test]
+	fn restoring_state_survives_restart_and_continues() {
+		let source = Backend::<Block>::new_test(10, 10);
+		let backend = Backend::<Block>::new_test(10, 10);
+		let genesis = insert_header(&source, 0, Default::default(), None, Default::default());
+		assert_eq!(
+			insert_header(&backend, 0, Default::default(), None, Default::default()),
+			genesis,
+		);
+
+		// Header sync can finalize blocks before their state is available locally.
+		let mut blocks = vec![genesis];
+		for number in 1..=3 {
+			let parent = blocks[number - 1];
+			let hash = insert_header(&source, number as u64, parent, None, Default::default());
+			let header = source.blockchain().header(hash).unwrap().unwrap();
+			let mut op = backend.begin_operation().unwrap();
+			op.set_block_data(header, None, None, NewBlockState::Best, true).unwrap();
+			backend.commit_operation(op).unwrap();
+			backend.finalize_block(hash, None).unwrap();
+			blocks.push(hash);
+		}
+		assert_eq!(backend.blockchain().info().finalized_hash, blocks[3]);
+		assert_eq!(backend.blockchain().info().finalized_state, Some((genesis, 0)));
+
+		// Restore two blocks so recovery must preserve finality on subsequent imports too.
+		for number in 1..=2 {
+			let parent = blocks[number - 1];
+			let header = backend.blockchain().header(blocks[number]).unwrap().unwrap();
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, parent).unwrap();
+			let (root, overlay) = op.old_state.storage_root(
+				vec![(parent.as_ref(), Some(parent.as_ref()))].into_iter(),
+				StateVersion::V1,
+			);
+			assert_eq!(*header.state_root(), root);
+			op.update_db_storage(overlay).unwrap();
+			op.set_block_data(header, Some(Vec::new()), None, NewBlockState::Normal, true)
+				.unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+		let restored = backend.blockchain().info();
+
+		let db = backend.storage.db.clone();
+		drop(backend);
+		let backend = reopen_backend(db, BlocksPruning::Some(10));
+		let reopened = backend.blockchain().info();
+
+		// Recovery must continue at the next missing state after the backend is reopened.
+		assert!(!backend.have_state_at(blocks[3], 3));
+		let parent = blocks[2];
+		let header = backend.blockchain().header(blocks[3]).unwrap().unwrap();
+		let mut op = backend.begin_operation().unwrap();
+		backend.begin_state_operation(&mut op, parent).unwrap();
+		let (root, overlay) = op.old_state.storage_root(
+			vec![(parent.as_ref(), Some(parent.as_ref()))].into_iter(),
+			StateVersion::V1,
+		);
+		assert_eq!(*header.state_root(), root);
+		op.update_db_storage(overlay).unwrap();
+		op.set_block_data(header, Some(Vec::new()), None, NewBlockState::Normal, true)
+			.unwrap();
+		backend
+			.commit_operation(op)
+			.expect("state recovery must continue after reopening");
+
+		let info = backend.blockchain().info();
+		assert_eq!(restored.finalized_state, Some((blocks[2], 2)));
+		assert_eq!(reopened.finalized_state, Some((blocks[2], 2)));
+		assert_eq!(info.finalized_state, Some((blocks[3], 3)));
+		for info in [restored, reopened, info] {
+			assert_eq!((info.finalized_hash, info.finalized_number), (blocks[3], 3));
+			assert_eq!((info.best_hash, info.best_number), (blocks[3], 3));
+		}
+		let state = backend.state_at(blocks[3], TrieCacheContext::Untrusted).unwrap();
+		for parent in &blocks[..3] {
+			assert_eq!(state.storage(parent.as_ref()).unwrap(), Some(parent.as_ref().to_vec()));
+		}
 	}
 
 	#[test]
