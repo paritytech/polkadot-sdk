@@ -1,0 +1,12 @@
+title: 'statement-store: keep light peers out of the DHT index on identify'
+doc:
+- audience: Node Dev
+  description: |-
+    On the v2 DHT path a light peer no longer enters the DHT index through identify. The topology
+    marks a peer as light once its statement handshake shows the light role, and identify skips a
+    marked peer. Before, identify indexed every peer that announced the statement protocol, so
+    light clients counted as storage replicas, and a full node treated most new statements as
+    transient.
+crates:
+- name: sc-network-statement
+  bump: patch

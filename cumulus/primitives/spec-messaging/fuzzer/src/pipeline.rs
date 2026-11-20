@@ -27,10 +27,11 @@
 
 use crate::{Count, Edit, HashChoice, Oracle, Outcome, N};
 use arbitrary::Arbitrary;
+use codec::Encode;
 use cumulus_primitives_spec_messaging::{
 	build_requires,
 	streams_root::{gen_stream_proof, streams_root, TreeStep},
-	ConsumptionRecord, Interval, LiftsBySource, MMRExtensionProof, MmrFrontier, RequiresLift,
+	ConsumptionRecord, Interval, LiftsBySource, MmrExtensionProof, MmrFrontier, RequiresLift,
 	StreamId, StreamsRoot,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
@@ -236,7 +237,7 @@ impl Oracle {
 					.map(|w| self.extension(w[0].1, w[1].0).expect("b < a' <= N; qed").clone())
 					.collect();
 				let extension = if endpoint == c {
-					MMRExtensionProof::identity()
+					MmrExtensionProof::identity(&self.frontiers[c as usize])
 				} else {
 					self.extension(endpoint, c).expect("endpoint < c <= N; qed").clone()
 				};
@@ -310,7 +311,10 @@ impl Oracle {
 			AddAdvance { source, stream, item, from, to } => {
 				if let Some(c) = consumed_mut(sources, *source, *stream) {
 					let wrap = |x: u8| x as u64 % (N as u64 + 1);
-					let proof = self.extension(wrap(*from), wrap(*to)).cloned().unwrap_or_default();
+					let proof =
+						self.extension(wrap(*from), wrap(*to)).cloned().unwrap_or_else(|| {
+							MmrExtensionProof::identity(&self.frontiers[wrap(*from) as usize])
+						});
 					let at = *item as usize % (c.lift.advances.len() + 1);
 					c.lift.advances.insert(at, proof);
 				}
@@ -349,6 +353,26 @@ impl Oracle {
 		}
 	}
 
+	/// The STF reserves `encoded_len_for(previous end, read start)` per later read. For a lift that
+	/// reached its committed root, the advances it carried must take exactly those bytes.
+	fn check_reserved_skips(&self, intervals: &[Interval], advances: &[MmrExtensionProof]) {
+		let mut reserved = 0;
+		for w in intervals.windows(2) {
+			let Some(&start) = self.roots.get(&w[1].start.0) else { return };
+			// The STF records no empty read, so a read never starts from an empty frontier.
+			let Some(len) = MmrExtensionProof::encoded_len_for(w[0].end.leaf_count(), start as u64)
+			else {
+				return;
+			};
+			reserved += len;
+		}
+		let carried: usize = advances.iter().map(Encode::encoded_size).sum();
+		assert_eq!(
+			carried, reserved,
+			"advances take {carried} bytes, but {reserved} were reserved"
+		);
+	}
+
 	/// Fuzz entry point for `build_requires`.
 	pub fn check_pipeline_input(&self, input: &PipelineInput) -> Outcome {
 		let mut sources = self.honest_sources(input);
@@ -377,7 +401,7 @@ impl Oracle {
 							.zip(per_stream)
 							.filter_map(|(c, ivs)| ivs.get(b).map(|i| (c.stream, i.clone())))
 							.collect::<BTreeMap<_, _>>();
-						(s.para, streams)
+						(s.para, streams.into_iter().collect::<Vec<_>>())
 					})
 					.filter(|(_, streams)| !streams.is_empty())
 					.collect(),
@@ -421,6 +445,7 @@ impl Oracle {
 						c.committed
 					);
 				}
+				self.check_reserved_skips(ivs, &c.lift.advances);
 			}
 		}
 		if any_real {

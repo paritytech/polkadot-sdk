@@ -1244,13 +1244,13 @@ where
 			fork_id,
 			client.clone(),
 			net_config.network_config.light_request_execution_timeout,
+			net_config.network_config.light_request_call_workers,
+			metrics_registry,
 		);
-		// Handling a request executes runtime code synchronously, see
-		// `LightClientRequestHandler::run`.
-		spawn_handle.spawn_blocking(
+		spawn_handle.spawn(
 			"light-client-request-handler",
 			Some("networking"),
-			handler.run(),
+			handler.run(spawn_handle.clone()),
 		);
 		protocol_config
 	};

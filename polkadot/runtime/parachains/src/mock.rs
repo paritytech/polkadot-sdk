@@ -27,7 +27,7 @@ use crate::{
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, on_demand, origin, paras,
 	paras::ParaKind,
-	paras_inherent, scheduler, session_info, shared, ParaId,
+	paras_inherent, scheduler, session_info, shared, unpaid_transact, ParaId,
 };
 use frame_support::pallet_prelude::*;
 
@@ -37,7 +37,8 @@ use frame_support::{
 	dispatch::GetDispatchInfo,
 	parameter_types,
 	traits::{
-		Currency, ProcessMessage, ProcessMessageError, ValidatorSet, ValidatorSetWithIdentification,
+		Contains, Currency, PalletInfoAccess, ProcessMessage, ProcessMessageError, ValidatorSet,
+		ValidatorSetWithIdentification,
 	},
 	weights::{Weight, WeightMeter},
 	PalletId,
@@ -87,6 +88,7 @@ frame_support::construct_runtime!(
 		Initializer: initializer,
 		Dmp: dmp,
 		Hrmp: hrmp,
+		UnpaidTransact: unpaid_transact,
 		ParachainsOrigin: origin,
 		SessionInfo: session_info,
 		Disputes: disputes,
@@ -110,6 +112,23 @@ where
 	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		UncheckedExtrinsic::new_bare(call)
 	}
+}
+
+impl<C> frame_system::offchain::CreateTransaction<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	type Extension = ();
+	fn create_transaction(call: Self::RuntimeCall, extension: Self::Extension) -> Self::Extrinsic {
+		UncheckedExtrinsic::new_transaction(call, extension)
+	}
+}
+
+impl<C> frame_system::offchain::CreateAuthorizedTransaction<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_extension() -> Self::Extension {}
 }
 
 parameter_types! {
@@ -270,6 +289,32 @@ parameter_types! {
 	/// Not limited, unless a test sets it.
 	pub static MaxRequestsPerWindow: u32 = u32::MAX;
 	pub const RequestWindow: BlockNumber = 600;
+}
+
+parameter_types! {
+	pub const UnpaidTransactMaxWeight: Weight = Weight::from_parts(100, 100);
+	pub const UnpaidTransactMaxPerWindow: u32 = 3;
+	pub const UnpaidTransactWindow: BlockNumber = 10;
+	pub const UnpaidTransactCleanupPeriod: BlockNumber = 100;
+}
+
+/// The calls that are dispatched without payment in tests: `hrmp_init_open_channel` and
+/// `hrmp_accept_open_channel`, the calls 0 and 1 of HRMP.
+pub struct UnpaidTransactCalls;
+impl Contains<(u8, u8)> for UnpaidTransactCalls {
+	fn contains((pallet_index, call_index): &(u8, u8)) -> bool {
+		usize::from(*pallet_index) == <Hrmp as PalletInfoAccess>::index() &&
+			matches!(call_index, 0 | 1)
+	}
+}
+
+impl crate::unpaid_transact::Config for Test {
+	type AllowedCalls = UnpaidTransactCalls;
+	type MaxWeight = UnpaidTransactMaxWeight;
+	type MaxPerWindow = UnpaidTransactMaxPerWindow;
+	type Window = UnpaidTransactWindow;
+	type CleanupPeriod = UnpaidTransactCleanupPeriod;
+	type WeightInfo = unpaid_transact::TestWeightInfo;
 }
 
 thread_local! {

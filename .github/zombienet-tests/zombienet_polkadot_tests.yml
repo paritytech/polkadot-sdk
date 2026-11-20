@@ -253,6 +253,30 @@
   use-zombienet-sdk: true
   cumulus-image: "test-parachain"
 
+- job-name: "zombienet-polkadot-v4-parachain-throughput-single-collator"
+  test-filter: "functional::v4_parachain_throughput::v4_parachain_throughput::case_1_single"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+
+- job-name: "zombienet-polkadot-v4-parachain-throughput-three-collators"
+  test-filter: "functional::v4_parachain_throughput::v4_parachain_throughput::case_2_three"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+
+- job-name: "zombienet-polkadot-v4-parachain-throughput-single-collator-rpo1"
+  test-filter: "functional::v4_parachain_throughput::v4_parachain_throughput::case_3_single_rpo1"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+
+- job-name: "zombienet-polkadot-v4-parachain-throughput-three-collators-rpo1"
+  test-filter: "functional::v4_parachain_throughput::v4_parachain_throughput::case_4_three_rpo1"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+
 - job-name: "zombienet-polkadot-scheduling-v3-rolling-upgrade"
   test-filter: "functional::v3_node_feature_rolling_enablement::v3_node_feature_rolling_enablement"
   runner-type: "default"

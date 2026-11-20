@@ -54,4 +54,5 @@ pub mod polkadot_runtime_parachains_initializer;
 pub mod polkadot_runtime_parachains_on_demand;
 pub mod polkadot_runtime_parachains_paras;
 pub mod polkadot_runtime_parachains_paras_inherent;
+pub mod polkadot_runtime_parachains_unpaid_transact;
 pub mod xcm;

@@ -2485,6 +2485,7 @@ impl pallet_broker::Config for Runtime {
 	type MaxLeasedCores = ConstU32<5>;
 	type MaxReservedCores = ConstU32<5>;
 	type Coretime = CoretimeProvider;
+	type OnDemandRevenue = OnDemand;
 	type ConvertBalance = traits::Identity;
 	type WeightInfo = ();
 	type PalletId = BrokerPalletId;
@@ -2508,6 +2509,11 @@ impl pallet_on_demand_para::PoolCapacityProvider for OnDemandPoolCapacity {
 	fn pool_cores() -> u32 {
 		1
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_pool_cores(cores: u32) {
+		assert!(cores <= Self::pool_cores(), "the on-demand pool has a fixed size");
+	}
 }
 
 impl pallet_on_demand_para::Config for Runtime {
@@ -2520,6 +2526,8 @@ impl pallet_on_demand_para::Config for Runtime {
 	// Orders are dropped instead of being forwarded to a Relay chain.
 	type OrderQueue = ();
 	type MaxBatchSize = ConstU32<1000>;
+	type TimeslicePeriod = <Runtime as pallet_broker::Config>::TimeslicePeriod;
+	type MaxUnclaimedTimeslices = ConstU32<5>;
 	type PalletId = OnDemandPalletId;
 }
 
@@ -2802,6 +2810,14 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 		Ok(())
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_worst_case_code_upgrade(
+		para_id: registrar_primitives::ParaId,
+	) -> sp_runtime::DispatchResult {
+		frame_support::storage::unhashed::put(&Self::key(para_id), &true);
+		Ok(())
+	}
+
 	fn schedule_code_upgrade(
 		_para_id: registrar_primitives::ParaId,
 		_validation_code: Vec<u8>,
@@ -2818,6 +2834,7 @@ impl pallet_registrar_relay::Config for Runtime {
 	type MaxHeadDataSize = ConstU32<{ 1024 * 1024 }>;
 	type MaxCodeSize = ConstU32<{ 3 * 1024 * 1024 }>;
 	type MaxPendingRegistrations = ConstU32<128>;
+	type CodeUpgradeValidPeriod = ConstU32<600>;
 	type UnsignedPriority = ConstU64<100>;
 	type WeightInfo = pallet_registrar_relay::weights::SubstrateWeight<Runtime>;
 }
@@ -3290,6 +3307,9 @@ type Migrations = (
 	pallet_alliance::migration::Migration<Runtime>,
 	pallet_contracts::Migration<Runtime>,
 	pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
+	pallet_collective::migrations::v5::MigrateToV5<Runtime, CouncilCollective>,
+	pallet_collective::migrations::v5::MigrateToV5<Runtime, TechnicalCollective>,
+	pallet_collective::migrations::v5::MigrateToV5<Runtime, AllianceCollective>,
 );
 
 type EventRecord = frame_system::EventRecord<

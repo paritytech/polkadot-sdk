@@ -152,6 +152,15 @@ impl RetentionHandle {
 	}
 }
 
+/// Where a batch of statements goes.
+pub(crate) struct PropagationPlan {
+	/// For each connected peer, the indices of the statements it should receive.
+	pub(crate) targets: Vec<(PeerId, Vec<usize>)>,
+	/// Indices of the statements at a dead end: the node is no replica for their topics and has
+	/// no routing target ready to receive them.
+	pub(crate) dead_ends: Vec<usize>,
+}
+
 /// Coordinates the v2 DHT-affinity statement gossip path.
 pub(crate) struct V2DhtOrchestrator {
 	/// Local view of statement-store peers known and connected through network topology events.
@@ -258,14 +267,15 @@ impl V2DhtOrchestrator {
 
 	// === Advertise own filter ===
 
-	/// The [`AffinityFilter`] this node advertises, built from its current topics.
-	pub(crate) fn local_filter(&self) -> AffinityFilter {
-		self.explicit_affinity.local_filter()
+	/// The [`AffinityFilter`] for a newly connected peer, the one that every peer holds.
+	pub(crate) fn advertised_filter(&self) -> AffinityFilter {
+		self.explicit_affinity.advertised_filter()
 	}
 
-	/// The advertised filter if the local topic set changed since the last read, clearing the flag.
-	pub(crate) fn take_local_filter_if_changed(&mut self) -> Option<AffinityFilter> {
-		self.explicit_affinity.take_local_filter_if_changed()
+	/// The filters due for a broadcast, in sending order. After major sync the advertised filter
+	/// goes ahead of a changed one.
+	pub(crate) fn take_filters_to_broadcast(&mut self) -> Vec<AffinityFilter> {
+		self.explicit_affinity.take_filters_to_broadcast()
 	}
 
 	// === Notification-substream events ===
@@ -300,6 +310,15 @@ impl V2DhtOrchestrator {
 		self.peers_topology.on_peer_without_dht(peer);
 		// Changes the DHT peer index, hence affinity.
 		self.publish_dht_affinity();
+		self.report_topology_size();
+	}
+
+	/// Exclude the light `peer` from the DHT index: steering would otherwise dial it and routing
+	/// would count it as a replica.
+	pub(crate) fn on_light_peer(&mut self, peer: PeerId) {
+		if self.peers_topology.on_light_peer(peer) {
+			self.publish_dht_affinity();
+		}
 		self.report_topology_size();
 	}
 
@@ -344,7 +363,9 @@ impl V2DhtOrchestrator {
 
 	// === Periodic ticks & post-iteration hooks ===
 
-	/// For each connected peer, the indices of `statements` it should receive.
+	/// Plan where each of `statements` goes. A statement with topics is also a dead end when the
+	/// node is no replica for it and none of its routing targets `can_receive`, even if a filter
+	/// matches it.
 	///
 	/// A peer is a target for a statement when it is a DHT routing target for one of the
 	/// statement's topics ([`PeersTopology::routing_targets`]) or its advertised filter matches the
@@ -352,14 +373,19 @@ impl V2DhtOrchestrator {
 	pub(crate) fn propagation_plan(
 		&self,
 		statements: &[(u64, Hash, Statement)],
-	) -> Vec<(PeerId, Vec<usize>)> {
+		can_receive: impl Fn(&PeerId) -> bool,
+	) -> PropagationPlan {
 		let mut statements_by_peer: HashMap<PeerId, Vec<usize>> = HashMap::new();
+		let mut dead_ends = Vec::new();
 
 		for (index, (_seq, _hash, statement)) in statements.iter().enumerate() {
-			let mut targets: HashSet<PeerId> = HashSet::new();
-
-			for topic in statement.topics() {
-				targets.extend(self.peers_topology.routing_targets(*topic));
+			let topics = statement.topics();
+			let mut targets = self.routing_targets(topics);
+			if !topics.is_empty() &&
+				!targets.iter().any(&can_receive) &&
+				!self.is_replica_for(topics)
+			{
+				dead_ends.push(index);
 			}
 			targets.extend(self.explicit_affinity.peers_with_explicit_affinity(statement));
 
@@ -368,15 +394,43 @@ impl V2DhtOrchestrator {
 			}
 		}
 
-		statements_by_peer.into_iter().collect()
+		PropagationPlan { targets: statements_by_peer.into_iter().collect(), dead_ends }
+	}
+
+	/// The DHT routing targets of a statement on `topics`.
+	pub(crate) fn routing_targets(&self, topics: &[Topic]) -> HashSet<PeerId> {
+		topics
+			.iter()
+			.flat_map(|topic| self.peers_topology.routing_targets(*topic))
+			.collect()
+	}
+
+	/// The connected DHT peers, farthest from the local node first.
+	pub(crate) fn peers_farthest_first(&self) -> Vec<PeerId> {
+		self.peers_topology.connected_farthest_first()
+	}
+
+	/// Whether the local node is a DHT replica for one of `topics`.
+	pub(crate) fn is_replica_for(&self, topics: &[Topic]) -> bool {
+		topics.iter().any(|topic| self.peers_topology.is_replica_for(*topic))
 	}
 
 	/// Recompute the peers the node needs connected, those covering its topics, its routing peers
 	/// and the reserved peers without the DHT path, and hand them to peer steering.
 	pub(crate) fn on_pending_affinities(&mut self) {
+		self.on_pending_affinities_at(Instant::now());
+	}
+
+	fn on_pending_affinities_at(&mut self, now: Instant) {
+		self.peer_steering.update_unreachable_peers(now);
 		let topics = self.explicit_affinity.topics();
-		let mut desired = self.peers_topology.peers_for_topics(&topics);
-		desired.extend(self.peers_topology.peers_for_routing());
+		let mut desired = self
+			.peers_topology
+			.peers_for_topics(&topics, |peer| self.peer_steering.is_unreachable(peer));
+		desired.extend(
+			self.peers_topology
+				.peers_for_routing(|peer| self.peer_steering.is_unreachable(peer)),
+		);
 		// A reserved peer without the DHT path stays reserved: releasing a peer this node dialed
 		// closes its substream, which returns the peer to the index and gets it dialed again.
 		desired.extend(
@@ -387,6 +441,7 @@ impl V2DhtOrchestrator {
 		self.peer_steering.update_peers_needing_connections(desired);
 		if let Some(metrics) = &self.metrics {
 			metrics.set_desired_unconnected_peers(self.peer_steering.peers_to_connect().len());
+			metrics.set_unreachable_peers(self.peer_steering.unreachable_count());
 		}
 	}
 
@@ -443,6 +498,7 @@ mod tests {
 		config::DEFAULT_BLOOM_FALSE_POS_RATE,
 		test_helpers::{filter_over, nz, peer, statement_on, topic, topology_config},
 	};
+	use peer_steering::{UNREACHABLE_AFTER, UNREACHABLE_RETRY_AFTER};
 	use sp_statement_store::{InvalidReason, RejectionReason};
 
 	fn orchestrator() -> V2DhtOrchestrator {
@@ -505,7 +561,7 @@ mod tests {
 		let expected = routing_targets(&orchestrator, &topics);
 		assert!(!expected.is_empty(), "fixture must yield routing targets");
 
-		let plan = orchestrator.propagation_plan(&[statement(1, &topics)]);
+		let plan = orchestrator.propagation_plan(&[statement(1, &topics)], |_| true).targets;
 
 		let mut planned: Vec<PeerId> = plan.iter().map(|(peer, _)| *peer).collect();
 		planned.sort();
@@ -530,7 +586,9 @@ mod tests {
 			.first()
 			.expect("fixture must yield a routing target");
 
-		let plan = orchestrator.propagation_plan(&[statement(1, &[topic]), statement(2, &[topic])]);
+		let plan = orchestrator
+			.propagation_plan(&[statement(1, &[topic]), statement(2, &[topic])], |_| true)
+			.targets;
 
 		let batch = plan
 			.iter()
@@ -744,9 +802,29 @@ mod tests {
 		orchestrator.on_peer_filter_update(light_peer, filter_over(&[topic(1)]));
 		let statements = [statement(1, &[topic(1)]), statement(2, &[topic(2)])];
 
-		let plan = orchestrator.propagation_plan(&statements);
+		let plan = orchestrator.propagation_plan(&statements, |_| true).targets;
 
 		assert_eq!(plan, vec![(light_peer, vec![0])]);
+	}
+
+	#[test]
+	fn plan_reports_a_dead_end_without_a_routing_target_off_the_replica_set() {
+		let topic_at = |peer: PeerId| Topic(sp_crypto_hashing::blake2_256(&peer.to_bytes()));
+		let mut orchestrator = orchestrator_with(1, topology_config(1, 1));
+		let remote = peer(2);
+		orchestrator.on_peer_identified(remote, true);
+		// The remote peer is the replica of the first topic, the local node of the second.
+		let statements = [
+			statement(1, &[topic_at(remote)]),
+			statement(2, &[topic_at(peer(1))]),
+			statement(3, &[]),
+		];
+
+		assert_eq!(orchestrator.propagation_plan(&statements, |_| true).dead_ends, vec![0]);
+
+		orchestrator.on_substream_opened(remote);
+		assert_eq!(orchestrator.propagation_plan(&statements, |_| false).dead_ends, vec![0]);
+		assert!(orchestrator.propagation_plan(&statements, |_| true).dead_ends.is_empty());
 	}
 
 	#[test]
@@ -761,7 +839,10 @@ mod tests {
 
 		assert_eq!(orchestrator.peers_topology.connected_peers().count(), 0);
 		assert!(orchestrator.peers_topology.routing_targets(topic(1)).is_empty());
-		assert_eq!(orchestrator.propagation_plan(&statements), vec![(peer, vec![0])]);
+		assert_eq!(
+			orchestrator.propagation_plan(&statements, |_| true).targets,
+			vec![(peer, vec![0])]
+		);
 	}
 
 	#[test]
@@ -780,6 +861,23 @@ mod tests {
 
 		orchestrator.on_peer_identified(remote, true);
 		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
+	}
+
+	#[test]
+	fn an_identified_light_peer_is_no_replica() {
+		let mut orchestrator = orchestrator_with(1, topology_config(1, 1));
+		let handle = RetentionHandle::new(peer(1), nz(1));
+		orchestrator.set_retention_handle(handle.clone());
+		let remote = peer(2);
+		let statement = statement_on(Topic(sp_crypto_hashing::blake2_256(&remote.to_bytes())));
+		orchestrator.on_peer_identified(remote, true);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
+
+		orchestrator.on_light_peer(remote);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::DHT_AFFINITY);
+
+		orchestrator.on_peer_identified(remote, true);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::DHT_AFFINITY);
 	}
 
 	#[test]
@@ -815,16 +913,34 @@ mod tests {
 	}
 
 	#[test]
-	fn take_local_filter_if_changed_reflects_subscription_topics() {
+	fn take_filters_to_broadcast_reflects_subscription_topics() {
 		let mut orchestrator = orchestrator();
-		assert!(orchestrator.take_local_filter_if_changed().is_none());
+		assert!(orchestrator.take_filters_to_broadcast().is_empty());
 
 		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(1)]));
-		let filter = orchestrator
-			.take_local_filter_if_changed()
-			.expect("a subscription topic marks the filter changed");
-		assert!(filter.contains(&topic(1)));
-		assert!(orchestrator.take_local_filter_if_changed().is_none());
+		let filters = orchestrator.take_filters_to_broadcast();
+		assert_eq!(filters.len(), 1, "a subscription topic marks the filter changed");
+		assert!(filters[0].contains(&topic(1)));
+		assert!(orchestrator.take_filters_to_broadcast().is_empty());
+	}
+
+	#[test]
+	fn subscription_changes_during_major_sync_repeat_the_filter_from_before_the_sync() {
+		let mut orchestrator = orchestrator();
+		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(1)]));
+		let before_sync = orchestrator.take_filters_to_broadcast().remove(0);
+
+		orchestrator.on_major_sync();
+		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(1), topic(2)]));
+		orchestrator.on_major_sync();
+		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(2), topic(3)]));
+		assert_eq!(orchestrator.advertised_filter(), before_sync);
+
+		let filters = orchestrator.take_filters_to_broadcast();
+		assert_eq!(filters.len(), 2);
+		assert_eq!(filters[0], before_sync);
+		assert!(filters[1].contains(&topic(3)));
+		assert_eq!(orchestrator.advertised_filter(), filters[1]);
 	}
 
 	#[test]
@@ -847,8 +963,8 @@ mod tests {
 		// The tick turns the configured topic into a coverage target. With k=1 the routing peers
 		// are few, so the test needs a coverage peer outside them.
 		orchestrator.on_pending_affinities();
-		let routing = orchestrator.peers_topology.peers_for_routing();
-		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		let routing = orchestrator.peers_topology.peers_for_routing(|_| false);
+		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)], |_| false);
 		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
 		// Every coverage peer is queued for a connection, since none are connected yet.
@@ -866,12 +982,90 @@ mod tests {
 
 		// Without topics the desired set is the routing peers alone, none connected yet.
 		orchestrator.on_pending_affinities();
-		let mut routing = orchestrator.peers_topology.peers_for_routing();
+		let mut routing = orchestrator.peers_topology.peers_for_routing(|_| false);
 		let mut connect = orchestrator.peer_steering.peers_to_connect();
 		routing.sort();
 		connect.sort();
 		assert!(routing.len() >= 3, "the three nearest, plus the far buckets they leave uncovered");
 		assert_eq!(connect, routing);
+	}
+
+	#[test]
+	fn affinity_tick_replaces_routing_peers_that_never_connect() {
+		let mut orchestrator = orchestrator_with(1, topology_config(1, 3));
+		for seed in 2..=30 {
+			orchestrator.on_peers_discovered([peer(seed)]);
+			orchestrator.on_peer_identified(peer(seed), true);
+		}
+		// An open substream keeps the marks, which the first substream after none would clear.
+		orchestrator.on_substream_opened(peer(2));
+		let start = Instant::now();
+		orchestrator.on_pending_affinities_at(start);
+		let unreachable = orchestrator.peer_steering.peers_to_connect();
+		assert!(!unreachable.is_empty());
+		orchestrator.peer_steering.reserve(unreachable.iter().copied());
+
+		orchestrator.on_pending_affinities_at(start);
+		let marked_at = start + UNREACHABLE_AFTER;
+		orchestrator.on_pending_affinities_at(marked_at);
+
+		let replacements = orchestrator.peer_steering.peers_to_connect();
+		assert!(!replacements.is_empty());
+		assert!(replacements.iter().all(|peer| !unreachable.contains(peer)));
+		let mut release = orchestrator.peer_steering.peers_to_release();
+		let mut sorted_unreachable = unreachable.clone();
+		release.sort();
+		sorted_unreachable.sort();
+		assert_eq!(release, sorted_unreachable);
+
+		orchestrator.peer_steering.reserve(replacements.iter().copied());
+		for replacement in replacements {
+			orchestrator.on_substream_opened(replacement);
+		}
+
+		// The retry dials the unreachable peers again, and the replacements serve meanwhile.
+		let retried_at = marked_at + UNREACHABLE_RETRY_AFTER;
+		orchestrator.on_pending_affinities_at(retried_at);
+		let mut connect = orchestrator.peer_steering.peers_to_connect();
+		connect.sort();
+		assert_eq!(connect, sorted_unreachable);
+
+		orchestrator.on_pending_affinities_at(retried_at + UNREACHABLE_AFTER);
+		assert!(orchestrator.peer_steering.peers_to_connect().is_empty());
+	}
+
+	#[test]
+	fn affinity_tick_replaces_a_coverage_peer_that_never_connects() {
+		let mut orchestrator = V2DhtOrchestrator::new(
+			&[topic(1)],
+			None,
+			DEFAULT_BLOOM_FALSE_POS_RATE,
+			peer(1),
+			topology_config(2, 3),
+			"/statement/test".into(),
+			None,
+		);
+		for seed in 2..=30 {
+			orchestrator.on_peers_discovered([peer(seed)]);
+			orchestrator.on_peer_identified(peer(seed), true);
+		}
+		let topology = &orchestrator.peers_topology;
+		let unreachable = topology.peers_for_topics(&[topic(1)], |_| false)[0];
+		let replacement = topology.peers_for_topics(&[topic(1)], |peer| *peer == unreachable)[0];
+		// A routing peer is dialed anyway, so the replacement must come from coverage alone.
+		assert!(!topology.peers_for_routing(|_| false).contains(&replacement));
+
+		let start = Instant::now();
+		orchestrator.on_pending_affinities_at(start);
+		assert!(!orchestrator.peer_steering.peers_to_connect().contains(&replacement));
+		orchestrator.peer_steering.reserve([unreachable]);
+
+		orchestrator.on_pending_affinities_at(start);
+		orchestrator.on_pending_affinities_at(start + UNREACHABLE_AFTER);
+
+		let connect = orchestrator.peer_steering.peers_to_connect();
+		assert!(connect.contains(&replacement));
+		assert!(!connect.contains(&unreachable));
 	}
 
 	#[test]
@@ -947,8 +1141,8 @@ mod tests {
 		// The first tick selects the coverage peers and queues them for connection. With k=1 the
 		// routing peers are few, so the test needs a coverage peer outside them.
 		orchestrator.on_pending_affinities();
-		let routing = orchestrator.peers_topology.peers_for_routing();
-		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		let routing = orchestrator.peers_topology.peers_for_routing(|_| false);
+		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)], |_| false);
 		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
 		// The desired peers connect, then the next tick recomputes the target.

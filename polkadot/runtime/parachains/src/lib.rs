@@ -40,6 +40,7 @@ pub mod runtime_api_impl;
 pub mod scheduler;
 pub mod session_info;
 pub mod shared;
+pub mod unpaid_transact;
 
 mod util;
 
@@ -155,6 +156,11 @@ pub fn schedule_code_upgrade<T: paras::Config>(
 	set_go_ahead: UpgradeStrategy,
 ) -> DispatchResult {
 	paras::Pallet::<T>::schedule_code_upgrade_external(id, new_code, set_go_ahead)
+}
+
+/// Whether a validation code upgrade could be scheduled for the parachain with the given id.
+pub fn can_upgrade_validation_code<T: paras::Config>(id: ParaId) -> bool {
+	paras::Pallet::<T>::can_upgrade_validation_code(id)
 }
 
 /// Sets the current parachain head with the given id.

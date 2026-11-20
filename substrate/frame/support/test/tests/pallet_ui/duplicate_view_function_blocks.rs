@@ -1,5 +1,6 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Cumulus.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,16 +15,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! `cargo hfuzz run lift_inclusion`. See the crate docs.
+#[frame_support::pallet]
+mod pallet {
+	#[pallet::config]
+	pub trait Config: frame_system::Config {}
 
-use cumulus_primitives_spec_messaging_fuzzer::{InclusionInput, Oracle};
-use honggfuzz::fuzz;
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
 
-fn main() {
-	let oracle = Oracle::new();
-	loop {
-		fuzz!(|input: InclusionInput| {
-			oracle.check_inclusion_input(&input);
-		});
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		pub fn first() -> u32 {
+			0
+		}
+	}
+
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		pub fn second() -> u32 {
+			0
+		}
 	}
 }
+
+fn main() {}

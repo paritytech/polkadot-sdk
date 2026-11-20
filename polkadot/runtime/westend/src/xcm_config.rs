@@ -30,6 +30,7 @@ use polkadot_runtime_common::{
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 	ToAuthor,
 };
+use polkadot_runtime_parachains::unpaid_transact::AllowUnpaidTransact;
 use sp_core::ConstU32;
 use westend_runtime_constants::{currency::CENTS, system_parachain::*};
 use xcm::latest::{prelude::*, XcmWeightInfo, WESTEND_GENESIS_HASH};
@@ -192,6 +193,8 @@ pub type Barrier = TrailingSetTopicAsId<(
 	// A non-system parachain gets a call executed without paying, as long as it weighs no more
 	// than an HRMP request.
 	AllowUnpaidTransactFrom<IsChildNonSystemParachain<ParaId>, MaxUnpaidParaRequestWeight>,
+	// A non-system parachain gets a few calls dispatched as itself without paying.
+	AllowUnpaidTransact<Runtime>,
 	WithComputedOrigin<
 		(
 			// If the message is one that immediately attempts to pay for execution, then allow it.

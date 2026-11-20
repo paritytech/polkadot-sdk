@@ -1,0 +1,22 @@
+title: 'statement-store: keep blocking store calls off the async runtime'
+doc:
+- audience: Node Dev
+  description: |-
+    Statement store calls that wait for the disk run on blocking threads: the validation workers,
+    the gossip handler, the maintenance task and both RPC submit methods. The gossip loop reads the
+    admission watermark from an atomic counter. Together these tasks could hold every worker
+    thread of the runtime, so a collator under statement overload received blocks late and missed
+    its authoring slots.
+    Nodes that build the statement handler themselves should spawn the handler and its validation
+    executor with `spawn_blocking`.
+crates:
+- name: sc-statement-store
+  bump: patch
+- name: sc-rpc-api
+  bump: patch
+- name: sc-rpc-spec-v2
+  bump: patch
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: staging-node-cli
+  bump: patch
