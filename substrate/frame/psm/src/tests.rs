@@ -93,6 +93,32 @@ mod mint {
 	}
 
 	#[test]
+	fn keeps_nonce_when_spending_whole_external_balance() {
+		new_test_ext().execute_with(|| {
+			let who = AccountId::new([7; 32]);
+			let mint_amount = 1000 * INTERNAL_UNIT;
+			// The external asset balance is the only reference that keeps `who` alive.
+			fund_external_asset(USDC_ASSET_ID, who.clone(), mint_amount);
+			assert_eq!(System::reference_count(&who), 1);
+			System::inc_account_nonce(&who);
+
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(who.clone()),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				mint_amount,
+				Permill::from_percent(1)
+			));
+
+			// The whole external balance is spent, so only the minted internal asset keeps
+			// `who` alive now.
+			assert_eq!(get_asset_balance(USDC_ASSET_ID, who.clone()), 0);
+			assert_eq!(System::reference_count(&who), 1);
+			assert_eq!(System::account_nonce(&who), 1);
+		});
+	}
+
+	#[test]
 	fn success_basic() {
 		new_test_ext().execute_with(|| {
 			let mint_amount = 1000 * INTERNAL_UNIT;
@@ -479,6 +505,32 @@ mod redeem {
 				}
 				.into(),
 			);
+		});
+	}
+
+	#[test]
+	fn keeps_nonce_when_spending_whole_internal_balance() {
+		ExtBuilder::default().mints(ALICE, 5000 * INTERNAL_UNIT).build_and_execute(|| {
+			let who = AccountId::new([7; 32]);
+			let redeem_amount = 1000 * INTERNAL_UNIT;
+			// The internal asset balance is the only reference that keeps `who` alive.
+			fund_internal(who.clone(), redeem_amount);
+			assert_eq!(System::reference_count(&who), 1);
+			System::inc_account_nonce(&who);
+
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(who.clone()),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				redeem_amount,
+				Permill::from_percent(1)
+			));
+
+			// The whole internal balance is spent, so only the received external asset keeps
+			// `who` alive now.
+			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, who.clone()), 0);
+			assert_eq!(System::reference_count(&who), 1);
+			assert_eq!(System::account_nonce(&who), 1);
 		});
 	}
 

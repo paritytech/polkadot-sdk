@@ -704,7 +704,7 @@ pub mod pallet {
 		/// ## Details
 		///
 		/// Transfers `external_amount` of `external_asset` from the caller to the
-		/// `internal_asset`'s PSM reserve account, then mints `internal_asset` to the
+		/// `internal_asset`'s PSM reserve account and mints `internal_asset` to the
 		/// caller minus the minting fee. The fee is calculated using ceiling rounding
 		/// (`mul_ceil`), ensuring the protocol never undercharges. The fee is
 		/// transferred to [`PsmInfo::fee_destination`] of the targeted instance, and waived
@@ -789,6 +789,8 @@ pub mod pallet {
 			ensure!(new_debt <= max_debt, Error::<T>::ExceedsMaxPsmDebt);
 
 			let psm_account = Self::psm_account(&internal_asset);
+			// Credit `who` before debiting it, so that the account stays alive throughout.
+			T::Fungibles::mint_into(internal_asset.clone(), &who, internal_to_user)?;
 			T::Fungibles::transfer(
 				external_asset.clone(),
 				&who,
@@ -796,7 +798,6 @@ pub mod pallet {
 				effective_external,
 				Preservation::Expendable,
 			)?;
-			T::Fungibles::mint_into(internal_asset.clone(), &who, internal_to_user)?;
 			if !fee.is_zero() {
 				T::Fungibles::mint_into(internal_asset.clone(), &info.fee_destination, fee)?;
 			}
@@ -824,7 +825,7 @@ pub mod pallet {
 		///
 		/// Burns `internal_amount` of `internal_asset` from the caller minus fee (transferred
 		/// to the instance's [`PsmInfo::fee_destination`], or waived if that account cannot
-		/// receive it), then transfers the resulting amount in `external_asset` from the PSM
+		/// receive it) and transfers the resulting amount in `external_asset` from the PSM
 		/// reserve to the caller. The fee is
 		/// calculated using ceiling rounding (`mul_ceil`), ensuring the protocol never
 		/// undercharges. Redemptions use the decimals snapshotted when the PSM/external pair
@@ -931,6 +932,18 @@ pub mod pallet {
 				fee = with_remainder;
 			}
 
+			// Credit `who` before debiting it, so that the account stays alive throughout.
+			let psm_account = Self::psm_account(&internal_asset);
+			if !external_out.is_zero() {
+				T::Fungibles::transfer(
+					external_asset.clone(),
+					&psm_account,
+					&who,
+					external_out,
+					Preservation::Expendable,
+				)?;
+			}
+
 			if !fee.is_zero() {
 				T::Fungibles::transfer(
 					internal_asset.clone(),
@@ -953,17 +966,6 @@ pub mod pallet {
 			} else {
 				BalanceOf::<T>::zero()
 			};
-
-			let psm_account = Self::psm_account(&internal_asset);
-			if !external_out.is_zero() {
-				T::Fungibles::transfer(
-					external_asset.clone(),
-					&psm_account,
-					&who,
-					external_out,
-					Preservation::Expendable,
-				)?;
-			}
 
 			PsmDebt::<T>::mutate(&internal_asset, &external_asset, |debt| {
 				*debt = debt.saturating_sub(burned);
