@@ -53,6 +53,9 @@
 //! The relay chain also tells the parachain when a para produces a head, so the chain holding the
 //! manager relationship can lock the para. Add this pallet to `paras::Config::OnNewHead`.
 //!
+//! A para migrated from `paras_registrar` that never produced a head is noted with
+//! [`Pallet::note_migrated_awaiting_first_head`].
+//!
 //! ## Code upgrades
 //!
 //! [`Pallet::apply_authorized_code_upgrade`] splits the same way, but the authorization does lapse
@@ -750,6 +753,11 @@ pub mod pallet {
 				);
 				Self::deposit_event(Event::ReportFailed { para_id, message_id });
 			}
+		}
+
+		/// Lock `para_id` on the parachain once it produces its first head.
+		pub fn note_migrated_awaiting_first_head(para_id: ParaId) {
+			AwaitingFirstHead::<T>::insert(para_id, ());
 		}
 	}
 }

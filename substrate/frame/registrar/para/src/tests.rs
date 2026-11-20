@@ -2278,3 +2278,199 @@ mod schedule_code_upgrade {
 		});
 	}
 }
+
+mod migration {
+	use super::*;
+	use registrar_primitives::{MigratedPara, MigratedParaState, ReceiveMigratedParas};
+
+	/// An account with no funds.
+	const POOR: AccountId = 3;
+
+	fn migrated(
+		para_id: u32,
+		manager: AccountId,
+		state: MigratedParaState,
+		locked: Option<bool>,
+	) -> MigratedPara<AccountId> {
+		MigratedPara { para_id, manager, state, locked }
+	}
+
+	fn registered(head_len: u32) -> MigratedParaState {
+		MigratedParaState::Registered { head_len }
+	}
+
+	/// What a registered para with a 20 byte head holds in total.
+	const REGISTERED_HOLD: Balance = PARA_DEPOSIT + PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
+
+	#[test]
+	fn a_reserved_para_holds_the_reservation_and_can_be_registered() {
+		build_and_execute(|| {
+			let para_id = FIRST_PARA_ID;
+			assert_ok!(Registrar::receive_para(migrated(
+				para_id,
+				ALICE,
+				MigratedParaState::Reserved,
+				None
+			)));
+
+			assert_eq!(held(ALICE), PARA_DEPOSIT);
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Reserved
+			));
+			assert_eq!(registrar_events(), vec![Event::Migrated { para_id, manager: ALICE }]);
+
+			request_registration(ALICE, para_id, 20, 300);
+			assert_eq!(held(ALICE), REGISTERED_HOLD);
+		});
+	}
+
+	#[test]
+	fn a_registered_para_holds_both_deposits_at_this_chains_prices() {
+		build_and_execute(|| {
+			let para_id = FIRST_PARA_ID;
+			assert_ok!(Registrar::receive_para(migrated(
+				para_id,
+				ALICE,
+				registered(20),
+				Some(false)
+			)));
+
+			assert_eq!(held(ALICE), REGISTERED_HOLD);
+			let info = Paras::<Test>::get(para_id).unwrap();
+			assert!(matches!(info.state, RegistrationState::Registered { ticket: Some(_) }));
+			assert!(info.reservation.is_some());
+			assert_eq!(info.locked, Some(false));
+		});
+	}
+
+	#[test]
+	fn a_para_that_never_produced_a_head_is_locked_by_the_first_head_note() {
+		build_and_execute(|| {
+			let (never, unlocked) = (FIRST_PARA_ID, FIRST_PARA_ID + 1);
+			assert_ok!(Registrar::receive_para(migrated(never, ALICE, registered(20), None)));
+			assert_ok!(Registrar::receive_para(migrated(
+				unlocked,
+				ALICE,
+				registered(20),
+				Some(false)
+			)));
+
+			for para_id in [never, unlocked] {
+				assert_ok!(Registrar::receive(
+					RuntimeOrigin::root(),
+					MessageToPara::V1(MessageToParaV1::HeadNoted { para_id }),
+				));
+			}
+
+			assert_eq!(Paras::<Test>::get(never).unwrap().locked, Some(true));
+			assert_eq!(Paras::<Test>::get(unlocked).unwrap().locked, Some(false));
+		});
+	}
+
+	#[test]
+	fn a_manager_who_cannot_pay_keeps_the_para_without_a_deposit() {
+		build_and_execute(|| {
+			let para_id = FIRST_PARA_ID;
+			assert_ok!(Registrar::receive_para(migrated(para_id, POOR, registered(20), None)));
+
+			let info = Paras::<Test>::get(para_id).unwrap();
+			assert!(info.reservation.is_none());
+			assert!(matches!(info.state, RegistrationState::Registered { ticket: None }));
+			let not_taken = Event::Unexpected(UnexpectedKind::MigratedDepositNotTaken {
+				para_id,
+				error: TokenError::FundsUnavailable.into(),
+			});
+			assert_eq!(
+				registrar_events(),
+				vec![not_taken.clone(), not_taken, Event::Migrated { para_id, manager: POOR }]
+			);
+		});
+	}
+
+	#[test]
+	fn system_paras_come_without_deposits() {
+		build_and_execute(|| {
+			HostConfig::set(None);
+			assert_ok!(Registrar::receive_para(migrated(
+				SYSTEM_PARA_ID,
+				ALICE,
+				registered(20),
+				Some(true)
+			)));
+
+			assert_eq!(held(ALICE), 0);
+			let info = Paras::<Test>::get(SYSTEM_PARA_ID).unwrap();
+			assert!(info.reservation.is_none());
+			assert!(matches!(info.state, RegistrationState::Registered { ticket: None }));
+
+			assert_noop!(
+				Registrar::receive_para(migrated(
+					SYSTEM_PARA_ID + 1,
+					ALICE,
+					MigratedParaState::Reserved,
+					None
+				)),
+				Error::<Test>::SystemParaId
+			);
+		});
+	}
+
+	#[test]
+	fn a_registered_para_needs_the_host_configuration() {
+		build_and_execute(|| {
+			HostConfig::set(None);
+			assert_noop!(
+				Registrar::receive_para(migrated(FIRST_PARA_ID, ALICE, registered(20), None)),
+				Error::<Test>::NoHostConfiguration
+			);
+		});
+	}
+
+	#[test]
+	fn a_known_para_id_is_refused_and_left_alone() {
+		build_and_execute(|| {
+			let para_id = registered_para(ALICE);
+			assert_noop!(
+				Registrar::receive_para(migrated(para_id, BOB, MigratedParaState::Reserved, None)),
+				Error::<Test>::AlreadyRegistered
+			);
+		});
+	}
+
+	#[test]
+	fn next_free_para_id_only_moves_forward() {
+		build_and_execute(|| {
+			Registrar::receive_next_free_para_id(3000);
+			Registrar::receive_next_free_para_id(2500);
+			assert_eq!(crate::NextFreeParaId::<Test>::get(), 3000);
+
+			assert_ok!(Registrar::receive_para(migrated(
+				3005,
+				ALICE,
+				MigratedParaState::Reserved,
+				None
+			)));
+			assert_eq!(reserve_for(BOB), 3006);
+		});
+	}
+
+	#[test]
+	fn a_migrated_para_deregisters_like_any_other() {
+		build_and_execute(|| {
+			let para_id = FIRST_PARA_ID;
+			assert_ok!(Registrar::receive_para(migrated(para_id, ALICE, registered(20), None)));
+
+			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
+			let message_id = last_message_id();
+			assert_eq!(take_sent(), vec![deregister_request(para_id, message_id)]);
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				deregister_answer(para_id, message_id, Ok(())),
+			));
+
+			assert_eq!(held(ALICE), 0);
+			assert!(Paras::<Test>::get(para_id).is_none());
+		});
+	}
+}

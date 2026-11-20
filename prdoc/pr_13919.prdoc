@@ -1,0 +1,22 @@
+title: 'Registrar: receive migrated paras'
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      `pallet-registrar-para` implements `ReceiveMigratedParas`, recreating paras from the relay
+      chain's `paras_registrar` with deposits at this chain's prices. A manager who cannot pay
+      keeps the para without a deposit, so no para is dropped.
+
+      `pallet-registrar-relay` adds `note_migrated_awaiting_first_head`, which the migration must
+      call for paras without a head yet, so they still get locked on their first head.
+
+      `ReceiveMigratedParas` gains `weight_of_receive_para` and
+      `weight_of_receive_next_free_para_id`, and both pallets' `WeightInfo` gain the matching fns.
+
+crates:
+  - name: registrar-primitives
+    bump: major
+  - name: pallet-registrar-para
+    bump: major
+  - name: pallet-registrar-relay
+    bump: major

@@ -265,5 +265,15 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn note_migrated_awaiting_first_head() {
+		#[block]
+		{
+			Pallet::<T>::note_migrated_awaiting_first_head(PARA_ID);
+		}
+
+		assert!(AwaitingFirstHead::<T>::contains_key(PARA_ID));
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

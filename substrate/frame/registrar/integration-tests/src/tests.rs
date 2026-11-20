@@ -988,3 +988,60 @@ fn only_root_may_force_register_on_the_parachain() {
 		assert!(para_state(SYSTEM_PARA_ID).is_none());
 	});
 }
+
+#[test]
+fn a_para_migrated_from_paras_registrar_is_locked_by_its_first_head_and_can_leave() {
+	use polkadot_runtime_common::paras_registrar;
+	use registrar_primitives::{MigratedPara, MigratedParaState, ReceiveMigratedParas};
+
+	MockNet::reset();
+	let para_id = para::FIRST_PARA_ID;
+	let blob = code(64);
+
+	// Registered the old way, then taken out of `paras_registrar` the way rc2-migrator does.
+	let migrated = Relay::execute_with(|| {
+		relay::run_to_session(1);
+		assert_ok!(paras_registrar::Pallet::<relay::Runtime>::force_register(
+			relay::RuntimeOrigin::root(),
+			ALICE,
+			100,
+			para_id.into(),
+			HeadData(head(32)),
+			ValidationCode(blob.clone()),
+		));
+		let session =
+			polkadot_runtime_parachains::shared::CurrentSessionIndex::<relay::Runtime>::get();
+		relay::conclude_pvf_checking(&ValidationCode(blob), session);
+		relay::run_to_session(3);
+
+		let info =
+			paras_registrar::Paras::<relay::Runtime>::take(polkadot_primitives::Id::from(para_id))
+				.unwrap();
+		assert_eq!(info.locked, None);
+		relay::RegistrarRelay::note_migrated_awaiting_first_head(para_id);
+		MigratedPara {
+			para_id,
+			manager: info.manager,
+			state: MigratedParaState::Registered { head_len: 32 },
+			locked: info.locked,
+		}
+	});
+
+	RegistrarPara::execute_with(|| {
+		assert_ok!(para::Registrar::receive_para(migrated));
+		assert_eq!(para_lock(para_id), None);
+	});
+
+	note_head_on_relay(para_id);
+
+	// Locked by the first head, so root drives the exit.
+	RegistrarPara::execute_with(|| {
+		assert_eq!(para_lock(para_id), Some(true));
+		assert_ok!(para::Registrar::deregister(para::RuntimeOrigin::root(), para_id));
+	});
+	Relay::execute_with(|| assert!(relay_offboarding(para_id)));
+	RegistrarPara::execute_with(|| {
+		assert_eq!(para_state(para_id), None);
+		assert_eq!(para_held(&ALICE), 0);
+	});
+}
