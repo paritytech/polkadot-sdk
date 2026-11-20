@@ -739,30 +739,31 @@ fn destroying_accounts_charges_freezer_deposit_weight_for_frozen_accounts() {
 		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
 
 		// the fixed part of the call is in both weights and charged once
+		let plain = <() as WeightInfo>::destroy_accounts;
+		let frozen = <() as WeightInfo>::destroy_blocked_accounts;
+		let fixed = plain(0).min(frozen(0));
+		let expected = |accounts: u32, of_which_frozen: u32| {
+			plain(accounts - of_which_frozen)
+				.saturating_add(frozen(of_which_frozen))
+				.saturating_sub(fixed)
+		};
+
 		let post = Assets::destroy_accounts(RuntimeOrigin::signed(1), 0).unwrap();
-		assert_eq!(
-			post.actual_weight,
-			Some(
-				<() as WeightInfo>::destroy_accounts(2)
-					.saturating_add(<() as WeightInfo>::destroy_blocked_accounts(2))
-					.saturating_sub(<() as WeightInfo>::destroy_blocked_accounts(0))
-			)
-		);
+		assert_eq!(post.actual_weight, Some(expected(4, 2)));
 
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 1, 1, false, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 1, 2, 100));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 1, 3, 100));
 		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 1));
 		let post = Assets::destroy_accounts(RuntimeOrigin::signed(1), 1).unwrap();
-		assert_eq!(post.actual_weight, Some(<() as WeightInfo>::destroy_accounts(2)));
+		assert_eq!(post.actual_weight, Some(expected(2, 0)));
+		assert!(expected(2, 0).all_gte(plain(2)));
 
 		let limit = <Test as Config>::RemoveItemsLimit::get();
 		let declared = crate::Call::<Test>::destroy_accounts { id: 0 }.get_dispatch_info();
-		assert_eq!(
-			declared.call_weight,
-			<() as WeightInfo>::destroy_accounts(limit)
-				.max(<() as WeightInfo>::destroy_blocked_accounts(limit))
-		);
+		assert_eq!(declared.call_weight, expected(limit, 0).max(expected(limit, limit)));
+		assert!(declared.call_weight.all_gte(plain(limit)));
+		assert!(declared.call_weight.all_gte(frozen(limit)));
 	});
 }
 
