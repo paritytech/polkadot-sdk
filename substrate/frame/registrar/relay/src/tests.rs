@@ -1344,3 +1344,132 @@ mod head_noted {
 		});
 	}
 }
+
+mod relay {
+	use super::*;
+	use crate::{weights::WeightInfo, RequestWindows};
+	use frame_support::dispatch::GetDispatchInfo;
+	use registrar_primitives::{ParaRequest, ParaRequestV1};
+
+	fn para(para_id: ParaId) -> RuntimeOrigin {
+		polkadot_runtime_parachains::Origin::Parachain(para_id.into()).into()
+	}
+
+	fn relayed(para_id: ParaId, request: ParaRequestV1) -> MessageToPara {
+		MessageToPara::V1(MessageToParaV1::Relayed { para_id, request })
+	}
+
+	fn relay(para_id: ParaId, request: ParaRequestV1) -> sp_runtime::DispatchResult {
+		Registrar::relay(para(para_id), ParaRequest::V1(request))
+	}
+
+	#[test]
+	fn sends_the_request_at_once() {
+		new_test_ext().execute_with(|| {
+			let request =
+				ParaRequestV1::ScheduleCodeUpgrade { code_hash: hash_of(&code(20)), code_len: 20 };
+
+			assert_ok!(relay(PARA_A, request.clone()));
+
+			assert_eq!(take_sent(), vec![relayed(PARA_A, request)]);
+			assert_eq!(registrar_events(), vec![Event::Relayed { para_id: PARA_A }]);
+			assert_eq!(RequestWindows::<Test>::get(PARA_A), Some((1, 1)));
+		});
+	}
+
+	#[test]
+	fn nothing_is_checked_or_applied_here() {
+		new_test_ext().execute_with(|| {
+			// Unknown to the registry: relayed all the same.
+			let request = ParaRequestV1::SetCurrentHead { head: head(MAX_HEAD_SIZE as usize) };
+
+			assert_ok!(relay(PARA_B, request.clone()));
+
+			assert!(Heads::get().is_empty());
+			assert_eq!(take_sent(), vec![relayed(PARA_B, request)]);
+		});
+	}
+
+	#[test]
+	fn a_head_over_the_bound_is_refused() {
+		new_test_ext().execute_with(|| {
+			let request = ParaRequestV1::SetCurrentHead { head: head(MAX_HEAD_SIZE as usize + 1) };
+
+			assert_noop!(relay(PARA_A, request), Error::<Test>::HeadDataTooLarge);
+		});
+	}
+
+	#[test]
+	fn only_a_para_may_relay() {
+		new_test_ext().execute_with(|| {
+			let request = ParaRequest::V1(ParaRequestV1::RemoveLock);
+
+			assert_noop!(
+				Registrar::relay(RuntimeOrigin::signed(ALICE), request.clone()),
+				DispatchError::BadOrigin
+			);
+			// Root has no para id to speak for.
+			assert_noop!(
+				Registrar::relay(RuntimeOrigin::root(), request),
+				DispatchError::BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn a_para_is_limited_per_window() {
+		new_test_ext().execute_with(|| {
+			for _ in 0..MAX_REQUESTS_PER_WINDOW {
+				assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));
+			}
+
+			System::set_block_number(REQUEST_WINDOW);
+			assert_noop!(relay(PARA_A, ParaRequestV1::AddLock), Error::<Test>::TooManyRequests);
+			// Others have their own window.
+			assert_ok!(relay(PARA_B, ParaRequestV1::AddLock));
+
+			// The window opened at block 1, so it is over at `1 + REQUEST_WINDOW`.
+			System::set_block_number(1 + REQUEST_WINDOW);
+			assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));
+			assert_eq!(RequestWindows::<Test>::get(PARA_A), Some((1 + REQUEST_WINDOW, 1)));
+		});
+	}
+
+	#[test]
+	fn a_refused_send_fails_the_call_and_is_not_counted() {
+		new_test_ext().execute_with(|| {
+			SendFails::set(true);
+
+			assert_noop!(relay(PARA_A, ParaRequestV1::AddLock), Error::<Test>::SendFailed);
+		});
+	}
+
+	#[test]
+	fn deregistering_drops_the_window() {
+		new_test_ext().execute_with(|| {
+			AlreadyKnown::set(vec![PARA_A]);
+			assert_ok!(relay(PARA_A, ParaRequestV1::Deregister));
+
+			let message =
+				MessageToRelay::V1(MessageToRelayV1::Deregister { para_id: PARA_A, message_id: 0 });
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), message));
+
+			assert!(!RequestWindows::<Test>::contains_key(PARA_A));
+		});
+	}
+
+	#[test]
+	fn the_call_is_weighed_by_its_head() {
+		let weight = |request| {
+			crate::Call::<Test>::relay { request: ParaRequest::V1(request) }
+				.get_dispatch_info()
+				.call_weight
+		};
+
+		assert_eq!(weight(ParaRequestV1::AddLock), <() as WeightInfo>::relay(0));
+		assert_eq!(
+			weight(ParaRequestV1::SetCurrentHead { head: head(64) }),
+			<() as WeightInfo>::relay(64)
+		);
+	}
+}

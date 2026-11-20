@@ -39,6 +39,8 @@ pub const MAX_CODE_SIZE: u32 = 1_000;
 pub const MAX_HEAD_SIZE: u32 = 100;
 pub const MAX_PENDING: u32 = 2;
 pub const CODE_UPGRADE_VALID_PERIOD: u32 = 100;
+pub const MAX_REQUESTS_PER_WINDOW: u32 = 2;
+pub const REQUEST_WINDOW: u32 = 10;
 
 #[frame_support::runtime]
 mod test_runtime {
@@ -61,6 +63,9 @@ mod test_runtime {
 
 	#[runtime::pallet_index(1)]
 	pub type Registrar = pallet_registrar_relay::Pallet<Test>;
+
+	#[runtime::pallet_index(2)]
+	pub type ParasOrigin = polkadot_runtime_parachains::origin::Pallet<Test>;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -69,6 +74,8 @@ impl frame_system::Config for Test {
 	type AccountId = AccountId;
 	type Lookup = sp_runtime::traits::IdentityLookup<AccountId>;
 }
+
+impl polkadot_runtime_parachains::origin::Config for Test {}
 
 parameter_types! {
 	/// Paras `MockRegistrar` has onboarded, in order.
@@ -210,6 +217,9 @@ impl pallet_registrar_relay::Config for Test {
 	type MaxPendingRegistrations = ConstU32<MAX_PENDING>;
 	type CodeUpgradeValidPeriod = ConstU32<CODE_UPGRADE_VALID_PERIOD>;
 	type UnsignedPriority = ConstU64<100>;
+	type RelayOrigin = pallet_registrar_relay::EnsureParachain<RuntimeOrigin>;
+	type MaxRequestsPerWindow = ConstU32<MAX_REQUESTS_PER_WINDOW>;
+	type RequestWindow = ConstU32<REQUEST_WINDOW>;
 	type WeightInfo = ();
 }
 

@@ -2836,6 +2836,9 @@ impl pallet_registrar_relay::Config for Runtime {
 	type MaxPendingRegistrations = ConstU32<128>;
 	type CodeUpgradeValidPeriod = ConstU32<600>;
 	type UnsignedPriority = ConstU64<100>;
+	type RelayOrigin = pallet_registrar_relay::EnsureParachain<RuntimeOrigin>;
+	type MaxRequestsPerWindow = ConstU32<10>;
+	type RequestWindow = ConstU32<DAYS>;
 	type WeightInfo = pallet_registrar_relay::weights::SubstrateWeight<Runtime>;
 }
 

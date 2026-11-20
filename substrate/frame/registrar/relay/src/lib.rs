@@ -53,6 +53,17 @@
 //! The relay chain also tells the parachain when a para produces a head, so the chain holding the
 //! manager relationship can lock the para. Add this pallet to `paras::Config::OnNewHead`.
 //!
+//! ## Relaying para requests
+//!
+//! A para with no channel to the parachain calls [`Pallet::relay`] instead. The request is sent on
+//! at once as [`MessageToParaV1::Relayed`], under the para id of the caller's origin, and the
+//! parachain decides whether it is allowed.
+//!
+//! [`Config::RelayOrigin`] picks the paras that may call it, so a runtime can keep it closed until
+//! the registry has moved to the parachain. Each may relay [`Config::MaxRequestsPerWindow`]
+//! requests per [`Config::RequestWindow`], which bounds what it can push into the parachain's
+//! queue.
+//!
 //! ## Code upgrades
 //!
 //! [`Pallet::apply_authorized_code_upgrade`] splits the same way, but the authorization does lapse
@@ -71,13 +82,17 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::{traits::Get, weights::Weight};
+use frame_support::{
+	traits::{EnsureOrigin, Get},
+	weights::Weight,
+	BoundedVec,
+};
 pub use pallet::*;
 use polkadot_primitives::{HeadData, Id};
-use polkadot_runtime_parachains::paras::OnNewHead;
+use polkadot_runtime_parachains::{paras::OnNewHead, Origin as ParachainOrigin};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
-	ParaId, ParachainRegistrar,
+	ParaId, ParaRequest, ParaRequestV1, ParachainRegistrar,
 };
 use scale_info::TypeInfo;
 use sp_core::H256;
@@ -95,10 +110,7 @@ mod mock;
 mod tests;
 
 pub trait SendToPara {
-	/// Send `message` to the parachain.
-	///
-	/// `Err(())` means the transport refused the message; callers log and carry on rather than
-	/// unwind committed state.
+	/// Send `message` to the parachain. `Err(())` means the transport refused it.
 	#[allow(clippy::result_unit_err)]
 	fn send(message: MessageToPara) -> Result<(), ()>;
 }
@@ -107,6 +119,27 @@ pub trait SendToPara {
 impl SendToPara for () {
 	fn send(_message: MessageToPara) -> Result<(), ()> {
 		Ok(())
+	}
+}
+
+/// Accepts any parachain origin, yielding its para id.
+pub struct EnsureParachain<O>(core::marker::PhantomData<O>);
+
+impl<O> EnsureOrigin<O> for EnsureParachain<O>
+where
+	O: Into<Result<ParachainOrigin, O>> + From<ParachainOrigin>,
+{
+	type Success = ParaId;
+
+	fn try_origin(o: O) -> Result<ParaId, O> {
+		o.into().map(|origin| match origin {
+			ParachainOrigin::Parachain(id) => id.into(),
+		})
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<O, ()> {
+		Ok(ParachainOrigin::Parachain(Id::from(2000)).into())
 	}
 }
 
@@ -196,6 +229,19 @@ pub mod pallet {
 		#[pallet::constant]
 		type UnsignedPriority: Get<TransactionPriority>;
 
+		/// The paras that may [`Pallet::relay`]. `NeverEnsureOrigin` keeps the call closed.
+		type RelayOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = ParaId>;
+
+		/// How many requests a para may relay per [`Config::RequestWindow`].
+		#[pallet::constant]
+		type MaxRequestsPerWindow: Get<u32>;
+
+		/// The length, in blocks, of the window a para's relayed requests are counted over.
+		///
+		/// A para's window opens at its first request once the previous one is over.
+		#[pallet::constant]
+		type RequestWindow: Get<BlockNumberFor<Self>>;
+
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -218,6 +264,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PendingCodeUpgrades<T: Config> =
 		StorageMap<_, Blake2_128Concat, ParaId, PendingCodeUpgrade<BlockNumberFor<T>>>;
+
+	/// Per para, the block its request window started at and how many requests it relayed since.
+	#[pallet::storage]
+	pub type RequestWindows<T: Config> =
+		StorageMap<_, Blake2_128Concat, ParaId, (BlockNumberFor<T>, u32)>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -257,6 +308,8 @@ pub mod pallet {
 		HeadUpdated { para_id: ParaId, message_id: u64 },
 		/// A head update was refused.
 		HeadUpdateRejected { para_id: ParaId, message_id: u64, reason: FailureReason },
+		/// A para's request about itself was sent to the parachain.
+		Relayed { para_id: ParaId },
 	}
 
 	#[pallet::error]
@@ -273,6 +326,12 @@ pub mod pallet {
 		AuthorizationExpired,
 		/// The registry would refuse this code upgrade right now.
 		CannotUpgradeCode,
+		/// The para relayed all the requests it may in its current window.
+		TooManyRequests,
+		/// The transport refused the message.
+		SendFailed,
+		/// The head data is larger than this pallet will relay.
+		HeadDataTooLarge,
 	}
 
 	#[pallet::call]
@@ -403,6 +462,32 @@ pub mod pallet {
 			Self::report_code_upgrade_scheduled(para_id, message_id);
 			Self::deposit_event(Event::CodeUpgradeApplied { para_id, message_id });
 			Ok(Pays::No.into())
+		}
+
+		/// Send a para's request about itself to the parachain it has no channel to.
+		///
+		/// The para id comes from the origin and the parachain checks the request.
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::relay(match request {
+			ParaRequest::V1(ParaRequestV1::SetCurrentHead { head }) => head.len() as u32,
+			_ => 0,
+		}))]
+		pub fn relay(origin: OriginFor<T>, request: ParaRequest) -> DispatchResult {
+			let para_id = T::RelayOrigin::ensure_origin(origin)?;
+			let ParaRequest::V1(request) = request;
+			if let ParaRequestV1::SetCurrentHead { head } = &request {
+				ensure!(
+					head.len() <= T::MaxHeadDataSize::get() as usize,
+					Error::<T>::HeadDataTooLarge
+				);
+			}
+
+			Self::count_request(para_id)?;
+			T::SendToPara::send(MessageToPara::V1(MessageToParaV1::Relayed { para_id, request }))
+				.map_err(|()| Error::<T>::SendFailed)?;
+
+			Self::deposit_event(Event::Relayed { para_id });
+			Ok(())
 		}
 	}
 
@@ -584,7 +669,24 @@ pub mod pallet {
 				Error::<T>::CodeTooLarge => 3,
 				Error::<T>::AuthorizationExpired => 4,
 				Error::<T>::CannotUpgradeCode => 5,
+				Error::<T>::TooManyRequests => 6,
+				Error::<T>::SendFailed => 7,
+				Error::<T>::HeadDataTooLarge => 8,
 			}
+		}
+
+		/// Count one more request relayed by `para_id`, opening a new window if its last is over.
+		fn count_request(para_id: ParaId) -> Result<(), Error<T>> {
+			let now = frame_system::Pallet::<T>::block_number();
+			let (start, used) = match RequestWindows::<T>::get(para_id) {
+				Some((start, used)) if now.saturating_sub(start) < T::RequestWindow::get() => {
+					(start, used)
+				},
+				_ => (now, 0),
+			};
+			ensure!(used < T::MaxRequestsPerWindow::get(), Error::<T>::TooManyRequests);
+			RequestWindows::<T>::insert(para_id, (start, used.saturating_add(1)));
+			Ok(())
 		}
 
 		/// Tell the parachain how a registration ended.
@@ -625,6 +727,7 @@ pub mod pallet {
 			AwaitingFirstHead::<T>::remove(para_id);
 			// Nothing prunes it, and not every registry refuses an offboarding para.
 			PendingCodeUpgrades::<T>::remove(para_id);
+			RequestWindows::<T>::remove(para_id);
 			Self::report_deregistration(para_id, message_id, Ok(()));
 			Self::deposit_event(Event::Deregistered { para_id, message_id });
 		}
