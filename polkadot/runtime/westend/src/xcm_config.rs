@@ -17,7 +17,7 @@
 //! XCM configurations for Westend.
 
 use super::{
-	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, ParaId, Runtime,
+	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, Hrmp, ParaId, Runtime,
 	RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmPallet,
 };
 use frame_support::{
@@ -33,7 +33,7 @@ use polkadot_runtime_common::{
 use polkadot_runtime_parachains::unpaid_transact::AllowUnpaidTransact;
 use sp_core::ConstU32;
 use westend_runtime_constants::{currency::CENTS, system_parachain::*};
-use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
+use xcm::latest::{prelude::*, XcmWeightInfo, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AllowExplicitUnpaidExecutionFrom,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
@@ -64,6 +64,21 @@ parameter_types! {
 	/// The accumulation account location on this chain.
 	pub AccumulateForwardLocation: Location = {
 		AccountId32 { network: None, id: AccumulateAccount::get().into() }.into()
+	};
+	/// The heaviest message a non-system parachain gets executed without paying: one HRMP request
+	/// for itself, as the executor weighs the message. The `SetTopic` a para's router appends is
+	/// stripped by `TrailingSetTopicAsId` before the barrier, but weighed all the same.
+	pub MaxUnpaidParaRequestWeight: Weight = {
+		type W = crate::weights::xcm::WestendXcmWeight<RuntimeCall>;
+
+		// For the unpaid HRMP cancel request, the maximum number of open HRMP requests accepted.
+		// This is bound by economic factors, 10_000 is enough for westend.
+		let max_open_request: u32 = 10_000;
+
+		Hrmp::max_para_request_weight(max_open_request)
+			.saturating_add(W::unpaid_execution(&Unlimited, &None))
+			.saturating_add(W::transact(&OriginKind::Native, &None, &alloc::vec::Vec::new().into()))
+			.saturating_add(W::set_topic(&[0; 32]))
 	};
 }
 
