@@ -1,0 +1,9 @@
+title: 'pallet-preimage: preserve the deposit when release fails'
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |
+    An unnote operation that cannot release a preimage deposit now preserves the deposit
+    record and preimage so it can be retried. The dispatchable returns the release error.
+crates:
+- name: pallet-preimage
+  bump: patch

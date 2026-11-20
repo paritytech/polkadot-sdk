@@ -60,6 +60,7 @@ ord_parameter_types! {
 
 parameter_types! {
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
+	pub static FailDepositRelease: bool = false;
 }
 
 pub struct ConvertDeposit;
@@ -69,12 +70,41 @@ impl Convert<Footprint, u64> for ConvertDeposit {
 	}
 }
 
+type HeldDeposit = HoldConsideration<u64, Balances, PreimageHoldReason, ConvertDeposit>;
+
+pub const DEPOSIT_RELEASE_ERROR: DispatchError = DispatchError::Other("Mock deposit release error");
+
+#[derive(
+	Clone, Debug, Decode, DecodeWithMemTracking, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo,
+)]
+pub struct TestConsideration(HeldDeposit);
+
+impl Consideration<u64, Footprint> for TestConsideration {
+	fn new(who: &u64, footprint: Footprint) -> Result<Self, DispatchError> {
+		HeldDeposit::new(who, footprint).map(Self)
+	}
+
+	fn update(self, who: &u64, footprint: Footprint) -> Result<Self, DispatchError> {
+		self.0.update(who, footprint).map(Self)
+	}
+
+	fn drop(self, who: &u64) -> DispatchResult {
+		ensure!(!FailDepositRelease::get(), DEPOSIT_RELEASE_ERROR);
+		self.0.drop(who)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(who: &u64, footprint: Footprint) {
+		HeldDeposit::ensure_successful(who, footprint);
+	}
+}
+
 impl Config for Test {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureSignedBy<One, u64>;
-	type Consideration = HoldConsideration<u64, Balances, PreimageHoldReason, ConvertDeposit>;
+	type Consideration = TestConsideration;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
