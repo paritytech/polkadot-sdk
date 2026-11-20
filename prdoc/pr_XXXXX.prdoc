@@ -1,0 +1,15 @@
+title: 'pallet-asset-conversion: keep the sender account alive during a swap'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    A swap now holds a sufficient reference on the sender's account while it runs, so that the
+    account stays alive for the whole call. If the sender ends the swap with no other reference,
+    the account is reaped when the reference is released, as before.
+
+    The amounts, the events and the conditions under which a swap succeeds or fails are
+    unchanged.
+
+crates:
+- name: pallet-asset-conversion
+  bump: patch
