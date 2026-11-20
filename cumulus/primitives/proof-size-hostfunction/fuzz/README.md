@@ -157,14 +157,16 @@ and never fails a run.
 cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke -- --include-ignored --nocapture
 
 # all failures of a longer run, grouped by kind, one shrunk example per kind
-POV_FUZZ_ITERS=1000 POV_FUZZ_KEEP_GOING=1 cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --include-ignored --nocapture
+POV_FUZZ_ITERS=1000 POV_FUZZ_KEEP_GOING=1 \
+  cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --include-ignored --nocapture
 
 # with medium and large tries
 POV_FUZZ_SCALE=large POV_FUZZ_ITERS=200 POV_FUZZ_KEEP_GOING=1 \
   cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --include-ignored --nocapture
 
 # replay one seed
-POV_FUZZ_SEED=0x5eed0f1022d POV_FUZZ_ITERS=1 cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --include-ignored --nocapture
+POV_FUZZ_SEED=0x5eed0f1022d POV_FUZZ_ITERS=1 \
+  cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --include-ignored --nocapture
 
 # one pinned script with logs; POV_FUZZ_LOG takes RUST_LOG syntax and also prints pass, runtime
 # call and estimation markers
@@ -205,7 +207,8 @@ cargo build --release -p cumulus-proof-size-hostfunction-fuzz --no-default-featu
 From this tree, with `POV_FUZZ_MASTER_BIN` pointing at that binary:
 
 ```sh
-POV_FUZZ_MASTER_BIN=<master>/target/release/trace cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test v1_compat -- --include-ignored --nocapture
+POV_FUZZ_MASTER_BIN=<master>/target/release/trace \
+  cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test v1_compat -- --include-ignored --nocapture
 
 # a long run; all differing seeds grouped by the operation at the first differing line
 POV_FUZZ_MASTER_BIN=<master>/target/release/trace POV_FUZZ_SCALE=large POV_FUZZ_ITERS=10000 POV_FUZZ_KEEP_GOING=1 \
