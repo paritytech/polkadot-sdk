@@ -44,7 +44,7 @@ mean; both are delegated to the runtime via the `sp_hop::HopRuntimeApi`.
 ## Crate layout
 
 | Module | Purpose |
-|---|---|
+| --- | --- |
 | `cli` | `HopParams` — `clap`-flattenable CLI parameters |
 | `pool` | `HopDataPool` — content-addressed blob files + `parity-db` metadata KV store |
 | `metrics` | `HopMetrics` — Prometheus metrics; no-ops without a registry |
@@ -124,7 +124,7 @@ cleanup-only if the runtime doesn't implement it.
 ## CLI flags
 
 | Flag | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `--enable-hop` | off | Enable HOP |
 | `--hop-max-pool-size <MiB>` | 10240 (10 GiB) | Total pool size cap |
 | `--hop-max-user-size <MiB>` | 256 | Per-user hard cap (not scaled by active users) |
@@ -200,7 +200,7 @@ Returns `{ entryCount, totalBytes, maxBytes }` (camelCase on the wire).
 ## Error codes
 
 | Code | Variant | Meaning |
-|---|---|---|
+| --- | --- | --- |
 | 1001 | `DataTooLarge` | Blob exceeds runtime-reported `max_promotion_size` |
 | 1002 | `PoolFull` | Total pool capacity exhausted |
 | 1003 | `DuplicateEntry` | A blob with this hash is already in the pool |
@@ -226,7 +226,7 @@ Returns `{ entryCount, totalBytes, maxBytes }` (camelCase on the wire).
 ## Metrics
 
 | Metric | Type | Labels |
-|---|---|---|
+| --- | --- | --- |
 | `substrate_hop_pool_entries` / `_pool_bytes` / `_pool_max_bytes` | gauge | |
 | `substrate_hop_pool_inserted_bytes_total` | counter | |
 | `substrate_hop_pool_removed_total` | counter | `reason` (values below) |
