@@ -62,7 +62,7 @@ fn expected_weight_refund(new_accounts: u32, existing_accounts: u32) -> Weight {
 /// The `DelegatedEOA` account entry's own item/byte deposit, without any code lockup.
 fn delegation_entry_deposit() -> crate::BalanceOf<Test> {
 	crate::storage::ContractInfo::<Test>::new_for_delegation(&H160::zero(), Default::default())
-		.update_base_deposit(Default::default())
+		.update_base_deposit(Default::default(), false)
 }
 
 /// Common setup for delegation tests that call `process_authorizations` directly.
