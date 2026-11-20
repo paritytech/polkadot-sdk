@@ -100,6 +100,8 @@ pub struct OverlayedChanges<H: Hasher> {
 	offchain: OffchainOverlayedChanges,
 	/// Transaction index changes,
 	transaction_index_ops: Vec<IndexOperation>,
+	/// Length of `transaction_index_ops` at the start of each open transaction.
+	transaction_index_ops_checkpoints: Vec<usize>,
 	/// True if extrinsics stats must be collected.
 	collect_extrinsics: bool,
 	/// Collect statistic on this execution.
@@ -117,6 +119,7 @@ impl<H: Hasher> Default for OverlayedChanges<H> {
 			children: Default::default(),
 			offchain: Default::default(),
 			transaction_index_ops: Default::default(),
+			transaction_index_ops_checkpoints: Default::default(),
 			collect_extrinsics: Default::default(),
 			stats: Default::default(),
 			storage_transaction_cache: None,
@@ -131,6 +134,7 @@ impl<H: Hasher> Clone for OverlayedChanges<H> {
 			children: self.children.clone(),
 			offchain: self.offchain.clone(),
 			transaction_index_ops: self.transaction_index_ops.clone(),
+			transaction_index_ops_checkpoints: self.transaction_index_ops_checkpoints.clone(),
 			collect_extrinsics: self.collect_extrinsics,
 			stats: self.stats.clone(),
 			storage_transaction_cache: self.storage_transaction_cache.clone(),
@@ -438,6 +442,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 			changeset.start_transaction();
 		}
 		self.offchain.overlay_mut().start_transaction();
+		self.transaction_index_ops_checkpoints.push(self.transaction_index_ops.len());
 	}
 
 	/// Rollback the last transaction started by `start_transaction`.
@@ -458,6 +463,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 			.overlay_mut()
 			.rollback_transaction_offchain()
 			.expect("Top and offchain changesets are started in lockstep; qed");
+		self.rollback_transaction_index_ops_to_depth(self.top.transaction_depth());
 		Ok(())
 	}
 
@@ -476,6 +482,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 			.overlay_mut()
 			.commit_transaction_offchain()
 			.expect("Top and offchain changesets are started in lockstep; qed");
+		self.transaction_index_ops_checkpoints.pop();
 		Ok(())
 	}
 
@@ -512,7 +519,15 @@ impl<H: Hasher> OverlayedChanges<H> {
 			.overlay_mut()
 			.exit_runtime_offchain()
 			.expect("Top and offchain changesets are started in lockstep; qed");
+		self.rollback_transaction_index_ops_to_depth(self.top.transaction_depth());
 		Ok(())
+	}
+
+	fn rollback_transaction_index_ops_to_depth(&mut self, depth: usize) {
+		let oldest_rolled_back = self.transaction_index_ops_checkpoints.drain(depth..).next();
+		if let Some(ops_len) = oldest_rolled_back {
+			self.transaction_index_ops.truncate(ops_len);
+		}
 	}
 
 	/// Consume all changes (top + children) and return them.
