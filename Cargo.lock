@@ -3794,15 +3794,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cfg-expr"
-version = "0.15.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03915af431787e6ffdcc74c645077518c6b6e01f80b761e0fbbfa288536311b3"
-dependencies = [
- "smallvec",
-]
-
-[[package]]
 name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7930,7 +7921,6 @@ name = "frame-support-procedural"
 version = "23.0.0"
 dependencies = [
  "Inflector",
- "cfg-expr",
  "derive-syn-parse",
  "derive-where",
  "docify",

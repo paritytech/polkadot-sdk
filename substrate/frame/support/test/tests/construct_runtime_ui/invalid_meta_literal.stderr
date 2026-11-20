@@ -1,6 +1,40 @@
-error: feature = 1
-                 ^ expected one of `<key>`, `all`, `any`, `not` here
-  --> tests/construct_runtime_ui/invalid_meta_literal.rs:24:3
+error[E0539]: malformed `cfg` attribute input
+  --> tests/construct_runtime_ui/invalid_meta_literal.rs:39:5
    |
-24 |         #[cfg(feature = 1)]
-   |         ^
+39 |         #[cfg(feature = 1)]
+   |           ^^^^^^^^^^^^^^-^
+   |                         |
+   |                         expected a string literal here
+   |
+   = note: for more information, visit <https://doc.rust-lang.org/reference/conditional-compilation.html#the-cfg-attribute>
+help: must be of the form
+   |
+39 -         #[cfg(feature = 1)]
+39 +         #[cfg(predicate)]
+   |
+
+error[E0539]: malformed `cfg` attribute input
+  --> tests/construct_runtime_ui/invalid_meta_literal.rs:36:1
+   |
+36 | / frame_support::construct_runtime!(
+37 | |     pub enum Runtime {
+38 | |         System: frame_system,
+39 | |         #[cfg(feature = 1)]
+   | |                         - expected a string literal here
+...  |
+42 | | );
+   | |_^
+   |
+   = note: for more information, visit <https://doc.rust-lang.org/reference/conditional-compilation.html#the-cfg-attribute>
+   = note: this error originates in the macro `frame_support::construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: must be of the form
+   |
+36 - frame_support::construct_runtime!(
+37 -     pub enum Runtime {
+38 -         System: frame_system,
+39 -         #[cfg(feature = 1)]
+40 -         Pallet: pallet,
+41 -     }
+42 - );
+36 + cfg(predicate);
+   |
