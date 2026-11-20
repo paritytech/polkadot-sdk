@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795128656153,
+  "lastUpdate": 1795174075479,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bbaa06f68d1e10fcd4aa43ee136819e16cf760eb",
-          "message": "Update `TargetBlockRate` impl to match configured runtime block processing velocity on all test chains (#12005)\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>",
-          "timestamp": "2026-05-07T07:17:47Z",
-          "tree_id": "46be5d023cdc50bbba42833314e69d5bc79bea93",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bbaa06f68d1e10fcd4aa43ee136819e16cf760eb"
-        },
-        "date": 1778143358413,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.116,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03845532203,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07994930894399994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08646275086599996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bkontur@gmail.com",
+            "name": "Branislav Kontur",
+            "username": "bkontur"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "9c2cd60e68c300a31990c66e6a04fc1a8c13ddb9",
+          "message": "Fix musl build of PVF workers and make test-syscalls required (#13922)\n\nSince #13445 bumped `libc` to 0.2.191, the PVF workers no longer compile\nfor `x86_64-unknown-linux-musl`, which breaks the `test-syscalls` job:\n\n```\nerror[E0659]: `STATX_TYPE` is ambiguous\n  --> rustix-1.0.8/src/backend/libc/c.rs\n```\n\n`libc` 0.2.191 now defines the `STATX_*` constants for musl, which clash\nwith `rustix` 1.0.8's own definitions. `rustix` 1.1.6 fixes this, so\nthis PR bumps it in `Cargo.lock` (together with `linux-raw-sys` 0.9.4 ->\n0.12.1).\n\nChecked in the CI image: both workers build for musl and their syscall\nlists are unchanged.\n\nThis went unnoticed because `test-syscalls` is not blocking. It was\nrequired on GitLab (`allow_failure: false`), but the setting got\ninverted to `continue-on-error: true` when the job was moved to GitHub\nActions in #4441. This PR removes `continue-on-error` and adds the job\nto `confirm-required-tests-jobs-passed`, so it is required again.\n\n---------\n\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>",
+          "timestamp": "2026-11-20T09:44:13Z",
+          "tree_id": "8f5b1aca7b3c4bee38e8063babdfbefc044e51d2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9c2cd60e68c300a31990c66e6a04fc1a8c13ddb9"
+        },
+        "date": 1795174033071,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.136,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08764162125199988,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03901503420200001,
             "unit": "seconds"
           }
         ]
