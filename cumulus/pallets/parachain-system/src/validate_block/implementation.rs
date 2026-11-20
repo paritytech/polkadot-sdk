@@ -20,13 +20,15 @@ use super::{scheduling, trie_cache, trie_recorder, MemoryOptimizedValidationPara
 use alloc::vec::Vec;
 use codec::Encode;
 use cumulus_primitives_core::{
+	bundle_provides,
 	relay_chain::{
 		BlockNumber as RNumber, Hash as RHash, Header as RelayChainHeader, MAX_HEAD_DATA_SIZE,
 		UMP_SEPARATOR,
 	},
-	CumulusDigestItem, ParachainBlockData, PersistedValidationData, SchedulingSignals,
-	SignedSchedulingInfo, VerifySchedulingSignature,
+	ump_signal_tail, CumulusDigestItem, ParachainBlockData, PersistedValidationData,
+	SchedulingSignals, SignedSchedulingInfo, SpecMessagingSignals, VerifySchedulingSignature,
 };
+use cumulus_primitives_spec_messaging::ProvideConsumptionRecord;
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
 	BoundedVec,
@@ -167,13 +169,17 @@ where
 	let mut parent_header =
 		codec::decode_from_bytes::<B::Header>(parachain_head.clone()).expect("Invalid parent head");
 
-	let (blocks, proof) = block_data.into_inner();
+	let (blocks, proof, lifts) = block_data.into_inner();
 
 	verify_blocks_form_chain::<B>(&blocks, &parent_header);
+
+	// Executing each block below checks its header digest against the one the runtime deposits.
+	let provides = bundle_provides(blocks.iter().map(|block| block.header().digest()));
 
 	let mut processed_downward_messages = 0;
 	let mut upward_messages = BoundedVec::default();
 	let mut upward_message_signals = Vec::<Vec<_>>::new();
+	let mut consumption_records = Vec::new();
 	let mut horizontal_messages = BoundedVec::default();
 	let mut hrmp_watermark = Default::default();
 	let mut head_data = None;
@@ -336,6 +342,9 @@ where
 					);
 				hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
 
+				consumption_records
+					.push(<PSC as crate::Config>::ConsumptionRecordSource::consumption_record());
+
 				if block_index + 1 == num_blocks {
 					head_data = Some(
 						crate::CustomValidationHeadData::<PSC>::get()
@@ -365,14 +374,22 @@ where
 		}
 	}
 
-	// A `signed_scheduling_info` overrides the block's emitted signals wholesale — they
-	// are ignored, not merged.
-	let scheduling_tail = match scheduling_override_inputs.as_ref() {
+	let scheduling_signals = match scheduling_override_inputs.as_ref() {
 		Some((signed_info, _)) => SchedulingSignals::from_scheduling_info(signed_info),
 		None => SchedulingSignals::from_block_signals(&upward_message_signals),
-	}
-	.into_ump_messages();
-	for message in scheduling_tail {
+	};
+
+	// On both paths: emit the digests' `Provides` and synthesize `Requires`; any failure
+	// invalidates.
+	let spec_msg_signals = SpecMessagingSignals::build(
+		provides,
+		&upward_message_signals,
+		&consumption_records,
+		lifts.as_ref(),
+	)
+	.unwrap_or_else(|error| panic!("{}", error));
+
+	for message in ump_signal_tail(scheduling_signals, spec_msg_signals) {
 		upward_messages
 			.try_push(message)
 			.expect("UMPSignals does not fit in UMPMessages");

@@ -27,10 +27,14 @@ polkadot-parachain-primitives = { workspace = true }
 polkadot-primitives = { workspace = true }
 xcm = { workspace = true }
 
+# Cumulus
+cumulus-primitives-spec-messaging = { workspace = true }
+
 [features]
 default = ["std"]
 std = [
 	"codec/std",
+	"cumulus-primitives-spec-messaging/std",
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-primitives/std",

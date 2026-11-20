@@ -67,6 +67,21 @@ pub use streams_root::{
 	TreeError, TreeRootEntry,
 };
 
+/// How `parachain-system` reads a block's consumption record without depending on the messaging
+/// pallet. `()` records nothing.
+pub trait ProvideConsumptionRecord {
+	/// The block's consumption record: what the messaging inherent did. The `validate_block`
+	/// wrapper calls it after executing each block of a bundle. It must read only storage the
+	/// block wrote, since the PoV holds no other proof nodes.
+	fn consumption_record() -> ConsumptionRecord;
+}
+
+impl ProvideConsumptionRecord for () {
+	fn consumption_record() -> ConsumptionRecord {
+		ConsumptionRecord::default()
+	}
+}
+
 /// The hash function for all of speculative messaging: leaves, MMR merges, stream and
 /// commitment-tree roots. A protocol constant. Changing it is a consensus break, so nothing here
 /// is generic over it.

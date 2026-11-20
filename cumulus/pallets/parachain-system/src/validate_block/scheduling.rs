@@ -106,8 +106,10 @@ pub fn validate_v3_scheduling(
 		},
 		(true, Some(ValidationParamsExtension::V3 { relay_parent, scheduling_parent })) => {
 			// V3 enabled and extension present: validate scheduling
-			let scheduling_proof = scheduling_proof
-				.expect("V3 candidates require ParachainBlockData::V2 with scheduling_proof");
+			let scheduling_proof = scheduling_proof.expect(
+				"V3 scheduling requires a `ParachainBlockData` that carries a scheduling proof \
+				(V2, or V3 with `scheduling_proof: Some`)",
+			);
 
 			match check_scheduling(
 				scheduling_proof,
@@ -627,7 +629,9 @@ mod tests {
 	}
 
 	#[test]
-	#[should_panic(expected = "V3 candidates require ParachainBlockData::V2 with scheduling_proof")]
+	#[should_panic(
+		expected = "V3 scheduling requires a `ParachainBlockData` that carries a scheduling proof"
+	)]
 	fn v3_enabled_missing_scheduling_proof_panics() {
 		let (ext, _, _) = make_v3_initial_submission(3);
 		// Pass None as scheduling_proof to simulate a V0/V1 POV

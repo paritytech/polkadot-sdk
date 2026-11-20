@@ -351,6 +351,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<{ relay_parent_offset() }>;
 	type SchedulingSignatureVerifier = SchedulingVerifier;
+	type ConsumptionRecordSource = ();
 }
 
 impl parachain_info::Config for Runtime {}
