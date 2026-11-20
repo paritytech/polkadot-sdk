@@ -311,25 +311,28 @@ where
 		let current_addr = self.current_addr();
 		let key = Bytes::from(key.unhashed().to_vec());
 
-		let old_value = get_entry!(self, current_addr)
-			.or_default()
-			.storage
-			.entry(key.clone())
-			.or_insert_with(|| old_value.map(Into::into));
+		// A created contract has no pre entry and starts out empty. Its slots live in the post map,
+		// which holds the latest write and so can't tell us the original value.
+		let is_unchanged = if self.created_addrs.contains(&current_addr) {
+			if !self.config.diff_mode {
+				return;
+			}
+			new_value.is_none()
+		} else {
+			let original = self.trace.0.entry(current_addr).or_default().storage.entry(key.clone());
+			let original = original.or_insert_with(|| old_value.map(Into::into));
+			original.as_ref().map(|v| v.0.as_ref()) == new_value
+		};
 
 		if !self.config.diff_mode {
 			return;
 		}
 
-		if old_value.as_ref().map(|v| v.0.as_ref()) != new_value {
-			self.trace
-				.1
-				.entry(current_addr)
-				.or_default()
-				.storage
-				.insert(key, new_value.map(|v| v.to_vec().into()));
+		let post = &mut self.trace.1.entry(current_addr).or_default().storage;
+		if is_unchanged {
+			post.remove(&key);
 		} else {
-			self.trace.1.entry(self.current_addr()).or_default().storage.remove(&key);
+			post.insert(key, new_value.map(|v| v.to_vec().into()));
 		}
 	}
 
