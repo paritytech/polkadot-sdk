@@ -452,7 +452,11 @@ mod tests {
 					},
 				},
 				left: BridgeHubKusamaConnectionParams {
-					bridge_hub_kusama_uri: "ws://bridge-hub-kusama-node-collator1:9944".into(),
+					bridge_hub_kusama_uri: Some(
+						"ws://bridge-hub-kusama-node-collator1:9944".into()
+					),
+					bridge_hub_kusama_chain_spec: None,
+					bridge_hub_kusama_relay_chain_spec: None,
 					bridge_hub_kusama_runtime_version: BridgeHubKusamaRuntimeVersionParams {
 						bridge_hub_kusama_version_mode: RuntimeVersionType::Bundle,
 						bridge_hub_kusama_spec_version: None,
@@ -467,7 +471,9 @@ mod tests {
 					bridge_hub_kusama_transactions_mortality: Some(64),
 				},
 				left_relay: KusamaConnectionParams {
-					kusama_uri: "ws://kusama-alice:9944".into(),
+					kusama_uri: Some("ws://kusama-alice:9944".into()),
+					kusama_chain_spec: None,
+					kusama_relay_chain_spec: None,
 					kusama_runtime_version: KusamaRuntimeVersionParams {
 						kusama_version_mode: RuntimeVersionType::Bundle,
 						kusama_spec_version: None,
@@ -475,7 +481,9 @@ mod tests {
 					},
 				},
 				right: BridgeHubPolkadotConnectionParams {
-					bridge_hub_polkadot_uri: "ws://bridge-hub-polkadot-collator1:9944".into(),
+					bridge_hub_polkadot_uri: Some("ws://bridge-hub-polkadot-collator1:9944".into()),
+					bridge_hub_polkadot_chain_spec: None,
+					bridge_hub_polkadot_relay_chain_spec: None,
 					bridge_hub_polkadot_runtime_version: BridgeHubPolkadotRuntimeVersionParams {
 						bridge_hub_polkadot_version_mode: RuntimeVersionType::Bundle,
 						bridge_hub_polkadot_spec_version: None,
@@ -490,7 +498,9 @@ mod tests {
 					bridge_hub_polkadot_transactions_mortality: Some(64),
 				},
 				right_relay: PolkadotConnectionParams {
-					polkadot_uri: "ws://polkadot-alice:9944".into(),
+					polkadot_uri: Some("ws://polkadot-alice:9944".into()),
+					polkadot_chain_spec: None,
+					polkadot_relay_chain_spec: None,
 					polkadot_runtime_version: PolkadotRuntimeVersionParams {
 						polkadot_version_mode: RuntimeVersionType::Bundle,
 						polkadot_spec_version: None,

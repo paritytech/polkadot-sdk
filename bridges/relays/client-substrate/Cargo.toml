@@ -22,6 +22,7 @@ quick_cache = { workspace = true }
 rand = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true }
+smoldot-light = { features = ["std"], workspace = true }
 thiserror = { workspace = true }
 tokio = { features = ["rt-multi-thread"], workspace = true, default-features = true }
 tracing = { workspace = true }
@@ -52,6 +53,9 @@ sp-version = { workspace = true, default-features = true }
 
 # Polkadot Dependencies
 xcm = { workspace = true, default-features = true }
+
+[dev-dependencies]
+bp-test-utils = { workspace = true, default-features = true }
 
 [features]
 default = []

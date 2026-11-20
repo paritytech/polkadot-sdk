@@ -19,6 +19,7 @@
 
 use crate::{
 	client::{
+		light_client::{self, LightChainHandle},
 		rpc_api::{
 			SubstrateAuthorClient, SubstrateBeefyClient, SubstrateChainClient,
 			SubstrateFrameSystemClient, SubstrateGrandpaClient, SubstrateStateClient,
@@ -29,17 +30,18 @@ use crate::{
 	},
 	error::{Error, Result},
 	guard::Environment,
-	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, BalanceOf, BlockNumberOf, Chain,
-	ChainRuntimeVersion, ChainWithGrandpa, ChainWithTransactions, ConnectionParams, HashOf,
-	HeaderIdOf, HeaderOf, NonceOf, SignParam, SignedBlockOf, SimpleRuntimeVersion,
-	TransactionTracker, UnsignedTransaction,
+	transaction_stall_timeout, AccountIdOf, AccountKeyPairOf, BalanceOf, BlockNumberOf,
+	BlockWithJustification, Chain, ChainRuntimeVersion, ChainWithGrandpa, ChainWithTransactions,
+	ConnectionParams, HashOf, HeaderIdOf, HeaderOf, NonceOf, SignParam, SignedBlockOf,
+	SimpleRuntimeVersion, TransactionTracker, Transport, UnsignedTransaction,
 };
 
 use async_trait::async_trait;
+use bp_header_chain::GrandpaConsensusLogReader;
 use bp_runtime::HeaderIdProvider;
 use codec::Encode;
 use frame_support::weights::Weight;
-use futures::TryFutureExt;
+use futures::{StreamExt, TryFutureExt};
 use jsonrpsee::{
 	core::{client::Subscription as RpcSubscription, ClientError},
 	ws_client::{WsClient, WsClientBuilder},
@@ -47,6 +49,7 @@ use jsonrpsee::{
 use num_traits::Zero;
 use pallet_transaction_payment::RuntimeDispatchInfo;
 use relay_utils::{relay_loop::RECONNECT_DELAY, STALL_TIMEOUT};
+use sp_consensus_grandpa::GRANDPA_ENGINE_ID;
 use sp_core::{
 	storage::{StorageData, StorageKey},
 	Bytes, Hasher, Pair,
@@ -60,7 +63,7 @@ use sp_version::RuntimeVersion;
 use std::{cmp::Ordering, future::Future, marker::PhantomData, sync::Arc};
 use tokio::sync::{Mutex, RwLock};
 
-const MAX_SUBSCRIPTION_CAPACITY: usize = 4096;
+pub(crate) const MAX_SUBSCRIPTION_CAPACITY: usize = 4096;
 
 const SUB_API_TXPOOL_VALIDATE_TRANSACTION: &str = "TaggedTransactionQueue_validate_transaction";
 const SUB_API_TX_PAYMENT_QUERY_INFO: &str = "TransactionPaymentApi_query_info";
@@ -91,6 +94,8 @@ struct ClientData {
 	tokio: tokio::runtime::Handle,
 	/// Substrate RPC client.
 	client: Arc<WsClient>,
+	/// The chain in the embedded light client, when connected through it.
+	light: Option<Arc<LightChainHandle>>,
 }
 
 /// Already encoded value.
@@ -134,7 +139,7 @@ impl<C: Chain> RpcClient<C> {
 	/// Try to connect to Substrate node over websocket. Returns Substrate RPC client if connection
 	/// has been established or error otherwise.
 	async fn try_connect(params: Arc<ConnectionParams>) -> Result<Self> {
-		let (tokio, client) = Self::build_client(&params).await?;
+		let (tokio, client, light) = Self::build_client(&params).await?;
 
 		let genesis_hash_client = client.clone();
 		let genesis_hash = tokio
@@ -142,14 +147,15 @@ impl<C: Chain> RpcClient<C> {
 				SubstrateChainClient::<C>::block_hash(&*genesis_hash_client, Some(Zero::zero()))
 					.await
 			})
-			.await??;
+			.await??
+			.ok_or_else(|| Error::unknown_header_hash_by_number::<C>(Zero::zero()))?;
 
 		let chain_runtime_version = params.chain_runtime_version;
 		let mut client = Self {
 			params,
 			submit_signed_extrinsic_lock: Arc::new(Mutex::new(())),
 			genesis_hash,
-			data: Arc::new(RwLock::new(ClientData { tokio, client })),
+			data: Arc::new(RwLock::new(ClientData { tokio, client, light })),
 			_phantom: PhantomData,
 		};
 		Self::ensure_correct_runtime_version(&mut client, chain_runtime_version).await?;
@@ -194,23 +200,36 @@ impl<C: Chain> RpcClient<C> {
 	/// Build client to use in connection.
 	async fn build_client(
 		params: &ConnectionParams,
-	) -> Result<(tokio::runtime::Handle, Arc<WsClient>)> {
+	) -> Result<(tokio::runtime::Handle, Arc<WsClient>, Option<Arc<LightChainHandle>>)> {
 		let tokio = tokio::runtime::Handle::try_current().map_err(|e| {
 			Error::Custom(format!("Failed to obtain current tokio runtime handle: {e}"))
 		})?;
-		let uri = params.uri.clone();
-		tracing::info!(target: "bridge", node=%C::NAME, %uri, "Connecting");
+		let transport = &params.transport;
+		tracing::info!(target: "bridge", node=%C::NAME, %transport, "Connecting");
 
-		let client = tokio
-			.spawn(async move {
-				WsClientBuilder::default()
-					.max_buffer_capacity_per_subscription(MAX_SUBSCRIPTION_CAPACITY)
-					.build(&uri)
-					.await
-			})
-			.await??;
+		let (client, light) = match transport.clone() {
+			Transport::Ws { uri } => {
+				let client = tokio
+					.spawn(async move {
+						WsClientBuilder::default()
+							.max_buffer_capacity_per_subscription(MAX_SUBSCRIPTION_CAPACITY)
+							.build(&uri)
+							.await
+					})
+					.await??;
+				(client, None)
+			},
+			Transport::LightClient { chain_spec, relay_chain_spec } => {
+				let (light, client) = tokio
+					.spawn(
+						async move { light_client::build(&chain_spec, relay_chain_spec.as_deref()) },
+					)
+					.await??;
+				(client, Some(light))
+			},
+		};
 
-		Ok((tokio, Arc::new(client)))
+		Ok((tokio, Arc::new(client), light))
 	}
 
 	/// Execute jsonrpsee future in tokio context.
@@ -264,6 +283,66 @@ impl<C: Chain> RpcClient<C> {
 		Ok(Subscription::new_forwarded(
 			StreamDescription::new(format!("{} justifications", gadget_name), C::NAME.into()),
 			subscription,
+		))
+	}
+
+	/// Returns the chain in the embedded light client, when connected through it.
+	async fn light_chain(&self) -> Option<Arc<LightChainHandle>> {
+		self.data.read().await.light.clone()
+	}
+
+	/// Attaches the GRANDPA justification of an authority set change block, taken from a warp
+	/// sync proof. Other blocks are left as they are.
+	///
+	/// Fails if the justification can't be found, so that the block isn't cached without it.
+	async fn attach_grandpa_justification(
+		light: &LightChainHandle,
+		hash: HashOf<C>,
+		block: &mut SignedBlockOf<C>,
+	) -> Result<()> {
+		if block.justification(GRANDPA_ENGINE_ID).is_some() {
+			return Ok(());
+		}
+		let header = block.header();
+		let digest = header.digest();
+		let changes_set = GrandpaConsensusLogReader::<BlockNumberOf<C>>::find_scheduled_change(
+			digest,
+		)
+		.is_some() ||
+			GrandpaConsensusLogReader::<BlockNumberOf<C>>::find_forced_change(digest).is_some();
+		if !changes_set {
+			return Ok(());
+		}
+
+		let begin = light_client::hash_to_bytes(*header.parent_hash())?;
+		let proof =
+			light_client::decode_warp_proof::<HeaderOf<C>>(&light.warp_proof(begin).await?)?;
+		let justification = light_client::justification_for(&proof, hash).ok_or_else(|| {
+			Error::LightClient(format!(
+				"warp sync proof from the parent of {hash:?} has no justification for it"
+			))
+		})?;
+		block.set_justification(GRANDPA_ENGINE_ID, justification.encode());
+		Ok(())
+	}
+
+	/// Subscribe to GRANDPA justifications made from warp sync proofs.
+	async fn subscribe_light_client_grandpa_justifications(
+		&self,
+		light: Arc<LightChainHandle>,
+	) -> Result<Subscription<Bytes>> {
+		let begin = self.best_finalized_header_hash().await?;
+		let last_number = *self.header_by_hash(begin).await?.number();
+		let justifications = light_client::grandpa_justifications::<HeaderOf<C>>(
+			light,
+			begin,
+			last_number,
+			C::AVERAGE_BLOCK_INTERVAL,
+			C::NAME,
+		);
+		Ok(Subscription::new_forwarded(
+			StreamDescription::new("GRANDPA justifications".into(), C::NAME.into()),
+			Box::pin(justifications.map(Ok::<_, serde_json::Error>)),
 		))
 	}
 
@@ -321,9 +400,12 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 
 	async fn reconnect(&self) -> Result<()> {
 		let mut data = self.data.write().await;
-		let (tokio, client) = Self::build_client(&self.params).await?;
+		// in light-client mode, the chain is added again before the old handle removes it, so
+		// smoldot keeps its sync state
+		let (tokio, client, light) = Self::build_client(&self.params).await?;
 		data.tokio = tokio;
 		data.client = client;
+		data.light = light;
 		Ok(())
 	}
 
@@ -332,11 +414,15 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 	}
 
 	async fn header_hash_by_number(&self, number: BlockNumberOf<C>) -> Result<HashOf<C>> {
-		self.jsonrpsee_execute(move |client| async move {
-			Ok(SubstrateChainClient::<C>::block_hash(&*client, Some(number)).await?)
-		})
-		.await
-		.map_err(|e| Error::failed_to_read_header_hash_by_number::<C>(number, e))
+		let maybe_hash = self
+			.jsonrpsee_execute(move |client| async move {
+				Ok(SubstrateChainClient::<C>::block_hash(&*client, Some(number)).await?)
+			})
+			.await
+			.map_err(|e| Error::failed_to_read_header_hash_by_number::<C>(number, e))?;
+
+		// `CachingClient` resolves the number without this RPC when the node has no answer
+		maybe_hash.ok_or_else(|| Error::unknown_header_hash_by_number::<C>(number))
 	}
 
 	async fn header_by_hash(&self, hash: HashOf<C>) -> Result<HeaderOf<C>> {
@@ -348,11 +434,30 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 	}
 
 	async fn block_by_hash(&self, hash: HashOf<C>) -> Result<SignedBlockOf<C>> {
-		self.jsonrpsee_execute(move |client| async move {
-			Ok(SubstrateChainClient::<C>::block(&*client, Some(hash)).await?)
-		})
-		.await
-		.map_err(|e| Error::failed_to_read_block_by_hash::<C>(hash, e))
+		let mut block = self
+			.jsonrpsee_execute(move |client| async move {
+				Ok(SubstrateChainClient::<C>::block(&*client, Some(hash)).await?)
+			})
+			.await
+			.map_err(|e| Error::failed_to_read_block_by_hash::<C>(hash, e))?;
+
+		// smoldot doesn't return justifications, so the mandatory ones come from warp proofs
+		if let Some(light) = self.light_chain().await {
+			Self::attach_grandpa_justification(&light, hash, &mut block)
+				.await
+				.map_err(|e| {
+					tracing::debug!(
+						target: "bridge",
+						error=%e,
+						node=%C::NAME,
+						?hash,
+						"Failed to get GRANDPA justification of authority set change block"
+					);
+					Error::failed_to_read_block_by_hash::<C>(hash, e)
+				})?;
+		}
+
+		Ok(block)
 	}
 
 	async fn best_finalized_header_hash(&self) -> Result<HashOf<C>> {
@@ -395,6 +500,14 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 	where
 		C: ChainWithGrandpa,
 	{
+		// smoldot doesn't serve `grandpa_subscribeJustifications`
+		if let Some(light) = self.light_chain().await {
+			return self
+				.subscribe_light_client_grandpa_justifications(light)
+				.await
+				.map_err(|e| Error::failed_to_subscribe_justification::<C>(e));
+		}
+
 		self.subscribe_finality_justifications("GRANDPA", move |client| async move {
 			SubstrateGrandpaClient::<C>::subscribe_justifications(&*client).await
 		})
