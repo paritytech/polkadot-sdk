@@ -1,0 +1,23 @@
+title: "pallet-xcm: make claiming trapped assets all-or-nothing"
+doc:
+  - audience: Runtime Dev
+    description: |
+      `pallet-xcm`'s `ClaimAssets` implementation now mints every claimed asset before consuming
+      the asset trap. If any asset fails to mint, for example because the asset transactor no
+      longer matches it, the claim fails (`ClaimAsset` errors with `UnknownClaim`) and the trap
+      is left untouched so it can be claimed later. Previously the trap was consumed first and
+      assets that failed to mint were skipped, so the claim succeeded with only part of the
+      trapped assets.
+
+      Fungible imbalances of assets minted before the failure are forgotten, mirroring
+      `drop_assets`, so total issuance stays consistent even when the executor is configured with
+      a non-transactional `TransactionalProcessor`.
+  - audience: Runtime User
+    description: |
+      Claiming trapped assets, either with the `claim_assets` extrinsic or the `ClaimAsset` XCM
+      instruction, now either returns all of the trapped assets or fails without consuming the
+      trap.
+
+crates:
+  - name: pallet-xcm
+    bump: patch

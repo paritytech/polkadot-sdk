@@ -3986,11 +3986,13 @@ impl<T: Config> ClaimAssets for Pallet<T> {
 			_ => return None,
 		};
 		let hash = BlakeTwo256::hash_of(&(origin.clone(), versioned.clone()));
-		match AssetTraps::<T>::get(hash) {
-			0 => return None,
-			1 => AssetTraps::<T>::remove(hash),
-			n => AssetTraps::<T>::insert(hash, n - 1),
+		let trap_count = AssetTraps::<T>::get(hash);
+		if trap_count == 0 {
+			return None;
 		}
+		// Claiming is all-or-nothing: every asset is minted before the trap is consumed. If any
+		// asset fails to mint, the claim fails and the trap is left untouched so it can be claimed
+		// later.
 		let mut claimed = AssetsInHolding::new();
 		for asset in assets.inner() {
 			match <T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(asset, context)
@@ -4012,11 +4014,25 @@ impl<T: Config> ClaimAssets for Pallet<T> {
 					});
 					claimed.subsume_assets(minted)
 				},
-				Err(error) => tracing::debug!(
-					target: "xcm::pallet_xcm::claim_assets",
-					?asset, ?error, "Asset claimed from trap but unable to mint."
-				),
+				Err(error) => {
+					tracing::debug!(
+						target: "xcm::pallet_xcm::claim_assets",
+						?asset, ?error, "Unable to mint trapped asset, claim failed."
+					);
+					// SAFETY: The trap is kept, so it still accounts for the assets minted so far.
+					// "Forget" their imbalances, just like `drop_assets` does, so that dropping
+					// them here doesn't change total issuance. When running inside a transactional
+					// processor, this is rolled back anyway.
+					claimed.fungible.into_iter().for_each(|(_, mut accounting)| {
+						accounting.forget_imbalance();
+					});
+					return None;
+				},
 			}
+		}
+		match trap_count {
+			1 => AssetTraps::<T>::remove(hash),
+			n => AssetTraps::<T>::insert(hash, n - 1),
 		}
 		Self::deposit_event(Event::AssetsClaimed {
 			hash,
