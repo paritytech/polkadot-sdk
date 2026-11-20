@@ -16,19 +16,14 @@
 
 //! HRMP: the channels between parachains.
 //!
-//! # Free requests
+//! # Requests costs
 //!
-//! A parachain manages its channels by sending calls of this pallet through UMP. A runtime may
-//! want to execute them without requiring payments.
-//!
-//! To do so it may allow one transact per XCM, and limit the total XCM weight with
-//! [`Pallet::max_para_request_weight`]. The number of UMP messages of a parachain is already
-//! limited, so this cannot spam the relay chain blocks.
-//!
-//! But a successful request sends XCM too: a DMP notification to the other parachain, and
-//! a request to the parachain holding the deposits, which answers through UMP. To avoid spamming
-//! these queues, a non-system parachain is limited to [`Config::MaxRequestsPerWindow`] successful
-//! requests per [`Config::RequestWindow`].
+//! Some request involves a notification sent with XCM, this cost is not paid for through the call's
+//! weight, a runtime allowing free requests must limit the number of requests to avoid filling up
+//! the UMQs.
+//! Moreover, depending on the configuration of [`DepositProvider`] the pallet may be configured to
+//! set deposits on a parachain, which also involves XCMs, which are not paid for, therefore must be
+//! limited.
 
 use crate::{
 	configuration::{self, HostConfiguration},
@@ -42,7 +37,10 @@ use alloc::{
 use codec::{Decode, Encode};
 use core::{fmt, mem};
 use frame_support::{
-	dispatch::GetDispatchInfo, pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound,
+	dispatch::GetDispatchInfo,
+	pallet_prelude::*,
+	traits::{Contains, GetCallIndex, PalletInfoAccess, ReservableCurrency},
+	DefaultNoBound,
 };
 use frame_system::pallet_prelude::*;
 use polkadot_parachain_primitives::primitives::{HorizontalMessages, IsSystem};
@@ -51,9 +49,7 @@ use polkadot_primitives::{
 	SessionIndex,
 };
 use scale_info::TypeInfo;
-use sp_runtime::traits::{
-	AccountIdConversion, BlakeTwo256, Hash as HashT, Saturating, UniqueSaturatedInto,
-};
+use sp_runtime::traits::{AccountIdConversion, BlakeTwo256, Hash as HashT, UniqueSaturatedInto};
 
 pub use pallet::*;
 
@@ -94,7 +90,6 @@ pub trait WeightInfo {
 	fn establish_system_channel() -> Weight;
 	fn poke_channel_deposits() -> Weight;
 	fn establish_channel_with_system() -> Weight;
-	fn count_request() -> Weight;
 }
 
 /// A weight info that is only suitable for testing.
@@ -135,9 +130,6 @@ impl WeightInfo for TestWeightInfo {
 		Weight::MAX
 	}
 	fn establish_channel_with_system() -> Weight {
-		Weight::MAX
-	}
-	fn count_request() -> Weight {
 		Weight::MAX
 	}
 }
@@ -323,25 +315,6 @@ pub mod pallet {
 		/// the default `()` implementation uses the latest XCM version for all parachains.
 		type VersionWrapper: xcm::WrapVersion;
 
-		/// How many requests a non-system parachain may make in one [`Config::RequestWindow`].
-		///
-		/// A request is a call that the parachain makes for itself with its own origin, and
-		/// that succeeds. Requests often involves sending XCM, which is a limited resource, so
-		/// it is limited for non-system parachains.
-		///
-		/// We implement a throttling mechanism instead of payment to support relay chains that
-		/// don't have payments.
-		#[pallet::constant]
-		type MaxRequestsPerWindow: Get<u32>;
-
-		/// The length, in blocks, of the window over which a non-system parachain's requests are
-		/// counted.
-		///
-		/// A parachain's first window starts at its first request. Once a window is over, the
-		/// next one starts at the parachain's next request.
-		#[pallet::constant]
-		type RequestWindow: Get<BlockNumberFor<Self>>;
-
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -438,8 +411,6 @@ pub mod pallet {
 		ChannelDepositsChanged,
 		/// The origin may not poke the deposits of this channel.
 		PokeHrmpChannelUnauthorized,
-		/// The parachain made all the requests it may make in its current window.
-		TooManyRequests,
 	}
 
 	/// The set of pending HRMP open channel requests.
@@ -544,15 +515,6 @@ pub mod pallet {
 	pub type HrmpChannelDigests<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, Vec<(BlockNumberFor<T>, Vec<ParaId>)>, ValueQuery>;
 
-	/// For each non-system parachain, the block at which its current request window started and
-	/// the number of requests it has made since then. See [`Config::MaxRequestsPerWindow`].
-	///
-	/// The entry of a parachain stays once its window is over, and is removed when the parachain
-	/// is offboarded.
-	#[pallet::storage]
-	pub type RequestWindows<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, (BlockNumberFor<T>, u32), OptionQuery>;
-
 	/// Preopen the given HRMP channels.
 	///
 	/// The values in the tuple corresponds to
@@ -600,9 +562,6 @@ pub mod pallet {
 		#[pallet::weight(
 			<T as Config>::WeightInfo::hrmp_init_open_channel()
 				.saturating_add(T::DepositProvider::weight_of_try_set_deposit())
-				// The benchmark uses a system parachain to avoid double counting the set deposit
-				// operation, which bypasses `count_request` as well.
-				.saturating_add(<T as Config>::WeightInfo::count_request())
 		)]
 		pub fn hrmp_init_open_channel(
 			origin: OriginFor<T>,
@@ -611,7 +570,6 @@ pub mod pallet {
 			proposed_max_message_size: u32,
 		) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
-			Self::count_request(origin)?;
 			// `OpenChannelRequested` is emitted once the deposit is set and the request recorded.
 			Self::init_open_channel(
 				origin,
@@ -631,13 +589,9 @@ pub mod pallet {
 		#[pallet::weight(
 			<T as Config>::WeightInfo::hrmp_accept_open_channel()
 				.saturating_add(T::DepositProvider::weight_of_try_set_deposit())
-				// The benchmark uses a system parachain to avoid double counting the set deposit
-				// operation, which bypasses `count_request` as well.
-				.saturating_add(<T as Config>::WeightInfo::count_request())
 		)]
 		pub fn hrmp_accept_open_channel(origin: OriginFor<T>, sender: ParaId) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
-			Self::count_request(origin)?;
 			// `OpenChannelAccepted` is emitted once the deposit is set and the request confirmed.
 			Self::accept_open_channel(origin, sender)
 		}
@@ -653,7 +607,6 @@ pub mod pallet {
 			channel_id: HrmpChannelId,
 		) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
-			Self::count_request(origin)?;
 			Self::close_channel(origin, channel_id.clone())?;
 			Self::deposit_event(Event::ChannelClosed { by_parachain: origin, channel_id });
 			Ok(())
@@ -750,9 +703,6 @@ pub mod pallet {
 		#[pallet::weight(
 			<T as Config>::WeightInfo::hrmp_cancel_open_request(*open_requests)
 				.saturating_add(T::DepositProvider::weight_of_try_set_deposit())
-				// The benchmark uses a system parachain to avoid double counting the set deposit
-				// operation, which bypasses `count_request` as well.
-				.saturating_add(<T as Config>::WeightInfo::count_request())
 		)]
 		pub fn hrmp_cancel_open_request(
 			origin: OriginFor<T>,
@@ -760,7 +710,6 @@ pub mod pallet {
 			open_requests: u32,
 		) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
-			Self::count_request(origin)?;
 			ensure!(
 				HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32 <=
 					open_requests,
@@ -882,9 +831,6 @@ pub mod pallet {
 		#[pallet::weight(
 			<T as Config>::WeightInfo::poke_channel_deposits()
 				.saturating_add(T::DepositProvider::weight_of_try_set_deposit())
-				// The benchmark uses a signed origin to avoid double counting the set deposit
-				// operation, which bypasses `count_request` as well.
-				.saturating_add(<T as Config>::WeightInfo::count_request())
 		)]
 		pub fn poke_channel_deposits(
 			origin: OriginFor<T>,
@@ -897,7 +843,6 @@ pub mod pallet {
 					para_caller == sender || para_caller == recipient,
 					Error::<T>::PokeHrmpChannelUnauthorized,
 				);
-				Self::count_request(para_caller)?;
 			}
 
 			let channel_id = HrmpChannelId { sender, recipient };
@@ -943,7 +888,6 @@ pub mod pallet {
 			target_system_chain: ParaId,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
-			Self::count_request(sender)?;
 
 			ensure!(target_system_chain.is_system(), Error::<T>::ChannelCreationNotAuthorized);
 
@@ -997,6 +941,21 @@ fn preopen_hrmp_channel<T: Config>(
 	Pallet::<T>::init_and_accept_open_channel(sender, recipient, max_capacity, max_message_size)
 }
 
+/// The calls of this pallet that a parachain makes for itself.
+///
+/// Each as its pallet index and its call index: opening, accepting, cancelling or closing a
+/// channel, poking its deposits, or establishing a channel with a system chain.
+// TODO: probably make a dedicated trait, Contains<(u8, u8)> is very ugly.
+pub struct ParaRequestCalls<T>(PhantomData<T>);
+impl<T: Config> Contains<(u8, u8)> for ParaRequestCalls<T> {
+	fn contains((pallet_index, call_index): &(u8, u8)) -> bool {
+		usize::from(*pallet_index) == <Pallet<T> as PalletInfoAccess>::index() &&
+			Pallet::<T>::para_request_calls(0)
+				.iter()
+				.any(|call| call.get_call_index() == *call_index)
+	}
+}
+
 /// Routines and getters related to HRMP.
 impl<T: Config> Pallet<T> {
 	/// Ensures the origin is signed, the `ChannelManager`, or a parachain, which it then returns.
@@ -1012,43 +971,18 @@ impl<T: Config> Pallet<T> {
 		Ok(Some(para))
 	}
 
-	/// Counts one more request in the window of `para`, unless it is a system parachain. A new
-	/// window starts now if `para` has none or its last one is over.
+	/// The calls a parachain makes for itself.
 	///
-	/// Fails with [`Error::TooManyRequests`], writing nothing, if `para` already made
-	/// [`Config::MaxRequestsPerWindow`] requests in its window.
-	fn count_request(para: ParaId) -> Result<(), Error<T>> {
-		if para.is_system() {
-			return Ok(());
-		}
-		let (start, used) = match RequestWindows::<T>::get(para) {
-			Some((start, used)) if !Self::is_window_over(start) => (start, used),
-			_ => (frame_system::Pallet::<T>::block_number(), 0),
-		};
-		ensure!(used < T::MaxRequestsPerWindow::get(), Error::<T>::TooManyRequests);
-		RequestWindows::<T>::insert(para, (start, used.saturating_add(1)));
-		Ok(())
-	}
-
-	/// Whether a window that started at `start` is over.
-	fn is_window_over(start: BlockNumberFor<T>) -> bool {
-		let now = frame_system::Pallet::<T>::block_number();
-		now.saturating_sub(start) >= T::RequestWindow::get()
-	}
-
-	/// The weight of the heaviest call a parachain makes for itself, with its own origin: opening,
-	/// accepting, cancelling or closing a channel, poking its deposits, or establishing a channel
-	/// with a system chain.
+	/// opening, accepting, cancelling or closing a channel, poking its deposits, or establishing a
+	/// channel with a system chain.
 	///
-	/// For a runtime that executes such requests without payment, to bound what one may cost.
-	///
-	/// The cancel is weighed for the open requests witness: `max_open_requests`, there is no bound
-	/// to the number of open requests but it costs deposits.
-	pub fn max_para_request_weight(max_open_requests: u32) -> Weight {
+	/// Their arguments are values corresponding to the maximum weight, and using
+	/// `max_open_requests`, for the witness of the cancel call.
+	fn para_request_calls(max_open_requests: u32) -> [Call<T>; 6] {
 		let para = ParaId::from(0);
 		let channel_id = HrmpChannelId { sender: para, recipient: para };
 		[
-			Call::<T>::hrmp_init_open_channel {
+			Call::hrmp_init_open_channel {
 				recipient: para,
 				proposed_max_capacity: 0,
 				proposed_max_message_size: 0,
@@ -1059,9 +993,20 @@ impl<T: Config> Pallet<T> {
 			Call::poke_channel_deposits { sender: para, recipient: para },
 			Call::establish_channel_with_system { target_system_chain: para },
 		]
-		.into_iter()
-		.map(|call| call.get_dispatch_info().call_weight)
-		.fold(Weight::zero(), |max, weight| max.max(weight))
+	}
+
+	/// The weight of the heaviest call a parachain makes for itself, with its own origin: the
+	/// calls in [`ParaRequestCalls`].
+	///
+	/// For a runtime that executes such requests without payment, to bound what one may cost.
+	///
+	/// The cancel is weighed for the open requests witness: `max_open_requests`, there is no bound
+	/// to the number of open requests but it costs deposits.
+	pub fn max_para_request_weight(max_open_requests: u32) -> Weight {
+		Self::para_request_calls(max_open_requests)
+			.into_iter()
+			.map(|call| call.get_dispatch_info().call_weight)
+			.fold(Weight::zero(), |max, weight| max.max(weight))
 	}
 
 	/// Block initialization logic, called by initializer.
@@ -1182,7 +1127,6 @@ impl<T: Config> Pallet<T> {
 	fn clean_hrmp_after_outgoing(outgoing_para: &ParaId) {
 		HrmpOpenChannelRequestCount::<T>::remove(outgoing_para);
 		HrmpAcceptedChannelRequestCount::<T>::remove(outgoing_para);
-		RequestWindows::<T>::remove(outgoing_para);
 
 		let ingress = HrmpIngressChannelsIndex::<T>::take(outgoing_para)
 			.into_iter()

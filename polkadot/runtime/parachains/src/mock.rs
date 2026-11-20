@@ -286,9 +286,6 @@ impl crate::dmp::Config for Test {
 
 parameter_types! {
 	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (4, 1);
-	/// Not limited, unless a test sets it.
-	pub static MaxRequestsPerWindow: u32 = u32::MAX;
-	pub const RequestWindow: BlockNumber = 600;
 }
 
 parameter_types! {
@@ -350,8 +347,6 @@ impl crate::hrmp::Config for Test {
 	type DepositProvider = MockDepositProvider;
 	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
 	type VersionWrapper = TestUsesOnlyStoredVersionWrapper;
-	type MaxRequestsPerWindow = MaxRequestsPerWindow;
-	type RequestWindow = RequestWindow;
 	type WeightInfo = crate::hrmp::TestWeightInfo;
 }
 
@@ -1055,7 +1050,6 @@ pub fn new_test_ext(state: MockGenesisConfig) -> TestExternalities {
 	BACKING_REWARDS.with(|r| r.borrow_mut().clear());
 	AVAILABILITY_REWARDS.with(|r| r.borrow_mut().clear());
 	REMOTE_DEPOSITS.with(|r| *r.borrow_mut() = Default::default());
-	MaxRequestsPerWindow::set(u32::MAX);
 
 	let mut t = state.system.build_storage().unwrap();
 	state.configuration.assimilate_storage(&mut t).unwrap();

@@ -37,10 +37,9 @@ use xcm::latest::{prelude::*, XcmWeightInfo, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AllowExplicitUnpaidExecutionFrom,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	AllowUnpaidTransactFrom, ChildParachainAsNative, ChildParachainConvertsVia,
-	DescribeAllTerminal, DescribeFamily, FrameTransactionalProcessor, FungibleAdapter,
-	HashedDescription, IsChildNonSystemParachain, IsChildSystemParachain, IsConcrete,
-	LocationAsSuperuser, MintLocation, SendXcmFeeToAccount, SignedAccountId32AsNative,
+	ChildParachainAsNative, ChildParachainConvertsVia, DescribeAllTerminal, DescribeFamily,
+	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsChildSystemParachain,
+	IsConcrete, LocationAsSuperuser, MintLocation, SendXcmFeeToAccount, SignedAccountId32AsNative,
 	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
 	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
@@ -72,7 +71,7 @@ parameter_types! {
 	pub MaxUnpaidParaRequestWeight: Weight = {
 		type W = crate::weights::xcm::WestendXcmWeight<RuntimeCall>;
 
-		// For the unpad HRMP cancel request, the maximum number of open HRMP requests accepted.
+		// For the unpaid HRMP cancel request, the maximum number of open HRMP requests accepted.
 		// This is bound by economic factors, 10_000 is enough for westend.
 		let max_open_request: u32 = 10_000;
 
@@ -190,9 +189,6 @@ pub type Barrier = TrailingSetTopicAsId<(
 	TakeWeightCredit,
 	// Expected responses are OK.
 	AllowKnownQueryResponses<XcmPallet>,
-	// A non-system parachain gets a call executed without paying, as long as it weighs no more
-	// than an HRMP request.
-	AllowUnpaidTransactFrom<IsChildNonSystemParachain<ParaId>, MaxUnpaidParaRequestWeight>,
 	// A non-system parachain gets a few calls dispatched as itself without paying.
 	AllowUnpaidTransact<Runtime>,
 	WithComputedOrigin<

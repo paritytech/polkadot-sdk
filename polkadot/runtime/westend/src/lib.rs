@@ -1157,16 +1157,13 @@ impl parachains_hrmp::Config for Runtime {
 		HrmpChannelSizeAndCapacityWithSystemRatio,
 	>;
 	type VersionWrapper = crate::XcmPallet;
-	// A non-system parachain gets its requests executed without paying, see `xcm_config`.
-	type MaxRequestsPerWindow = ConstU32<10>;
-	type RequestWindow = ConstU32<{ DAYS }>;
 	type WeightInfo = weights::polkadot_runtime_parachains_hrmp::WeightInfo<Self>;
 }
 
 impl parachains_unpaid_transact::Config for Runtime {
-	// No call is dispatched without payment yet.
-	type AllowedCalls = frame_support::traits::Nothing;
-	type MaxWeight = ();
+	// A non-system parachain gets its HRMP requests dispatched without payment.
+	type AllowedCalls = parachains_hrmp::ParaRequestCalls<Runtime>;
+	type MaxWeight = xcm_config::MaxUnpaidParaRequestWeight;
 	type MaxPerWindow = ConstU32<10>;
 	type Window = ConstU32<{ DAYS }>;
 	type CleanupPeriod = ConstU32<{ 30 * DAYS }>;

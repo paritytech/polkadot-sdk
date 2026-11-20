@@ -42,12 +42,6 @@ fn register_parachain_with_balance<T: Config>(id: ParaId, balance: BalanceOf<T>)
 	T::Currency::make_free_balance_be(&id.into_account_truncating(), balance);
 }
 
-/// Starts the request window of `para` now, with nothing counted in it yet: the request that is
-/// benchmarked is counted in a window that exists, whatever `MaxRequestsPerWindow`.
-fn start_request_window<T: Config>(para: ParaId) {
-	RequestWindows::<T>::insert(para, (frame_system::Pallet::<T>::block_number(), 0));
-}
-
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	let events = frame_system::Pallet::<T>::events();
 	let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
@@ -205,10 +199,8 @@ mod benchmarks {
 
 	#[benchmark]
 	fn hrmp_close_channel() {
-		// Not system parachains, so that the request is counted.
 		let [(sender, sender_origin), (recipient, _)] =
-			establish_para_connection::<T>(PREFIX_0, PREFIX_1, ParachainSetupStep::Established);
-		start_request_window::<T>(sender);
+			establish_para_connection::<T>(1, 2, ParachainSetupStep::Established);
 		let channel_id = HrmpChannelId { sender, recipient };
 
 		#[extrinsic_call]
@@ -280,15 +272,11 @@ mod benchmarks {
 		// all in all, we have created this many channels.
 		assert_eq!(HrmpChannels::<T>::iter().count() as u32, i + e);
 
-		// the leaving parachain has a request window, which is removed with the rest.
-		start_request_window::<T>(para);
-
 		#[extrinsic_call]
 		_(frame_system::Origin::<T>::Root, para, i, e);
 
 		// all in all, all of them must be gone by now.
 		assert_eq!(HrmpChannels::<T>::iter().count() as u32, 0);
-		assert!(!RequestWindows::<T>::contains_key(para));
 		// borrow this function from the tests to make sure state is clear, given that we do a lot
 		// of out-of-ordinary ops here.
 		Hrmp::<T>::assert_storage_consistency_exhaustive();
@@ -538,8 +526,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn establish_channel_with_system() {
-		// Not a system parachain, so that the request is counted.
-		let sender_id = PREFIX_0;
+		let sender_id = 1u32;
 		let recipient_id: ParaId = 2u32.into();
 
 		let sender_origin: crate::Origin = sender_id.into();
@@ -547,7 +534,6 @@ mod benchmarks {
 		// make sure para is registered, and has zero balance.
 		register_parachain_with_balance::<T>(sender_id.into(), Zero::zero());
 		register_parachain_with_balance::<T>(recipient_id, Zero::zero());
-		start_request_window::<T>(sender_id.into());
 
 		#[extrinsic_call]
 		_(sender_origin, recipient_id);
@@ -573,22 +559,6 @@ mod benchmarks {
 			}
 			.into(),
 		);
-	}
-
-	/// A request counted in a window that is already started.
-	#[benchmark]
-	fn count_request() {
-		let para = ParaId::from(PREFIX_0);
-		start_request_window::<T>(para);
-		let result;
-
-		#[block]
-		{
-			result = Hrmp::<T>::count_request(para);
-		}
-
-		assert_ok!(result);
-		assert_eq!(RequestWindows::<T>::get(para).map(|(_, used)| used), Some(1));
 	}
 
 	impl_benchmark_test_suite!(

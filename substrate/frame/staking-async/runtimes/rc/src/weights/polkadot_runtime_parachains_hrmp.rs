@@ -141,10 +141,6 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::hrmp::WeightInfo for 
 	/// Proof: `Hrmp::HrmpChannelContents` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Hrmp::HrmpOpenChannelRequestCount` (r:0 w:1)
 	/// Proof: `Hrmp::HrmpOpenChannelRequestCount` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Hrmp::RequestWindows` (r:0 w:1)
-	/// Proof: `Hrmp::RequestWindows` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	// NOT MEASURED: the write of `Hrmp::RequestWindows` is added by hand, to be replaced by
-	// running the benchmarks.
 	/// The range of component `i` is `[0, 127]`.
 	/// The range of component `e` is `[0, 127]`.
 	fn force_clean_hrmp(i: u32, e: u32, ) -> Weight {
@@ -161,7 +157,7 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::hrmp::WeightInfo for 
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(i.into())))
 			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(e.into())))
-			.saturating_add(T::DbWeight::get().writes(5))
+			.saturating_add(T::DbWeight::get().writes(4))
 			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(i.into())))
 			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(e.into())))
 			.saturating_add(Weight::from_parts(0, 2575).saturating_mul(e.into()))
@@ -384,14 +380,5 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::hrmp::WeightInfo for 
 			.saturating_add(Weight::from_parts(0, 6417))
 			.saturating_add(T::DbWeight::get().reads(23))
 			.saturating_add(T::DbWeight::get().writes(11))
-	}
-	// NOT MEASURED: written by hand, to be replaced by running the benchmarks.
-	/// Storage: `Hrmp::RequestWindows` (r:1 w:1)
-	/// Proof: `Hrmp::RequestWindows` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn count_request() -> Weight {
-		Weight::from_parts(15_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 3600))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }

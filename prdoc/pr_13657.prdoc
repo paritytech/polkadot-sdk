@@ -7,28 +7,16 @@ doc:
     - Widen the accepted origins of `establish_system_channel` and `poke_channel_deposits`.
     - Expose `max_para_request_weight`, the weight of the heaviest request a parachain makes for
       itself.
-    - Bound how many requests a non-system parachain makes: `MaxRequestsPerWindow` per window
-      of `RequestWindow` blocks. Requests involves sending XCMs which is a limited resource,
-      and we don't want to charge parachains, so a throttling mechanism is chosen.
+    - Expose `ParaRequestCalls`, the calls a parachain makes for itself, each as its pallet
+      index and its call index. It fits the `AllowedCalls` of the pallet `unpaid_transact`.
 
-    In `xcm-builder`: add the barrier `AllowUnpaidTransactFrom`, which lets an origin have one
-    call dispatched as itself without paying, under a weight bound, and the filter
-    `IsChildNonSystemParachain`.
-
-    Westend uses them to execute, for free, a call of a non-system parachain that weighs no more
-    than an HRMP request, and allows 10 requests per day to each of them.
+    Westend allows them in its pallet `unpaid_transact`, for a message that weighs no more than
+    an HRMP request: a non-system parachain gets 10 HRMP requests per day executed without
+    payment.
 crates:
 - name: polkadot-runtime-parachains
   bump: major
 - name: pallet-hrmp-relay
   bump: patch
-- name: staging-xcm-builder
-  bump: minor
 - name: westend-runtime
   bump: minor
-- name: rococo-runtime
-  bump: minor
-- name: pallet-staking-async-rc-runtime
-  bump: patch
-- name: polkadot-test-runtime
-  bump: patch
