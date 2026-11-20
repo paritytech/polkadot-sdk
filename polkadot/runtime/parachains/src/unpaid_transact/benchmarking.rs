@@ -21,10 +21,11 @@ use frame_benchmarking::v2::*;
 use frame_support::traits::Authorize;
 use frame_system::RawOrigin;
 
-/// Gives a window to a parachain that is not registered, and returns it.
+/// Gives a window that is over to a parachain that is not registered, and returns it.
 fn offboarded_para<T: Config>() -> ParaId {
 	let para = ParaId::from(1_000_000);
 	Windows::<T>::insert(para, (BlockNumberFor::<T>::zero(), 1));
+	frame_system::Pallet::<T>::set_block_number(T::Window::get());
 	para
 }
 

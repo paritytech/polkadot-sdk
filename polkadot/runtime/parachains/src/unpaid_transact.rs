@@ -108,7 +108,7 @@ pub mod pallet {
 		type Window: Get<BlockNumberFor<Self>>;
 
 		/// How often, in blocks, the offchain worker submits [`Call::remove_offboarded`] for the
-		/// parachains that are offboarded. Zero for never.
+		/// parachains that are offboarded and whose window is over. Zero for never.
 		#[pallet::constant]
 		type CleanupPeriod: Get<BlockNumberFor<Self>>;
 
@@ -120,7 +120,8 @@ pub mod pallet {
 	/// its messages counted since then.
 	///
 	/// The entry of a parachain stays once its window is over, and once the parachain is
-	/// offboarded, until [`Call::remove_offboarded`] removes it.
+	/// offboarded, until [`Call::remove_offboarded`] removes it, which it does only when both
+	/// are true.
 	#[pallet::storage]
 	pub type Windows<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, (BlockNumberFor<T>, u32), OptionQuery>;
@@ -137,7 +138,9 @@ pub mod pallet {
 			if period.is_zero() || !(now % period).is_zero() {
 				return;
 			}
-			for para in Windows::<T>::iter_keys().filter(Self::is_offboarded) {
+			let removable = Windows::<T>::iter()
+				.filter(|(para, (start, _))| Self::is_removable(para, *start, now));
+			for (para, _) in removable {
 				let call = Call::remove_offboarded { para };
 				let xt = T::create_authorized_transaction(call.into());
 				if SubmitTransaction::<T, Call<T>>::submit_transaction(xt).is_err() {
@@ -152,7 +155,7 @@ pub mod pallet {
 		/// Removes the window of `para`.
 		///
 		/// Anybody can submit it, as a general transaction without a signature. It is valid if
-		/// `para` is offboarded and has a window.
+		/// `para` is offboarded and has a window that is over.
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config>::WeightInfo::remove_offboarded())]
 		#[pallet::weight_of_authorize(<T as Config>::WeightInfo::authorize_remove_offboarded())]
@@ -174,7 +177,7 @@ impl<T: Config> Pallet<T> {
 	fn try_count(para: ParaId) -> Result<(), ()> {
 		let now = frame_system::Pallet::<T>::block_number();
 		let (start, used) = match Windows::<T>::get(para) {
-			Some((start, used)) if now.saturating_sub(start) < T::Window::get() => (start, used),
+			Some((start, used)) if !Self::is_over(start, now) => (start, used),
 			_ => (now, 0),
 		};
 		ensure!(used < T::MaxPerWindow::get(), ());
@@ -184,20 +187,35 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Whether a window that started at `start` is over at `now`.
+	fn is_over(start: BlockNumberFor<T>, now: BlockNumberFor<T>) -> bool {
+		now.saturating_sub(start) >= T::Window::get()
+	}
+
 	/// Whether `para` is not registered at all: neither onboarding, onboarded nor offboarding.
 	fn is_offboarded(para: &ParaId) -> bool {
 		paras::Pallet::<T>::lifecycle(*para).is_none()
 	}
 
-	/// A [`Call::remove_offboarded`] is valid if it removes a window, of a parachain that is
-	/// offboarded. It has the lowest priority: nothing waits for it.
+	/// Whether the window of `para`, that started at `start`, can be removed at `now`: it is
+	/// over and `para` is offboarded.
+	///
+	/// A window that is not over is kept even if `para` is offboarded: removing it would give
+	/// `para` a new window, sooner than it is due one, if it gets registered again.
+	fn is_removable(para: &ParaId, start: BlockNumberFor<T>, now: BlockNumberFor<T>) -> bool {
+		Self::is_over(start, now) && Self::is_offboarded(para)
+	}
+
+	/// A [`Call::remove_offboarded`] is valid if it removes a window that is over, of a
+	/// parachain that is offboarded. It has the lowest priority: nothing waits for it.
 	fn authorize_remove_offboarded(
 		_source: TransactionSource,
 		para: &ParaId,
 	) -> TransactionValidityWithRefund {
-		if !Windows::<T>::contains_key(para) || !Self::is_offboarded(para) {
-			return Err(InvalidTransaction::Stale.into());
-		}
+		let now = frame_system::Pallet::<T>::block_number();
+		let is_removable =
+			Windows::<T>::get(para).is_some_and(|(start, _)| Self::is_removable(para, start, now));
+		ensure!(is_removable, InvalidTransaction::Stale);
 		ValidTransaction::with_tag_prefix("UnpaidTransactRemoveOffboarded")
 			.priority(TransactionPriority::MIN)
 			.and_provides(para)
@@ -216,9 +234,13 @@ impl<T: Config> Pallet<T> {
 /// limit or one of at least the weight of the message, followed by one `Transact` with
 /// `OriginKind::Native`.
 ///
-/// The call is not decoded: only its first two bytes are read, its pallet index and its call
-/// index, to be looked for in [`Config::AllowedCalls`]. So a message is let through, and counted,
-/// even if the rest of its call does not decode, and whether its call succeeds or not. A message
+/// The barrier does not decode the call: it reads only its first two bytes, its pallet index and
+/// its call index, and looks for them in [`Config::AllowedCalls`]. Whether the rest of the call
+/// decodes is not checked here: the executor weighs a message before it runs its barrier, and a
+/// weigher that decodes the call to weigh it, as the ones of `xcm-builder` do, fails a message
+/// whose call does not decode before it gets here.
+///
+/// A message that is let through is counted, whether its call then succeeds or not. A message
 /// that is refused is not counted.
 pub struct AllowUnpaidTransact<T>(PhantomData<T>);
 impl<T: Config> ShouldExecute for AllowUnpaidTransact<T> {
@@ -246,8 +268,9 @@ impl<T: Config> ShouldExecute for AllowUnpaidTransact<T> {
 		};
 		ensure!(is_covered, ProcessMessageError::Unsupported);
 
-		// The call is not decoded, which is expensive and which the executor does not weigh for
-		// a barrier: its first two bytes are enough to tell which call it is.
+		// The first two bytes of the call are enough to tell which call it is. Decoding it here
+		// would be one more decoding, after the one of the weigher, that the executor does not
+		// weigh for a barrier.
 		let &[pallet_index, call_index, ..] = call.encoded() else {
 			return Err(ProcessMessageError::Unsupported);
 		};

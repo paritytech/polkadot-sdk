@@ -13,9 +13,9 @@ doc:
     which are the first two bytes of the encoded call. Only the messages that the barrier lets
     through are counted.
 
-    What the pallet holds for a parachain that is offboarded is removed by the call
-    `remove_offboarded`, which anybody can submit without a signature, and which the offchain
-    worker submits every `CleanupPeriod` blocks.
+    What the pallet holds for a parachain that is offboarded is removed, once the window of the
+    parachain is over, by the call `remove_offboarded`, which anybody can submit without a
+    signature, and which the offchain worker submits every `CleanupPeriod` blocks.
 
     Westend has the pallet and the barrier, with no allowed call yet.
 crates:

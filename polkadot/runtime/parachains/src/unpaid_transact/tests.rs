@@ -214,7 +214,8 @@ fn call_is_told_by_its_indices() {
 		refused(vec![]);
 		refused(vec![hrmp_index]);
 
-		// The rest of the call is not looked at: it is for the executor to decode it.
+		// The rest of the call is not looked at. It is the weigher of the executor that refuses
+		// a call that does not decode, before the barrier is run.
 		for call in [
 			vec![hrmp_index, accept.get_call_index()],
 			[allowed_call(), vec![0xff]].concat(),
@@ -259,7 +260,7 @@ fn authorize(call: &RuntimeCall) -> TransactionValidityWithRefund {
 }
 
 /// The window of a parachain stays once it is over and once the parachain is offboarded, until
-/// anybody removes it.
+/// anybody removes it, which can be done once both are true.
 #[test]
 fn window_of_an_offboarded_para_is_removed() {
 	// 2000 is registered, 2001 is not.
@@ -281,16 +282,25 @@ fn window_of_an_offboarded_para_is_removed() {
 	});
 }
 
-/// A removal is only valid for the window of an offboarded parachain. And it is only dispatched
-/// as an authorized call.
+/// A removal is only valid for the window that is over of an offboarded parachain. And it is
+/// only dispatched as an authorized call.
 #[test]
 fn other_removals_are_refused() {
 	new_test_ext(genesis_with_paras(&[2000])).execute_with(|| {
+		let stale: TransactionValidityWithRefund = Err(InvalidTransaction::Stale.into());
+
+		System::set_block_number(1);
 		assert_ok!(run_allowed(2000));
 		assert_ok!(run_allowed(2001));
+
+		// A window that is not over, up to its last block: an offboarded parachain that gets
+		// registered again does not have a new one sooner.
+		assert_eq!(authorize(&remove_offboarded(2001)), stale);
+		System::set_block_number(UnpaidTransactWindow::get());
+		assert_eq!(authorize(&remove_offboarded(2001)), stale);
+		System::set_block_number(1 + UnpaidTransactWindow::get());
 		assert_ok!(authorize(&remove_offboarded(2001)));
 
-		let stale: TransactionValidityWithRefund = Err(InvalidTransaction::Stale.into());
 		// A parachain that is registered.
 		assert_eq!(authorize(&remove_offboarded(2000)), stale);
 		// A parachain that has no window.
@@ -302,8 +312,8 @@ fn other_removals_are_refused() {
 	});
 }
 
-/// Every `CleanupPeriod`, the offchain worker submits the removal of the window of each
-/// offboarded parachain.
+/// Every `CleanupPeriod`, the offchain worker submits the removal of the window that is over of
+/// each offboarded parachain.
 #[test]
 fn offchain_worker_submits_removals() {
 	let mut ext = new_test_ext(genesis_with_paras(&[2000]));
@@ -333,11 +343,14 @@ fn offchain_worker_submits_removals() {
 		for para in [2000, 3000, 3001, 3002] {
 			Windows::<Test>::insert(ParaId::from(para), (0, 1));
 		}
+		// An offboarded parachain whose window is not over when the worker runs.
+		Windows::<Test>::insert(ParaId::from(3003), (2 * period, 1));
 
 		// Not at this block.
 		UnpaidTransact::offchain_worker(period + 1);
 		assert_eq!(submitted(), vec![]);
 
+		System::set_block_number(2 * period);
 		UnpaidTransact::offchain_worker(2 * period);
 		let calls = submitted();
 		assert_eq!(calls, (3000..3003).map(remove_offboarded).collect::<Vec<_>>());
@@ -345,6 +358,8 @@ fn offchain_worker_submits_removals() {
 			assert_ok!(authorize(&call));
 			assert_ok!(call.dispatch(RawOrigin::Authorized.into()));
 		}
-		assert_eq!(Windows::<Test>::iter_keys().collect::<Vec<_>>(), vec![ParaId::from(2000)]);
+		let mut left = Windows::<Test>::iter_keys().collect::<Vec<_>>();
+		left.sort();
+		assert_eq!(left, vec![ParaId::from(2000), ParaId::from(3003)]);
 	});
 }
