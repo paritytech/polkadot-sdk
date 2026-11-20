@@ -101,14 +101,14 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 
 	let patch = match id.as_ref() {
 		sp_genesis_builder::DEV_RUNTIME_PRESET => kitchensink_genesis(
-			vec![(alice_stash.clone(), alice_stash, alice_session_keys)],
-			alice,
+			vec![(alice_stash.clone(), alice_stash.clone(), alice_session_keys)],
+			alice.clone(),
 			endowed,
 		),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => kitchensink_genesis(
 			vec![
-				(alice_stash.clone(), alice_stash, alice_session_keys),
-				(bob_stash.clone(), bob_stash, bob_session_keys),
+				(alice_stash.clone(), alice_stash.clone(), alice_session_keys),
+				(bob_stash.clone(), bob_stash.clone(), bob_session_keys),
 			],
 			alice,
 			endowed,

@@ -231,29 +231,6 @@ pub fn staging_testnet_config() -> ChainSpec {
 		.build()
 }
 
-/// Adds the `initial_authorities` to the `endowed_accounts` if missing.
-fn endow_authorities(
-	initial_authorities: &[(
-		AccountId,
-		AccountId,
-		GrandpaId,
-		BabeId,
-		ImOnlineId,
-		AuthorityDiscoveryId,
-		MixnetId,
-		BeefyId,
-	)],
-	endowed_accounts: Vec<AccountId>,
-) -> Vec<AccountId> {
-	let mut endowed_accounts = endowed_accounts;
-	initial_authorities.iter().map(|x| &x.0).for_each(|x| {
-		if !endowed_accounts.contains(x) {
-			endowed_accounts.push(x.clone())
-		}
-	});
-	endowed_accounts
-}
-
 /// Helper function to create RuntimeGenesisConfig json patch for testing.
 pub fn testnet_genesis_patch(
 	initial_authorities: Vec<(
@@ -267,9 +244,13 @@ pub fn testnet_genesis_patch(
 		BeefyId,
 	)>,
 	root_key: AccountId,
-	endowed_accounts: Vec<AccountId>,
+	mut endowed_accounts: Vec<AccountId>,
 ) -> serde_json::Value {
-	let endowed_accounts = endow_authorities(&initial_authorities, endowed_accounts);
+	for authority in &initial_authorities {
+		if !endowed_accounts.contains(&authority.0) {
+			endowed_accounts.push(authority.0.clone());
+		}
+	}
 
 	let collective = collective(&endowed_accounts);
 

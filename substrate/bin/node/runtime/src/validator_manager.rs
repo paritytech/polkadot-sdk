@@ -67,7 +67,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Add `validators` to the set at the next planned session.
 		///
-		/// A validator that has no session keys when the session is planned is left out.
+		/// The planned session leaves out a validator that has no session keys.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(2, 2))]
 		pub fn register_validators(
@@ -119,7 +119,7 @@ impl<T: Config> pallet_session::SessionManager<T::ValidatorId> for Pallet<T> {
 		// same validators, or every key ownership proof for the session fails.
 		validators.retain(|v| pallet_session::Pallet::<T>::load_keys(v).is_some());
 		if validators.is_empty() {
-			// BABE cannot author a block in an epoch without authorities, so the chain would halt.
+			// An epoch without authorities stops the chain, because BABE cannot author a block.
 			log::error!(
 				target: "runtime::validator-manager",
 				"The planned validator set for session {new_index} is empty, keeping the current set",

@@ -32,11 +32,7 @@
     "maxValidatorCount": null,
     "maxNominatorCount": null,
     "devStakers": null,
-    "activeEra": [
-      0,
-      0,
-      0
-    ]
+    "activeEra": [0, 0, 0]
   },
   "session": {
     "keys": [],

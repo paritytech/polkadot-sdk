@@ -140,11 +140,10 @@ pub mod constants;
 use constants::{currency::*, time::*};
 use sp_runtime::generic::Era;
 
-/// A proof-of-authority validator set.
-mod validator_manager;
-
 /// Generated voter bag information.
 mod voter_bags;
+
+mod validator_manager;
 
 /// Runtime API definition for assets.
 pub mod assets_api;
@@ -181,7 +180,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set impl_version to 0. If only runtime
 	// implementation changes and behavior does not, then leave spec_version as
 	// is and increment impl_version.
-	spec_version: 273,
+	spec_version: 272,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -681,7 +680,7 @@ impl pallet_session::Config for Runtime {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, ValidatorManager>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
-	type DisablingStrategy = ();
+	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
 	type Currency = Balances;
 	type KeyDeposit = ();
@@ -707,8 +706,9 @@ parameter_types! {
 	pub const SlashDeferDuration: sp_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
 	pub const NominatorFastUnbondDuration: sp_staking::EraIndex = 2;
 	pub const MaxControllersInDeprecationBatch: u32 = 5900;
+	pub HistoryDepth: u32 = 84;
 	pub const StakingPotsPalletId: PalletId = PalletId(*b"py/stkng");
-	pub MaxPruningItems: u32 = 100;
+	pub const MaxPruningItems: u32 = 100;
 }
 
 /// Upper limit on the number of NPOS nominations.
@@ -728,16 +728,16 @@ impl pallet_staking_async_rc_client::RcClientInterface for NoRelayChain {
 // No relay chain sends session reports, so the active era stays at its genesis value and unbonded
 // funds never unlock.
 impl pallet_staking_async::Config for Runtime {
-	type Filter = Nothing;
 	type OldCurrency = Balances;
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
 	type RewardRemainder = ResolveTo<TreasuryAccount, Balances>;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Slash = ResolveTo<TreasuryAccount, Balances>; // send the slashed funds to the treasury.
-	type Reward = ();
+	type Reward = (); // rewards are minted from the void
 	type SessionsPerEra = SessionsPerEra;
+	type PlanningEraOffset = ConstU32<1>;
 	type BondingDuration = BondingDuration;
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type SlashDeferDuration = SlashDeferDuration;
@@ -747,26 +747,26 @@ impl pallet_staking_async::Config for Runtime {
 		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
 	>;
 	type EraPayout = ();
-	type MaxExposurePageSize = ConstU32<256>;
-	type ElectionProvider = NoElection<(AccountId, BlockNumber, Staking, (), ())>;
-	type VoterList = VoterList;
-	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
-	type MaxValidatorSet = ConstU32<1000>;
-	type NominationsQuota = pallet_staking_async::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
-	type MaxUnlockingChunks = ConstU32<32>;
-	type HistoryDepth = ConstU32<84>;
-	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
-	type EventListeners = (NominationPools, DelegatedStaking);
-	type PlanningEraOffset = ConstU32<1>;
-	type RcClientInterface = NoRelayChain;
-	type MaxEraDuration = ();
 	type DisableMinting = ConstBool<false>;
 	type UnclaimedRewardHandler = ();
 	type RewardPots = pallet_staking_async::Seed<StakingPotsPalletId>;
-	type StakerRewardCalculator =
-		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
+	type StakerRewardCalculator = ();
+	type MaxExposurePageSize = ConstU32<256>;
+	type ElectionProvider = NoElection<(AccountId, BlockNumber, Staking, (), ())>;
+	type VoterList = VoterList;
+	type NominationsQuota = pallet_staking_async::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
+	// This a placeholder, to be introduced in the next PR as an instance of bags-list
+	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
+	type MaxUnlockingChunks = ConstU32<32>;
+	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
+	type HistoryDepth = HistoryDepth;
+	type EventListeners = (NominationPools, DelegatedStaking);
+	type MaxEraDuration = ();
 	type MaxPruningItems = MaxPruningItems;
+	type RcClientInterface = NoRelayChain;
 	type WeightInfo = pallet_staking_async::weights::SubstrateWeight<Runtime>;
+	type Filter = Nothing;
+	type MaxValidatorSet = ConstU32<1000>;
 	type IsValidatorInactive = ();
 	type OnEraStart = ();
 }
@@ -3187,6 +3187,7 @@ impl pallet_oracle::BenchmarkHelper<u32, u128, OracleMaxFeedValues> for OracleBe
 		let mut rng = rand_pcg::Pcg32::seed_from_u64(0x1234567890ABCDEF);
 		let max_values = OracleMaxFeedValues::get() as usize;
 
+		// Generate random pairs like in election-provider-multi-phase
 		let currency_range = Uniform::new_inclusive(1, 1000);
 		let value_range = Uniform::new_inclusive(1000, 1_000_000);
 
