@@ -49,7 +49,7 @@ macro_rules! impl_elections_weights {
 /// to ensure election snapshot will not run out of memory. For now, we set them to smaller values
 /// since the staking is bounded and the weight pipeline takes hours for this single pallet.
 #[deprecated(
-	note = "`BenchmarkConfig` will be removed after May 2027, together with `pallet-election-provider-multi-phase`."
+	note = "`BenchmarkConfig` will be removed after November 2027, together with `pallet-election-provider-multi-phase`."
 )]
 pub struct BenchmarkConfig;
 #[allow(deprecated)]

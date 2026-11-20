@@ -1,16 +1,32 @@
-title: Deprecate `pallet-election-provider-multi-phase`
+title: Deprecate the legacy staking pallets
 doc:
 - audience: Runtime Dev
   description: |-
-    `pallet-election-provider-multi-phase` is deprecated and will be removed after May 2027. Use `pallet-staking-async` with `pallet-election-provider-multi-block` instead.
-
-    A runtime that removes the pallet must clear its storage, for example with `frame_support::migrations::RemovePallet`.
-
-    `pallet-offences` gets a benchmark in `pallet_offences::benchmarking` that does not need a staking pallet.
+    `pallet-staking`, `pallet-fast-unstake` and `pallet-election-provider-multi-phase` are deprecated and will be removed after November 2027. Use `pallet-staking-async` instead, with `pallet-election-provider-multi-block` for elections.
 crates:
+- name: pallet-staking
+  bump: minor
+- name: pallet-fast-unstake
+  bump: minor
 - name: pallet-election-provider-multi-phase
   bump: minor
 - name: polkadot-runtime-common
   bump: minor
-- name: pallet-offences
-  bump: minor
+- name: polkadot-runtime-parachains
+  bump: none
+- name: pallet-babe
+  bump: none
+- name: pallet-beefy
+  bump: none
+- name: pallet-delegated-staking
+  bump: none
+- name: pallet-grandpa
+  bump: none
+- name: pallet-offences-benchmarking
+  bump: none
+- name: pallet-root-offences
+  bump: none
+- name: pallet-session-benchmarking
+  bump: none
+- name: generate-bags
+  bump: none

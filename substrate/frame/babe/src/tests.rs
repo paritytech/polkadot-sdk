@@ -402,6 +402,7 @@ fn tracks_block_numbers_when_current_and_previous_epoch_started() {
 }
 
 #[test]
+#[allow(deprecated)]
 #[should_panic(
 	expected = "Validator with index 0 is disabled and should not be attempting to author blocks."
 )]

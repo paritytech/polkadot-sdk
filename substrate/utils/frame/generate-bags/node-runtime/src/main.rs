@@ -18,7 +18,7 @@
 //! Make the set of bag thresholds to be used with pallet-bags-list.
 
 use clap::Parser;
-use generate_bags::generate_thresholds_async;
+use generate_bags::generate_thresholds;
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
@@ -43,7 +43,7 @@ struct Opt {
 
 fn main() -> Result<(), std::io::Error> {
 	let Opt { n_bags, output, total_issuance, minimum_balance } = Opt::parse();
-	generate_thresholds_async::<kitchensink_runtime::Runtime>(
+	generate_thresholds::<kitchensink_runtime::Runtime>(
 		n_bags,
 		&output,
 		total_issuance,

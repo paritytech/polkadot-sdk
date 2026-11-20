@@ -288,6 +288,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
+#![allow(deprecated)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;

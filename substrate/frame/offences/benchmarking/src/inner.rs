@@ -17,6 +17,8 @@
 
 //! Offences pallet benchmarking.
 
+#![allow(deprecated)]
+
 use alloc::{vec, vec::Vec};
 use frame_benchmarking::v2::*;
 use frame_support::traits::Get;

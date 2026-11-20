@@ -18,6 +18,7 @@
 //! Test utilities
 
 #![cfg(test)]
+#![allow(deprecated)]
 
 use crate::{self as pallet_grandpa, AuthorityId, AuthorityList, Config, ConsensusLog};
 use codec::Encode;

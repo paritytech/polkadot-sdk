@@ -22,8 +22,6 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking;
 pub mod migration;
 mod mock;
 mod tests;

@@ -21,9 +21,10 @@
 use crate::keyring::*;
 use kitchensink_runtime::{
 	constants::currency::*, AccountId, AssetsConfig, BalancesConfig, IndicesConfig,
-	RuntimeGenesisConfig, SessionConfig, SocietyConfig,
+	RuntimeGenesisConfig, SessionConfig, SocietyConfig, StakerStatus, StakingConfig,
 };
 use sp_keyring::Ed25519Keyring;
+use sp_runtime::Perbill;
 
 /// Create genesis runtime configuration for tests.
 pub fn config() -> RuntimeGenesisConfig {
@@ -32,6 +33,7 @@ pub fn config() -> RuntimeGenesisConfig {
 
 /// Create genesis runtime configuration for tests with some extra
 /// endowed accounts.
+#[allow(deprecated)]
 pub fn config_endowed(extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
 	let mut endowed = vec![
 		(alice(), 111 * DOLLARS),
@@ -53,6 +55,18 @@ pub fn config_endowed(extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
 				(bob(), eve(), session_keys_from_seed(Ed25519Keyring::Bob.into())),
 				(charlie(), ferdie(), session_keys_from_seed(Ed25519Keyring::Charlie.into())),
 			],
+			..Default::default()
+		},
+		staking: StakingConfig {
+			stakers: vec![
+				(dave(), dave(), 111 * DOLLARS, StakerStatus::Validator),
+				(eve(), eve(), 100 * DOLLARS, StakerStatus::Validator),
+				(ferdie(), ferdie(), 100 * DOLLARS, StakerStatus::Validator),
+			],
+			validator_count: 3,
+			minimum_validator_count: 0,
+			slash_reward_fraction: Perbill::from_percent(10),
+			invulnerables: vec![alice(), bob(), charlie()],
 			..Default::default()
 		},
 		society: SocietyConfig { pot: 0 },

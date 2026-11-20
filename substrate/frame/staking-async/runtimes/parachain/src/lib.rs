@@ -20,6 +20,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(non_local_definitions)]
 #![recursion_limit = "512"]
+// `construct_runtime!` generates crate-level code that uses deprecated pallet items.
+#![allow(deprecated)]
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]

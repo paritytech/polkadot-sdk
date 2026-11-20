@@ -20,6 +20,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limits.
 #![recursion_limit = "1024"]
+// `frame_support::runtime` generates crate-level code that uses deprecated pallet items.
+#![allow(deprecated)]
 
 extern crate alloc;
 
@@ -36,7 +38,10 @@ use polkadot_sdk::*;
 
 use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_election_provider_support::{NoElection, VoteWeight};
+use frame_election_provider_support::{
+	bounds::{ElectionBounds, ElectionBoundsBuilder},
+	onchain, BalancingConfig, ElectionDataProvider, SequentialPhragmen, VoteWeight,
+};
 use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
@@ -81,6 +86,7 @@ use pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAss
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_assets_precompiles::{InlineIdConfig, ERC20};
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, TaskId};
+use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
@@ -107,6 +113,7 @@ use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
+	curve::PiecewiseLinear,
 	generic, impl_opaque_keys, str_array as s,
 	traits::{
 		self, AccountIdConversion, BlakeTwo256, Block as BlockT, Bounded, ConvertInto,
@@ -129,6 +136,8 @@ pub use pallet_sudo::Call as SudoCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
+pub use pallet_staking::StakerStatus;
+
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 #[cfg(not(feature = "runtime-benchmarks"))]
@@ -142,8 +151,6 @@ use sp_runtime::generic::Era;
 
 /// Generated voter bag information.
 mod voter_bags;
-
-mod validator_manager;
 
 /// Runtime API definition for assets.
 pub mod assets_api;
@@ -180,7 +187,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set impl_version to 0. If only runtime
 	// implementation changes and behavior does not, then leave spec_version as
 	// is and increment impl_version.
-	spec_version: 272,
+	spec_version: 271,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -458,7 +465,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 					RuntimeCall::Elections(..) |
 					RuntimeCall::Treasury(..)
 			),
-			ProxyType::Staking => matches!(c, RuntimeCall::Staking(..)),
+			ProxyType::Staking => {
+				matches!(c, RuntimeCall::Staking(..) | RuntimeCall::FastUnstake(..))
+			},
 		}
 	}
 	fn is_superset(&self, o: &Self) -> bool {
@@ -554,7 +563,7 @@ impl pallet_babe::Config for Runtime {
 	type DisabledValidators = Session;
 	type WeightInfo = ();
 	type MaxAuthorities = MaxAuthorities;
-	type MaxNominators = ConstU32<0>;
+	type MaxNominators = MaxNominators;
 	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem =
 		pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
@@ -657,7 +666,7 @@ impl pallet_timestamp::Config for Runtime {
 
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-	type EventHandler = ImOnline;
+	type EventHandler = (Staking, ImOnline);
 }
 
 impl_opaque_keys! {
@@ -677,7 +686,7 @@ impl pallet_session::Config for Runtime {
 	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
-	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, ValidatorManager>;
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
 	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
@@ -686,89 +695,80 @@ impl pallet_session::Config for Runtime {
 	type KeyDeposit = ();
 }
 
-parameter_types! {
-	pub const UnitIdentification: Option<()> = Some(());
-}
-
 impl pallet_session::historical::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
-	type FullIdentificationOf = sp_runtime::traits::ConvertToValue<UnitIdentification>;
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
-impl validator_manager::Config for Runtime {
-	type PrivilegedOrigin = EnsureRoot<AccountId>;
+pallet_staking_reward_curve::build! {
+	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
+		min_inflation: 0_025_000,
+		max_inflation: 0_100_000,
+		ideal_stake: 0_500_000,
+		falloff: 0_050_000,
+		max_piece_count: 40,
+		test_precision: 0_005_000,
+	);
 }
 
 parameter_types! {
 	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
 	pub const BondingDuration: sp_staking::EraIndex = 24 * 28;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
-	pub const NominatorFastUnbondDuration: sp_staking::EraIndex = 2;
+	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
+	pub const MaxNominators: u32 = 64;
 	pub const MaxControllersInDeprecationBatch: u32 = 5900;
+	pub OffchainRepeat: BlockNumber = 5;
 	pub HistoryDepth: u32 = 84;
-	pub const StakingPotsPalletId: PalletId = PalletId(*b"py/stkng");
-	pub const MaxPruningItems: u32 = 100;
 }
 
 /// Upper limit on the number of NPOS nominations.
 const MAX_QUOTA_NOMINATIONS: u32 = 16;
 
-/// The relay-chain client of `pallet_staking_async` in a chain without a relay chain.
-///
-/// `NoElection` never elects, so staking never calls `validator_set`. `ValidatorManager` sets the
-/// session validators.
-pub struct NoRelayChain;
-impl pallet_staking_async_rc_client::RcClientInterface for NoRelayChain {
-	type AccountId = AccountId;
-
-	fn validator_set(_: Vec<AccountId>, _: u32, _: Option<u32>) {}
+pub struct StakingBenchmarkingConfig;
+impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
+	type MaxNominators = ConstU32<5000>;
+	type MaxValidators = ConstU32<1000>;
 }
 
-// No relay chain sends session reports, so the active era stays at its genesis value and unbonded
-// funds never unlock.
-impl pallet_staking_async::Config for Runtime {
+impl pallet_staking::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
+	type UnixTime = Timestamp;
 	type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
 	type RewardRemainder = ResolveTo<TreasuryAccount, Balances>;
+	type RuntimeEvent = RuntimeEvent;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Slash = ResolveTo<TreasuryAccount, Balances>; // send the slashed funds to the treasury.
 	type Reward = (); // rewards are minted from the void
 	type SessionsPerEra = SessionsPerEra;
-	type PlanningEraOffset = ConstU32<1>;
 	type BondingDuration = BondingDuration;
-	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	/// A super-majority of the council can cancel the slash.
 	type AdminOrigin = EitherOfDiverse<
 		EnsureRoot<AccountId>,
 		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
 	>;
-	type EraPayout = ();
-	type DisableMinting = ConstBool<false>;
-	type UnclaimedRewardHandler = ();
-	type RewardPots = pallet_staking_async::Seed<StakingPotsPalletId>;
-	type StakerRewardCalculator = ();
+	type SessionInterface = Self;
+	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type NextNewSession = Session;
 	type MaxExposurePageSize = ConstU32<256>;
-	type ElectionProvider = NoElection<(AccountId, BlockNumber, Staking, (), ())>;
+	type ElectionProvider = ElectionProviderMultiPhase;
+	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
-	type NominationsQuota = pallet_staking_async::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
+	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
 	// This a placeholder, to be introduced in the next PR as an instance of bags-list
-	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
+	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type MaxUnlockingChunks = ConstU32<32>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type HistoryDepth = HistoryDepth;
 	type EventListeners = (NominationPools, DelegatedStaking);
-	type MaxEraDuration = ();
-	type MaxPruningItems = MaxPruningItems;
-	type RcClientInterface = NoRelayChain;
-	type WeightInfo = pallet_staking_async::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
+	type BenchmarkingConfig = StakingBenchmarkingConfig;
 	type Filter = Nothing;
 	type MaxValidatorSet = ConstU32<1000>;
-	type IsValidatorInactive = ();
-	type OnEraStart = ();
 }
 
 parameter_types! {
@@ -787,6 +787,169 @@ impl pallet_dap::Config for Runtime {
 	type MaxElapsedPerDrip = DapMaxElapsedPerDrip;
 	type BudgetOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = ();
+}
+
+impl pallet_fast_unstake::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ControlOrigin = frame_system::EnsureRoot<AccountId>;
+	type BatchSize = ConstU32<64>;
+	type Deposit = ConstU128<{ DOLLARS }>;
+	type Currency = Balances;
+	type Staking = Staking;
+	type MaxErasToCheckPerBlock = ConstU32<1>;
+	type WeightInfo = ();
+}
+parameter_types! {
+	// phase durations. 1/4 of the last session for each.
+	pub const SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
+	pub const UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
+
+	// signed config
+	pub const SignedRewardBase: Balance = 1 * DOLLARS;
+	pub const SignedFixedDeposit: Balance = 1 * DOLLARS;
+	pub const SignedDepositIncreaseFactor: Percent = Percent::from_percent(10);
+	pub const SignedDepositByte: Balance = 1 * CENTS;
+
+	// miner configs
+	pub const MultiPhaseUnsignedPriority: TransactionPriority = StakingUnsignedPriority::get() - 1u64;
+	pub MinerMaxWeight: Weight = RuntimeBlockWeights::get()
+		.get(DispatchClass::Normal)
+		.max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
+		.saturating_sub(BlockExecutionWeight::get());
+	// Solution can occupy 90% of normal block size
+	pub MinerMaxLength: u32 = Perbill::from_rational(9u32, 10) *
+		*RuntimeBlockLength::get()
+		.max
+		.get(DispatchClass::Normal);
+}
+
+frame_election_provider_support::generate_solution_type!(
+	#[compact]
+	pub struct NposSolution16::<
+		VoterIndex = u32,
+		TargetIndex = u16,
+		Accuracy = sp_runtime::PerU16,
+		MaxVoters = MaxElectingVotersSolution,
+	>(16)
+);
+
+parameter_types! {
+	// Note: the EPM in this runtime runs the election on-chain. The election bounds must be
+	// carefully set so that an election round fits in one block.
+	pub ElectionBoundsMultiPhase: ElectionBounds = ElectionBoundsBuilder::default()
+		.voters_count(10_000.into()).targets_count(1_500.into()).build();
+	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
+		.voters_count(5_000.into()).targets_count(1_250.into()).build();
+
+	pub MaxNominations: u32 = <NposSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
+	pub MaxElectingVotersSolution: u32 = 40_000;
+	// The maximum winners that can be elected by the Election pallet which is equivalent to the
+	// maximum active validators the staking pallet can have.
+	pub MaxActiveValidators: u32 = 1000;
+}
+
+/// The numbers configured here could always be more than the the maximum limits of staking pallet
+/// to ensure election snapshot will not run out of memory. For now, we set them to smaller values
+/// since the staking is bounded and the weight pipeline takes hours for this single pallet.
+pub struct ElectionProviderBenchmarkConfig;
+impl pallet_election_provider_multi_phase::BenchmarkingConfig for ElectionProviderBenchmarkConfig {
+	const VOTERS: [u32; 2] = [1000, 2000];
+	const TARGETS: [u32; 2] = [500, 1000];
+	const ACTIVE_VOTERS: [u32; 2] = [500, 800];
+	const DESIRED_TARGETS: [u32; 2] = [200, 400];
+	const SNAPSHOT_MAXIMUM_VOTERS: u32 = 1000;
+	const MINER_MAXIMUM_VOTERS: u32 = 1000;
+	const MAXIMUM_TARGETS: u32 = 300;
+}
+
+/// Maximum number of iterations for balancing that will be executed in the embedded OCW
+/// miner of election provider multi phase.
+pub const MINER_MAX_ITERATIONS: u32 = 10;
+
+/// A source of random balance for NposSolver, which is meant to be run by the OCW election miner.
+pub struct OffchainRandomBalancing;
+impl Get<Option<BalancingConfig>> for OffchainRandomBalancing {
+	fn get() -> Option<BalancingConfig> {
+		use sp_runtime::traits::TrailingZeroInput;
+		let iterations = match MINER_MAX_ITERATIONS {
+			0 => 0,
+			max => {
+				let seed = sp_io::offchain::random_seed();
+				let random = <u32>::decode(&mut TrailingZeroInput::new(&seed))
+					.expect("input is padded with zeroes; qed") %
+					max.saturating_add(1);
+				random as usize
+			},
+		};
+
+		let config = BalancingConfig { iterations, tolerance: 0 };
+		Some(config)
+	}
+}
+
+pub struct OnChainSeqPhragmen;
+impl onchain::Config for OnChainSeqPhragmen {
+	type Sort = ConstBool<true>;
+	type System = Runtime;
+	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
+	type DataProvider = Staking;
+	type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
+	type Bounds = ElectionBoundsOnChain;
+	type MaxBackersPerWinner = MaxElectingVotersSolution;
+	type MaxWinnersPerPage = MaxActiveValidators;
+}
+
+impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
+	type AccountId = AccountId;
+	type MaxLength = MinerMaxLength;
+	type MaxWeight = MinerMaxWeight;
+	type Solution = NposSolution16;
+	type MaxVotesPerVoter =
+	<<Self as pallet_election_provider_multi_phase::Config>::DataProvider as ElectionDataProvider>::MaxVotesPerVoter;
+	type MaxWinners = MaxActiveValidators;
+	type MaxBackersPerWinner = MaxElectingVotersSolution;
+
+	// The unsigned submissions have to respect the weight of the submit_unsigned call, thus their
+	// weight estimate function is wired to this call's weight.
+	fn solution_weight(v: u32, t: u32, a: u32, d: u32) -> Weight {
+		<
+			<Self as pallet_election_provider_multi_phase::Config>::WeightInfo
+			as
+			pallet_election_provider_multi_phase::WeightInfo
+		>::submit_unsigned(v, t, a, d)
+	}
+}
+
+impl pallet_election_provider_multi_phase::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type EstimateCallFee = TransactionPayment;
+	type SignedPhase = SignedPhase;
+	type UnsignedPhase = UnsignedPhase;
+	type BetterSignedThreshold = ();
+	type OffchainRepeat = OffchainRepeat;
+	type MinerTxPriority = MultiPhaseUnsignedPriority;
+	type MinerConfig = Self;
+	type SignedMaxSubmissions = ConstU32<10>;
+	type SignedRewardBase = SignedRewardBase;
+	type SignedDepositBase =
+		GeometricDepositBase<Balance, SignedFixedDeposit, SignedDepositIncreaseFactor>;
+	type SignedDepositByte = SignedDepositByte;
+	type SignedMaxRefunds = ConstU32<3>;
+	type SignedDepositWeight = ();
+	type SignedMaxWeight = MinerMaxWeight;
+	type SlashHandler = (); // burn slashes
+	type RewardHandler = (); // rewards are minted from the void
+	type DataProvider = Staking;
+	type Fallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
+	type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
+	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Self>, OffchainRandomBalancing>;
+	type ForceOrigin = EnsureRootOrHalfCouncil;
+	type MaxWinners = MaxActiveValidators;
+	type ElectionBounds = ElectionBoundsMultiPhase;
+	type BenchmarkingConfig = ElectionProviderBenchmarkConfig;
+	type WeightInfo = pallet_election_provider_multi_phase::weights::SubstrateWeight<Self>;
+	type MaxBackersPerWinner = MaxElectingVotersSolution;
 }
 
 parameter_types! {
@@ -1449,6 +1612,8 @@ impl pallet_sudo::Config for Runtime {
 
 parameter_types! {
 	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
+	/// We prioritize im-online heartbeats over election solution submission.
+	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::MAX / 2;
 	pub const MaxAuthorities: u32 = 1000;
 	pub const MaxKeys: u32 = 10_000;
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
@@ -1581,7 +1746,7 @@ impl pallet_im_online::Config for Runtime {
 impl pallet_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
-	type OnOffenceHandler = ();
+	type OnOffenceHandler = Staking;
 }
 
 impl pallet_authority_discovery::Config for Runtime {
@@ -1596,7 +1761,7 @@ impl pallet_grandpa::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type MaxAuthorities = MaxAuthorities;
-	type MaxNominators = ConstU32<0>;
+	type MaxNominators = MaxNominators;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem =
@@ -2767,8 +2932,8 @@ mod runtime {
 	#[runtime::pallet_index(3)]
 	pub type Timestamp = pallet_timestamp::Pallet<Runtime>;
 
-	// Authorship must be before session in order to note author in the correct session for
-	// im-online.
+	// Authorship must be before session in order to note author in the correct session and era
+	// for im-online and staking.
 	#[runtime::pallet_index(4)]
 	pub type Authorship = pallet_authorship::Pallet<Runtime>;
 
@@ -2784,8 +2949,11 @@ mod runtime {
 	#[runtime::pallet_index(9)]
 	pub type AssetConversionTxPayment = pallet_asset_conversion_tx_payment::Pallet<Runtime>;
 
+	#[runtime::pallet_index(10)]
+	pub type ElectionProviderMultiPhase = pallet_election_provider_multi_phase::Pallet<Runtime>;
+
 	#[runtime::pallet_index(11)]
-	pub type Staking = pallet_staking_async::Pallet<Runtime>;
+	pub type Staking = pallet_staking::Pallet<Runtime>;
 
 	#[runtime::pallet_index(12)]
 	pub type Session = pallet_session::Pallet<Runtime>;
@@ -2951,6 +3119,9 @@ mod runtime {
 	#[runtime::pallet_index(65)]
 	pub type AssetConversion = pallet_asset_conversion::Pallet<Runtime>;
 
+	#[runtime::pallet_index(66)]
+	pub type FastUnstake = pallet_fast_unstake::Pallet<Runtime>;
+
 	#[runtime::pallet_index(67)]
 	pub type MessageQueue = pallet_message_queue::Pallet<Runtime>;
 
@@ -3046,9 +3217,6 @@ mod runtime {
 
 	#[runtime::pallet_index(100)]
 	pub type HrmpPara = pallet_hrmp_para::Pallet<Runtime>;
-
-	#[runtime::pallet_index(101)]
-	pub type ValidatorManager = validator_manager::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3372,8 +3540,10 @@ mod benches {
 		[pallet_asset_rewards, AssetRewards]
 		[pallet_asset_conversion_tx_payment, AssetConversionTxPayment]
 		[pallet_transaction_payment, TransactionPayment]
+		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		[pallet_elections_phragmen, Elections]
+		[pallet_fast_unstake, FastUnstake]
 		[pallet_nis, Nis]
 		[pallet_parameters, Parameters]
 		[pallet_grandpa, Grandpa]
@@ -3408,6 +3578,7 @@ mod benches {
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_society, Society]
 		[pallet_dap, Dap]
+		[pallet_staking, Staking]
 		[pallet_state_trie_migration, StateTrieMigration]
 		[pallet_sudo, Sudo]
 		[frame_system, SystemBench::<Runtime>]
@@ -4058,9 +4229,9 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 			// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
 			// issues. To get around that, we separated the Session benchmarks into its own crate,
-			// which is why we need the line below.
-			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-			use pallet_offences::benchmarking::Pallet as OffencesBench;
+			// which is why we need these two lines below.
+			use pallet_session_benchmarking::Pallet as SessionBench;
+			use pallet_offences_benchmarking::Pallet as OffencesBench;
 			use pallet_election_provider_support_benchmarking::Pallet as EPSBench;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
@@ -4083,25 +4254,21 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 			// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
 			// issues. To get around that, we separated the Session benchmarks into its own crate,
-			// which is why we need the line below.
-			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-			use pallet_offences::benchmarking::Pallet as OffencesBench;
+			// which is why we need these two lines below.
+			use pallet_session_benchmarking::Pallet as SessionBench;
+			use pallet_offences_benchmarking::Pallet as OffencesBench;
 			use pallet_election_provider_support_benchmarking::Pallet as EPSBench;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use baseline::Pallet as BaselineBench;
 
-			impl cumulus_pallet_session_benchmarking::Config for Runtime {
+			impl pallet_session_benchmarking::Config for Runtime {
 				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
 					let keys = SessionKeys::generate(&owner.encode(), None);
 					(keys.keys, keys.proof.encode())
 				}
 			}
-			impl pallet_offences::benchmarking::Config for Runtime {
-				fn offender() -> Self::IdentificationTuple {
-					(frame_benchmarking::account("offender", 0, 0), ())
-				}
-			}
+			impl pallet_offences_benchmarking::Config for Runtime {}
 			impl pallet_election_provider_support_benchmarking::Config for Runtime {}
 			impl frame_system_benchmarking::Config for Runtime {}
 			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}

@@ -62,6 +62,9 @@ use crate::{
 pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 
 #[frame_support::pallet]
+#[deprecated(
+	note = "`pallet-staking` will be removed after November 2027. Use `pallet-staking-async` instead."
+)]
 pub mod pallet {
 	use super::*;
 	use codec::HasCompact;

@@ -14494,7 +14494,6 @@ dependencies = [
 name = "pallet-offences"
 version = "27.0.0"
 dependencies = [
- "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
@@ -15475,6 +15474,7 @@ dependencies = [
  "pallet-beefy",
  "pallet-beefy-mmr",
  "pallet-conviction-voting",
+ "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
  "pallet-fast-unstake",
  "pallet-grandpa",
@@ -27238,6 +27238,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk",
  "pretty_assertions",
+ "rand 0.8.8",
  "regex",
  "sc-service-test",
  "scale-info",

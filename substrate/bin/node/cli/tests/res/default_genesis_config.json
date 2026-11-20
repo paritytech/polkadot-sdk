@@ -23,6 +23,8 @@
   },
   "staking": {
     "validatorCount": 0,
+    "minimumValidatorCount": 0,
+    "invulnerables": [],
     "forceEra": "NotForcing",
     "slashRewardFraction": 0,
     "canceledPayout": 0,
@@ -30,9 +32,7 @@
     "minNominatorBond": 0,
     "minValidatorBond": 0,
     "maxValidatorCount": null,
-    "maxNominatorCount": null,
-    "devStakers": null,
-    "activeEra": [0, 0, 0]
+    "maxNominatorCount": null
   },
   "session": {
     "keys": [],

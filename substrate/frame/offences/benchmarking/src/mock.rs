@@ -17,6 +17,8 @@
 
 //! Mock file for offences benchmarking.
 
+#![allow(deprecated)]
+
 use codec::Encode;
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},

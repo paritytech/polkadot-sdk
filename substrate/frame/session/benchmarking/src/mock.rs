@@ -18,6 +18,7 @@
 //! Mock file for session benchmarking.
 
 #![cfg(test)]
+#![allow(deprecated)]
 
 use codec::Encode;
 use frame_election_provider_support::{

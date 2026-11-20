@@ -593,7 +593,7 @@ impl From<sp_npos_elections::Error> for FeasibilityError {
 pub use pallet::*;
 #[frame_support::pallet]
 #[deprecated(
-	note = "`pallet-election-provider-multi-phase` will be removed after May 2027. Use `pallet-staking-async` with `pallet-election-provider-multi-block` instead."
+	note = "`pallet-election-provider-multi-phase` will be removed after November 2027. Use `pallet-staking-async` with `pallet-election-provider-multi-block` instead."
 )]
 pub mod pallet {
 	use super::*;
