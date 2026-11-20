@@ -1022,6 +1022,77 @@ mod tests {
 		check_offchain_content(&overlayed, 0, vec![(key.clone(), None)]);
 	}
 
+	fn add_renew(overlayed: &mut OverlayedChanges<Blake2Hasher>, extrinsic: u32) {
+		overlayed.add_transaction_index(IndexOperation::Renew { extrinsic, hash: vec![] });
+	}
+
+	fn renewed_extrinsics(overlayed: &OverlayedChanges<Blake2Hasher>) -> Vec<u32> {
+		overlayed
+			.transaction_index_ops()
+			.iter()
+			.map(|op| match op {
+				IndexOperation::Renew { extrinsic, .. } => *extrinsic,
+				IndexOperation::Insert { .. } => panic!("only renews are added"),
+			})
+			.collect()
+	}
+
+	// The node indexes whatever these operations name, while the runtime only keeps a record of
+	// it when the dispatch succeeds. An operation outliving a rollback makes the two disagree.
+	#[test]
+	fn transaction_index_ops_follow_storage_transactions() {
+		let mut overlayed = OverlayedChanges::default();
+
+		add_renew(&mut overlayed, 0);
+
+		overlayed.start_transaction();
+		add_renew(&mut overlayed, 1);
+		overlayed.rollback_transaction().unwrap();
+		assert_eq!(renewed_extrinsics(&overlayed), vec![0]);
+
+		overlayed.start_transaction();
+		add_renew(&mut overlayed, 2);
+		overlayed.commit_transaction().unwrap();
+		assert_eq!(renewed_extrinsics(&overlayed), vec![0, 2]);
+
+		overlayed.start_transaction();
+		add_renew(&mut overlayed, 3);
+		overlayed.start_transaction();
+		add_renew(&mut overlayed, 4);
+		overlayed.rollback_transaction().unwrap();
+		add_renew(&mut overlayed, 5);
+		overlayed.commit_transaction().unwrap();
+		assert_eq!(renewed_extrinsics(&overlayed), vec![0, 2, 3, 5]);
+
+		overlayed.start_transaction();
+		overlayed.start_transaction();
+		add_renew(&mut overlayed, 6);
+		overlayed.commit_transaction().unwrap();
+		overlayed.rollback_transaction().unwrap();
+		assert_eq!(renewed_extrinsics(&overlayed), vec![0, 2, 3, 5]);
+	}
+
+	#[test]
+	fn transaction_index_ops_of_transactions_left_open_by_runtime_are_dropped() {
+		let mut overlayed = OverlayedChanges::default();
+
+		overlayed.start_transaction();
+		add_renew(&mut overlayed, 0);
+
+		overlayed.enter_runtime().unwrap();
+		add_renew(&mut overlayed, 1);
+		overlayed.start_transaction();
+		add_renew(&mut overlayed, 2);
+		overlayed.start_transaction();
+		add_renew(&mut overlayed, 3);
+		overlayed.exit_runtime().unwrap();
+
+		assert_eq!(renewed_extrinsics(&overlayed), vec![0, 1]);
+
+		overlayed.rollback_transaction().unwrap();
+		assert_eq!(renewed_extrinsics(&overlayed), Vec::<u32>::new());
+	}
+
 	#[test]
 	fn overlayed_storage_root_works() {
 		let state_version = StateVersion::default();
