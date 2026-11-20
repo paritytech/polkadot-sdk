@@ -276,3 +276,240 @@ fn skip_pgas_always_delegates_to_inner() {
 			assert_eq!(Assets::balance(PGAS_ASSET_ID, ALICE), pgas_initial);
 		});
 }
+
+/// `weight()` reserves the max of both execution paths for a filter-matching call and only the
+/// inner weight otherwise.
+#[test]
+fn weight_reserves_max_of_paths() {
+	let call = pgas_call();
+	let charge_pgas = <() as crate::WeightInfo>::charge_pgas();
+	let charge_pgas_skip = <() as crate::WeightInfo>::charge_pgas_skip();
+	let inner = ChargeTransactionPayment::<Runtime>::from(0).weight(&call);
+
+	assert_eq!(new_ext().weight(&call), charge_pgas.max(inner.saturating_add(charge_pgas_skip)));
+	assert_eq!(
+		new_ext().weight(&non_pgas_call()),
+		ChargeTransactionPayment::<Runtime>::from(0).weight(&non_pgas_call())
+	);
+	assert_eq!(
+		ChargePGAS::<Runtime, ChargeTransactionPayment<Runtime>>::new_skip_pgas(
+			ChargeTransactionPayment::<Runtime>::from(0)
+		)
+		.weight(&call),
+		inner
+	);
+}
+
+/// The PGAS path returns the weight reserved over `charge_pgas` to the caller.
+#[test]
+fn post_dispatch_returns_weight_refund() {
+	ExtBuilder::default().with_pgas(vec![(ALICE, 1_000)]).build().execute_with(|| {
+		let call = pgas_call();
+		let len = 10;
+		let info = info_from_weight(Weight::from_parts(7, 0));
+
+		let (pre, _) = new_ext()
+			.validate_and_prepare(Some(ALICE).into(), &call, &info, len, 0)
+			.unwrap();
+
+		let charge_pgas = <() as crate::WeightInfo>::charge_pgas();
+		let charge_pgas_skip = <() as crate::WeightInfo>::charge_pgas_skip();
+		let inner = ChargeTransactionPayment::<Runtime>::from(0).weight(&call);
+		let expected = charge_pgas
+			.max(inner.saturating_add(charge_pgas_skip))
+			.saturating_sub(charge_pgas);
+
+		assert_eq!(
+			<Ext as TransactionExtension<RuntimeCall>>::post_dispatch_details(
+				pre,
+				&info,
+				&default_post_info(),
+				len,
+				&Ok(()),
+			),
+			Ok(expected)
+		);
+	});
+}
+
+/// Signed fallback to the inner extension (filter matched, caller holds no PGAS): the excess of
+/// the reservation over the signed inner path (`inner + charge_pgas_skip`) is refunded on top of
+/// the inner extension's own refund.
+#[test]
+fn fallback_inner_refunds_reserved_minus_skip() {
+	ExtBuilder::default().with_native(vec![(BOB, 1_000)]).build().execute_with(|| {
+		let call = pgas_call();
+		let len = 10;
+		let info = info_from_weight(Weight::from_parts(7, 0));
+
+		let (pre, _) =
+			new_ext().validate_and_prepare(Some(BOB).into(), &call, &info, len, 0).unwrap();
+
+		let charge_pgas = <() as crate::WeightInfo>::charge_pgas();
+		let charge_pgas_skip = <() as crate::WeightInfo>::charge_pgas_skip();
+		let inner = ChargeTransactionPayment::<Runtime>::from(0).weight(&call);
+		let expected = charge_pgas
+			.max(inner.saturating_add(charge_pgas_skip))
+			.saturating_sub(inner.saturating_add(charge_pgas_skip));
+
+		assert_eq!(
+			<Ext as TransactionExtension<RuntimeCall>>::post_dispatch_details(
+				pre,
+				&info,
+				&default_post_info(),
+				len,
+				&Ok(()),
+			),
+			Ok(expected)
+		);
+	});
+}
+
+/// Unsigned fallback: the inner extension charges nothing and refunds its full weight, so the
+/// returned weight is the whole reservation.
+#[test]
+fn unsigned_fallback_refunds_reserved_minus_inner() {
+	ExtBuilder::default().build().execute_with(|| {
+		let call = pgas_call();
+		let len = 10;
+		let info = info_from_weight(Weight::from_parts(7, 0));
+
+		let ext = new_ext();
+		let (_, val, origin) = <Ext as TransactionExtension<RuntimeCall>>::validate(
+			&ext,
+			frame_system::RawOrigin::None.into(),
+			&call,
+			&info,
+			len,
+			(),
+			&TxBaseImplication((0u8, &call)),
+			sp_runtime::transaction_validity::TransactionSource::External,
+		)
+		.unwrap();
+		let pre = ext.prepare(val, &origin, &call, &info, len).unwrap();
+
+		let charge_pgas = <() as crate::WeightInfo>::charge_pgas();
+		let charge_pgas_skip = <() as crate::WeightInfo>::charge_pgas_skip();
+		let inner = ChargeTransactionPayment::<Runtime>::from(0).weight(&call);
+		let expected = charge_pgas.max(inner.saturating_add(charge_pgas_skip));
+
+		assert_eq!(
+			<Ext as TransactionExtension<RuntimeCall>>::post_dispatch_details(
+				pre,
+				&info,
+				&default_post_info(),
+				len,
+				&Ok(()),
+			),
+			Ok(expected)
+		);
+	});
+}
+
+/// If the refund cannot be returned (the PGAS account is blocked post-withdraw), the full
+/// reserved fee is burned and reported in `PGASFeePaid`.
+#[test]
+fn refund_failure_burns_full_reserved_fee() {
+	ExtBuilder::default().build().execute_with(|| {
+		let call = pgas_call();
+		let len = 10;
+		let info = info_from_weight(Weight::from_parts(100, 0));
+
+		let reserved =
+			pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, &info, 0);
+		let actual_fee = pallet_transaction_payment::Pallet::<Runtime>::compute_actual_fee(
+			len as u32,
+			&info,
+			&post_info_from_weight(Weight::zero()),
+			0,
+		);
+		assert!(reserved > actual_fee);
+
+		// Keep the account above the ED after the withdrawal so only the block makes the refund
+		// fail.
+		let minted = reserved + 5;
+		assert_ok!(
+			<Assets as frame_support::traits::tokens::fungibles::Mutate<AccountId>>::mint_into(
+				PGAS_ASSET_ID,
+				&BOB,
+				minted,
+			)
+		);
+
+		let (pre, _) =
+			new_ext().validate_and_prepare(Some(BOB).into(), &call, &info, len, 0).unwrap();
+		assert_eq!(Assets::balance(PGAS_ASSET_ID, BOB), minted - reserved);
+
+		// Only the freezer (the genesis asset owner) can block the account.
+		assert_ok!(Assets::block(RuntimeOrigin::signed(ALICE), PGAS_ASSET_ID.into(), BOB));
+
+		assert_ok!(<Ext as TransactionExtension<RuntimeCall>>::post_dispatch_details(
+			pre,
+			&info,
+			&post_info_from_weight(Weight::zero()),
+			len,
+			&Ok(()),
+		));
+
+		assert_eq!(Assets::balance(PGAS_ASSET_ID, BOB), minted - reserved);
+		System::assert_has_event(Event::PGASFeePaid { who: BOB, actual_fee: reserved }.into());
+		assert_eq!(
+			<Assets as frame_support::traits::tokens::fungibles::Inspect<AccountId>>::total_issuance(
+				PGAS_ASSET_ID
+			),
+			minted - reserved
+		);
+	});
+}
+
+/// PGAS is committed at `validate`; if the balance drops below the fee by `prepare`, the tx is
+/// rejected with `InvalidTransaction::Payment` instead of falling back to the inner extension.
+#[test]
+fn prepare_rejects_when_pgas_balance_drops() {
+	ExtBuilder::default().build().execute_with(|| {
+		let call = pgas_call();
+		let len = 10;
+		let info = info_from_weight(Weight::from_parts(7, 0));
+		let fee = pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, &info, 0);
+
+		assert_ok!(
+			<Assets as frame_support::traits::tokens::fungibles::Mutate<AccountId>>::mint_into(
+				PGAS_ASSET_ID,
+				&ALICE,
+				fee,
+			)
+		);
+
+		let ext = new_ext();
+		let (_, val, origin) = <Ext as TransactionExtension<RuntimeCall>>::validate(
+			&ext,
+			Some(ALICE).into(),
+			&call,
+			&info,
+			len,
+			(),
+			&TxBaseImplication((0u8, &call)),
+			sp_runtime::transaction_validity::TransactionSource::External,
+		)
+		.unwrap();
+		assert!(matches!(val, Val::PGAS { .. }));
+
+		assert_ok!(
+			<Assets as frame_support::traits::tokens::fungibles::Mutate<AccountId>>::burn_from(
+				PGAS_ASSET_ID,
+				&ALICE,
+				fee,
+				frame_support::traits::tokens::Preservation::Expendable,
+				frame_support::traits::tokens::Precision::Exact,
+				frame_support::traits::tokens::Fortitude::Polite,
+			)
+		);
+
+		assert!(matches!(
+			ext.prepare(val, &origin, &call, &info, len),
+			Err(sp_runtime::transaction_validity::TransactionValidityError::Invalid(
+				sp_runtime::transaction_validity::InvalidTransaction::Payment
+			))
+		));
+	});
+}
