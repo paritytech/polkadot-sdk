@@ -21,9 +21,9 @@
 //! Some request involves a notification sent with XCM, this cost is not paid for through the call's
 //! weight, a runtime allowing free requests must limit the number of requests to avoid filling up
 //! the UMQs.
-//! Moreover, depending on the configuration of [`DepositProvider`] the pallet may be configured to
-//! set deposits on a parachain, which also involves XCMs, which are not paid for, therefore must be
-//! limited.
+//! Moreover, depending on the configuration of [`Config::DepositProvider`] the pallet may be
+//! configured to set deposits on a parachain, which also involves XCMs, which are not paid for,
+//! therefore must be limited.
 
 use crate::{
 	configuration::{self, HostConfiguration},
