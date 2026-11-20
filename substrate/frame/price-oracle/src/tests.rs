@@ -1251,3 +1251,21 @@ fn latest_anchors_gives_the_newest_anchor_of_each_signer() {
 		);
 	});
 }
+
+#[test]
+fn pair_with_markets_cannot_be_removed() {
+	new_test_ext().execute_with(|| {
+		let root = RuntimeOrigin::root;
+		assert_ok!(PriceOracle::set_venue(root(), VENUE, Venue { name: Default::default() }));
+		assert_ok!(PriceOracle::set_market(root(), MARKET, market(PAIR)));
+
+		// `MARKET` refers to `PAIR`, so the pair stays.
+		assert!(PriceOracle::remove_pair(root(), PAIR).is_err());
+		assert!(Pairs::<Test>::contains_key(PAIR));
+
+		// Without its market, the pair is removed.
+		assert_ok!(PriceOracle::remove_market(root(), MARKET));
+		assert_ok!(PriceOracle::remove_pair(root(), PAIR));
+		assert!(!Pairs::<Test>::contains_key(PAIR));
+	});
+}
