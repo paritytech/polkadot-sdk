@@ -323,6 +323,24 @@ async fn invalid_cid_string() {
 }
 
 #[tokio::test]
+async fn cid_length_is_checked_before_decoding() {
+	let (ws_client, _handle, _) = setup(false).await;
+	let at_limit = "é".repeat(128); // 256 UTF-8 bytes.
+	let over_limit = format!("{at_limit}!");
+	for (cid, too_long) in [(at_limit, false), (over_limit, true)] {
+		let err = ws_client
+			.request::<String, _>("bitswap_v1_get", rpc_params![cid])
+			.await
+			.expect_err("both inputs are invalid CIDs");
+		let jsonrpsee::core::ClientError::Call(err) = err else {
+			panic!("Expected an RPC error, got {err:?}");
+		};
+		assert_eq!(err.code(), -32602);
+		assert_eq!(err.message() == "Invalid CID: encoded CID exceeds 256 bytes", too_long);
+	}
+}
+
+#[tokio::test]
 async fn cid_v0_rejected() {
 	let (ws_client, _handle, _mock_client) = setup(false).await;
 
@@ -629,14 +647,15 @@ async fn stream_distinct_malformed_strings_per_cid_invalid() {
 	// Two different malformed strings — share no identity to dedup against, so each
 	// produces a per-CID StreamItemError instead of a top-level rejection. Stream still
 	// completes with `streamDone`.
-	let cids = vec!["bad-1".to_string(), "bad-2".to_string()];
+	let oversized_cid = "!".repeat(257);
+	let cids = ["bad-1", oversized_cid.as_str()];
 	let mut sub: Subscription<StreamEvent> = ws_client
 		.subscribe("bitswap_unstable_stream", rpc_params![cids], "bitswap_unstable_unstream")
 		.await
 		.unwrap();
 
 	assert_stream_item_error(next_event(&mut sub).await, "bad-1", -32602);
-	assert_stream_item_error(next_event(&mut sub).await, "bad-2", -32602);
+	assert_stream_item_error(next_event(&mut sub).await, &oversized_cid, -32602);
 	assert_stream_done(&mut sub).await;
 	assert_no_more_events(&mut sub).await;
 }
