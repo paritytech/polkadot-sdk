@@ -259,7 +259,8 @@ impl<T: Config> ShouldExecute for AllowUnpaidTransact<T> {
 		// The message qualifies, it is let through if the parachain has one left in its window.
 		//
 		// This reads and may write storage, which the executor does not weigh for a barrier.
-		// It may be abusive.
+		// But given XCM is given only part of the total block weight, and this to be attacked
+		// requires different parachains to be sending XCM, the attack is costly and limited.
 		Pallet::<T>::try_count(para).map_err(|_| ProcessMessageError::Unsupported)?;
 		Ok(())
 	}
