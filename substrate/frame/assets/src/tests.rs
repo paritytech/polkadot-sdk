@@ -305,10 +305,13 @@ fn refunding_frozen_with_consumer_ref_works() {
 		// freeze asset account `2` and asset `0`
 		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
 		assert_ok!(Assets::freeze_asset(RuntimeOrigin::signed(1), 0));
-		// refund works
+		// refund works, but keeps a frozen entry until thawed
 		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
-		assert!(!Account::<Test>::contains_key(0, &2));
+		assert!(Account::<Test>::get(0, &2).unwrap().is_tombstone());
 		assert_eq!(System::consumers(&2), 0);
+		assert_eq!(asset_account_counts(0), (2, 0));
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert!(!Account::<Test>::contains_key(0, &2));
 		assert_eq!(asset_account_counts(0), (1, 0));
 	});
 }
@@ -337,13 +340,683 @@ fn refunding_frozen_with_deposit_works() {
 		// ensure refundable even if asset account and asset is frozen
 		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
 		assert_ok!(Assets::freeze_asset(RuntimeOrigin::signed(1), 0));
-		// success
+		// success, but a frozen entry stays until thawed
 		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
-		assert!(!Account::<Test>::contains_key(0, &2));
+		assert!(Account::<Test>::get(0, &2).unwrap().is_tombstone());
 		assert_eq!(Balances::reserved_balance(&2), 0);
 		assert_eq!(System::consumers(&2), 0);
+		assert_eq!(asset_account_counts(0), (2, 0));
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert!(!Account::<Test>::contains_key(0, &2));
 		assert_eq!(asset_account_counts(0), (1, 0));
 	});
+}
+
+#[test]
+fn refunding_frozen_account_keeps_it_frozen() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 50));
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(FreezerDeposits::<Test>::get(0, &2), Some((1, 10)));
+
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		let account = Account::<Test>::get(0, &2).unwrap();
+		assert!(account.is_tombstone());
+		assert_eq!(account.status, AccountStatus::Frozen);
+		assert_eq!(Assets::balance(0, 2), 0);
+		assert_eq!(Balances::reserved_balance(&2), 0);
+		assert_eq!(Balances::reserved_balance(&1), 10);
+
+		// the entry cannot receive, so nothing can arrive there unfrozen
+		assert_noop!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 10), TokenError::Blocked);
+		assert_noop!(Assets::touch(RuntimeOrigin::signed(2), 0), Error::<Test>::AlreadyExists);
+
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert!(!Account::<Test>::contains_key(0, &2));
+		assert_eq!(Balances::reserved_balance(&1), 0);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 10));
+		assert_eq!(Account::<Test>::get(0, &2).unwrap().status, AccountStatus::Liquid);
+	});
+}
+
+#[test]
+fn refunding_blocked_account_keeps_it_blocked() {
+	build_and_execute(|| {
+		// 1 will be an admin and freezer
+		// 2 will be a blocked account
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 50));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(Balances::reserved_balance(&1), 10);
+
+		// the balance is burned and the deposit returned, but the entry stays blocked, backed by
+		// the freezer deposit
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		assert_eq!(Assets::balance(0, 2), 0);
+		assert_eq!(Assets::total_supply(0), 50);
+		assert_eq!(Balances::reserved_balance(&2), 0);
+		assert_eq!(Balances::reserved_balance(&1), 10);
+		assert!(Account::<Test>::get(0, &2).unwrap().status.is_blocked());
+		assert_eq!(Asset::<Test>::get(0).unwrap().accounts, 2);
+
+		assert_noop!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 10), TokenError::Blocked);
+		assert_noop!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 10), TokenError::Blocked);
+		assert_noop!(Assets::touch(RuntimeOrigin::signed(2), 0), Error::<Test>::AlreadyExists);
+		assert_noop!(Assets::refund(RuntimeOrigin::signed(2), 0, true), Error::<Test>::NoDeposit);
+
+		// freezing keeps the entry and its deposit, and it still cannot receive
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
+		assert!(Account::<Test>::get(0, &2).unwrap().is_tombstone());
+		assert_eq!(Balances::reserved_balance(&1), 10);
+		assert_noop!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 10), TokenError::Blocked);
+
+		// thawing removes the entry and returns the freezer deposit
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert!(!Account::<Test>::contains_key(0, &2));
+		assert_eq!(Asset::<Test>::get(0).unwrap().accounts, 1);
+		assert_eq!(Balances::reserved_balance(&1), 0);
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 10));
+	});
+}
+
+#[test]
+fn refunding_blocked_account_releases_forced_consumer_reference() {
+	build_and_execute(|| {
+		// 1 mints into 2 without its consent, creating a consumer reference, and blocks it
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 1));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(System::consumers(&2), 1);
+
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		assert_eq!(System::consumers(&2), 0);
+		assert!(Account::<Test>::get(0, &2).unwrap().status.is_blocked());
+		assert_noop!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 1), TokenError::Blocked);
+
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert!(!Account::<Test>::contains_key(0, &2));
+		assert_eq!(System::consumers(&2), 0);
+	});
+}
+
+#[test]
+fn refunding_blocked_account_burns_now_and_calls_died_hooks_on_thaw() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 50));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		take_hooks();
+		storage::clear(AssetsCallbackHandle::BURNED.as_bytes());
+
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		System::assert_last_event(RuntimeEvent::Assets(crate::Event::Burned {
+			asset_id: 0,
+			owner: 2,
+			balance: 50,
+		}));
+		assert_eq!(
+			AssetsCallbackHandle::calls(AssetsCallbackHandle::BURNED),
+			vec![(0u32, 2u64, 50u64).encode()]
+		);
+		assert!(hooks().is_empty());
+
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(take_hooks(), vec![Hook::Died(0, 2), Hook::Died(0, 2)]);
+	});
+}
+
+#[test]
+fn refunded_blocked_account_prevents_raising_min_balance_until_thawed() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		assert_eq!(Asset::<Test>::get(0).unwrap().accounts, 1);
+
+		assert_noop!(
+			Assets::set_min_balance(RuntimeOrigin::signed(1), 0, 5),
+			Error::<Test>::NoPermission
+		);
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::set_min_balance(RuntimeOrigin::signed(1), 0, 5));
+	});
+}
+
+#[test]
+fn refunded_frozen_or_blocked_account_cannot_be_credited() {
+	use frame_support::traits::{
+		fungibles::{Balanced, Inspect, Mutate},
+		tokens::{DepositConsequence, Precision, Preservation},
+	};
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		Balances::make_free_balance_be(&3, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 4, 50));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 3, 1));
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 3));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(3), 0, true));
+
+		for who in [2, 3] {
+			assert_noop!(
+				Assets::transfer_keep_alive(RuntimeOrigin::signed(1), 0, who, 10),
+				TokenError::Blocked
+			);
+			assert_noop!(
+				Assets::force_transfer(RuntimeOrigin::signed(1), 0, 1, who, 10),
+				TokenError::Blocked
+			);
+			assert_noop!(
+				Assets::transfer_approved(RuntimeOrigin::signed(4), 0, 1, who, 10),
+				TokenError::Blocked
+			);
+			assert_noop!(
+				Assets::touch_other(RuntimeOrigin::signed(1), 0, who),
+				Error::<Test>::AlreadyExists
+			);
+			assert_eq!(
+				<Assets as Inspect<u64>>::can_deposit(0, &who, 10, Provenance::Extant),
+				DepositConsequence::Blocked
+			);
+			assert_noop!(<Assets as Mutate<u64>>::mint_into(0, &who, 10), TokenError::Blocked);
+			assert_noop!(
+				<Assets as Mutate<u64>>::transfer(0, &1, &who, 10, Preservation::Expendable),
+				TokenError::Blocked
+			);
+			assert_noop!(
+				<Assets as Balanced<u64>>::deposit(0, &who, 10, Precision::Exact).map(|_| ()),
+				TokenError::Blocked
+			);
+
+			assert!(Account::<Test>::get(0, &who).unwrap().is_tombstone());
+			assert_eq!(Assets::balance(0, who), 0);
+			assert_eq!(System::consumers(&who), 0);
+		}
+	});
+}
+
+#[test]
+fn thawing_refunded_blocked_account_with_freeze_fails() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 1));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+
+		set_frozen_balance(0, 2, 1);
+		assert_noop!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2), Error::<Test>::ContainsFreezes);
+		assert!(Account::<Test>::get(0, &2).unwrap().status.is_blocked());
+
+		clear_frozen_balance(0, 2);
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert!(!Account::<Test>::contains_key(0, &2));
+	});
+}
+
+#[test]
+fn thawing_frozen_account_with_freeze_works() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
+		set_frozen_balance(0, 2, 50);
+
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(Account::<Test>::get(0, &2).unwrap().status, AccountStatus::Liquid);
+		assert_eq!(Assets::balance(0, 2), 100);
+		assert_eq!(Balances::reserved_balance(&1), 0);
+		clear_frozen_balance(0, 2);
+	});
+}
+
+#[test]
+fn refunded_blocked_account_passes_try_state() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 50));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+
+		// the tombstone stays in place for the `try_state` run at the end of the test
+		assert!(Account::<Test>::get(0, &2).unwrap().is_tombstone());
+		assert_eq!(Assets::total_supply(0), 0);
+		assert_eq!(
+			Asset::<Test>::get(0).unwrap().accounts,
+			Account::<Test>::iter_prefix(0).count() as u32
+		);
+	});
+}
+
+#[test]
+fn try_state_rejects_tombstone_that_is_not_frozen_with_zero_balance() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 50));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		assert_ok!(Assets::do_try_state());
+
+		let tombstone_error =
+			"Tombstone that is not a frozen or blocked zero-balance account found";
+		Account::<Test>::mutate(0, &2, |a| a.as_mut().unwrap().balance = 1);
+		Asset::<Test>::mutate(0, |d| d.as_mut().unwrap().supply = 1);
+		assert_eq!(Assets::do_try_state(), Err(tombstone_error.into()));
+
+		Account::<Test>::mutate(0, &2, |a| {
+			let a = a.as_mut().unwrap();
+			a.balance = 0;
+			a.status = AccountStatus::Frozen;
+		});
+		Asset::<Test>::mutate(0, |d| d.as_mut().unwrap().supply = 0);
+		assert_ok!(Assets::do_try_state());
+
+		Account::<Test>::mutate(0, &2, |a| a.as_mut().unwrap().status = AccountStatus::Liquid);
+		assert_eq!(
+			Assets::do_try_state(),
+			Err("Freezer deposit without a frozen or blocked account found".into())
+		);
+
+		FreezerDeposits::<Test>::remove(0, &2);
+		assert_eq!(Assets::do_try_state(), Err(tombstone_error.into()));
+
+		Account::<Test>::mutate(0, &2, |a| a.as_mut().unwrap().status = AccountStatus::Blocked);
+		assert_eq!(Assets::do_try_state(), Err("Tombstone without a freezer deposit found".into()));
+	});
+}
+
+#[test]
+fn try_state_rejects_freezer_deposit_without_frozen_account() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		let error = "Freezer deposit without a frozen or blocked account found";
+
+		FreezerDeposits::<Test>::insert(0, 2, (1, 10));
+		assert_eq!(Assets::do_try_state(), Err(error.into()));
+
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(2), 0));
+		assert_eq!(Assets::do_try_state(), Err(error.into()));
+	});
+}
+
+#[test]
+fn destroying_asset_removes_refunded_blocked_account() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, false));
+		assert_eq!(Balances::reserved_balance(&2), 0);
+		assert_eq!(Balances::reserved_balance(&1), 10);
+
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::destroy_accounts(RuntimeOrigin::signed(1), 0));
+		assert!(!Account::<Test>::contains_key(0, &2));
+		assert!(!FreezerDeposits::<Test>::contains_key(0, &2));
+		assert_eq!(Balances::reserved_balance(&2), 0);
+		assert_eq!(Balances::reserved_balance(&1), 0);
+		assert_ok!(Assets::destroy_approvals(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 0));
+		assert!(!Asset::<Test>::contains_key(0));
+	});
+}
+
+#[test]
+fn destroying_asset_returns_freezer_deposits_of_frozen_accounts() {
+	build_and_execute(|| {
+		for who in 1..=4 {
+			Balances::make_free_balance_be(&who, 100);
+		}
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		// 2 exists through a consumer reference, 3 through its own deposit; 4 freezes 3
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(3), 0));
+		assert_ok!(Assets::set_team(RuntimeOrigin::signed(1), 0, 1, 1, 4));
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(4), 0, 3));
+		assert_eq!(Balances::reserved_balance(&1), 10);
+		assert_eq!(Balances::reserved_balance(&3), 10);
+		assert_eq!(Balances::reserved_balance(&4), 10);
+
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::destroy_accounts(RuntimeOrigin::signed(1), 0));
+		assert_eq!(FreezerDeposits::<Test>::iter().count(), 0);
+		assert_eq!(Balances::reserved_balance(&1), 0);
+		assert_eq!(Balances::reserved_balance(&3), 0);
+		assert_eq!(Balances::reserved_balance(&4), 0);
+		assert_eq!(System::consumers(&2), 0);
+	});
+}
+
+#[test]
+fn destroying_accounts_charges_freezer_deposit_weight_for_frozen_accounts() {
+	use crate::WeightInfo;
+	use frame_support::traits::Get;
+	build_and_execute(|| {
+		for who in 1..=4 {
+			Balances::make_free_balance_be(&who, 100);
+		}
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 3, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 4, 100));
+		assert_ok!(Assets::touch_other(RuntimeOrigin::signed(1), 0, 5));
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
+		// frozen without a freezer deposit, the lookup for one is still paid for
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 5));
+		assert!(!FreezerDeposits::<Test>::contains_key(0, &5));
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
+
+		// the fixed part of the call is in both weights and charged once
+		let plain = <() as WeightInfo>::destroy_accounts;
+		let frozen = <() as WeightInfo>::destroy_blocked_accounts;
+		let fixed = plain(0).min(frozen(0));
+		let expected = |accounts: u32, of_which_frozen: u32| {
+			plain(accounts - of_which_frozen)
+				.saturating_add(frozen(of_which_frozen))
+				.saturating_sub(fixed)
+		};
+
+		let post = Assets::destroy_accounts(RuntimeOrigin::signed(1), 0).unwrap();
+		assert_eq!(post.actual_weight, Some(expected(4, 2)));
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 1, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 1, 2, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 1, 3, 100));
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 1));
+		let post = Assets::destroy_accounts(RuntimeOrigin::signed(1), 1).unwrap();
+		assert_eq!(post.actual_weight, Some(expected(2, 0)));
+		assert!(expected(2, 0).all_gte(plain(2)));
+
+		let limit = <Test as Config>::RemoveItemsLimit::get();
+		let declared = crate::Call::<Test>::destroy_accounts { id: 0 }.get_dispatch_info();
+		assert_eq!(declared.call_weight, expected(limit, 0).max(expected(limit, limit)));
+		assert!(declared.call_weight.all_gte(plain(limit)));
+		assert!(declared.call_weight.all_gte(frozen(limit)));
+	});
+}
+
+#[test]
+fn refund_trait_on_blocked_account() {
+	use frame_support::traits::fungibles::Refund;
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		// 2 placed its own deposit, 3's deposit was placed by 1
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Assets::touch_other(RuntimeOrigin::signed(1), 0, 3));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 3));
+
+		assert_ok!(<Assets as Refund<u64>>::refund(0, 2));
+		assert_eq!(Balances::reserved_balance(&2), 0);
+		assert!(Account::<Test>::get(0, &2).unwrap().is_tombstone());
+		assert_eq!(<Assets as Refund<u64>>::deposit_held(0, 2), None);
+		assert_noop!(<Assets as Refund<u64>>::refund(0, 2), Error::<Test>::NoDeposit);
+
+		// a deposit placed by someone else is still refused while blocked, as by `refund_other`
+		assert_noop!(<Assets as Refund<u64>>::refund(0, 3), Error::<Test>::Frozen);
+	});
+}
+
+#[test]
+fn blocking_reserves_deposit_from_freezer() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		Balances::make_free_balance_be(&3, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 3, 100));
+
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(Balances::reserved_balance(&1), 10);
+		assert_eq!(FreezerDeposits::<Test>::get(0, &2), Some((1, 10)));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(Balances::reserved_balance(&1), 10);
+
+		// freezing lifts the block but keeps the deposit, which thawing returns
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(Balances::reserved_balance(&1), 10);
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(Balances::reserved_balance(&1), 0);
+		assert!(!FreezerDeposits::<Test>::contains_key(0, &2));
+
+		// the deposit goes back to whoever placed it, even after the freezer changed
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 3));
+		assert_ok!(Assets::set_team(RuntimeOrigin::signed(1), 0, 1, 5, 4));
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(5), 0, 3));
+		assert_eq!(Balances::reserved_balance(&1), 0);
+		assert_eq!(Balances::free_balance(&1), 100);
+		assert!(!FreezerDeposits::<Test>::contains_key(0, &3));
+	});
+}
+
+#[test]
+fn freezer_deposit_is_reserved_from_freezer_not_owner() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		Balances::make_free_balance_be(&4, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::set_team(RuntimeOrigin::signed(1), 0, 1, 1, 4));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+
+		assert_ok!(Assets::block(RuntimeOrigin::signed(4), 0, 2));
+		assert_eq!(Balances::reserved_balance(&4), 10);
+		assert_eq!(Balances::reserved_balance(&1), 0);
+		assert_eq!(FreezerDeposits::<Test>::get(0, &2), Some((4, 10)));
+	});
+}
+
+#[test]
+fn returning_freezer_deposit_leaves_other_reserves_of_freezer_alone() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Balances::reserve(&1, 7));
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(Balances::reserved_balance(&1), 17);
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(Balances::reserved_balance(&1), 7);
+
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		assert_eq!(Balances::reserved_balance(&1), 17);
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(Balances::reserved_balance(&1), 7);
+
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		assert_eq!(Balances::reserved_balance(&1), 17);
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::destroy_accounts(RuntimeOrigin::signed(1), 0));
+		assert_eq!(Balances::reserved_balance(&1), 7);
+		assert_eq!(Balances::free_balance(&1), 93);
+	});
+}
+
+#[test]
+fn only_admin_returns_freezer_deposit() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		Balances::make_free_balance_be(&4, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::set_team(RuntimeOrigin::signed(1), 0, 1, 5, 4));
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Assets::block(RuntimeOrigin::signed(4), 0, 2));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(4), 0, 2));
+		assert_eq!(Balances::reserved_balance(&4), 10);
+		assert_noop!(Assets::thaw(RuntimeOrigin::signed(4), 0, 2), Error::<Test>::NoPermission);
+		assert_eq!(Balances::reserved_balance(&4), 10);
+
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(5), 0, 2));
+		assert_eq!(Balances::reserved_balance(&4), 0);
+	});
+}
+
+#[test]
+fn blocking_without_funds_for_deposit_fails() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_noop!(
+			Assets::block(RuntimeOrigin::signed(1), 0, 2),
+			BalancesError::<Test>::InsufficientBalance
+		);
+		assert!(!Account::<Test>::get(0, &2).unwrap().status.is_blocked());
+	});
+}
+
+#[test]
+fn freezing_without_funds_for_deposit_fails() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_noop!(
+			Assets::freeze(RuntimeOrigin::signed(1), 0, 2),
+			BalancesError::<Test>::InsufficientBalance
+		);
+		assert!(!Account::<Test>::get(0, &2).unwrap().status.is_frozen());
+		assert!(!FreezerDeposits::<Test>::contains_key(0, &2));
+
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(FreezerDeposits::<Test>::get(0, &2), Some((1, 10)));
+	});
+}
+
+#[test]
+fn refunding_account_without_freezer_deposit_removes_it_until_blocked_again() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		Balances::make_free_balance_be(&3, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 3, 100));
+		// frozen and blocked before freezer deposits existed
+		Account::<Test>::mutate(0, &2, |a| a.as_mut().unwrap().status = AccountStatus::Blocked);
+		Account::<Test>::mutate(0, &3, |a| a.as_mut().unwrap().status = AccountStatus::Frozen);
+
+		// nothing would pay for an entry
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(3), 0, true));
+		assert!(!Account::<Test>::contains_key(0, &3));
+		assert_eq!(System::consumers(&3), 0);
+		// and the freeze is gone with it
+		assert_noop!(Assets::freeze(RuntimeOrigin::signed(1), 0, 3), Error::<Test>::NoAccount);
+		assert_noop!(Assets::block(RuntimeOrigin::signed(1), 0, 3), Error::<Test>::NoAccount);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 3, 100));
+		assert_eq!(Account::<Test>::get(0, &3).unwrap().status, AccountStatus::Liquid);
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(3), 0, 1, 50));
+
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(FreezerDeposits::<Test>::get(0, &2), Some((1, 10)));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(2), 0, true));
+		assert!(Account::<Test>::get(0, &2).unwrap().is_tombstone());
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(Balances::reserved_balance(&1), 0);
+	});
+}
+
+#[test]
+fn blocking_sufficient_account_takes_no_deposit() {
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+
+		assert_ok!(Assets::block(RuntimeOrigin::signed(1), 0, 2));
+		assert!(Account::<Test>::get(0, &2).unwrap().status.is_blocked());
+		assert!(!FreezerDeposits::<Test>::contains_key(0, &2));
+		assert_noop!(Assets::refund(RuntimeOrigin::signed(2), 0, true), Error::<Test>::NoDeposit);
+	});
+}
+
+#[test]
+fn blocking_account_with_deposit_from_other_takes_no_deposit() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_ok!(Assets::set_team(RuntimeOrigin::signed(1), 0, 1, 1, 4));
+		assert_ok!(Assets::touch_other(RuntimeOrigin::signed(1), 0, 2));
+
+		assert_ok!(Assets::block(RuntimeOrigin::signed(4), 0, 2));
+		assert!(Account::<Test>::get(0, &2).unwrap().status.is_blocked());
+		assert!(!FreezerDeposits::<Test>::contains_key(0, &2));
+		assert_noop!(Assets::refund_other(RuntimeOrigin::signed(1), 0, 2), Error::<Test>::Frozen);
+	});
+}
+
+#[test]
+fn freezer_deposit_is_taken_exactly_for_accounts_their_holder_can_refund() {
+	type FreezeOrBlock = fn(RuntimeOrigin, u32, u64) -> DispatchResult;
+	for freeze_or_block in [Assets::freeze as FreezeOrBlock, Assets::block] {
+		build_and_execute(|| {
+			Balances::make_free_balance_be(&1, 100);
+			Balances::make_free_balance_be(&2, 100);
+			Balances::make_free_balance_be(&3, 100);
+			assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+			assert_ok!(Assets::force_create(RuntimeOrigin::root(), 1, 1, true, 1));
+			// consumer, own deposit, sufficient, deposit placed by someone else
+			assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+			assert_ok!(Assets::touch(RuntimeOrigin::signed(3), 0));
+			assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 1, 4, 100));
+			assert_ok!(Assets::touch_other(RuntimeOrigin::signed(1), 0, 5));
+
+			for (id, who) in [(0, 2), (0, 3), (1, 4), (0, 5)] {
+				assert_ok!(freeze_or_block(RuntimeOrigin::signed(1), id, who));
+				assert_eq!(
+					FreezerDeposits::<Test>::contains_key(id, &who),
+					Assets::refund(RuntimeOrigin::signed(who), id, true).is_ok()
+				);
+			}
+			assert!(FreezerDeposits::<Test>::contains_key(0, &2));
+			assert!(FreezerDeposits::<Test>::contains_key(0, &3));
+			assert!(!FreezerDeposits::<Test>::contains_key(1, &4));
+			assert!(!FreezerDeposits::<Test>::contains_key(0, &5));
+		});
+	}
 }
 
 #[test]
@@ -1055,7 +1728,8 @@ fn transferring_from_frozen_account_should_not_work() {
 #[test]
 fn touching_and_freezing_account_with_zero_asset_balance_should_work() {
 	build_and_execute(|| {
-		// need some deposit for the touch
+		// need some deposit for the touch, and for freezing the touched account
+		Balances::make_free_balance_be(&1, 100);
 		Balances::make_free_balance_be(&2, 100);
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));

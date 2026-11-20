@@ -119,12 +119,32 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				d.sufficients = d.sufficients.saturating_sub(1);
 				frame_system::Pallet::<T>::dec_sufficients(who);
 			},
-			DepositRefunded => {},
+			DepositRefunded | Tombstone => {},
 			DepositHeld(_) | DepositFrom(..) if !force => return Keep,
 			DepositHeld(_) | DepositFrom(..) => {},
 		}
 		d.accounts = d.accounts.saturating_sub(1);
 		Remove
+	}
+
+	pub(super) fn take_freezer_deposit(
+		id: &T::AssetId,
+		who: &T::AccountId,
+		depositor: &T::AccountId,
+	) -> DispatchResult {
+		if FreezerDeposits::<T, I>::contains_key(id, who) {
+			return Ok(());
+		}
+		let deposit = T::AssetAccountDeposit::get();
+		T::Currency::reserve(depositor, deposit)?;
+		FreezerDeposits::<T, I>::insert(id, who, (depositor.clone(), deposit));
+		Ok(())
+	}
+
+	pub(super) fn release_freezer_deposit(id: &T::AssetId, who: &T::AccountId) {
+		if let Some((depositor, deposit)) = FreezerDeposits::<T, I>::take(id, who) {
+			T::Currency::unreserve(&depositor, deposit);
+		}
 	}
 
 	/// Returns `true` when the balance of `account` can be increased by `amount`.
@@ -151,7 +171,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			return DepositConsequence::Overflow;
 		}
 		if let Some(account) = Account::<T, I>::get(id, who) {
-			if account.status.is_blocked() {
+			if account.status.is_blocked() || account.is_tombstone() {
 				return DepositConsequence::Blocked;
 			}
 			if account.balance.checked_add(&amount).is_none() {
@@ -368,12 +388,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Returns a deposit or a consumer reference, destroying an asset-account.
 	/// Non-zero balance accounts refunded and destroyed only if `allow_burn` is true.
+	///
+	/// A frozen or blocked account with a freezer deposit is not destroyed: it keeps a zero-balance
+	/// entry that stays frozen or blocked until thawed, so refunding cannot be used to lift the
+	/// freeze or block.
 	pub(super) fn do_refund(id: T::AssetId, who: T::AccountId, allow_burn: bool) -> DispatchResult {
 		use AssetStatus::*;
 		use ExistenceReason::*;
 
 		let mut account = Account::<T, I>::get(&id, &who).ok_or(Error::<T, I>::NoDeposit)?;
-		ensure!(matches!(account.reason, Consumer | DepositHeld(..)), Error::<T, I>::NoDeposit);
+		ensure!(account.is_refundable_by_holder(), Error::<T, I>::NoDeposit);
 		let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 		ensure!(matches!(details.status, Live | Frozen), Error::<T, I>::IncorrectStatus);
 		ensure!(account.balance.is_zero() || allow_burn, Error::<T, I>::WouldBurn);
@@ -382,34 +406,46 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		if let Some(deposit) = account.reason.take_deposit() {
 			T::Currency::unreserve(&who, deposit);
 		}
+		let burned = core::mem::replace(&mut account.balance, Zero::zero());
+		let keep_frozen =
+			account.status.is_frozen() && FreezerDeposits::<T, I>::contains_key(&id, &who);
 
-		if let Remove = Self::dead_account(&who, &mut details, &account.reason, false) {
-			if !account.balance.is_zero() {
-				debug_assert!(details.supply >= account.balance, "supply < balance; qed");
-				details.supply = details.supply.saturating_sub(account.balance);
+		if keep_frozen {
+			if let Consumer = account.reason {
+				frame_system::Pallet::<T>::dec_consumers(&who);
 			}
+			account.reason = Tombstone;
+			Account::<T, I>::insert(&id, &who, account);
+		} else if let Remove = Self::dead_account(&who, &mut details, &account.reason, false) {
 			Account::<T, I>::remove(&id, &who);
 		} else {
 			debug_assert!(false, "refund did not result in dead account?!");
 			// deposit may have been refunded, need to update `Account`
+			account.balance = burned;
 			Account::<T, I>::insert(id, &who, account);
 			return Ok(());
 		}
 
+		if !burned.is_zero() {
+			debug_assert!(details.supply >= burned, "supply < balance; qed");
+			details.supply = details.supply.saturating_sub(burned);
+		}
 		Asset::<T, I>::insert(&id, details);
 
-		if !account.balance.is_zero() {
+		if !burned.is_zero() {
 			Self::deposit_event(Event::Burned {
 				asset_id: id.clone(),
 				owner: who.clone(),
-				balance: account.balance,
+				balance: burned,
 			});
-			T::CallbackHandle::burned(&id, &who, account.balance);
+			T::CallbackHandle::burned(&id, &who, burned);
 		}
 
-		// Executing a hook here is safe, since it is not in a `mutate`.
-		T::Freezer::died(id.clone(), &who);
-		T::Holder::died(id, &who);
+		if !keep_frozen {
+			// Executing a hook here is safe, since it is not in a `mutate`.
+			T::Freezer::died(id.clone(), &who);
+			T::Holder::died(id, &who);
+		}
 		Ok(())
 	}
 
@@ -843,16 +879,38 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
+	/// Weight of `destroy_accounts` removing `accounts` accounts, `frozen` of which were frozen or
+	/// blocked. Each of those is charged for a freezer deposit, whether or not it had one.
+	pub(super) fn destroy_accounts_weight(
+		accounts: u32,
+		frozen: u32,
+	) -> frame_support::weights::Weight {
+		// both include the fixed part of the call, which is paid once
+		let fixed =
+			T::WeightInfo::destroy_accounts(0).min(T::WeightInfo::destroy_blocked_accounts(0));
+		T::WeightInfo::destroy_accounts(accounts.saturating_sub(frozen))
+			.saturating_add(T::WeightInfo::destroy_blocked_accounts(frozen))
+			.saturating_sub(fixed)
+	}
+
+	/// Upper bound of [`Self::destroy_accounts_weight`] for `accounts` accounts: each one costs at
+	/// most the costlier of the two kinds.
+	pub(super) fn max_destroy_accounts_weight(accounts: u32) -> frame_support::weights::Weight {
+		Self::destroy_accounts_weight(accounts, 0)
+			.max(Self::destroy_accounts_weight(accounts, accounts))
+	}
+
 	/// Destroy accounts associated with a given asset up to the max (T::RemoveItemsLimit).
 	///
 	/// Each call emits the `Event::DestroyedAccounts` event.
-	/// Returns the number of destroyed accounts.
+	/// Returns the number of destroyed accounts and how many of them were frozen or blocked.
 	pub(super) fn do_destroy_accounts(
 		id: T::AssetId,
 		max_items: u32,
-	) -> Result<u32, DispatchError> {
+	) -> Result<(u32, u32), DispatchError> {
 		let mut dead_accounts: Vec<T::AccountId> = vec![];
 		let mut remaining_accounts = 0;
+		let mut frozen = 0;
 		Asset::<T, I>::try_mutate_exists(&id, |maybe_details| -> Result<(), DispatchError> {
 			let mut details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
 			// Should only destroy accounts while the asset is in a destroying state
@@ -870,6 +928,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 				if let Remove = Self::dead_account(&who, &mut details, &v.reason, false) {
 					Account::<T, I>::remove(&id, &who);
+					if v.status.is_frozen() {
+						Self::release_freezer_deposit(&id, &who);
+						frozen += 1;
+					}
 					dead_accounts.push(who);
 				} else {
 					// deposit may have been released, need to update `Account`
@@ -894,7 +956,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			accounts_destroyed: dead_accounts.len() as u32,
 			accounts_remaining: remaining_accounts as u32,
 		});
-		Ok(dead_accounts.len() as u32)
+		Ok((dead_accounts.len() as u32, frozen))
 	}
 
 	/// Destroy approvals associated with a given asset up to the max (T::RemoveItemsLimit).

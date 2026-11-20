@@ -92,7 +92,8 @@
 //! * `transfer_approved`: Transfer third-party's assets to another account.
 //! * `touch`: Create an asset account for non-provider assets. Caller must place a deposit.
 //! * `refund`: Return the deposit (if any) of the caller's asset account or a consumer reference
-//!   (if any) of the caller's account.
+//!   (if any) of the caller's account. A frozen or blocked account with a freezer deposit keeps a
+//!   zero-balance entry that cannot receive the asset.
 //! * `refund_other`: Return the deposit (if any) of a specified asset account.
 //! * `touch_other`: Create an asset account for specified account. Caller must place a deposit.
 //!
@@ -110,8 +111,10 @@
 //! * `mint`: Increases the asset balance of an account; called by the asset class's Issuer.
 //! * `burn`: Decreases the asset balance of an account; called by the asset class's Admin.
 //! * `force_transfer`: Transfers between arbitrary accounts; called by the asset class's Admin.
-//! * `freeze`: Disallows further `transfer`s from an account; called by the asset class's Freezer.
-//! * `thaw`: Allows further `transfer`s to and from an account; called by the asset class's Admin.
+//! * `freeze`: Disallows further `transfer`s from an account; called by the asset class's Freezer,
+//!   who places a deposit if the account's holder can `refund` it.
+//! * `thaw`: Allows further `transfer`s to and from an account, returns the freezer's deposit and
+//!   removes the entry a `refund` left behind; called by the asset class's Admin.
 //! * `transfer_ownership`: Changes an asset class's Owner; called by the asset class's Owner.
 //! * `set_team`: Changes an asset class's Admin, Freezer and Issuer; called by the asset class's
 //!   Owner.
@@ -120,7 +123,7 @@
 //! * `set_reserves`: Set the reserve information of an asset class; called by the asset class's
 //!   Owner.
 //! * `block`: Disallows further `transfer`s to and from an account; called by the asset class's
-//!   Freezer.
+//!   Freezer, who places a deposit if the account's holder can `refund` it.
 //!
 //! Please refer to the [`Call`] enum and its associated variants for documentation on each
 //! function.
@@ -468,7 +471,8 @@ pub mod pallet {
 		type AssetDeposit: Get<DepositBalanceOf<Self, I>>;
 
 		/// The amount of funds that must be reserved for a non-provider asset account to be
-		/// maintained.
+		/// maintained. The freezer also reserves it to `freeze` or `block` an account its holder
+		/// can refund.
 		#[pallet::constant]
 		#[pallet::no_default_bounds]
 		type AssetAccountDeposit: Get<DepositBalanceOf<Self, I>>;
@@ -545,6 +549,21 @@ pub mod pallet {
 		Blake2_128Concat,
 		T::AccountId,
 		AssetAccountOf<T, I>,
+	>;
+
+	#[pallet::storage]
+	/// The deposit reserved from the freezer when freezing or blocking an account its holder can
+	/// `refund`, together with the account it was reserved from. It backs the account entry, which
+	/// outlives a `refund` while frozen or blocked. An entry exists only while the account is
+	/// frozen or blocked. Accounts frozen or blocked before freezer deposits existed have none
+	/// until they are frozen or blocked again, and until then a `refund` removes them.
+	pub type FreezerDeposits<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		T::AssetId,
+		Blake2_128Concat,
+		T::AccountId,
+		(T::AccountId, DepositBalanceOf<T, I>),
 	>;
 
 	#[pallet::storage]
@@ -1008,15 +1027,15 @@ pub mod pallet {
 		///
 		/// Each call emits the `Event::DestroyedAccounts` event.
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::destroy_accounts(T::RemoveItemsLimit::get()))]
+		#[pallet::weight(Pallet::<T, I>::max_destroy_accounts_weight(T::RemoveItemsLimit::get()))]
 		pub fn destroy_accounts(
 			origin: OriginFor<T>,
 			id: T::AssetIdParameter,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 			let id: T::AssetId = id.into();
-			let removed_accounts = Self::do_destroy_accounts(id, T::RemoveItemsLimit::get())?;
-			Ok(Some(T::WeightInfo::destroy_accounts(removed_accounts)).into())
+			let (accounts, frozen) = Self::do_destroy_accounts(id, T::RemoveItemsLimit::get())?;
+			Ok(Some(Self::destroy_accounts_weight(accounts, frozen)).into())
 		}
 
 		/// Destroy all approvals associated with a given asset up to the max (T::RemoveItemsLimit).
@@ -1228,6 +1247,12 @@ pub mod pallet {
 		/// - `id`: The identifier of the asset to be frozen.
 		/// - `who`: The account to be frozen.
 		///
+		/// If the account's holder can `refund` it, which leaves a frozen entry behind, reserves
+		/// `AssetAccountDeposit` from the sender unless the account already has a freezer deposit.
+		/// Accounts that exist because the asset is sufficient or because someone else placed
+		/// their deposit take none. The deposit is returned when the account is thawed or
+		/// destroyed.
+		///
 		/// Emits `Frozen`.
 		///
 		/// Weight: `O(1)`
@@ -1248,11 +1273,18 @@ pub mod pallet {
 			ensure!(origin == d.freezer, Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
 
-			Account::<T, I>::try_mutate(&id, &who, |maybe_account| -> DispatchResult {
-				maybe_account.as_mut().ok_or(Error::<T, I>::NoAccount)?.status =
-					AccountStatus::Frozen;
-				Ok(())
-			})?;
+			let needs_deposit = Account::<T, I>::try_mutate(
+				&id,
+				&who,
+				|maybe_account| -> Result<bool, DispatchError> {
+					let account = maybe_account.as_mut().ok_or(Error::<T, I>::NoAccount)?;
+					account.status = AccountStatus::Frozen;
+					Ok(account.is_refundable_by_holder())
+				},
+			)?;
+			if needs_deposit {
+				Self::take_freezer_deposit(&id, &who, &origin)?;
+			}
 
 			Self::deposit_event(Event::<T, I>::Frozen { asset_id: id, who });
 			Ok(())
@@ -1264,6 +1296,10 @@ pub mod pallet {
 		///
 		/// - `id`: The identifier of the asset to be frozen.
 		/// - `who`: The account to be unfrozen.
+		///
+		/// A frozen or blocked account left with a zero balance by `refund` is removed, which fails
+		/// with `ContainsHolds` or `ContainsFreezes` while it has a hold or freeze. The freezer
+		/// deposit, if any, is returned.
 		///
 		/// Emits `Thawed`.
 		///
@@ -1277,7 +1313,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 			let id: T::AssetId = id.into();
 
-			let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
+			let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			ensure!(
 				details.status == AssetStatus::Live || details.status == AssetStatus::Frozen,
 				Error::<T, I>::IncorrectStatus
@@ -1285,11 +1321,22 @@ pub mod pallet {
 			ensure!(origin == details.admin, Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
 
-			Account::<T, I>::try_mutate(&id, &who, |maybe_account| -> DispatchResult {
-				maybe_account.as_mut().ok_or(Error::<T, I>::NoAccount)?.status =
-					AccountStatus::Liquid;
-				Ok(())
-			})?;
+			let mut account = Account::<T, I>::get(&id, &who).ok_or(Error::<T, I>::NoAccount)?;
+			let was_frozen = account.status.is_frozen();
+			if account.is_tombstone() {
+				Self::ensure_account_can_die(id.clone(), &who)?;
+				let _ = Self::dead_account(&who, &mut details, &account.reason, false);
+				Account::<T, I>::remove(&id, &who);
+				Asset::<T, I>::insert(&id, details);
+				T::Freezer::died(id.clone(), &who);
+				T::Holder::died(id.clone(), &who);
+			} else {
+				account.status = AccountStatus::Liquid;
+				Account::<T, I>::insert(&id, &who, account);
+			}
+			if was_frozen {
+				Self::release_freezer_deposit(&id, &who);
+			}
 
 			Self::deposit_event(Event::<T, I>::Thawed { asset_id: id, who });
 			Ok(())
@@ -1791,7 +1838,11 @@ pub mod pallet {
 		/// It will fail with either [`Error::ContainsHolds`] or [`Error::ContainsFreezes`] if
 		/// the asset account contains holds or freezes in place.
 		///
-		/// Emits `Refunded` event when successful.
+		/// A frozen or blocked asset account with a freezer deposit is not destroyed: its balance
+		/// is burned and its deposit or consumer reference returned, but it stays frozen or blocked
+		/// with a zero balance, and cannot receive the asset, until thawed.
+		///
+		/// Emits `Burned` if a non-zero balance was burned.
 		#[pallet::call_index(27)]
 		#[pallet::weight(T::WeightInfo::refund())]
 		pub fn refund(
@@ -1885,7 +1936,7 @@ pub mod pallet {
 		/// It will fail with either [`Error::ContainsHolds`] or [`Error::ContainsFreezes`] if
 		/// the asset account contains holds or freezes in place.
 		///
-		/// Emits `Refunded` event when successful.
+		/// Emits no event.
 		#[pallet::call_index(30)]
 		#[pallet::weight(T::WeightInfo::refund_other())]
 		pub fn refund_other(
@@ -1904,7 +1955,13 @@ pub mod pallet {
 		/// Origin must be Signed and the sender should be the Freezer of the asset `id`.
 		///
 		/// - `id`: The identifier of the account's asset.
-		/// - `who`: The account to be unblocked.
+		/// - `who`: The account to be blocked.
+		///
+		/// If the account's holder can `refund` it, which leaves a blocked entry behind, reserves
+		/// `AssetAccountDeposit` from the sender unless the account already has a freezer deposit.
+		/// Accounts that exist because the asset is sufficient or because someone else placed
+		/// their deposit take none. The deposit is returned when the account is thawed or
+		/// destroyed.
 		///
 		/// Emits `Blocked`.
 		///
@@ -1926,11 +1983,18 @@ pub mod pallet {
 			ensure!(origin == d.freezer, Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
 
-			Account::<T, I>::try_mutate(&id, &who, |maybe_account| -> DispatchResult {
-				maybe_account.as_mut().ok_or(Error::<T, I>::NoAccount)?.status =
-					AccountStatus::Blocked;
-				Ok(())
-			})?;
+			let needs_deposit = Account::<T, I>::try_mutate(
+				&id,
+				&who,
+				|maybe_account| -> Result<bool, DispatchError> {
+					let account = maybe_account.as_mut().ok_or(Error::<T, I>::NoAccount)?;
+					account.status = AccountStatus::Blocked;
+					Ok(account.is_refundable_by_holder())
+				},
+			)?;
+			if needs_deposit {
+				Self::take_freezer_deposit(&id, &who, &origin)?;
+			}
 
 			Self::deposit_event(Event::<T, I>::Blocked { asset_id: id, who });
 			Ok(())
@@ -2099,6 +2163,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			ensure!(Asset::<T, I>::contains_key(asset_id.clone()), "Orphaned Account found");
 		}
 
+		for (asset_id, who) in FreezerDeposits::<T, I>::iter_keys() {
+			ensure!(
+				Account::<T, I>::get(&asset_id, &who).is_some_and(|a| a.status.is_frozen()),
+				"Freezer deposit without a frozen or blocked account found"
+			);
+		}
+
 		for (asset_id, details) in Asset::<T, I>::iter() {
 			if details.status == AssetStatus::Destroying {
 				continue;
@@ -2118,12 +2189,24 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					calculated_sufficients += 1;
 				}
 
+				if account.is_tombstone() {
+					ensure!(
+						account.status.is_frozen() && account.balance.is_zero(),
+						"Tombstone that is not a frozen or blocked zero-balance account found"
+					);
+					ensure!(
+						FreezerDeposits::<T, I>::contains_key(&asset_id, &who),
+						"Tombstone without a freezer deposit found"
+					);
+				}
+
 				let total_balance = account.balance.saturating_add(held);
 				if total_balance < details.min_balance {
-					if !matches!(
-						account.reason,
-						ExistenceReason::DepositHeld(_) | ExistenceReason::DepositFrom(_, _)
-					) {
+					if !account.is_tombstone() &&
+						!matches!(
+							account.reason,
+							ExistenceReason::DepositHeld(_) | ExistenceReason::DepositFrom(_, _)
+						) {
 						log::warn!(
 							"Account {who:?} for asset {asset_id:?} has total balance below min_balance but no deposit. Balance: {:?}, Held: {:?}, Min balance: {:?}, Reason: {:?}",
 							account.balance,

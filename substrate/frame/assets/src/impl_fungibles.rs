@@ -278,7 +278,7 @@ impl<T: Config<I>, I: 'static> fungibles::Destroy<T::AccountId> for Pallet<T, I>
 	}
 
 	fn destroy_accounts(id: T::AssetId, max_items: u32) -> Result<u32, DispatchError> {
-		Self::do_destroy_accounts(id, max_items)
+		Self::do_destroy_accounts(id, max_items).map(|(accounts, _)| accounts)
 	}
 
 	fn destroy_approvals(id: T::AssetId, max_items: u32) -> Result<u32, DispatchError> {
