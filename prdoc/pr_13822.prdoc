@@ -1,0 +1,14 @@
+title: "CheckMetadataHash: reject mode 1 for extension versions other than 0"
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      The RFC-0078 metadata hash only describes the transaction extensions of extension
+      version 0. A transaction using another extension version with `mode = 1` signed a hash
+      that does not cover its own extensions. `CheckMetadataHash` now rejects such
+      transactions with `InvalidTransaction::BadProof` during validation.
+
+      Signed transactions (extrinsic format 4) and general transactions using extension
+      version 0 are unaffected. `mode = 0` is unaffected for every extension version.
+crates:
+  - name: frame-metadata-hash-extension
+    bump: patch

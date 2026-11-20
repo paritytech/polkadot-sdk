@@ -44,8 +44,10 @@ use frame_system::Config;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::TransactionExtension,
-	transaction_validity::{TransactionValidityError, UnknownTransaction},
+	traits::{DispatchInfoOf, DispatchOriginOf, Implication, TransactionExtension, ValidateResult},
+	transaction_validity::{
+		InvalidTransaction, TransactionSource, TransactionValidityError, UnknownTransaction,
+	},
 };
 
 #[cfg(test)]
@@ -108,6 +110,11 @@ impl MetadataHash {
 /// the metadata hash is not added and thus, `None` is added to the implicit. Mode `1` means that
 /// the metadata hash is added and thus, `Some(metadata_hash)` is added to the implicit. Further
 /// values of `mode` are reserved for future changes.
+///
+/// The metadata hash only describes the transaction extensions of extension version `0`. So
+/// `mode = 1` is only accepted for extension version `0` (including all signed transactions).
+/// Transactions using another extension version with `mode = 1` are rejected with
+/// [`InvalidTransaction::BadProof`].
 ///
 /// The metadata hash is read from the environment variable `RUNTIME_METADATA_HASH`. This
 /// environment variable is for example set by the `substrate-wasm-builder` when the feature for
@@ -173,5 +180,24 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMeta
 		Weight::zero()
 	}
 
-	impl_tx_ext_default!(T::RuntimeCall; validate prepare);
+	fn validate(
+		&self,
+		origin: DispatchOriginOf<T::RuntimeCall>,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
+		_len: usize,
+		_self_implicit: Self::Implicit,
+		inherited_implication: &impl Implication,
+		_source: TransactionSource,
+	) -> ValidateResult<Self::Val, T::RuntimeCall> {
+		// The base implication starts with the extension version.
+		if self.mode == Mode::Enabled &&
+			inherited_implication.parts().base.using_encoded(|b| b.first() != Some(&0))
+		{
+			return Err(InvalidTransaction::BadProof.into());
+		}
+		Ok((Default::default(), (), origin))
+	}
+
+	impl_tx_ext_default!(T::RuntimeCall; prepare);
 }
