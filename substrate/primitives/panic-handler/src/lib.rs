@@ -37,11 +37,11 @@ use std::{
 	time::{Duration, Instant},
 };
 
-/// Summaries of possibly caught panics printed per [`SUMMARY_WINDOW`].
-const SUMMARIES_PER_WINDOW: u64 = 10;
+/// Minimum interval between the summaries of possibly caught panics at the same location.
+const SUMMARY_INTERVAL: Duration = Duration::from_secs(60);
 
-/// Window of the summary rate limit.
-const SUMMARY_WINDOW: Duration = Duration::from_secs(60);
+/// Locations with their own summary rate limit, the rest share one.
+const MAX_SUMMARY_LOCATIONS: usize = 32;
 
 thread_local! {
 	static ON_PANIC: Cell<OnPanic> = Cell::new(OnPanic::Abort);
@@ -271,42 +271,89 @@ fn print_summary(stderr: &mut io::Stderr, message: &str, file: &str, line: u32) 
 }
 
 /// Rate limit of the summaries of possibly caught panics, which may be frequent.
+///
+/// Applied per panic location, for a frequent panic not to hide the others.
 struct SummaryLimiter {
-	/// Start of the current window.
-	window_start: Option<Instant>,
-	/// Panics in the current window.
-	panics: u64,
+	locations: Vec<LocationLimit>,
+	/// Limit of the locations that don't fit into `locations`.
+	shared: SummaryLimit,
+}
+
+struct LocationLimit {
+	file: String,
+	line: u32,
+	limit: SummaryLimit,
+}
+
+struct SummaryLimit {
+	last_summary: Option<Instant>,
+	/// Summaries suppressed since the last one.
+	suppressed: u64,
 }
 
 /// Summary let through by [`SummaryLimiter`].
 #[derive(Debug, PartialEq)]
 struct AllowedSummary {
-	/// Summaries suppressed in the previous window.
+	/// Summaries suppressed by the same limit since the previous one.
 	suppressed: u64,
-	/// Whether the rest of the window is suppressed.
-	last: bool,
+	/// Whether the limit is shared by multiple locations.
+	shared: bool,
+}
+
+impl SummaryLimit {
+	const fn new() -> Self {
+		Self { last_summary: None, suppressed: 0 }
+	}
+
+	fn is_limiting(&self, now: Instant) -> bool {
+		self.last_summary
+			.is_some_and(|last_summary| now.duration_since(last_summary) < SUMMARY_INTERVAL)
+	}
+
+	/// Record a panic, returning the number of suppressed summaries if a new one is due.
+	fn record(&mut self, now: Instant) -> Option<u64> {
+		if self.is_limiting(now) {
+			self.suppressed += 1;
+			return None;
+		}
+
+		self.last_summary = Some(now);
+		Some(std::mem::take(&mut self.suppressed))
+	}
 }
 
 impl SummaryLimiter {
 	const fn new() -> Self {
-		Self { window_start: None, panics: 0 }
+		Self { locations: Vec::new(), shared: SummaryLimit::new() }
 	}
 
 	/// Record a panic, returning `None` if its summary must be suppressed.
-	fn record(&mut self, now: Instant) -> Option<AllowedSummary> {
-		let mut suppressed = 0;
-		if self
-			.window_start
-			.is_none_or(|start| now.duration_since(start) >= SUMMARY_WINDOW)
-		{
-			suppressed = self.panics.saturating_sub(SUMMARIES_PER_WINDOW);
-			self.window_start = Some(now);
-			self.panics = 0;
-		}
-		self.panics += 1;
+	fn record(&mut self, file: &str, line: u32, now: Instant) -> Option<AllowedSummary> {
+		let allowed = |suppressed| AllowedSummary { suppressed, shared: false };
 
-		(self.panics <= SUMMARIES_PER_WINDOW)
-			.then_some(AllowedSummary { suppressed, last: self.panics == SUMMARIES_PER_WINDOW })
+		if let Some(location) = self
+			.locations
+			.iter_mut()
+			.find(|location| location.line == line && location.file == file)
+		{
+			return location.limit.record(now).map(allowed);
+		}
+
+		if self.locations.len() >= MAX_SUMMARY_LOCATIONS {
+			// Only loses the counts of suppressed summaries.
+			self.locations.retain(|location| location.limit.is_limiting(now));
+		}
+		if self.locations.len() >= MAX_SUMMARY_LOCATIONS {
+			return self
+				.shared
+				.record(now)
+				.map(|suppressed| AllowedSummary { suppressed, shared: true });
+		}
+
+		let mut limit = SummaryLimit::new();
+		let suppressed = limit.record(now);
+		self.locations.push(LocationLimit { file: file.to_owned(), line, limit });
+		suppressed.map(allowed)
 	}
 }
 
@@ -314,19 +361,21 @@ impl SummaryLimiter {
 fn print_limited_summary(message: &str, file: &str, line: u32) {
 	static LIMITER: Mutex<SummaryLimiter> = Mutex::new(SummaryLimiter::new());
 
-	let allowed = LIMITER.lock().unwrap_or_else(PoisonError::into_inner).record(Instant::now());
-	let Some(AllowedSummary { suppressed, last }) = allowed else { return };
+	let allowed =
+		LIMITER
+			.lock()
+			.unwrap_or_else(PoisonError::into_inner)
+			.record(file, line, Instant::now());
+	let Some(AllowedSummary { suppressed, shared }) = allowed else { return };
 	let mut stderr = io::stderr();
 
-	if suppressed > 0 {
-		let _ = writeln!(stderr, "{} panic summaries were suppressed", suppressed);
-	}
 	print_summary(&mut stderr, message, file, line);
-	if last {
+	if suppressed > 0 {
+		let locations = if shared { "other locations" } else { "this location" };
 		let _ = writeln!(
 			stderr,
-			"Further panic summaries are suppressed for up to {} seconds",
-			SUMMARY_WINDOW.as_secs(),
+			"{} more panics at {} since the previous summary",
+			suppressed, locations,
 		);
 	}
 }
@@ -500,22 +549,37 @@ mod tests {
 	}
 
 	#[test]
-	fn limiter_suppresses_summaries_over_window_limit() {
+	fn summaries_are_limited_per_location() {
 		let mut limiter = SummaryLimiter::new();
 		let start = Instant::now();
+		let allowed = |suppressed| Some(AllowedSummary { suppressed, shared: false });
 
-		for panics in 1..=SUMMARIES_PER_WINDOW {
-			assert_eq!(
-				limiter.record(start),
-				Some(AllowedSummary { suppressed: 0, last: panics == SUMMARIES_PER_WINDOW }),
-			);
+		assert_eq!(limiter.record("a.rs", 1, start), allowed(0));
+		assert_eq!(limiter.record("a.rs", 1, start), None);
+		assert_eq!(limiter.record("a.rs", 1, start + SUMMARY_INTERVAL / 2), None);
+		// Other locations are not affected.
+		assert_eq!(limiter.record("a.rs", 2, start), allowed(0));
+		assert_eq!(limiter.record("b.rs", 1, start), allowed(0));
+		assert_eq!(limiter.record("a.rs", 1, start + SUMMARY_INTERVAL), allowed(2));
+	}
+
+	#[test]
+	fn locations_over_limit_share_summary_limit() {
+		let mut limiter = SummaryLimiter::new();
+		let start = Instant::now();
+		let allowed = |suppressed, shared| Some(AllowedSummary { suppressed, shared });
+
+		for line in 0..MAX_SUMMARY_LOCATIONS as u32 {
+			assert_eq!(limiter.record("a.rs", line, start), allowed(0, false));
 		}
-		assert_eq!(limiter.record(start), None);
-		assert_eq!(limiter.record(start + SUMMARY_WINDOW / 2), None);
-		assert_eq!(
-			limiter.record(start + SUMMARY_WINDOW),
-			Some(AllowedSummary { suppressed: 2, last: false }),
-		);
+		assert_eq!(limiter.record("b.rs", 1, start), allowed(0, true));
+		assert_eq!(limiter.record("b.rs", 2, start), None);
+		assert_eq!(limiter.record("a.rs", 0, start), None);
+
+		// Locations that are no longer limited make room.
+		let later = start + SUMMARY_INTERVAL;
+		assert_eq!(limiter.record("b.rs", 2, later), allowed(0, false));
+		assert_eq!(limiter.record("b.rs", 2, later), None);
 	}
 
 	#[test]
@@ -523,17 +587,18 @@ mod tests {
 		let output = run_test_in_another_process("caught_panic_summaries_are_rate_limited", || {
 			set("test", "1.2.3");
 			abort_on_unwind(|| {
-				for _ in 0..SUMMARIES_PER_WINDOW + 5 {
-					assert!(panic::catch_unwind::<_, ()>(|| panic!("caught")).is_err());
+				for _ in 0..5 {
+					assert!(panic::catch_unwind::<_, ()>(|| panic!("repeated")).is_err());
 				}
+				assert!(panic::catch_unwind::<_, ()>(|| panic!("other")).is_err());
 			});
 		});
 
 		if let Some(output) = output {
 			assert!(output.status.success());
 			let stderr = stderr(&output);
-			assert_eq!(stderr.matches("panicked at 'caught'").count() as u64, SUMMARIES_PER_WINDOW,);
-			assert!(stderr.contains("Further panic summaries are suppressed"));
+			assert_eq!(stderr.matches("panicked at 'repeated'").count(), 1);
+			assert_eq!(stderr.matches("panicked at 'other'").count(), 1);
 		}
 	}
 
