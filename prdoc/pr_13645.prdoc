@@ -1,0 +1,24 @@
+title: 'fungible: allow deposits below ED into accounts with funds on hold'
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      The default `fungible::Unbalanced::increase_balance` and `pallet-balances`' `can_deposit`
+      treated any account whose free balance would stay below the existential deposit as a new
+      account, even when it had funds on hold. pallet-balances keeps such accounts alive, so this
+      was wrong for them. A `BestEffort` deposit returned `Ok(0)` and credited nothing, which is how
+      small staking rewards were lost, and `Exact` deposits and transfers failed with
+      `BelowMinimum`. Nomination pool members who staked their whole balance could not claim a
+      reward below ED, or unbond, since unbond claims pending rewards first.
+
+      An account is now only treated as new when its total balance is zero. New accounts still
+      cannot be created below ED.
+
+      Releasing the last hold of an account whose free balance is below ED now passes the dust to
+      `handle_raw_dust`. Before, `set_balance_on_hold` dropped it without reducing total issuance.
+crates:
+  - name: frame-support
+    bump: minor
+  - name: pallet-balances
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: none
