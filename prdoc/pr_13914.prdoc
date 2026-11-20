@@ -1,0 +1,9 @@
+title: 'pallet-membership: reject duplicate accounts when resetting members'
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |
+    Membership resets now return AlreadyMember when the new member list repeats an account.
+    Submit each account once. The order of the input list does not matter.
+crates:
+- name: pallet-membership
+  bump: patch

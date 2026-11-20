@@ -259,7 +259,7 @@ pub mod pallet {
 		}
 
 		/// Change the membership to a new set, disregarding the existing membership. Be nice and
-		/// pass `members` pre-sorted.
+		/// pass `members` pre-sorted. Each account must appear at most once.
 		///
 		/// May only be called from `T::ResetOrigin`.
 		#[pallet::call_index(3)]
@@ -270,6 +270,10 @@ pub mod pallet {
 			let mut members: BoundedVec<T::AccountId, T::MaxMembers> =
 				BoundedVec::try_from(members).map_err(|_| Error::<T, I>::TooManyMembers)?;
 			members.sort();
+			ensure!(
+				members.windows(2).all(|pair| pair[0] != pair[1]),
+				Error::<T, I>::AlreadyMember
+			);
 			Members::<T, I>::mutate(|m| {
 				T::MembershipChanged::set_members_sorted(&members[..], m);
 				Self::rejig_prime(&members);
