@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795127584165,
+  "lastUpdate": 1795171057223,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -266303,6 +266303,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2327898959,
             "range": "± 19957886",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8b4099b950d971448ed272587ba9c9d63f7f6196",
+          "message": "Fix validations failing for a session after a restart near a session change (#13780)\n\nA validator restarted shortly before a session change failed every\nbacking and approval validation of the new session with \"Session params\nunavailable (no active leaf?)\" until the next session change. Seen on\nWestend on 2026-11-09.\n\nTwo defects combined:\n\n- candidate-validation: with TASK_LIMIT validations in flight, the main\nloop reads only signals, and it dropped ActiveLeaves. recv_signal()\nstill counts a signal as received, so the overseer delivered requests\nfor the new session while state.last_active_leaf was still a block of\nthe previous one. Since #11604 the session params are fetched at that\nleaf, and it has no executor params for the new session. Leaves are now\napplied at the task limit too, with the same handler as below it.\n\n- runtime-api: SessionExecutorParams results were cached by session\nindex alone, None included, so one query at a block from before the\nsession failed every later request for that session, from any relay\nparent. Only Some results are cached now, as #11108 did for\nValidationCodeByHash.\n\nThe loop moves into run_loop, generic over the validation backend, so\nthat a test can drive it. Regression tests, both failing without the\nfix: leaf_activated_at_task_limit_is_applied and\nsession_executor_params_does_not_cache_none.\n\nDiscovered while doing testing for:\nhttps://github.com/paritytech/metanode/issues/46.",
+          "timestamp": "2026-11-20T09:17:04Z",
+          "tree_id": "308938a49c42dc60d68fb3abe851095d69ccd358",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8b4099b950d971448ed272587ba9c9d63f7f6196"
+        },
+        "date": 1795171018953,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4050981,
+            "range": "± 25730",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 297658,
+            "range": "± 3164",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4135914,
+            "range": "± 27491",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 366400,
+            "range": "± 3026",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 4748351,
+            "range": "± 20577",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 875924,
+            "range": "± 9075",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10138677,
+            "range": "± 54406",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4690533,
+            "range": "± 29746",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 42646067,
+            "range": "± 457241",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 36139062,
+            "range": "± 406195",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 324732811,
+            "range": "± 3152443",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 285163448,
+            "range": "± 2005253",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2474148183,
+            "range": "± 15032346",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2256418756,
+            "range": "± 19866068",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3340050,
+            "range": "± 19022",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1863183,
+            "range": "± 10987",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3436518,
+            "range": "± 19658",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1951854,
+            "range": "± 9784",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4165493,
+            "range": "± 19642",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2235797,
+            "range": "± 10363",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7666521,
+            "range": "± 28045",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5133161,
+            "range": "± 27075",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37505341,
+            "range": "± 97822",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 35194352,
+            "range": "± 176058",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 306563328,
+            "range": "± 1628135",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 277836989,
+            "range": "± 1376816",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2458703834,
+            "range": "± 15045658",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2292301623,
+            "range": "± 11030529",
             "unit": "ns/iter"
           }
         ]
