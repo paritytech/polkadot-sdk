@@ -39,7 +39,7 @@ use core::{fmt, mem};
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	pallet_prelude::*,
-	traits::{Contains, GetCallIndex, PalletInfoAccess, ReservableCurrency},
+	traits::{ContainsCallVariant, GetCallIndex, PalletInfoAccess, ReservableCurrency},
 	DefaultNoBound,
 };
 use frame_system::pallet_prelude::*;
@@ -941,18 +941,17 @@ fn preopen_hrmp_channel<T: Config>(
 	Pallet::<T>::init_and_accept_open_channel(sender, recipient, max_capacity, max_message_size)
 }
 
-/// The calls of this pallet that a parachain makes for itself.
+/// The call variants of this pallet that a parachain makes for itself.
 ///
-/// Each as its pallet index and its call index: opening, accepting, cancelling or closing a
-/// channel, poking its deposits, or establishing a channel with a system chain.
-// TODO: probably make a dedicated trait, Contains<(u8, u8)> is very ugly.
+/// Opening, accepting, cancelling or closing a channel, poking its deposits, or establishing a
+/// channel with a system chain.
 pub struct ParaRequestCalls<T>(PhantomData<T>);
-impl<T: Config> Contains<(u8, u8)> for ParaRequestCalls<T> {
-	fn contains((pallet_index, call_index): &(u8, u8)) -> bool {
-		usize::from(*pallet_index) == <Pallet<T> as PalletInfoAccess>::index() &&
+impl<T: Config> ContainsCallVariant for ParaRequestCalls<T> {
+	fn contains(pallet_index: u8, call_index: u8) -> bool {
+		usize::from(pallet_index) == <Pallet<T> as PalletInfoAccess>::index() &&
 			Pallet::<T>::para_request_calls(0)
 				.iter()
-				.any(|call| call.get_call_index() == *call_index)
+				.any(|call| call.get_call_index() == call_index)
 	}
 }
 

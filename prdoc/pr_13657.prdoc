@@ -7,8 +7,8 @@ doc:
     - Widen the accepted origins of `establish_system_channel` and `poke_channel_deposits`.
     - Expose `max_para_request_weight`, the weight of the heaviest request a parachain makes for
       itself.
-    - Expose `ParaRequestCalls`, the calls a parachain makes for itself, each as its pallet
-      index and its call index. It fits the `AllowedCalls` of the pallet `unpaid_transact`.
+    - Expose `ParaRequestCalls`, the call variants a parachain makes for itself, as a
+      `ContainsCallVariant`. It fits the `AllowedCalls` of the pallet `unpaid_transact`.
 
     Westend allows them in its pallet `unpaid_transact`, for a message that weighs no more than
     an HRMP request: a non-system parachain gets 10 HRMP requests per day executed without

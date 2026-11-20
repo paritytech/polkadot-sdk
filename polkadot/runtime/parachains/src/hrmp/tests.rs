@@ -1376,15 +1376,15 @@ fn hrmp_notifications_works() {
 	});
 }
 
-/// `ParaRequestCalls` has the calls a parachain makes for itself, of this pallet only.
+/// `ParaRequestCalls` has the call variants a parachain makes for itself, of this pallet only.
 #[test]
 fn para_request_calls_are_told_by_their_indices() {
-	use frame_support::traits::{Contains, PalletInfoAccess};
+	use frame_support::traits::{ContainsCallVariant, PalletInfoAccess};
 
 	let hrmp = <Hrmp as PalletInfoAccess>::index() as u8;
 	let allowed = |pallet_index: u8| -> Vec<u8> {
 		(0..=u8::MAX)
-			.filter(|call_index| ParaRequestCalls::<Test>::contains(&(pallet_index, *call_index)))
+			.filter(|call_index| ParaRequestCalls::<Test>::contains(pallet_index, *call_index))
 			.collect()
 	};
 
