@@ -72,19 +72,21 @@ fn try_state_detects_inconsistent_active_current_era() {
 
 #[test]
 fn try_state_bad_exposure() {
-	ExtBuilder::default().try_state(false).build_and_execute(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		Session::roll_until_active_era(2);
 		assert!(Staking::do_try_state(System::block_number()).is_ok());
 
-		let (validator, mut metadata) = ErasStakersOverview::<T>::iter()
-			.take(1)
-			.map(|(_era, validator, metadata)| (validator, metadata))
-			.collect::<Vec<_>>()
-			.pop()
-			.unwrap();
+		let (validator, original) = ErasStakersOverview::<T>::iter_prefix(2).next().unwrap();
+		let mut metadata = original;
 		metadata.total += 1;
 		ErasStakersOverview::<T>::insert(2, validator, metadata);
-		assert!(Staking::do_try_state(System::block_number()).is_err());
+		assert_eq!(
+			Staking::do_try_state(System::block_number()),
+			Err(sp_runtime::DispatchError::Other("found bad metadata"))
+		);
+
+		// Restore valid state so build_and_execute post-check passes.
+		ErasStakersOverview::<T>::insert(2, validator, original);
 	});
 }
 
@@ -92,7 +94,7 @@ fn try_state_bad_exposure() {
 fn last_validator_era_can_be_one_greater_than_active_era() {
 	// When the election for the next era has finished but the era is not yet active,
 	// `LastValidatorEra` is set to `active_era + 1`.
-	ExtBuilder::default().try_state(false).build_and_execute(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		Session::roll_until_active_era(1);
 		let era = active_era();
 
@@ -115,16 +117,76 @@ fn last_validator_era_can_be_one_greater_than_active_era() {
 		for (validator, _) in ErasStakersOverview::<T>::iter_prefix(era) {
 			assert_eq!(LastValidatorEra::<T>::get(&validator), Some(era + 1));
 		}
+
+		// try-state accepts `active_era + 1` once the next era's exposure is stored.
+		assert_ok!(Staking::do_try_state(System::block_number()));
+	});
+}
+
+#[test]
+fn try_state_bad_last_validator_era() {
+	ExtBuilder::default().build_and_execute(|| {
+		Session::roll_until_active_era(2);
+		let era = active_era();
+		assert_ok!(Staking::do_try_state(System::block_number()));
+
+		let (validator, _) = ErasStakersOverview::<T>::iter_prefix(era).next().unwrap();
+		let original = LastValidatorEra::<T>::get(&validator);
+		let expected = Err(sp_runtime::DispatchError::Other(
+			"LastValidatorEra must be the active era, or the next era with a stored exposure",
+		));
+
+		// Neither the active era nor the next one: try-state must fail.
+		LastValidatorEra::<T>::insert(&validator, era - 1);
+		assert_eq!(Staking::do_try_state(System::block_number()), expected);
+		LastValidatorEra::<T>::insert(&validator, era + 2);
+		assert_eq!(Staking::do_try_state(System::block_number()), expected);
+
+		// The next era, but its election has not stored an exposure for this validator yet.
+		assert!(!ErasStakersOverview::<T>::contains_key(era + 1, &validator));
+		LastValidatorEra::<T>::insert(&validator, era + 1);
+		assert_eq!(Staking::do_try_state(System::block_number()), expected);
+
+		// Restore valid state so build_and_execute post-check passes.
+		LastValidatorEra::<T>::set(&validator, original);
+	});
+}
+
+#[test]
+fn last_validator_era_absent_after_force_unstake_is_valid() {
+	ExtBuilder::default().build_and_execute(|| {
+		Session::roll_until_active_era(2);
+		let era = active_era();
+		let (validator, _) = ErasStakersOverview::<T>::iter_prefix(era).next().unwrap();
+
+		// `kill_stash` removes `LastValidatorEra`, but the active era's exposure stays.
+		assert_ok!(Staking::force_unstake(RuntimeOrigin::root(), validator, 0));
+		assert!(LastValidatorEra::<T>::get(&validator).is_none());
+		assert!(ErasStakersOverview::<T>::get(era, &validator).is_some());
+		assert_ok!(Staking::do_try_state(System::block_number()));
+
+		// Bonding again in the same era leaves a bonded, exposed stash with no entry: try-state
+		// only warns.
+		assert_ok!(Staking::bond(RuntimeOrigin::signed(validator), 500, RewardDestination::Staked));
+		assert!(Bonded::<T>::contains_key(&validator));
+		assert!(LastValidatorEra::<T>::get(&validator).is_none());
+		assert_ok!(Staking::do_try_state(System::block_number()));
 	});
 }
 
 #[test]
 fn try_state_bad_eras_total_stake() {
-	ExtBuilder::default().try_state(false).build_and_execute(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		Session::roll_until_active_era(2);
 		assert!(Staking::do_try_state(System::block_number()).is_ok());
 		ErasTotalStake::<T>::mutate(2, |s| *s -= 1);
-		assert!(Staking::do_try_state(System::block_number()).is_err());
+		assert_eq!(
+			Staking::do_try_state(System::block_number()),
+			Err(sp_runtime::DispatchError::Other("found bad eras total stake"))
+		);
+
+		// Restore valid state so build_and_execute post-check passes.
+		ErasTotalStake::<T>::mutate(2, |s| *s += 1);
 	});
 }
 
