@@ -1,0 +1,11 @@
+title: 'hrmp: benchmark the request cleanup worst case and tests covering the offboarding refunds'
+doc:
+- audience: [Runtime Dev]
+  description: |-
+    The benchmark for `clean_open_channel_requests` is fixed to bench the worst case. 
+    The implementers' guide is updated with the latest implementation of #13547. Regression tests are added
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: polkadot
+  bump: none
