@@ -753,3 +753,63 @@ fn caller_is_origin_does_not_cross_regular_call_after_delegate_call(fixture_type
 		);
 	});
 }
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn terminate_in_static_call_reverts_and_keeps_contract(fixture_type: FixtureType) {
+	use crate::{evm::decode_revert_reason, precompiles::STATIC_CALL_DENIED};
+	use pallet_revive_fixtures::SystemPrecompileErrors;
+
+	let (code, _) = compile_module_with_type("SystemPrecompileErrors", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr)
+			.data(
+				SystemPrecompileErrors::terminateInStaticCallCall {
+					beneficiary: ALICE_ADDR.0.into(),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		let ret =
+			SystemPrecompileErrors::terminateInStaticCallCall::abi_decode_returns(&result.data)
+				.unwrap();
+
+		assert!(!ret.ok);
+		assert_eq!(decode_revert_reason(&ret.ret), Some(format!("revert: {STATIC_CALL_DENIED}")));
+		assert!(crate::tests::test_utils::get_contract_checked(&addr).is_some());
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn ecdsa_to_eth_address_with_invalid_key_reverts(fixture_type: FixtureType) {
+	use crate::evm::decode_revert_reason;
+	use pallet_revive_fixtures::SystemPrecompileErrors;
+
+	let (code, _) = compile_module_with_type("SystemPrecompileErrors", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr)
+			.data(
+				SystemPrecompileErrors::ecdsaToEthAddressCall { publicKey: [0u8; 33] }.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		let ret = SystemPrecompileErrors::ecdsaToEthAddressCall::abi_decode_returns(&result.data)
+			.unwrap();
+
+		assert!(!ret.ok);
+		assert_eq!(
+			decode_revert_reason(&ret.ret).as_deref(),
+			Some("revert: invalid compressed public key"),
+		);
+	});
+}
