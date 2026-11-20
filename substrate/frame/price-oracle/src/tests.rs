@@ -16,8 +16,8 @@
 // limitations under the License.
 
 //! Tests of when reports are processed, which of them are accepted, how reports and votes are
-//! anchored and expired, how votes become prices, what a pause stops, and what the admin calls
-//! check.
+//! anchored and expired, how votes become prices, what a pause stops, what the admin calls
+//! check, and what the runtime API gives the nodes.
 
 use crate::{self as pallet_price_oracle, *};
 use core::{
@@ -115,6 +115,13 @@ const PAIR_B: PairId = PairId(2);
 /// A venue and a market, registered by the tests that use them.
 const VENUE: VenueId = VenueId(1);
 const MARKET: MarketId = MarketId(1);
+/// The tags of the two queries of [`market`].
+const BOOK: QueryTag = QueryTag(0);
+const TRADES: QueryTag = QueryTag(1);
+/// An order book with the best bid at 4 and the best ask at 5.
+const BOOK_JSON: &[u8] = br#"{"bids": [["4", "10"]], "asks": [["5", "10"]]}"#;
+/// One trade at [`START_MS`].
+const TRADES_JSON: &[u8] = br#"[{"time": 1800000000000}]"#;
 /// Chain time at the start of every test.
 const START_MS: u64 = 1_800_000_000_000;
 const PARAMS: Parameters =
@@ -162,21 +169,58 @@ fn report(signer: u64, block: u32, timestamp_ms: u64, price: u128) -> SignedPric
 	report_quotes(signer, Anchor::new(block, timestamp_ms), &[(PAIR, price as u32)])
 }
 
-/// A market of `pair` on [`VENUE`], with the least pricing parameters that are valid.
+/// A market of `pair` on [`VENUE`], with a query for its order book and one for its trades. The
+/// requests are never sent.
 fn market(pair: PairId) -> StoredMarketOf<Test> {
+	use order_book::schema::{LevelLayout, PathStep, ResponseSchema, TimeFormat};
+	use registry::{StoredQuery, StoredRequest};
+
+	let query = |tag| StoredQuery {
+		tag,
+		request: StoredRequest {
+			method: sp_price_oracle::market::Method::Get,
+			host: Default::default(),
+			path: Default::default(),
+			query: Default::default(),
+			headers: Default::default(),
+			body: Default::default(),
+			timeout_ms: 1_000,
+			max_response_bytes: 1_024,
+		},
+	};
+	let key = |key| PathStep::key(key).unwrap();
+	let book = ResponseSchema::OrderBook {
+		bids: vec![key("bids")].try_into().unwrap(),
+		asks: vec![key("asks")].try_into().unwrap(),
+		layout: LevelLayout::Array { price: 0, amount: 1 },
+	};
+	let trades = ResponseSchema::Trades {
+		trades: Default::default(),
+		time: vec![key("time")].try_into().unwrap(),
+		format: TimeFormat::Millis,
+	};
 	StoredMarket {
 		venue: VENUE,
 		pair,
 		pricing: order_book::OrderBookParams {
-			queries: Default::default(),
+			queries: vec![(query(BOOK), book), (query(TRADES), trades)].try_into().unwrap(),
 			contract_size: Price::from_u32(1),
 			limits: order_book::HealthLimits {
 				impact_size: Price::from_u32(1),
-				max_trade_age_ms: 1,
+				max_trade_age_ms: 300_000,
 			},
 		},
 		active: true,
 	}
+}
+
+/// What pricing a market with the best bid at `lower` and the best ask at `upper` gives.
+fn market_output(lower: u32, upper: u32) -> MarketOutput {
+	let interval = order_book::Interval {
+		lower: Some(Price::from_u32(lower)),
+		upper: Some(Price::from_u32(upper)),
+	};
+	MarketOutput(interval.encode())
 }
 
 /// Process `reports` in a block of its own.
@@ -1045,5 +1089,165 @@ fn remove_pair_removes_cross_rates_votes_and_price() {
 		assert!(!Votes::<Test>::contains_key(PAIR));
 		assert!(!Prices::<Test>::contains_key(PAIR));
 		assert_eq!(take_events(), vec![Event::PairRemoved { pair: PAIR }]);
+	});
+}
+
+#[test]
+fn settings_are_zero_while_parameters_are_unset() {
+	new_test_ext().execute_with(|| {
+		let signers: Vec<_> = (1..=3).map(UintAuthorityId).collect();
+		assert_eq!(
+			PriceOracle::settings(),
+			sp_price_oracle::Settings {
+				signers: signers.clone(),
+				report_window: 10,
+				report_window_ms: 30_000,
+				tick_interval_ms: 2_000,
+			}
+		);
+
+		Params::<Test>::kill();
+		assert_eq!(
+			PriceOracle::settings(),
+			sp_price_oracle::Settings {
+				signers,
+				report_window: 0,
+				report_window_ms: 0,
+				tick_interval_ms: 0,
+			}
+		);
+	});
+}
+
+#[test]
+fn active_markets_leaves_out_inactive_markets() {
+	new_test_ext().execute_with(|| {
+		let root = RuntimeOrigin::root;
+		assert_ok!(PriceOracle::set_venue(root(), VENUE, Venue { name: Default::default() }));
+		assert_ok!(PriceOracle::set_market(root(), MARKET, market(PAIR)));
+		let inactive = StoredMarket { active: false, ..market(PAIR) };
+		assert_ok!(PriceOracle::set_market(root(), MarketId(2), inactive));
+
+		// Only `MARKET` is served, with its venue, its pair and its two queries.
+		let markets = PriceOracle::active_markets();
+		assert_eq!(markets.len(), 1);
+		assert_eq!((markets[0].id, markets[0].venue, markets[0].pair), (MARKET, VENUE, PAIR));
+		assert_eq!(
+			markets[0].queries.iter().map(|q| q.tag).collect::<Vec<_>>(),
+			vec![BOOK, TRADES]
+		);
+	});
+}
+
+#[test]
+fn parse_market_prices_a_market_from_its_responses() {
+	new_test_ext().execute_with(|| {
+		let root = RuntimeOrigin::root;
+		assert_ok!(PriceOracle::set_venue(root(), VENUE, Venue { name: Default::default() }));
+		assert_ok!(PriceOracle::set_market(root(), MARKET, market(PAIR)));
+
+		let responses = vec![(BOOK, BOOK_JSON.to_vec()), (TRADES, TRADES_JSON.to_vec())];
+		assert_eq!(PriceOracle::parse_market(MARKET, responses, START_MS), Ok(market_output(4, 5)));
+	});
+}
+
+#[test]
+fn parse_market_rejects_what_it_cannot_price() {
+	new_test_ext().execute_with(|| {
+		let root = RuntimeOrigin::root;
+		assert_ok!(PriceOracle::set_venue(root(), VENUE, Venue { name: Default::default() }));
+		assert_ok!(PriceOracle::set_market(root(), MARKET, market(PAIR)));
+		let parse = |market, responses: &[(QueryTag, &[u8])]| {
+			let responses = responses.iter().map(|(tag, body)| (*tag, body.to_vec())).collect();
+			PriceOracle::parse_market(market, responses, START_MS)
+		};
+		let error = |text: &str| Err(ParseError(text.as_bytes().to_vec()));
+
+		// A market that is not registered.
+		assert_eq!(parse(MarketId(9), &[(BOOK, BOOK_JSON)]), error("unknown_market"));
+		// A response to a query the market does not have.
+		assert_eq!(parse(MARKET, &[(QueryTag(9), BOOK_JSON)]), error("unknown_query_tag"));
+		// A response larger than the 1024 bytes its query allows.
+		assert_eq!(parse(MARKET, &[(BOOK, &[b' '; 1_025])]), error("too_large"));
+		// The error of `OrderBookPricing`, here for a missing trades response.
+		assert_eq!(parse(MARKET, &[(BOOK, BOOK_JSON)]), error("no_trades_response"));
+	});
+}
+
+#[test]
+fn aggregate_markets_prices_pairs_and_carries_the_state() {
+	new_test_ext().execute_with(|| {
+		let root = RuntimeOrigin::root;
+		assert_ok!(PriceOracle::set_venue(root(), VENUE, Venue { name: Default::default() }));
+		assert_ok!(PriceOracle::set_market(root(), MARKET, market(PAIR)));
+		let prices = |aggregates: Vec<PairAggregate>| -> Vec<_> {
+			aggregates.into_iter().map(|a| (a.pair, a.inputs, a.price)).collect()
+		};
+
+		// Without a state, the price is the middle of the market's interval.
+		let (aggregates, state) = PriceOracle::aggregate_markets(
+			vec![(MARKET, market_output(4, 6))],
+			PricingState::default(),
+		);
+		assert_eq!(prices(aggregates), vec![(PAIR, 1, Some(Price::from_u32(5)))]);
+
+		// With the state of the tick before, the price of 5 moves to the nearest edge of the new
+		// interval.
+		let (aggregates, _) =
+			PriceOracle::aggregate_markets(vec![(MARKET, market_output(6, 8))], state);
+		assert_eq!(prices(aggregates), vec![(PAIR, 1, Some(Price::from_u32(6)))]);
+	});
+}
+
+#[test]
+fn aggregate_markets_leaves_out_what_it_cannot_read() {
+	new_test_ext().execute_with(|| {
+		let root = RuntimeOrigin::root;
+		assert_ok!(PriceOracle::set_venue(root(), VENUE, Venue { name: Default::default() }));
+		assert_ok!(PriceOracle::set_market(root(), MARKET, market(PAIR)));
+		let prices = |aggregates: Vec<PairAggregate>| -> Vec<_> {
+			aggregates.into_iter().map(|a| (a.pair, a.inputs, a.price)).collect()
+		};
+
+		// The output of a market that is not registered, and an output that does not decode.
+		let (aggregates, _) = PriceOracle::aggregate_markets(
+			vec![(MarketId(9), market_output(4, 6)), (MARKET, MarketOutput(vec![0xff]))],
+			PricingState::default(),
+		);
+		assert_eq!(prices(aggregates), vec![(PAIR, 0, None)]);
+
+		// A state that does not decode is taken as the default.
+		let (aggregates, _) = PriceOracle::aggregate_markets(
+			vec![(MARKET, market_output(4, 6))],
+			PricingState(vec![0xff]),
+		);
+		assert_eq!(prices(aggregates), vec![(PAIR, 1, Some(Price::from_u32(5)))]);
+	});
+}
+
+#[test]
+fn latest_anchors_gives_the_newest_anchor_of_each_signer() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(PriceOracle::set_pair(
+			RuntimeOrigin::root(),
+			PAIR_B,
+			PairConfig { market_quorum: 1 }
+		));
+		// Signer 1 quotes both pairs, then only `PAIR_B` with a newer anchor. Its vote for `PAIR`
+		// keeps the older one.
+		process(vec![
+			report_quotes(1, Anchor::new(99, START_MS), &[(PAIR, 5), (PAIR_B, 20)]),
+			report_quotes(2, Anchor::new(100, START_MS), &[(PAIR, 5)]),
+		]);
+		System::set_block_number(101);
+		process(vec![report_quotes(1, Anchor::new(101, START_MS), &[(PAIR_B, 20)])]);
+
+		assert_eq!(
+			PriceOracle::latest_anchors(),
+			vec![
+				(UintAuthorityId(1), Anchor::new(101, START_MS)),
+				(UintAuthorityId(2), Anchor::new(100, START_MS)),
+			]
+		);
 	});
 }
