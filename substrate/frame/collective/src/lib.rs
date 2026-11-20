@@ -151,6 +151,17 @@ pub enum RawOrigin<AccountId, I> {
 	_Phantom(PhantomData<I>),
 }
 
+impl<AccountId: Clone, I> frame_support::traits::AccountLike<AccountId>
+	for RawOrigin<AccountId, I>
+{
+	fn as_account(&self) -> Option<AccountId> {
+		match self {
+			RawOrigin::Member(who) => Some(who.clone()),
+			_ => None,
+		}
+	}
+}
+
 impl<AccountId, I> GetBacking for RawOrigin<AccountId, I> {
 	fn get_backing(&self) -> Option<Backing> {
 		match self {

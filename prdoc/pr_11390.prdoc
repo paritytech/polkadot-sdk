@@ -1,0 +1,40 @@
+title: '[FRAME] Add `AccountLike` trait and `#[pallet::as_account]` for custom origin account tracking'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Custom pallet origins can now expose an account and opt in to nonce tracking and fee payment,
+    which until now only worked for `frame_system::RawOrigin::Signed`.
+
+    - `#[pallet::as_account(<closure>)]` on an origin enum variant maps the variant to an account.
+    - `#[pallet::nonce_provider]` and `#[pallet::fee_payer]` on the same variant make `CheckNonce`
+      and `ChargeTransactionPayment` (and the `ChargeAssetTxPayment` extensions) use that account.
+      Each is optional; a variant using only one of them must provide the other protection itself.
+    - `frame_system::ensure_account` extends `ensure_signed` to accept any origin which exposes an
+      account. `pallet-collective` exposes the account of its `Member` origin.
+
+    This is backed by the new `frame_support::traits::AccountLike` trait. Nonce checking and fee
+    payment are unchanged for existing origins.
+
+    Breaking changes:
+    - A type alias origin (`#[pallet::origin] pub type Origin<..> = SomeType<..>;`) now requires
+      the aliased type to implement `AccountLike<AccountId>`. An empty `impl` keeps the previous
+      behaviour.
+    - `CallerTrait<AccountId>` now has `AccountLike<AccountId>` as a supertrait, so manual
+      implementations of `CallerTrait` must implement it too.
+crates:
+- name: frame-support
+  bump: major
+- name: frame-support-procedural
+  bump: major
+- name: frame-system
+  bump: minor
+- name: frame-system-benchmarking
+  bump: minor
+- name: pallet-transaction-payment
+  bump: minor
+- name: pallet-asset-tx-payment
+  bump: minor
+- name: pallet-asset-conversion-tx-payment
+  bump: minor
+- name: pallet-collective
+  bump: minor
