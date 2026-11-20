@@ -11,6 +11,7 @@ crates:
     bump: minor
   - name: sc-consensus-aura
     bump: major
+    validate: false
   - name: cumulus-pallet-aura-ext
     bump: patch
   - name: sc-consensus-manual-seal
