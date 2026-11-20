@@ -37,11 +37,17 @@ mod benchmarks {
 		// Fund with ED (to keep account alive) plus the amount to be sent.
 		T::Currency::write_balance(&accumulation_account, ed + amount)
 			.expect("benchmark setup should succeed");
+		T::BenchmarkHelper::ensure_successful_forward(&accumulation_account);
 
+		let result;
 		#[block]
 		{
-			let _ = T::Forwarder::forward(accumulation_account, amount);
+			result = T::Forwarder::forward(accumulation_account.clone(), amount);
 		}
+
+		// A failed forward rolls back its writes, so the weight would only count the reads.
+		assert!(result.is_ok(), "forward must succeed to measure its writes");
+		assert_eq!(T::Currency::balance(&accumulation_account), ed);
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(true), crate::mock::Test);
