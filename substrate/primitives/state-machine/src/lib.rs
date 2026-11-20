@@ -129,11 +129,14 @@ impl core::fmt::Display for DefaultError {
 }
 
 pub use crate::{
-	backend::{Backend, BackendTransaction, IterArgs, KeysIter, PairsIter, StorageIterator},
+	backend::{
+		Backend, BackendTransaction, EstimationTrie, EstimationTrieSnapshot, IterArgs, KeysIter,
+		PairsIter, StorageIterator,
+	},
 	error::{Error, ExecutionError},
 	ext::Ext,
 	overlayed_changes::{
-		ChildStorageCollection, IndexOperation, OffchainChangesCollection,
+		ChildStorageCollection, DeltaKeyOp, IndexOperation, OffchainChangesCollection,
 		OffchainOverlayedChanges, OverlayedChanges, StorageChanges, StorageCollection, StorageKey,
 		StorageValue,
 	},
@@ -1338,14 +1341,17 @@ mod tests {
 		let state = InMemoryBackend::<BlakeTwo256>::from((initial, StateVersion::default()));
 		let backend = state.as_trie_backend();
 
-		let mut overlay = OverlayedChanges::default();
-		overlay.set_storage(b"aba".to_vec(), Some(b"1312".to_vec()));
-		overlay.set_storage(b"bab".to_vec(), Some(b"228".to_vec()));
-		overlay.start_transaction();
-		overlay.set_storage(b"abd".to_vec(), Some(b"69".to_vec()));
-		overlay.set_storage(b"bbd".to_vec(), Some(b"42".to_vec()));
+		let new_overlay = || {
+			let mut overlay = OverlayedChanges::default();
+			overlay.set_storage(b"aba".to_vec(), Some(b"1312".to_vec()));
+			overlay.set_storage(b"bab".to_vec(), Some(b"228".to_vec()));
+			overlay.start_transaction();
+			overlay.set_storage(b"abd".to_vec(), Some(b"69".to_vec()));
+			overlay.set_storage(b"bbd".to_vec(), Some(b"42".to_vec()));
+			overlay
+		};
 
-		let overlay_limit = overlay.clone();
+		let mut overlay = new_overlay();
 		{
 			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			let _ = ext.clear_prefix(b"ab", None, None);
@@ -1368,7 +1374,7 @@ mod tests {
 			],
 		);
 
-		let mut overlay = overlay_limit;
+		let mut overlay = new_overlay();
 		{
 			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			assert_matches!(

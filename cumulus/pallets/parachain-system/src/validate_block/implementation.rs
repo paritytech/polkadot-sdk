@@ -548,6 +548,9 @@ fn host_storage_clear(key: &[u8]) {
 }
 
 fn host_storage_proof_size() -> u64 {
+	// Runtimes call version 1 of the host function, which does not estimate dirty keys. Uncomment
+	// once version 2 in `cumulus_primitives_proof_size_hostfunction` drops `register_only`.
+	// with_externalities(|ext| ext.record_proof_for_dirty_keys());
 	recorder::with(|rec| rec.estimate_encoded_size()).expect("Recorder is always set; qed") as _
 }
 
@@ -560,6 +563,8 @@ fn host_storage_clear_prefix(prefix: &[u8], limit: Option<u32>) -> KillStorageRe
 }
 
 fn host_storage_append(key: &[u8], value: Vec<u8>) {
+	// Runtimes call version 1 of `storage::append`. Switch to `ext.storage_append_v2(..)` once
+	// version 2 in `sp_io` drops `register_only`.
 	with_externalities(|ext| ext.storage_append(key.to_vec(), value))
 }
 
@@ -641,6 +646,8 @@ fn host_default_child_storage_clear_prefix(
 
 fn host_default_child_storage_root(storage_key: &[u8], version: StateVersion) -> Vec<u8> {
 	let child_info = ChildInfo::new_default(storage_key);
+	// Runtimes call version 2 of `default_child_storage::root`.
+	// Switch to `ext.child_storage_root_v3(..)` once version 3 in `sp_io` drops `register_only`.
 	with_externalities(|ext| ext.child_storage_root_with_version(&child_info, version))
 }
 
