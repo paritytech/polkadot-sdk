@@ -1255,7 +1255,16 @@ pub mod pallet {
 			Ok(credit_out)
 		}
 
-		/// Removes `value` balance of `asset` from `who` account if possible.
+		/// Removes exactly `value` balance of `asset` from `who` account if possible.
+		///
+		/// An expendable withdrawal from `pallet-assets` may take *more* than `value`: where
+		/// debiting `value` would strand a remainder too small for `who` to keep, it sweeps that
+		/// remainder out too and reports the larger figure in the returned credit. A swap pays the
+		/// whole credit into the pool while pricing it on `value`, so the surplus would be paid in
+		/// for nothing. Such a credit is refused, and since every path into this function is
+		/// transactional, the withdrawal is rolled back with it. Keep-alive withdrawals, such as
+		/// the pool's side of a swap and the pool setup fee, never sweep. `pallet-balances`
+		/// returns exactly `value` and handles the remainder as dust, so native withdrawals pass.
 		fn withdraw(
 			asset: T::AssetKind,
 			who: &T::AccountId,
@@ -1267,12 +1276,15 @@ pub mod pallet {
 				false => Expendable,
 			};
 			if preservation == Preserve {
-				// TODO drop the ensure! when this issue addressed
-				// https://github.com/paritytech/polkadot-sdk/issues/1698
 				let free = T::Assets::reducible_balance(asset.clone(), who, preservation, Polite);
 				ensure!(free >= value, TokenError::NotExpendable);
 			}
-			T::Assets::withdraw(asset, who, value, Exact, preservation, Polite)
+
+			let credit = T::Assets::withdraw(asset, who, value, Exact, preservation, Polite)?;
+
+			ensure!(credit.peek() == value, TokenError::BelowMinimum);
+
+			Ok(credit)
 		}
 
 		/// Get the `owner`'s balance of `asset`, which could be the chain's native asset or another
@@ -1509,6 +1521,17 @@ pub mod pallet {
 				}
 			}
 			Ok(())
+		}
+
+		/// Whether a pool exists for the pair, whatever its liquidity.
+		///
+		/// [`Self::get_reserves`] reports a missing pool and one without liquidity alike as
+		/// [`Error::PoolEmpty`]; this tells the two apart. Costs one read of [`Pools`], weighed by
+		/// [`crate::weights::WeightInfo::pool_exists`].
+		pub fn pool_exists(asset1: &T::AssetKind, asset2: &T::AssetKind) -> Result<bool, Error<T>> {
+			let pool_id = T::PoolLocator::pool_id(asset1, asset2)
+				.map_err(|_| Error::<T>::InvalidAssetPair)?;
+			Ok(Pools::<T>::contains_key(&pool_id))
 		}
 
 		/// Returns the next pool asset id for benchmark purposes only.
