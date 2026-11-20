@@ -84,6 +84,8 @@ parameter_types! {
 	pub static BlockWeights: frame_system::limits::BlockWeights = Default::default();
 	pub static ExistentialDeposit: Balance = 1;
 	pub static SlashDeferDuration: EraIndex = 0;
+	pub static SlashRewardDecayFn: fn(EraIndex) -> Perbill =
+		<() as SlashRewardDecay>::reward_portion;
 	pub static MaxControllersInDeprecationBatch: u32 = 5900;
 	pub static BondingDuration: EraIndex = 3;
 	pub static NominatorFastUnbondDuration: EraIndex = 2;
@@ -259,6 +261,15 @@ impl crate::IsValidatorInactive<AccountId> for MockIsValidatorInactive {
 		points: &[(ServiceKind, RewardPoint)],
 	) -> bool {
 		InactivityCheck::get()(points)
+	}
+}
+
+/// Decays the reporter reward with [`SlashRewardDecayFn`], which is no decay unless a test sets
+/// one with [`ExtBuilder::slash_reward_decay`].
+pub struct MockSlashRewardDecay;
+impl SlashRewardDecay for MockSlashRewardDecay {
+	fn reward_portion(elapsed: EraIndex) -> Perbill {
+		SlashRewardDecayFn::get()(elapsed)
 	}
 }
 
@@ -569,6 +580,7 @@ impl Config for Test {
 	type Reward = MockReward;
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
+	type SlashRewardDecay = MockSlashRewardDecay;
 	type AdminOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
 	type EraPayout = TestEraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
@@ -707,6 +719,10 @@ impl ExtBuilder {
 	}
 	pub(crate) fn slash_defer_duration(self, eras: EraIndex) -> Self {
 		SlashDeferDuration::set(eras);
+		self
+	}
+	pub(crate) fn slash_reward_decay<D: SlashRewardDecay>(self) -> Self {
+		SlashRewardDecayFn::set(D::reward_portion);
 		self
 	}
 	pub(crate) fn set_nominators_slashable(mut self, slashable: bool) -> Self {
@@ -982,9 +998,19 @@ pub(crate) fn add_slash(who: AccountId) {
 }
 
 pub(crate) fn add_slash_in_era(who: AccountId, era: EraIndex, p: Perbill) {
+	add_slash_in_era_with_reporters(who, era, p, vec![]);
+}
+
+/// Same as [`add_slash_in_era`], with `reporters` as the reporters of the offence.
+pub(crate) fn add_slash_in_era_with_reporters(
+	who: AccountId,
+	era: EraIndex,
+	p: Perbill,
+	reporters: Vec<AccountId>,
+) {
 	let _ = <Staking as rc_client::AHStakingInterface>::on_new_offences(
 		Rotator::<T>::era_start_session_index(era).unwrap(),
-		vec![rc_client::Offence { offender: who, reporters: vec![], slash_fraction: p }],
+		vec![rc_client::Offence { offender: who, reporters, slash_fraction: p }],
 	);
 }
 
