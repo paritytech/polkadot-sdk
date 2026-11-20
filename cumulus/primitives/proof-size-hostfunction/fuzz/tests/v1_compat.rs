@@ -196,6 +196,7 @@ fn report_shrunk(seed: u64, script: Script, pretty: bool, kind: Option<&str>) {
 }
 
 #[test]
+#[ignore = "needs the master `trace` binary in POV_FUZZ_MASTER_BIN, see README"]
 fn v1_compat_random() {
 	let iters = env_u64("POV_FUZZ_ITERS", 300);
 	let base = env_u64("POV_FUZZ_SEED", 0x5eed_0f_10215);

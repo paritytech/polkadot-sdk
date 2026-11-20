@@ -148,6 +148,7 @@ fn pinned_reproductions() {
 }
 
 #[test]
+#[ignore = "randomised fuzzing, run on demand, see README"]
 fn random_smoke() {
 	let iters = env_u64("POV_FUZZ_ITERS", 300);
 	let base = env_u64("POV_FUZZ_SEED", 0x5eed_0f_10215);

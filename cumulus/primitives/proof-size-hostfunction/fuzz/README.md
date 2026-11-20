@@ -42,7 +42,7 @@ new runtimes call. The rollout of the new versions is described in the crate doc
 | `src/lib.rs` | input types, `script_from_seed`, `shrink_with`, `BlockEnv` |
 | `src/run.rs` | the three passes, invariants, `shrink`, `pinned_scripts`; feature `estimation` (default) |
 | `src/trace.rs`, `src/bin/trace.rs` | version 1 trace runner and the `trace` binary, see below |
-| `tests/smoke.rs` | `pinned_reproductions` and `random_smoke`, plain `cargo test` |
+| `tests/smoke.rs` | `pinned_reproductions`, plain `cargo test`; `random_smoke` is ignored by default |
 | `tests/v1_compat.rs` | version 1 traces of this tree against a master build |
 | `fuzz_targets/pov_estimation.rs` | libFuzzer entry point |
 
@@ -154,17 +154,17 @@ and never fails a run.
 
 ```sh
 # pinned reproductions plus 300 random scripts; stops at the first failure and prints the shrunk script
-cargo test --release -p cumulus-proof-size-hostfunction-fuzz -- --nocapture
+cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke -- --include-ignored --nocapture
 
 # all failures of a longer run, grouped by kind, one shrunk example per kind
-POV_FUZZ_ITERS=1000 POV_FUZZ_KEEP_GOING=1 cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --nocapture
+POV_FUZZ_ITERS=1000 POV_FUZZ_KEEP_GOING=1 cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --include-ignored --nocapture
 
 # with medium and large tries
 POV_FUZZ_SCALE=large POV_FUZZ_ITERS=200 POV_FUZZ_KEEP_GOING=1 \
-  cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --nocapture
+  cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --include-ignored --nocapture
 
 # replay one seed
-POV_FUZZ_SEED=0x5eed0f1022d POV_FUZZ_ITERS=1 cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --nocapture
+POV_FUZZ_SEED=0x5eed0f1022d POV_FUZZ_ITERS=1 cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --include-ignored --nocapture
 
 # one pinned script with logs; POV_FUZZ_LOG takes RUST_LOG syntax and also prints pass, runtime
 # call and estimation markers
@@ -205,15 +205,16 @@ cargo build --release -p cumulus-proof-size-hostfunction-fuzz --no-default-featu
 From this tree, with `POV_FUZZ_MASTER_BIN` pointing at that binary:
 
 ```sh
-POV_FUZZ_MASTER_BIN=<master>/target/release/trace cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test v1_compat -- --nocapture
+POV_FUZZ_MASTER_BIN=<master>/target/release/trace cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test v1_compat -- --include-ignored --nocapture
 
 # a long run; all differing seeds grouped by the operation at the first differing line
 POV_FUZZ_MASTER_BIN=<master>/target/release/trace POV_FUZZ_SCALE=large POV_FUZZ_ITERS=10000 POV_FUZZ_KEEP_GOING=1 \
-  cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test v1_compat v1_compat_random -- --nocapture
+  cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test v1_compat v1_compat_random -- --include-ignored --nocapture
 ```
 
-`v1_compat_random` fails without `POV_FUZZ_MASTER_BIN`; `v1_compat_pinned` compares with master
-traces stored in the test and needs the binary only to check that they are still current.
+`v1_compat_random` is ignored by default and fails without `POV_FUZZ_MASTER_BIN`;
+`v1_compat_pinned` compares with master traces stored in the test and needs the binary only to
+check that they are still current.
 `POV_FUZZ_ROOT_LAST=1` restricts the scripts to the block-end root, as in FRAME.
 
 ## Status
