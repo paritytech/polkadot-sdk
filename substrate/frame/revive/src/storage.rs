@@ -118,17 +118,26 @@ pub struct ContractInfo<T: Config> {
 	/// The code associated with a given account.
 	pub code_hash: sp_core::H256,
 	/// How many bytes of storage are accumulated in this contract's child trie.
+	///
+	/// Includes storage written under a Root origin, which pays no deposit.
 	pub storage_bytes: u32,
 	/// How many items of storage are accumulated in this contract's child trie.
+	///
+	/// Includes storage written under a Root origin, which pays no deposit.
 	pub storage_items: u32,
-	/// This records to how much deposit the accumulated `storage_bytes` amount to.
+	/// This records how much deposit was paid for the accumulated `storage_bytes`.
+	///
+	/// Storage written under a Root origin adds nothing here.
 	pub storage_byte_deposit: BalanceOf<T>,
-	/// This records to how much deposit the accumulated `storage_items` amount to.
+	/// This records how much deposit was paid for the accumulated `storage_items`.
+	///
+	/// Storage written under a Root origin adds nothing here.
 	pub storage_item_deposit: BalanceOf<T>,
 	/// This records how much deposit is put down in order to pay for the contract itself.
 	///
 	/// We need to store this information separately so it is not used when calculating any refunds
-	/// since the base deposit can only ever be refunded on contract termination.
+	/// since the base deposit can only ever be refunded on contract termination. It is 0 for a
+	/// contract created under a Root origin, which pays no deposit.
 	pub storage_base_deposit: BalanceOf<T>,
 	/// The size of the immutable data of this contract.
 	pub immutable_data_len: u32,
