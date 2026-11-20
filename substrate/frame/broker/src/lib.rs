@@ -244,7 +244,7 @@ pub mod pallet {
 			core: CoreIndex,
 			/// The price at which the workload can be renewed.
 			price: BalanceOf<T>,
-			/// The time at which the workload would recommence of this renewal. The call to renew
+			/// The time at which the renewed workload would recommence. The call to renew
 			/// cannot happen before the beginning of the interlude prior to the sale for regions
 			/// which begin at this time.
 			begin: Timeslice,
@@ -384,7 +384,7 @@ pub mod pallet {
 		},
 		/// The sale rotation has been started and a new sale is imminent.
 		SalesStarted {
-			/// The nominal price of an Region of Bulk Coretime.
+			/// The nominal price of a Region of Bulk Coretime.
 			price: BalanceOf<T>,
 			/// The maximum number of cores which this pallet will attempt to assign.
 			core_count: CoreIndex,
@@ -430,7 +430,7 @@ pub mod pallet {
 		},
 		/// Some historical Instantaneous Core Pool contribution record has been dropped.
 		ContributionDropped {
-			/// The Region whose contribution is no longer exists.
+			/// The Region whose contribution no longer exists.
 			region_id: RegionId,
 		},
 		/// A region has been force-removed from the pool. This is usually due to a provisionally
@@ -461,7 +461,7 @@ pub mod pallet {
 		/// Some historical Instantaneous Core Pool payment record has been ignored because the
 		/// timeslice was already known. Governance may need to intervene.
 		HistoryIgnored {
-			/// The timeslice whose history is was ignored.
+			/// The timeslice whose history was ignored.
 			when: Timeslice,
 			/// The amount of revenue which was ignored.
 			revenue: BalanceOf<T>,
@@ -484,19 +484,21 @@ pub mod pallet {
 			/// The workload to be done on the Core.
 			assignment: Vec<(CoreAssignment, PartsOf57600)>,
 		},
-		/// Some historical Instantaneous Core Pool payment record has been dropped.
+		/// A record of a potential renewal has been dropped.
 		PotentialRenewalDropped {
 			/// The timeslice whose renewal is no longer available.
 			when: Timeslice,
 			/// The core whose workload is no longer available to be renewed for `when`.
 			core: CoreIndex,
 		},
+		/// Auto-renewal has been enabled for a core.
 		AutoRenewalEnabled {
 			/// The core for which the renewal was enabled.
 			core: CoreIndex,
 			/// The task for which the renewal was enabled.
 			task: TaskId,
 		},
+		/// Auto-renewal has been disabled for a core.
 		AutoRenewalDisabled {
 			/// The core for which the renewal was disabled.
 			core: CoreIndex,

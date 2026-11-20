@@ -1,0 +1,13 @@
+title: '`pallet-broker`: fix event documentation'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fixes typos and stale wording in event docs (`Renewable`, `SalesStarted`,
+      `ContributionDropped`, `HistoryIgnored`), corrects the copy-pasted
+      `PotentialRenewalDropped` description, and documents `AutoRenewalEnabled`/
+      `AutoRenewalDisabled`. Docs only.
+
+crates:
+  - name: pallet-broker
+    bump: none
