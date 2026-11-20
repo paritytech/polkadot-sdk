@@ -20,9 +20,21 @@
 
 use futures::{stream::unfold, FutureExt, Stream, StreamExt};
 use futures_timer::Delay;
+use ip_network::IpNetwork;
 use linked_hash_set::LinkedHashSet;
+use sc_network_types::multiaddr::{Multiaddr, Protocol};
 
 use std::{hash::Hash, num::NonZeroUsize, time::Duration};
+
+/// Whether every IP component of the address is globally routable. Components that are not an IP
+/// address (DNS names, ports, peer ids) pass.
+pub fn is_global_address(address: &Multiaddr) -> bool {
+	address.iter().all(|protocol| match protocol {
+		Protocol::Ip4(ip) => IpNetwork::from(ip).is_global(),
+		Protocol::Ip6(ip) => IpNetwork::from(ip).is_global(),
+		_ => true,
+	})
+}
 
 /// Creates a stream that returns a new value every `duration`.
 pub fn interval(duration: Duration) -> impl Stream<Item = ()> + Unpin {

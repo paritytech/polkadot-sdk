@@ -947,6 +947,7 @@ node = [
 	"polkadot-node-core-chain-api",
 	"polkadot-node-core-chain-selection",
 	"polkadot-node-core-dispute-coordinator",
+	"polkadot-node-core-health",
 	"polkadot-node-core-parachains-inherent",
 	"polkadot-node-core-prospective-parachains",
 	"polkadot-node-core-provisioner",
@@ -2554,6 +2555,11 @@ path = "../polkadot/node/core/chain-selection"
 default-features = false
 optional = true
 path = "../polkadot/node/core/dispute-coordinator"
+
+[dependencies.polkadot-node-core-health]
+default-features = false
+optional = true
+path = "../polkadot/node/core/health"
 
 [dependencies.polkadot-node-core-parachains-inherent]
 default-features = false

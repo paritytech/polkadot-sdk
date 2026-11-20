@@ -93,6 +93,17 @@ pub enum Event {
 		supported_protocols: HashSet<ProtocolName>,
 	},
 
+	/// A connection with a peer was established, after the handshake.
+	ConnectionEstablished {
+		/// The peer.
+		peer: PeerId,
+		/// Whether the peer opened the connection.
+		inbound: bool,
+		/// The remote address: the one we dialed for an outbound connection, the one the peer
+		/// connected from for an inbound one.
+		address: Multiaddr,
+	},
+
 	/// Opened a substream with the given node with the given notifications protocol.
 	///
 	/// The protocol is always one of the notification protocols that have been registered.

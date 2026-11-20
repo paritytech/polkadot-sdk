@@ -177,6 +177,7 @@ members = [
 	"polkadot/node/core/chain-api",
 	"polkadot/node/core/chain-selection",
 	"polkadot/node/core/dispute-coordinator",
+	"polkadot/node/core/health",
 	"polkadot/node/core/parachains-inherent",
 	"polkadot/node/core/prospective-parachains",
 	"polkadot/node/core/provisioner",
@@ -1160,6 +1161,7 @@ polkadot-node-core-candidate-validation = { path = "polkadot/node/core/candidate
 polkadot-node-core-chain-api = { path = "polkadot/node/core/chain-api", default-features = false }
 polkadot-node-core-chain-selection = { path = "polkadot/node/core/chain-selection", default-features = false }
 polkadot-node-core-dispute-coordinator = { path = "polkadot/node/core/dispute-coordinator", default-features = false }
+polkadot-node-core-health = { path = "polkadot/node/core/health", default-features = false }
 polkadot-node-core-parachains-inherent = { path = "polkadot/node/core/parachains-inherent", default-features = false }
 polkadot-node-core-prospective-parachains = { path = "polkadot/node/core/prospective-parachains", default-features = false }
 polkadot-node-core-provisioner = { path = "polkadot/node/core/provisioner", default-features = false }

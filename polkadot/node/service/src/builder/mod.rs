@@ -391,6 +391,9 @@ where
 			grandpa_hard_forks,
 		));
 
+		// The health subsystem consumes this channel; the node's components report into it.
+		let (health_handle, health_receiver) = polkadot_node_core_health::health_channel();
+
 		let ext_overseer_args = if is_parachain_node.is_running_alongside_parachain_node() {
 			None
 		} else {
@@ -478,6 +481,7 @@ where
 				collator_protocol_hold_off,
 				experimental_collator_protocol,
 				reputation_config,
+				health_receiver,
 			})
 		};
 
@@ -496,6 +500,31 @@ where
 				metrics,
 				gap_sync_body_policy: None,
 			})?;
+
+		// Listen for events from `sc-network` and report every inbound connection from a globally
+		// routable address (from any address with `--allow-private-ip`) to the health subsystem.
+		if ext_overseer_args.is_some() {
+			use futures::StreamExt;
+			use polkadot_node_core_health::Observation;
+			use sc_network::{utils::is_global_address, Event, NetworkEventStream};
+
+			let count_private_peers = config.network.allow_non_globals_in_dht;
+			let mut events = network.event_stream("health");
+			task_manager.spawn_handle().spawn(
+				"health-network-observer",
+				Some("health"),
+				Box::pin(async move {
+					while let Some(event) = events.next().await {
+						if let Event::ConnectionEstablished { peer, inbound: true, address } = event
+						{
+							if count_private_peers || is_global_address(&address) {
+								health_handle.report(Observation::InboundConnection { peer });
+							}
+						}
+					}
+				}),
+			);
+		}
 
 		if config.offchain_worker.enabled {
 			use futures::FutureExt;
