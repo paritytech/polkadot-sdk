@@ -17,10 +17,6 @@ name = "lift_extension"
 path = "src/bin/lift_extension.rs"
 
 [[bin]]
-name = "lift_inclusion"
-path = "src/bin/lift_inclusion.rs"
-
-[[bin]]
 name = "lift_decode"
 path = "src/bin/lift_decode.rs"
 
@@ -41,12 +37,12 @@ name = "message_fetch"
 path = "src/bin/message_fetch.rs"
 
 [[bin]]
-name = "message_event"
-path = "src/bin/message_event.rs"
-
-[[bin]]
 name = "message_decode"
 path = "src/bin/message_decode.rs"
+
+[[bin]]
+name = "inherent_decode"
+path = "src/bin/inherent_decode.rs"
 
 [dependencies]
 arbitrary = { features = ["derive"], workspace = true }
