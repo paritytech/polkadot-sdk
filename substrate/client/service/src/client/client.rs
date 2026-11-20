@@ -2150,4 +2150,14 @@ where
 			.number(hash)
 			.map_err(|e| sp_transaction_storage_proof::Error::Application(Box::new(e)))
 	}
+
+	fn indexed_transaction(
+		&self,
+		hash: &sp_transaction_storage_proof::ContentHash,
+	) -> Result<Option<Vec<u8>>, sp_transaction_storage_proof::Error> {
+		self.backend
+			.blockchain()
+			.indexed_transaction(H256::from(*hash))
+			.map_err(|e| sp_transaction_storage_proof::Error::Application(Box::new(e)))
+	}
 }

@@ -1,0 +1,16 @@
+title: 'transaction-storage-proof: read only the selected transaction'
+doc:
+- audience: Node Dev
+  description: |-
+    The storage-proof inherent used to read the target block's whole indexed body to prove one
+    256-byte chunk. With renewals, that body can be about 1 GiB. The prover now uses the
+    transaction sizes from `TransactionStorageApi::indexed_transactions` (v2) to pick the chunk
+    and loads only the transaction that holds it. The proof is unchanged. Runtimes with API v1
+    keep the old path.
+crates:
+- name: sp-transaction-storage-proof
+  bump: minor
+- name: sc-service
+  bump: minor
+- name: polkadot-omni-node-lib
+  bump: minor
