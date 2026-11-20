@@ -29,7 +29,7 @@ use crate::{
 	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight, deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
-	metering::{ResourceMeter, State, Token},
+	metering::{ResourceMeter, State, Token, slope},
 	weights::WeightInfo,
 };
 use alloc::vec::Vec;
@@ -118,6 +118,12 @@ impl ExportedFunction {
 }
 
 /// Cost of code loading from storage.
+///
+/// It is charged to the caller: the calling frame, or the transaction for the first frame. For
+/// PVM code it is the slope of `call_with_pvm_code_per_byte` per blob byte, which includes the
+/// callee's first allocation of the interpreter's map of compiled blocks. The interpreter charges
+/// that allocation as gas, and the callee's instance starts with a gas credit of the same size
+/// (see `ContractBlob::prepare_call`).
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Clone, Copy)]
 struct CodeLoadToken {
@@ -134,18 +140,8 @@ impl CodeLoadToken {
 impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
 		match self.code_type {
-			// the proof size impact is accounted for in the `call_with_pvm_code_per_byte`
-			// strictly speaking we are double charging for the first BASIC_BLOCK_SIZE
-			// instructions here. Let's consider this as a safety margin.
-			BytecodeType::Pvm => T::WeightInfo::call_with_pvm_code_per_byte(self.code_len)
-				.saturating_sub(T::WeightInfo::call_with_pvm_code_per_byte(0))
-				.saturating_add(
-					T::WeightInfo::basic_block_compilation(1)
-						.saturating_sub(T::WeightInfo::basic_block_compilation(0))
-						.set_proof_size(0),
-				),
-			BytecodeType::Evm => T::WeightInfo::call_with_evm_code_per_byte(self.code_len)
-				.saturating_sub(T::WeightInfo::call_with_evm_code_per_byte(0)),
+			BytecodeType::Pvm => slope(T::WeightInfo::call_with_pvm_code_per_byte, self.code_len),
+			BytecodeType::Evm => slope(T::WeightInfo::call_with_evm_code_per_byte, self.code_len),
 		}
 	}
 }
@@ -344,8 +340,7 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 		input_data: Vec<u8>,
 	) -> ExecResult {
 		if self.code_info().is_pvm() {
-			let prepared_call =
-				self.prepare_call(pvm::Runtime::new(ext, input_data), function, 0)?;
+			let prepared_call = self.prepare_call(pvm::Runtime::new(ext, input_data), function)?;
 			prepared_call.call()
 		} else if T::AllowEVMBytecode::get() {
 			use revm::bytecode::Bytecode;

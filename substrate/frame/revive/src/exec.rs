@@ -1095,8 +1095,7 @@ where
 						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
 							CachedContract::Cached(info)
 						} else {
-							let info = ContractInfo::new(&address, 0u32.into(), H256::zero())?;
-							CachedContract::Cached(info)
+							CachedContract::Cached(ContractInfo::new_for_precompile(&address))
 						}
 					},
 					(None, Some(_)) => CachedContract::None,
@@ -1162,11 +1161,7 @@ where
 						},
 					)
 				};
-				let contract = ContractInfo::new(
-					&address,
-					<System<T>>::account_nonce(&sender),
-					*executable.code_hash(),
-				)?;
+				let contract = ContractInfo::new(&address, account_nonce, *executable.code_hash())?;
 				(
 					T::AddressMapper::to_fallback_account_id(&address),
 					CachedContract::Cached(contract),
@@ -1202,6 +1197,10 @@ where
 	}
 
 	/// Create a subsequent nested frame.
+	///
+	/// When the new frame runs PVM code, the interpreter cache of the innermost PVM frame that
+	/// waits on a sub-call is reset first (see `vm::pvm::reset_caller_cache`), so that only one
+	/// PVM frame of the call stack holds a cache. Pre-compiles and EVM frames reset nothing.
 	fn push_frame(
 		&mut self,
 		frame_args: FrameArgs<T, E>,
@@ -1256,6 +1255,12 @@ where
 						f.account_id == frame.account_id
 				}) {
 				return Err(Error::<T>::DuplicateContract.into());
+			}
+			if executable.is_pvm() {
+				crate::vm::pvm::reset_caller_cache().map_err(|err| {
+					log::error!(target: LOG_TARGET, "failed to reset the interpreter cache: {err}");
+					Error::<T>::ExecutionFailed
+				})?;
 			}
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))
