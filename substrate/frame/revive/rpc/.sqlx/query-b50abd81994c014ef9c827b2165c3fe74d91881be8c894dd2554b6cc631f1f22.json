@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\n\t\t\tSELECT substrate_block_hash, ethereum_block_hash\n\t\t\tFROM eth_to_substrate_blocks\n\t\t\tWHERE block_number = $1 AND substrate_block_hash != $2\n\t\t\t",
+  "describe": {
+    "columns": [
+      {
+        "name": "substrate_block_hash",
+        "ordinal": 0,
+        "type_info": "Blob"
+      },
+      {
+        "name": "ethereum_block_hash",
+        "ordinal": 1,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "b50abd81994c014ef9c827b2165c3fe74d91881be8c894dd2554b6cc631f1f22"
+}

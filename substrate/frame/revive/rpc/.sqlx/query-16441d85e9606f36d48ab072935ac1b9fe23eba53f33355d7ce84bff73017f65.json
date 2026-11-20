@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "\n\t\t\tSELECT block_number AS \"block_number!\", substrate_block_hash, ethereum_block_hash\n\t\t\tFROM eth_to_substrate_blocks\n\t\t\tWHERE block_number IN (\n\t\t\t\tSELECT DISTINCT block_number\n\t\t\t\tFROM eth_to_substrate_blocks\n\t\t\t\tWHERE block_number IS NOT NULL\n\t\t\t\tORDER BY block_number DESC\n\t\t\t\tLIMIT $1\n\t\t\t)\n\t\t\tORDER BY block_number, rowid\n\t\t\t",
+  "describe": {
+    "columns": [
+      {
+        "name": "block_number!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "substrate_block_hash",
+        "ordinal": 1,
+        "type_info": "Blob"
+      },
+      {
+        "name": "ethereum_block_hash",
+        "ordinal": 2,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "16441d85e9606f36d48ab072935ac1b9fe23eba53f33355d7ce84bff73017f65"
+}

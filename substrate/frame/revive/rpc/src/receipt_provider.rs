@@ -176,17 +176,21 @@ macro_rules! upsert_sync_label {
 
 async fn insert_block_mapping<'e, E: sqlx::Executor<'e, Database = Sqlite>>(
 	executor: E,
+	block_number: SubstrateBlockNumber,
 	block_map: &BlockHashMap,
 ) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
 	let ethereum_hash_ref = block_map.ethereum_hash.as_ref();
 	let substrate_hash_ref = block_map.substrate_hash.as_ref();
+	let block_number = block_number as i64;
 	query!(
 		r#"
-			INSERT OR REPLACE INTO eth_to_substrate_blocks (ethereum_block_hash, substrate_block_hash)
-			VALUES ($1, $2)
+			INSERT OR REPLACE INTO eth_to_substrate_blocks
+				(ethereum_block_hash, substrate_block_hash, block_number)
+			VALUES ($1, $2, $3)
 			"#,
 		ethereum_hash_ref,
 		substrate_hash_ref,
+		block_number,
 	)
 	.execute(executor)
 	.await
@@ -213,8 +217,54 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			block_number_to_hashes: Default::default(),
 		};
 		provider.restore_first_evm_block().await?;
+		provider.restore_block_number_to_hashes().await?;
 
 		Ok(provider)
+	}
+
+	/// Seed the fork detection cache with the latest indexed blocks.
+	///
+	/// Without it, a block indexed before a restart and replaced by a reorg while the server was
+	/// down would never be compared against the block that replaced it.
+	async fn restore_block_number_to_hashes(&self) -> Result<(), ClientError> {
+		let limit = self.keep_latest_n_blocks.unwrap_or(MAX_CACHED_BLOCKS) as i64;
+		let rows = query!(
+			r#"
+			SELECT block_number AS "block_number!", substrate_block_hash, ethereum_block_hash
+			FROM eth_to_substrate_blocks
+			WHERE block_number IN (
+				SELECT DISTINCT block_number
+				FROM eth_to_substrate_blocks
+				WHERE block_number IS NOT NULL
+				ORDER BY block_number DESC
+				LIMIT $1
+			)
+			ORDER BY block_number, rowid
+			"#,
+			limit
+		)
+		.fetch_all(&self.db_ctx.pool)
+		.await?;
+
+		let mut block_number_to_hashes = self.block_number_to_hashes.lock().await;
+		for row in rows {
+			let block_number: SubstrateBlockNumber = row.block_number.try_into().map_err(|_| {
+				sqlx::Error::Decode(
+					format!("block_number {} overflows u32", row.block_number).into(),
+				)
+			})?;
+			// When several blocks share a height, the last inserted one is cached.
+			block_number_to_hashes.insert(
+				block_number,
+				BlockHashMap::new(
+					H256::from_slice(&row.substrate_block_hash),
+					H256::from_slice(&row.ethereum_block_hash),
+				),
+			);
+		}
+		log::debug!(target: LOG_TARGET,
+			"Restored {} cached block hashes", block_number_to_hashes.len());
+		Ok(())
 	}
 
 	/// Returns `true` if the block is before the auto-discovered `first_evm_block`.
@@ -537,8 +587,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		self.receipt_extractor.extract_from_block(block).await
 	}
 
-	/// Like [`Self::insert_block_receipts`] but writes only to the DB (no cache update).
-	/// Used for historic sync where fork detection is unnecessary.
+	/// Like [`Self::insert_block_receipts`] but without updating the block cache.
+	/// Used for historic sync, which only walks finalized blocks.
 	pub async fn insert_block_receipts_past(
 		&self,
 		block: &SubstrateBlock,
@@ -548,7 +598,66 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.receipt_extractor
 			.extract_from_block_with_eth_hash(block, *ethereum_hash)
 			.await?;
-		self.insert_into_db(block, &receipts, ethereum_hash).await?;
+		self.insert_finalized(block, &receipts, ethereum_hash).await
+	}
+
+	/// Insert a finalized block, removing any other block indexed at its height.
+	///
+	/// Note: Can be merged into `insert_block_receipts_past` once <https://github.com/paritytech/subxt/issues/1883> is fixed.
+	async fn insert_finalized(
+		&self,
+		block: &impl BlockInfo,
+		receipts: &[(TransactionSigned, ReceiptInfo)],
+		ethereum_hash: &H256,
+	) -> Result<(), ClientError> {
+		self.remove_non_canonical_blocks(block.number(), block.hash()).await?;
+		self.insert_into_db(block, receipts, ethereum_hash).await
+	}
+
+	/// Remove every block indexed at `block_number` other than the finalized `canonical_hash`.
+	///
+	/// Blocks indexed before the `block_number` column existed are not found.
+	pub async fn remove_non_canonical_blocks(
+		&self,
+		block_number: SubstrateBlockNumber,
+		canonical_hash: H256,
+	) -> Result<(), ClientError> {
+		let block_number_i64 = block_number as i64;
+		let canonical_hash_ref = canonical_hash.as_ref();
+		let stale = query!(
+			r#"
+			SELECT substrate_block_hash, ethereum_block_hash
+			FROM eth_to_substrate_blocks
+			WHERE block_number = $1 AND substrate_block_hash != $2
+			"#,
+			block_number_i64,
+			canonical_hash_ref
+		)
+		.map(|row| {
+			BlockHashMap::new(
+				H256::from_slice(&row.substrate_block_hash),
+				H256::from_slice(&row.ethereum_block_hash),
+			)
+		})
+		.fetch_all(&self.db_ctx.pool)
+		.await?;
+
+		{
+			let mut block_number_to_hashes = self.block_number_to_hashes.lock().await;
+			if block_number_to_hashes
+				.get(&block_number)
+				.is_some_and(|entry| entry.substrate_hash != canonical_hash)
+			{
+				block_number_to_hashes.remove(&block_number);
+			}
+		}
+
+		if !stale.is_empty() {
+			log::debug!(target: LOG_TARGET,
+				"Removing blocks replaced by finalized #{block_number} ({canonical_hash:?}): \
+				 {stale:?}");
+			self.remove(&stale).await?;
+		}
 		Ok(())
 	}
 
@@ -708,7 +817,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		}
 
 		let block_map = BlockHashMap::new(substrate_block_hash, *ethereum_hash);
-		insert_block_mapping(&mut *db_tx, &block_map).await?;
+		insert_block_mapping(&mut *db_tx, block.number(), &block_map).await?;
 
 		db_tx.commit().await?;
 		log::trace!(target: LOG_TARGET, "Inserted {} receipts for block #{block_number} ethereum: {ethereum_hash:?} substrate: {substrate_block_hash:?}", receipts.len());
@@ -1240,6 +1349,199 @@ mod tests {
 		Ok(())
 	}
 
+	/// A block at `number` holding one transaction with one log, keyed by `seed`.
+	fn block_with_log(
+		seed: u8,
+		number: SubstrateBlockNumber,
+	) -> (MockBlockInfo, Vec<(TransactionSigned, ReceiptInfo)>, H256) {
+		let block = MockBlockInfo { hash: H256::repeat_byte(seed), number };
+		let ethereum_hash = H256::repeat_byte(seed.wrapping_add(100));
+		let transaction_hash = H256::repeat_byte(seed.wrapping_add(200));
+		let receipts = vec![(
+			TransactionSigned::default(),
+			ReceiptInfo {
+				transaction_hash,
+				logs: vec![Log {
+					block_hash: ethereum_hash,
+					block_number: number.into(),
+					transaction_hash,
+					..Default::default()
+				}],
+				..Default::default()
+			},
+		)];
+		(block, receipts, ethereum_hash)
+	}
+
+	/// The provider a restarted server builds on top of an existing database.
+	async fn restart(
+		provider: &ReceiptProvider<MockBlockInfoProvider>,
+	) -> ReceiptProvider<MockBlockInfoProvider> {
+		let restarted = mock_provider()
+			.with_db_ctx(provider.db_ctx.clone())
+			.with_keep_latest(provider.keep_latest_n_blocks);
+		restarted.restore_block_number_to_hashes().await.unwrap();
+		restarted
+	}
+
+	#[sqlx::test]
+	async fn reorg_during_downtime_is_removed_by_backward_sync(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await.with_keep_latest(None);
+		let (finalized, receipts, ethereum_hash) = block_with_log(20, 20);
+		provider.insert(&finalized, &receipts, &ethereum_hash).await?;
+		let orphaned: Vec<_> = (21..=25).map(|n| block_with_log(n as u8, n)).collect();
+		for (block, receipts, ethereum_hash) in &orphaned {
+			provider.insert(block, receipts, ethereum_hash).await?;
+		}
+
+		// The orphaned branch is replaced while the server is down. On restart the backward sync
+		// walks the finalized chain from its tip down to the head checkpoint.
+		let provider = restart(&provider).await;
+		let canonical: Vec<_> = (21..=25).map(|n| block_with_log(n as u8 + 50, n)).collect();
+		for (block, receipts, ethereum_hash) in canonical.iter().rev() {
+			provider.insert_finalized(block, receipts, ethereum_hash).await?;
+		}
+
+		for (block, receipts, ethereum_hash) in &orphaned {
+			assert_eq!(provider.find_transaction(&receipts[0].1.transaction_hash).await, None);
+			assert_eq!(provider.get_substrate_hash(ethereum_hash).await, None);
+			assert_eq!(provider.logs_by_block_number(block.number, *ethereum_hash).await?, vec![]);
+		}
+		for (block, receipts, ethereum_hash) in
+			canonical.iter().chain([&(finalized, receipts, ethereum_hash)])
+		{
+			assert_eq!(
+				provider.find_transaction(&receipts[0].1.transaction_hash).await,
+				Some((block.hash, 0))
+			);
+			assert_eq!(provider.get_substrate_hash(ethereum_hash).await, Some(block.hash));
+			assert_eq!(provider.logs_by_block_number(block.number, *ethereum_hash).await?.len(), 1);
+		}
+		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 6);
+		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", None).await, 6);
+		assert_eq!(count(&provider.db_ctx.pool, "logs", None).await, 6);
+		assert_eq!(
+			provider.block_number_to_hashes.lock().await.keys().copied().collect::<Vec<_>>(),
+			vec![20]
+		);
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn restored_cache_detects_fork_after_restart(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await.with_keep_latest(None);
+		let blocks: Vec<_> = (1..=3).map(|n| block_with_log(n as u8, n)).collect();
+		for (block, receipts, ethereum_hash) in &blocks {
+			provider.insert(block, receipts, ethereum_hash).await?;
+		}
+
+		let provider = restart(&provider).await;
+		let (fork, fork_receipts, fork_ethereum_hash) = block_with_log(52, 2);
+		provider.insert(&fork, &fork_receipts, &fork_ethereum_hash).await?;
+
+		let (block1, receipts1, ethereum_hash1) = &blocks[0];
+		assert_eq!(
+			provider.block_number_to_hashes.lock().await.clone(),
+			[
+				(1, BlockHashMap::new(block1.hash, *ethereum_hash1)),
+				(2, BlockHashMap::new(fork.hash, fork_ethereum_hash)),
+			]
+			.into(),
+		);
+		assert_eq!(
+			provider.find_transaction(&receipts1[0].1.transaction_hash).await,
+			Some((block1.hash, 0))
+		);
+		for (_, receipts, ethereum_hash) in &blocks[1..] {
+			assert_eq!(provider.find_transaction(&receipts[0].1.transaction_hash).await, None);
+			assert_eq!(provider.get_substrate_hash(ethereum_hash).await, None);
+		}
+		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 2);
+		assert_eq!(count(&provider.db_ctx.pool, "logs", None).await, 2);
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn restore_keeps_latest_heights_and_last_inserted_duplicate(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await.with_keep_latest(Some(2));
+		for (block, receipts, ethereum_hash) in [
+			block_with_log(1, 1),
+			block_with_log(2, 2),
+			block_with_log(3, 3),
+			block_with_log(53, 3),
+		] {
+			provider.insert_into_db(&block, &receipts, &ethereum_hash).await?;
+		}
+		// Written before the block number column existed.
+		insert_block_mapping(
+			&provider.db_ctx.pool,
+			9,
+			&BlockHashMap::new(H256::repeat_byte(9), H256::repeat_byte(109)),
+		)
+		.await?;
+		sqlx::query(
+			"UPDATE eth_to_substrate_blocks SET block_number = NULL WHERE block_number = 9",
+		)
+		.execute(&provider.db_ctx.pool)
+		.await?;
+
+		let provider = restart(&provider).await;
+
+		assert_eq!(
+			provider.block_number_to_hashes.lock().await.clone(),
+			[
+				(2, BlockHashMap::new(H256::repeat_byte(2), H256::repeat_byte(102))),
+				(3, BlockHashMap::new(H256::repeat_byte(53), H256::repeat_byte(153))),
+			]
+			.into(),
+		);
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn remove_non_canonical_blocks_only_removes_other_blocks_at_height(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await.with_keep_latest(None);
+		let (orphaned, orphaned_receipts, orphaned_ethereum_hash) = block_with_log(1, 5);
+		let (canonical, canonical_receipts, canonical_ethereum_hash) = block_with_log(2, 5);
+		let (next, next_receipts, next_ethereum_hash) = block_with_log(3, 6);
+		provider.insert(&orphaned, &orphaned_receipts, &orphaned_ethereum_hash).await?;
+		provider.insert(&next, &next_receipts, &next_ethereum_hash).await?;
+		provider
+			.insert_into_db(&canonical, &canonical_receipts, &canonical_ethereum_hash)
+			.await?;
+
+		provider.remove_non_canonical_blocks(5, canonical.hash).await?;
+
+		assert_eq!(provider.find_transaction(&orphaned_receipts[0].1.transaction_hash).await, None);
+		assert_eq!(count(&provider.db_ctx.pool, "logs", Some(orphaned_ethereum_hash)).await, 0);
+		assert_eq!(provider.get_substrate_hash(&orphaned_ethereum_hash).await, None);
+		assert_eq!(
+			provider.find_transaction(&canonical_receipts[0].1.transaction_hash).await,
+			Some((canonical.hash, 0))
+		);
+		assert_eq!(
+			provider.find_transaction(&next_receipts[0].1.transaction_hash).await,
+			Some((next.hash, 0))
+		);
+		assert_eq!(count(&provider.db_ctx.pool, "logs", None).await, 2);
+		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 2);
+		assert_eq!(
+			provider.block_number_to_hashes.lock().await.clone(),
+			[(6, BlockHashMap::new(next.hash, next_ethereum_hash))].into(),
+		);
+
+		// The canonical block is already the only one left.
+		provider.remove_non_canonical_blocks(5, canonical.hash).await?;
+		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 2);
+		Ok(())
+	}
+
 	#[sqlx::test]
 	async fn test_receipts_count_per_block(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
@@ -1578,7 +1880,7 @@ mod tests {
 		let block_map = BlockHashMap::new(substrate_hash, ethereum_hash);
 
 		// Insert mapping
-		insert_block_mapping(&provider.db_ctx.pool, &block_map).await?;
+		insert_block_mapping(&provider.db_ctx.pool, 1, &block_map).await?;
 
 		// Test forward lookup
 		let resolved = provider.get_substrate_hash(&ethereum_hash).await;
@@ -1602,8 +1904,8 @@ mod tests {
 		let block_map2 = BlockHashMap::new(substrate_hash2, ethereum_hash2);
 
 		// Insert mappings
-		insert_block_mapping(&provider.db_ctx.pool, &block_map1).await?;
-		insert_block_mapping(&provider.db_ctx.pool, &block_map2).await?;
+		insert_block_mapping(&provider.db_ctx.pool, 1, &block_map1).await?;
+		insert_block_mapping(&provider.db_ctx.pool, 1, &block_map2).await?;
 
 		// Verify they exist
 		assert_eq!(
@@ -1633,7 +1935,7 @@ mod tests {
 		let block_map = BlockHashMap::new(substrate_hash, ethereum_hash);
 
 		// Insert mapping
-		insert_block_mapping(&provider.db_ctx.pool, &block_map).await?;
+		insert_block_mapping(&provider.db_ctx.pool, 1, &block_map).await?;
 		assert_eq!(
 			provider.get_substrate_hash(&block_map.ethereum_hash).await,
 			Some(block_map.substrate_hash)
@@ -1704,8 +2006,8 @@ mod tests {
 		let block_map2 = BlockHashMap::new(H256::from([3u8; 32]), H256::from([4u8; 32]));
 
 		// Insert some mappings
-		insert_block_mapping(&provider.db_ctx.pool, &block_map1).await?;
-		insert_block_mapping(&provider.db_ctx.pool, &block_map2).await?;
+		insert_block_mapping(&provider.db_ctx.pool, 1, &block_map1).await?;
+		insert_block_mapping(&provider.db_ctx.pool, 1, &block_map2).await?;
 
 		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 2);
 
