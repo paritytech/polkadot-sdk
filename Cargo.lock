@@ -4944,6 +4944,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-aura-authorizer-utils"
+version = "0.1.0"
+dependencies = [
+ "binary-merkle-tree 13.0.0",
+ "blake2b_simd",
+ "hash-db",
+ "hash256-std-hasher",
+ "jam-codec",
+ "jam-types",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "primitive-types 0.13.1",
+ "sp-crypto-hashing 0.1.0",
+]
+
+[[package]]
 name = "cumulus-client-bootnodes"
 version = "0.1.0"
 dependencies = [
@@ -18190,6 +18206,7 @@ dependencies = [
  "bridge-hub-common",
  "bridge-hub-test-utils",
  "bridge-runtime-common",
+ "cumulus-aura-authorizer-utils",
  "cumulus-client-bootnodes",
  "cumulus-client-cli",
  "cumulus-client-collator",
