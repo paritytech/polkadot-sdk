@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795128479466,
+  "lastUpdate": 1795173896682,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "52418509+georgepisaltu@users.noreply.github.com",
-            "name": "georgepisaltu",
-            "username": "georgepisaltu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5989c0a8b435447d3197040eb162525c92db80c9",
-          "message": "Extend PGAS filter to allow batches (#12027)\n\n# Description\n\nJust as the title says.\n\n---------\n\nSigned-off-by: georgepisaltu <george.pisaltu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-08T14:58:35Z",
-          "tree_id": "d6c9d3cb684c45a2745fa71e489ca73ba1ef0b86",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5989c0a8b435447d3197040eb162525c92db80c9"
-        },
-        "date": 1778257100648,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.131184908933337,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13090856623333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.623049755166665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bkontur@gmail.com",
+            "name": "Branislav Kontur",
+            "username": "bkontur"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "9c2cd60e68c300a31990c66e6a04fc1a8c13ddb9",
+          "message": "Fix musl build of PVF workers and make test-syscalls required (#13922)\n\nSince #13445 bumped `libc` to 0.2.191, the PVF workers no longer compile\nfor `x86_64-unknown-linux-musl`, which breaks the `test-syscalls` job:\n\n```\nerror[E0659]: `STATX_TYPE` is ambiguous\n  --> rustix-1.0.8/src/backend/libc/c.rs\n```\n\n`libc` 0.2.191 now defines the `STATX_*` constants for musl, which clash\nwith `rustix` 1.0.8's own definitions. `rustix` 1.1.6 fixes this, so\nthis PR bumps it in `Cargo.lock` (together with `linux-raw-sys` 0.9.4 ->\n0.12.1).\n\nChecked in the CI image: both workers build for musl and their syscall\nlists are unchanged.\n\nThis went unnoticed because `test-syscalls` is not blocking. It was\nrequired on GitLab (`allow_failure: false`), but the setting got\ninverted to `continue-on-error: true` when the job was moved to GitHub\nActions in #4441. This PR removes `continue-on-error` and adds the job\nto `confirm-required-tests-jobs-passed`, so it is required again.\n\n---------\n\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>",
+          "timestamp": "2026-11-20T09:44:13Z",
+          "tree_id": "8f5b1aca7b3c4bee38e8063babdfbefc044e51d2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9c2cd60e68c300a31990c66e6a04fc1a8c13ddb9"
+        },
+        "date": 1795173854191,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12546609016666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.949233668200002,
             "unit": "seconds"
           }
         ]
