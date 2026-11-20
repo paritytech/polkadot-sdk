@@ -29,6 +29,7 @@ use regex::Regex;
 use std::{
 	any::Any,
 	cell::Cell,
+	fmt,
 	io::{self, Write},
 	marker::PhantomData,
 	panic::{self, PanicHookInfo, UnwindSafe},
@@ -256,18 +257,26 @@ impl ReportContext {
 		let _ = writeln!(stderr);
 		let _ = writeln!(stderr, "{:?}", backtrace);
 		let _ = writeln!(stderr);
-		print_summary(&mut stderr, message, file, line);
+		print_summary(&mut stderr, message, file, line, "");
 		let _ = writeln!(stderr, ABOUT_PANIC!(), self.url);
 	}
 }
 
-/// Print the one-line panic summary.
-fn print_summary(stderr: &mut io::Stderr, message: &str, file: &str, line: u32) {
+/// Print the one-line panic summary, followed by `note`.
+///
+/// Written under a single stderr lock, for concurrent panics not to split the line.
+fn print_summary(
+	out: &mut impl Write,
+	message: &str,
+	file: &str,
+	line: u32,
+	note: impl fmt::Display,
+) {
 	let message = strip_control_codes(message);
 	let thread = thread::current();
 	let name = thread.name().unwrap_or("<unnamed>");
 
-	let _ = writeln!(stderr, "Thread '{}' panicked at '{}', {}:{}", name, message, file, line);
+	let _ = writeln!(out, "Thread '{}' panicked at '{}', {}:{}{}", name, message, file, line, note);
 }
 
 /// Rate limit of the summaries of possibly caught panics, which may be frequent.
@@ -298,6 +307,18 @@ struct AllowedSummary {
 	suppressed: u64,
 	/// Whether the limit is shared by multiple locations.
 	shared: bool,
+}
+
+/// The note on the suppressed summaries, empty if there are none.
+impl fmt::Display for AllowedSummary {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		if self.suppressed == 0 {
+			return Ok(());
+		}
+
+		let locations = if self.shared { "other locations" } else { "this location" };
+		write!(f, " ({} more at {} since the previous summary)", self.suppressed, locations)
+	}
 }
 
 impl SummaryLimit {
@@ -366,17 +387,8 @@ fn print_limited_summary(message: &str, file: &str, line: u32) {
 			.lock()
 			.unwrap_or_else(PoisonError::into_inner)
 			.record(file, line, Instant::now());
-	let Some(AllowedSummary { suppressed, shared }) = allowed else { return };
-	let mut stderr = io::stderr();
-
-	print_summary(&mut stderr, message, file, line);
-	if suppressed > 0 {
-		let locations = if shared { "other locations" } else { "this location" };
-		let _ = writeln!(
-			stderr,
-			"{} more panics at {} since the previous summary",
-			suppressed, locations,
-		);
+	if let Some(allowed) = allowed {
+		print_summary(&mut io::stderr(), message, file, line, allowed);
 	}
 }
 
@@ -583,6 +595,38 @@ mod tests {
 	}
 
 	#[test]
+	fn summary_notes_suppressed_panics_on_same_line() {
+		let mut limiter = SummaryLimiter::new();
+		let start = Instant::now();
+		let mut summary = |now| {
+			limiter.record("file.rs", 1, now).map(|allowed| {
+				let mut out = Vec::new();
+				print_summary(&mut out, "message", "file.rs", 1, allowed);
+				String::from_utf8(out).unwrap()
+			})
+		};
+
+		let first = summary(start).unwrap();
+		assert!(first.ends_with("panicked at 'message', file.rs:1\n"));
+		assert_eq!(summary(start), None);
+		assert_eq!(summary(start), None);
+
+		let next = summary(start + SUMMARY_INTERVAL).unwrap();
+		assert!(next.ends_with("file.rs:1 (2 more at this location since the previous summary)\n"));
+		assert_eq!(next.lines().count(), 1);
+
+		// Nothing is left to note.
+		assert_eq!(summary(start + 2 * SUMMARY_INTERVAL), Some(first));
+	}
+
+	#[test]
+	fn summary_notes_panics_suppressed_by_shared_limit() {
+		let allowed = AllowedSummary { suppressed: 3, shared: true };
+
+		assert_eq!(allowed.to_string(), " (3 more at other locations since the previous summary)");
+	}
+
+	#[test]
 	fn caught_panic_summaries_are_rate_limited() {
 		let output = run_test_in_another_process("caught_panic_summaries_are_rate_limited", || {
 			set("test", "1.2.3");
@@ -599,6 +643,8 @@ mod tests {
 			let stderr = stderr(&output);
 			assert_eq!(stderr.matches("panicked at 'repeated'").count(), 1);
 			assert_eq!(stderr.matches("panicked at 'other'").count(), 1);
+			// Only noted by the next summary of the location.
+			assert!(!stderr.contains("since the previous summary"));
 		}
 	}
 
