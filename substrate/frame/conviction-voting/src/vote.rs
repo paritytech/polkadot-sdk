@@ -283,6 +283,44 @@ where
 		AsMut::<PriorLock<BlockNumber, Balance>>::as_mut(self).rejig(now);
 	}
 
+	/// Returns `true` if this entry carries no active votes, no delegations, and no prior lock,
+	/// meaning it can be safely removed from storage.
+	pub fn is_empty(&self) -> bool {
+		match self {
+			Voting::Casting(Casting { votes, delegations, prior }) => {
+				votes.is_empty() &&
+					delegations.votes.is_zero() &&
+					delegations.capital.is_zero() &&
+					prior.locked().is_zero()
+			},
+			Voting::Delegating(Delegating { balance, delegations, prior, .. }) => {
+				balance.is_zero() &&
+					delegations.votes.is_zero() &&
+					delegations.capital.is_zero() &&
+					prior.locked().is_zero()
+			},
+		}
+	}
+
+	/// Returns `true` if this entry has no effect: it carries no voting power and locks nothing.
+	/// That is, no delegations, no prior lock, and every vote (if any) has a zero balance.
+	///
+	/// Unlike [`Self::is_empty`], which requires the entry to hold no votes at all, zero-balance
+	/// votes are tolerated here. They contribute nothing to any tally, so an entry for which this
+	/// returns `true` can be removed without adjusting poll state. New zero-balance votes are only
+	/// accepted when backed by delegations, so this mostly matches legacy entries created before
+	/// that restriction. Every entry for which [`Self::is_empty`] holds also satisfies this
+	/// predicate, so nothing the automatic cleanup removes is refused by `cleanup_empty_storage`.
+	pub fn has_no_effect(&self) -> bool {
+		let delegations = match self {
+			Voting::Casting(Casting { delegations, .. }) => delegations,
+			Voting::Delegating(Delegating { delegations, .. }) => delegations,
+		};
+		self.locked_balance().is_zero() &&
+			delegations.votes.is_zero() &&
+			delegations.capital.is_zero()
+	}
+
 	/// The amount of this account's balance that must currently be locked due to voting.
 	pub fn locked_balance(&self) -> Balance {
 		match self {

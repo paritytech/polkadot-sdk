@@ -252,6 +252,40 @@ benchmarks_instance_pallet! {
 		assert_matches!(VotingFor::<T, I>::get(&caller, &class), Voting::Casting(_));
 	}
 
+	cleanup_empty_storage {
+		let caller = funded_account::<T, I>("caller", 0);
+		let target = funded_account::<T, I>("target", 0);
+		let target_lookup = T::Lookup::unlookup(target.clone());
+		whitelist_account!(caller);
+
+		let (class, all_polls) = fill_voting::<T, I>();
+		let polls = &all_polls[&class];
+
+		// Insert a stale VotingFor entry directly to simulate legacy state: the worst case is
+		// an entry holding `MaxVotes` zero-balance votes, which is no longer creatable through
+		// extrinsics since zero-balance votes are rejected unless backed by delegations.
+		let mut voting = VotingOf::<T, I>::default();
+		if let Voting::Casting(Casting { ref mut votes, .. }) = voting {
+			for &index in polls.iter().take(T::MaxVotes::get() as usize) {
+				votes.try_push((index, account_vote::<T, I>(Zero::zero()))).unwrap();
+			}
+		}
+		VotingFor::<T, I>::insert(&target, &class, voting);
+
+		// Also inject a zero-balance ClassLocksFor entry for every class to benchmark the full
+		// cleanup path over the largest possible lock vector.
+		ClassLocksFor::<T, I>::mutate(&target, |locks| {
+			for c in T::Polls::classes() {
+				locks.try_push((c, Zero::zero())).unwrap();
+			}
+		});
+	}: _(RawOrigin::Signed(caller), target_lookup, class.clone())
+	verify {
+		assert!(!VotingFor::<T, I>::contains_key(&target, &class));
+		// All zero-balance lock entries must have been pruned, removing the whole entry.
+		assert!(!ClassLocksFor::<T, I>::contains_key(&target));
+	}
+
 	unlock {
 		let caller = funded_account::<T, I>("caller", 0);
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
