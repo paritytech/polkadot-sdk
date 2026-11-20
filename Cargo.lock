@@ -21118,9 +21118,9 @@ dependencies = [
 
 [[package]]
 name = "rstest"
-version = "0.18.2"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97eeab2f3c0a199bc4be135c36c924b6590b88c377d416494288c14f2db30199"
+checksum = "7b423f0e62bdd61734b67cd21ff50871dfaeb9cc74f869dcd6af974fbcb19936"
 dependencies = [
  "futures",
  "futures-timer",
@@ -21130,12 +21130,13 @@ dependencies = [
 
 [[package]]
 name = "rstest_macros"
-version = "0.18.2"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d428f8247852f894ee1be110b375111b586d4fa431f6c46e64ba5a0dcccbe605"
+checksum = "c5e1711e7d14f74b12a58411c542185ef7fb7f2e7f8ee6e2940a883628522b42"
 dependencies = [
  "cfg-if",
  "glob",
+ "proc-macro-crate",
  "proc-macro2 1.0.107",
  "quote 1.0.40",
  "regex",
