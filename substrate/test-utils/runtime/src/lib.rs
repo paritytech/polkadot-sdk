@@ -1165,6 +1165,8 @@ pub mod storage_key_generator {
 			"c2261276cc9d1f8598ea4b6a74b15c2f4e7b9012096b41c4eb3aaf947f6ea429",
 			// Balances|TotalIssuance
 			"c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80",
+			// InherentUpgrade|:__STORAGE_VERSION__:
+			"c26e597d69ec005c13c426dbafc97b574e7b9012096b41c4eb3aaf947f6ea429",
 			//Utility|:__STORAGE_VERSION__:
 			"d5e1a2fa16732ce6906189438c0a82c64e7b9012096b41c4eb3aaf947f6ea429",
 		];
@@ -1459,6 +1461,8 @@ mod tests {
 				"00771836bebdd29870ff246d305c578c4e7b9012096b41c4eb3aaf947f6ea429",
 				//Utility|:__STORAGE_VERSION__:
 				"d5e1a2fa16732ce6906189438c0a82c64e7b9012096b41c4eb3aaf947f6ea429",
+				//InherentUpgrade|:__STORAGE_VERSION__:
+				"c26e597d69ec005c13c426dbafc97b574e7b9012096b41c4eb3aaf947f6ea429",
 				].into_iter().map(String::from).collect::<Vec<_>>();
 			expected.sort();
 
