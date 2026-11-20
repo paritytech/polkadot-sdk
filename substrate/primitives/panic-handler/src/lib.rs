@@ -32,9 +32,16 @@ use std::{
 	io::{self, Write},
 	marker::PhantomData,
 	panic::{self, PanicHookInfo, UnwindSafe},
-	sync::{Arc, LazyLock},
+	sync::{Arc, LazyLock, Mutex, PoisonError},
 	thread,
+	time::{Duration, Instant},
 };
+
+/// Summaries of possibly caught panics printed per [`SUMMARY_WINDOW`].
+const SUMMARIES_PER_WINDOW: u64 = 10;
+
+/// Window of the summary rate limit.
+const SUMMARY_WINDOW: Duration = Duration::from_secs(60);
 
 thread_local! {
 	static ON_PANIC: Cell<OnPanic> = Cell::new(OnPanic::Abort);
@@ -152,14 +159,22 @@ impl Drop for DeferredPanicReport {
 	}
 }
 
-/// Run `f`, reporting panics caught inside it with a single line instead of the full report.
+/// Run `f`, reporting panics caught inside it with a single rate-limited line instead of the full
+/// report.
 ///
 /// A panic that escapes `f` prints the full report and exits the process, even if the hook isn't
 /// [`set`]. A panic that aborts the process without unwinding, like one in a destructor during
-/// unwinding, is only reported with a single line.
+/// unwinding, is only reported with that line.
+///
+/// When built with `panic = "abort"`, `f` is called with the hook left as is.
 pub fn abort_on_unwind<T>(f: impl FnOnce() -> T + UnwindSafe) -> T {
+	// Nothing can be caught, so the hook must print the full report.
+	if cfg!(panic = "abort") {
+		return f();
+	}
+
 	// The payload is kept until the exit: its destructor may panic.
-	let (_payload, report) = {
+	let (payload, report) = {
 		let _scope = DeferredPanicReport::enter();
 		match panic::catch_unwind(f) {
 			Ok(value) => return value,
@@ -168,8 +183,14 @@ pub fn abort_on_unwind<T>(f: impl FnOnce() -> T + UnwindSafe) -> T {
 	};
 
 	// `None` if the hook has printed the report itself or isn't installed.
-	if let Some(mut report) = report {
+	let reported = report.map(|mut report| {
 		report.print();
+		report.message
+	});
+	// A payload re-raised with `resume_unwind` skips the hook, leaving the report of another panic.
+	let escaped = panic_message(&*payload);
+	if reported.as_deref() != Some(escaped) {
+		let _ = writeln!(io::stderr(), "Escaped panic payload: '{}'", strip_control_codes(escaped));
 	}
 	std::process::exit(1)
 }
@@ -204,9 +225,6 @@ fn panic_message(payload: &(dyn Any + Send)) -> &str {
 }
 
 /// Report of a panic that may still be caught.
-///
-/// Carries its own message: a payload re-raised with `resume_unwind` skips the hook, so the
-/// escaped payload isn't necessarily the one of the reported panic.
 struct PanicReport {
 	context: Arc<ReportContext>,
 	backtrace: Backtrace,
@@ -252,6 +270,67 @@ fn print_summary(stderr: &mut io::Stderr, message: &str, file: &str, line: u32) 
 	let _ = writeln!(stderr, "Thread '{}' panicked at '{}', {}:{}", name, message, file, line);
 }
 
+/// Rate limit of the summaries of possibly caught panics, which may be frequent.
+struct SummaryLimiter {
+	/// Start of the current window.
+	window_start: Option<Instant>,
+	/// Panics in the current window.
+	panics: u64,
+}
+
+/// Summary let through by [`SummaryLimiter`].
+#[derive(Debug, PartialEq)]
+struct AllowedSummary {
+	/// Summaries suppressed in the previous window.
+	suppressed: u64,
+	/// Whether the rest of the window is suppressed.
+	last: bool,
+}
+
+impl SummaryLimiter {
+	const fn new() -> Self {
+		Self { window_start: None, panics: 0 }
+	}
+
+	/// Record a panic, returning `None` if its summary must be suppressed.
+	fn record(&mut self, now: Instant) -> Option<AllowedSummary> {
+		let mut suppressed = 0;
+		if self
+			.window_start
+			.is_none_or(|start| now.duration_since(start) >= SUMMARY_WINDOW)
+		{
+			suppressed = self.panics.saturating_sub(SUMMARIES_PER_WINDOW);
+			self.window_start = Some(now);
+			self.panics = 0;
+		}
+		self.panics += 1;
+
+		(self.panics <= SUMMARIES_PER_WINDOW)
+			.then_some(AllowedSummary { suppressed, last: self.panics == SUMMARIES_PER_WINDOW })
+	}
+}
+
+/// Print the rate-limited summary of a possibly caught panic.
+fn print_limited_summary(message: &str, file: &str, line: u32) {
+	static LIMITER: Mutex<SummaryLimiter> = Mutex::new(SummaryLimiter::new());
+
+	let allowed = LIMITER.lock().unwrap_or_else(PoisonError::into_inner).record(Instant::now());
+	let Some(AllowedSummary { suppressed, last }) = allowed else { return };
+	let mut stderr = io::stderr();
+
+	if suppressed > 0 {
+		let _ = writeln!(stderr, "{} panic summaries were suppressed", suppressed);
+	}
+	print_summary(&mut stderr, message, file, line);
+	if last {
+		let _ = writeln!(
+			stderr,
+			"Further panic summaries are suppressed for up to {} seconds",
+			SUMMARY_WINDOW.as_secs(),
+		);
+	}
+}
+
 fn panic_hook(info: &PanicHookInfo, context: &Arc<ReportContext>) {
 	let (file, line) = info
 		.location()
@@ -261,7 +340,7 @@ fn panic_hook(info: &PanicHookInfo, context: &Arc<ReportContext>) {
 
 	if action == OnPanic::DeferReport {
 		// The only report of a panic that is caught, or that aborts the process without unwinding.
-		print_summary(&mut io::stderr(), message, file, line);
+		print_limited_summary(message, file, line);
 		DEFERRED_REPORT.set(Some(Box::new(PanicReport {
 			context: Arc::clone(context),
 			backtrace: Backtrace::new_unresolved(),
@@ -376,6 +455,7 @@ mod tests {
 			let stderr = stderr(&output);
 			assert_eq!(stderr.matches(FULL_REPORT).count(), 1);
 			assert!(stderr.contains("panicked at 'escaped'"));
+			assert!(!stderr.contains("Escaped panic payload"));
 		}
 	}
 
@@ -397,22 +477,63 @@ mod tests {
 	}
 
 	#[test]
-	fn report_is_not_mixed_with_reraised_payload() {
+	fn reraised_payload_is_reported_next_to_last_panic() {
 		let output =
-			run_test_in_another_process("report_is_not_mixed_with_reraised_payload", || {
+			run_test_in_another_process("reraised_payload_is_reported_next_to_last_panic", || {
 				set("test", "1.2.3");
 				abort_on_unwind::<()>(|| {
-					let _ = panic::catch_unwind::<_, ()>(|| panic!("caught"));
-					panic::resume_unwind(Box::new("reraised"));
+					let first = panic::catch_unwind::<_, ()>(|| panic!("first")).unwrap_err();
+					let _ = panic::catch_unwind::<_, ()>(|| panic!("second"));
+					panic::resume_unwind(first);
 				});
 			});
 
 		if let Some(output) = output {
 			assert_eq!(output.status.code(), Some(1));
 			let stderr = stderr(&output);
-			assert!(stderr.contains(FULL_REPORT));
-			assert!(stderr.contains("panicked at 'caught'"));
-			assert!(!stderr.contains("panicked at 'reraised'"));
+			// The full report is of the last panic seen by the hook.
+			assert_eq!(stderr.matches(FULL_REPORT).count(), 1);
+			assert_eq!(stderr.matches("panicked at 'second'").count(), 2);
+			assert_eq!(stderr.matches("panicked at 'first'").count(), 1);
+			assert!(stderr.contains("Escaped panic payload: 'first'"));
+		}
+	}
+
+	#[test]
+	fn limiter_suppresses_summaries_over_window_limit() {
+		let mut limiter = SummaryLimiter::new();
+		let start = Instant::now();
+
+		for panics in 1..=SUMMARIES_PER_WINDOW {
+			assert_eq!(
+				limiter.record(start),
+				Some(AllowedSummary { suppressed: 0, last: panics == SUMMARIES_PER_WINDOW }),
+			);
+		}
+		assert_eq!(limiter.record(start), None);
+		assert_eq!(limiter.record(start + SUMMARY_WINDOW / 2), None);
+		assert_eq!(
+			limiter.record(start + SUMMARY_WINDOW),
+			Some(AllowedSummary { suppressed: 2, last: false }),
+		);
+	}
+
+	#[test]
+	fn caught_panic_summaries_are_rate_limited() {
+		let output = run_test_in_another_process("caught_panic_summaries_are_rate_limited", || {
+			set("test", "1.2.3");
+			abort_on_unwind(|| {
+				for _ in 0..SUMMARIES_PER_WINDOW + 5 {
+					assert!(panic::catch_unwind::<_, ()>(|| panic!("caught")).is_err());
+				}
+			});
+		});
+
+		if let Some(output) = output {
+			assert!(output.status.success());
+			let stderr = stderr(&output);
+			assert_eq!(stderr.matches("panicked at 'caught'").count() as u64, SUMMARIES_PER_WINDOW,);
+			assert!(stderr.contains("Further panic summaries are suppressed"));
 		}
 	}
 
