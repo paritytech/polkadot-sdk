@@ -94,6 +94,7 @@ const ERR_JAM_PARENT_MISSING: &[u8] = b"jam_validate_block:jam-parent-missing";
 const ERR_NO_DIGEST_AT_ALL: &[u8] = b"jam_validate_block:no-digest-at-all";
 const ERR_ANCHOR_CHAIN_INVALID: &[u8] = b"jam_validate_block:anchor-chain-invalid";
 const ERR_JAM_PARENT_UNPROVEN: &[u8] = b"jam_validate_block:jam-parent-unproven-by-chain";
+const ERR_JAM_PROOF_ROOT_MISMATCH: &[u8] = b"jam_validate_block:jam-proof-root-mismatch";
 
 /// The `AdditionalDataFinalizer` committing the carried JAM state proof under `JAM_PROOF_KEY`.
 ///
@@ -221,11 +222,10 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 		},
 		// Arm the JAM proof reader + finalizer from the carried `JAM_PROOF_KEY` entry for
 		// the duration of each block's execution, so `jam_state_read` and `finalize` are
-		// served from the proof that travels with the block. The carried root is *ignored* —
-		// reads verify against the trusted root derived for this block above (the refine
-		// context's state root, or its proven anchor's), so a candidate that recorded its JAM
-		// reads against a different root fails at the first read. A malformed blob, or a proof
-		// that cannot authenticate a key, panics rather than serving `None`.
+		// served from the proof that travels with the block. The carried root must equal the
+		// trusted root derived for this block above (the refine context's posterior state root,
+		// or its proven anchor's), and reads verify against that trusted root. A malformed blob,
+		// or a proof that cannot authenticate a key, panics rather than serving `None`.
 		&|additional_data: &Option<AdditionalData>, execute: &mut dyn FnMut()| {
 			let block_index = next_block.get();
 			next_block.set(block_index + 1);
@@ -236,8 +236,11 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 				let proof_bytes = map
 					.get(JAM_PROOF_KEY)
 					.expect("additional data map (present) must contain the jam-proof entry");
-				let (_, proof) = <([u8; 32], StateProof)>::decode(&mut &proof_bytes[..])
+				let (carried_root, proof) = <([u8; 32], StateProof)>::decode(&mut &proof_bytes[..])
 					.expect("jam-proof entry must decode as (anchor_state_root, proof)");
+				if carried_root != jam_anchor_state_root {
+					host::report_error(ERR_JAM_PROOF_ROOT_MISMATCH)
+				}
 				(
 					JamProofReader::new(jam_anchor_state_root, proof),
 					JamProofFinalizer { commitment: hash_value(proof_bytes) },
