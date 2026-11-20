@@ -997,6 +997,51 @@ async fn verify_slots_are_strictly_increasing() {
 }
 
 #[tokio::test]
+async fn equivocation_detection_keeps_the_sealed_header() {
+	use sp_runtime::traits::Header as _;
+
+	let mut net = BabeTestNet::new(1);
+
+	let peer = net.peer(0);
+	let data = peer.data.as_ref().expect("babe link set up during initialization");
+	let client = peer.client().as_client();
+	let mut block_import = data.block_import.lock().take().expect("import set up during init");
+
+	let mut proposer_factory = DummyFactory {
+		client: client.clone(),
+		epoch_changes: data.link.epoch_changes.clone(),
+		mutator: Arc::new(|_, _| ()),
+	};
+
+	let genesis_header = client.header(client.chain_info().genesis_hash).unwrap().unwrap();
+	// Import only keeps headers of recent slots, measured against the clock.
+	let slot = Slot::from_timestamp(
+		sp_timestamp::Timestamp::current(),
+		SlotDuration::from_millis(SLOT_DURATION_MS),
+	);
+	let hash = propose_and_import_block(
+		&genesis_header,
+		Some(slot),
+		&mut proposer_factory,
+		&mut block_import,
+	)
+	.await;
+	let imported = client.header(hash).unwrap().unwrap();
+	assert!(imported.digest().logs().last().and_then(|item| item.as_babe_seal()).is_some());
+
+	// Another header by the same authority in the same slot gets back the one import kept.
+	let mut other = imported.clone();
+	other.set_state_root(Hash::repeat_byte(7));
+	let authority: AuthorityId = Sr25519Keyring::Alice.public().into();
+	let proof = sc_consensus_slots::check_equivocation(&*client, slot, slot, &other, &authority)
+		.unwrap()
+		.expect("an equivocation");
+
+	// An equivocation proof is only verifiable if its headers carry the seal.
+	assert_eq!(proof.first_header, imported);
+}
+
+#[tokio::test]
 async fn obsolete_blocks_aux_data_cleanup() {
 	let mut net = BabeTestNet::new(1);
 
