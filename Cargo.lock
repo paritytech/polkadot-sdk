@@ -14494,6 +14494,7 @@ dependencies = [
 name = "pallet-offences"
 version = "27.0.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",

@@ -85,6 +85,13 @@ impl Config for Runtime {
 	type OnOffenceHandler = OnOffenceHandler;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+impl crate::benchmarking::Config for Runtime {
+	fn offender() -> u64 {
+		1
+	}
+}
+
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);

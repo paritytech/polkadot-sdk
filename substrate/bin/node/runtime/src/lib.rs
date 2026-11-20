@@ -3390,6 +3390,7 @@ mod benches {
 		[pallet_assets_precompiles, AssetsPrecompiles]
 		[pallet_vesting_precompiles, VestingPrecompiles]
 		[pallet_multisig, Multisig]
+		[pallet_offences, OffencesBench::<Runtime>]
 		[pallet_on_demand_para, OnDemand]
 		[pallet_oracle, Oracle]
 		[pallet_preimage, Preimage]
@@ -4058,6 +4059,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			// issues. To get around that, we separated the Session benchmarks into its own crate,
 			// which is why we need the line below.
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
+			use pallet_offences::benchmarking::Pallet as OffencesBench;
 			use pallet_election_provider_support_benchmarking::Pallet as EPSBench;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
@@ -4082,6 +4084,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			// issues. To get around that, we separated the Session benchmarks into its own crate,
 			// which is why we need the line below.
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
+			use pallet_offences::benchmarking::Pallet as OffencesBench;
 			use pallet_election_provider_support_benchmarking::Pallet as EPSBench;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
@@ -4091,6 +4094,11 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
 					let keys = SessionKeys::generate(&owner.encode(), None);
 					(keys.keys, keys.proof.encode())
+				}
+			}
+			impl pallet_offences::benchmarking::Config for Runtime {
+				fn offender() -> Self::IdentificationTuple {
+					(frame_benchmarking::account("offender", 0, 0), ())
 				}
 			}
 			impl pallet_election_provider_support_benchmarking::Config for Runtime {}

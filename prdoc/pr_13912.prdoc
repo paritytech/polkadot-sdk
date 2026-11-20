@@ -5,8 +5,12 @@ doc:
     `pallet-election-provider-multi-phase` is deprecated and will be removed after May 2027. Use `pallet-staking-async` with `pallet-election-provider-multi-block` instead.
 
     A runtime that removes the pallet must clear its storage, for example with `frame_support::migrations::RemovePallet`.
+
+    `pallet-offences` gets a benchmark in `pallet_offences::benchmarking` that does not need a staking pallet.
 crates:
 - name: pallet-election-provider-multi-phase
   bump: minor
 - name: polkadot-runtime-common
+  bump: minor
+- name: pallet-offences
   bump: minor
