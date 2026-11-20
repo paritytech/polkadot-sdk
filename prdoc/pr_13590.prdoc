@@ -1,0 +1,13 @@
+title: '`frame-metadata-hash-extension`: uncovered extension paths in tests'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds unit tests for previously uncovered paths of `CheckMetadataHash`: a custom hash comes
+      back in the implicit, mode 0 yields `None` and never errors with `RUNTIME_METADATA_HASH`
+      unset, the encoding is exactly one mode byte, and `weight()` is zero. Also fixes rustdoc
+      that overstated `RUNTIME_METADATA_HASH` as required.
+
+crates:
+  - name: frame-metadata-hash-extension
+    bump: none
