@@ -8,10 +8,8 @@ doc:
     replay factory, and the `finalize_into` host function. Adds `DigestItem::AdditionalData`,
     discriminant 3, which carries the 32-byte commitment in the header.
 
-    Nothing registers the host function or deposits the digest yet. A runtime only takes on the
-    new host-function import once it includes a pallet that calls `finalize`, so chains that do
-    not opt in are unaffected. Nodes without this change cannot decode a header that carries the
-    new digest item.
+    Nothing registers the host function or deposits the digest yet, so existing chains are
+    unaffected. Nodes without this change cannot decode a header that carries the new digest item.
 crates:
 - name: sp-additional-data
   bump: patch
