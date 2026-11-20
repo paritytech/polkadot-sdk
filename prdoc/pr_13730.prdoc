@@ -1,0 +1,12 @@
+title: '`pallet-broker`: test `force_reserve` failure at sale rotation'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Covers the `rotate_sale` path where the first free core is beyond `core_count`:
+      `ForceReservationFailed` is emitted, `ForceReservations` is drained, and the workload
+      is assigned only via the reservation path that `force_reserve` also set up. Test-only.
+
+crates:
+  - name: pallet-broker
+    bump: none
