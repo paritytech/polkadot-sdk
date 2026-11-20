@@ -92,8 +92,7 @@ Conduct](./docs/contributor/CODE_OF_CONDUCT.md).
 
 ### 👾 Ready to Contribute?
 
-Take a look at the issues labeled with [`mentor`](https://github.com/paritytech/polkadot-sdk/labels/C1-mentor)
-(or alternatively [this](https://mentor.tasty.limo/) page, created by one of the maintainers) label to get started!
+Take a look at the issues labeled with [`mentor`](https://github.com/paritytech/polkadot-sdk/labels/C1-mentor) to get started!
 We always recognize valuable contributions by proposing an on-chain tip to the Polkadot network as a token of our
 appreciation.
 
