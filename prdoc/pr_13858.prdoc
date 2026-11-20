@@ -1,0 +1,8 @@
+title: Avoid duplicate-request penalties during fork recovery
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+    Avoid redundant replacement fork requests after import errors that can make serving peers refuse data and penalize the syncing node. Useful ancestry responses remain in flight even when their target is already queued for import. The duplicate-body-request penalty is fatal on stable2603; current master uses a smaller nonfatal penalty with a 60-second reset window.
+crates:
+- name: sc-network-sync
+  bump: patch
