@@ -571,6 +571,8 @@ pub mod pallet {
 		/// be retried after `period` blocks, for a total amount of `retries` retries or until it
 		/// succeeds.
 		///
+		/// A `period` of zero is treated as one block.
+		///
 		/// Tasks which need to be scheduled for a retry are still subject to weight metering and
 		/// agenda space, same as a regular task. If a periodic task fails, it will be scheduled
 		/// normally while the task is retrying.
@@ -612,6 +614,8 @@ pub mod pallet {
 		/// Set a retry configuration for a named task so that, in case its scheduled run fails, it
 		/// will be retried after `period` blocks, for a total amount of `retries` retries or until
 		/// it succeeds.
+		///
+		/// A `period` of zero is treated as one block.
 		///
 		/// Tasks which need to be scheduled for a retry are still subject to weight metering and
 		/// agenda space, same as a regular task. If a periodic task fails, it will be scheduled
@@ -1511,7 +1515,9 @@ impl<T: Config> Pallet<T> {
 			Some(n) => n,
 			None => return,
 		};
-		let wake = now.saturating_add(period);
+		// The agenda of `now` is being serviced and is written back afterwards, so a retry is
+		// placed no earlier than the next block.
+		let wake = now.saturating_add(period.max(One::one()));
 		match Self::place_task(wake, task.as_retry()) {
 			Ok(address) => {
 				// Reinsert the retry config to the new address of the task after it was
