@@ -1,0 +1,12 @@
+title: '`pallet-transaction-payment`: test the TxPaymentCredit API'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds tests for the previously untested `withdraw_txfee`, `deposit_txfee` and
+      `remaining_txfee` functions, and for the `on_finalize` cleanup of a credit left in
+      storage between blocks. Test-only, no behavior change.
+
+crates:
+  - name: pallet-transaction-payment
+    bump: none
