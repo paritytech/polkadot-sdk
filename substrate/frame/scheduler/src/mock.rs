@@ -137,6 +137,8 @@ parameter_types! {
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND * 2, u64::MAX),
 		);
+	pub const MockDbWeight: frame_support::weights::RuntimeDbWeight =
+		frame_support::weights::RuntimeDbWeight { read: 3, write: 7 };
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -144,6 +146,7 @@ impl system::Config for Test {
 	type BaseCallFilter = BaseFilter;
 	type Block = Block;
 	type BlockWeights = BlockWeights;
+	type DbWeight = MockDbWeight;
 }
 impl logger::Config for Test {
 	type RuntimeEvent = RuntimeEvent;

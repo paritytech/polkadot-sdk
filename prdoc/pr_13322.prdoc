@@ -1,0 +1,31 @@
+title: 'pallet-scheduler: remove aborted and unserviceable tasks from agendas'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Makes agenda servicing in `pallet-scheduler` more robust.
+
+    Tasks aborted with `CallUnavailable` or `PermanentlyOverweight` are now removed from their
+    agenda together with their name and retry configuration.
+
+    A due task whose call is a preimage lookup longer than `Preimages::MAX_LENGTH` can never be
+    fetched. It is now removed with `CallUnavailable` and charged only for its cleanup. Every other
+    task whose service does not fit is still postponed, whatever `MaximumWeight` is set to.
+
+    `MaximumWeight` should cover servicing a lookup of `Preimages::MAX_LENGTH` as the first task of
+    a full agenda, and leave enough of the maximum block weight for the work done before the
+    scheduler runs.
+
+    The weight budget of a block is treated as fresh only until the first task is serviced.
+- audience: Runtime User
+  description: |-
+    `CallUnavailable` and `PermanentlyOverweight` now mean that the task was removed from storage:
+    it will not run, and cancelling, rescheduling or setting a retry configuration for it by
+    address returns `NotFound`. Indexers and governance UIs that track scheduled tasks or
+    enactments can treat both events as final.
+
+    Lowering `MaximumWeight` postpones the tasks whose service no longer fits, as before. A task
+    whose call itself is heavier than the new value is still reported as `PermanentlyOverweight`,
+    as before, and is now removed rather than left unreachable in its agenda.
+crates:
+- name: pallet-scheduler
+  bump: patch
