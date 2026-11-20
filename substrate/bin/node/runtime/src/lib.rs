@@ -2839,6 +2839,7 @@ impl pallet_registrar_relay::Config for Runtime {
 	type RelayOrigin = pallet_registrar_relay::EnsureParachain<RuntimeOrigin>;
 	type MaxRequestsPerWindow = ConstU32<10>;
 	type RequestWindow = ConstU32<DAYS>;
+	type MaxFailedReports = ConstU32<16>;
 	type WeightInfo = pallet_registrar_relay::weights::SubstrateWeight<Runtime>;
 }
 
