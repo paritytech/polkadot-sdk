@@ -952,6 +952,25 @@ pub mod pallet {
 			}
 		}
 
+		/// How much more `who`'s holds and named reserves claim than its reserved balance has.
+		///
+		/// The reserved balance must back every hold and named reserve in full, so this is zero
+		/// for a sound account. A non-zero shortfall means that releasing or slashing all of
+		/// them fails. [`crate::migration::RebackReserved`] repairs such accounts.
+		pub fn reserved_shortfall(who: &T::AccountId) -> T::Balance {
+			let held = Holds::<T, I>::get(who)
+				.iter()
+				.fold(T::Balance::zero(), |acc, hold| acc.saturating_add(hold.amount));
+			let claimed = Reserves::<T, I>::get(who)
+				.iter()
+				.fold(held, |acc, reserve| acc.saturating_add(reserve.amount));
+			if claimed.is_zero() {
+				// most accounts have no holds or named reserves: do not read the account.
+				return Zero::zero();
+			}
+			claimed.saturating_sub(Self::account(who).reserved)
+		}
+
 		fn ed() -> T::Balance {
 			T::ExistentialDeposit::get()
 		}
@@ -1433,6 +1452,45 @@ pub mod pallet {
 			Self::hold_and_freeze_count()?;
 			Self::account_frozen_greater_than_locks()?;
 			Self::account_frozen_greater_than_freezes()?;
+			Self::account_reserved_greater_than_holds_and_named()?;
+			Ok(())
+		}
+
+		/// Every account with a hold or a named reserve, paired with its
+		/// [`Pallet::reserved_shortfall`], if that is not zero.
+		pub(crate) fn under_backed_accounts() -> Vec<(T::AccountId, T::Balance)> {
+			Holds::<T, I>::iter_keys()
+				.chain(
+					Reserves::<T, I>::iter_keys().filter(|who| !Holds::<T, I>::contains_key(who)),
+				)
+				.filter_map(|who| {
+					let shortfall = Self::reserved_shortfall(&who);
+					(!shortfall.is_zero()).then_some((who, shortfall))
+				})
+				.collect()
+		}
+
+		/// The reserved balance of every account backs all of its holds and named reserves.
+		///
+		/// It may hold more: the unnamed reserves are not recorded anywhere.
+		fn account_reserved_greater_than_holds_and_named() -> Result<(), sp_runtime::TryRuntimeError>
+		{
+			let under_backed = Self::under_backed_accounts();
+			for (who, shortfall) in &under_backed {
+				log::warn!(
+					target: crate::LOG_TARGET,
+					"Holds and named reserves of {:?} exceed its reserved balance {:?} by {:?}",
+					who,
+					Self::account(who).reserved,
+					shortfall,
+				);
+			}
+			// TODO: uncomment after the migration has successfully ran, and there is no chance of
+			// more accounts getting corrupted. For now we should check the logs.
+			// ensure!(
+			// 	under_backed.is_empty(),
+			// 	"Found accounts whose reserved balance does not back all holds and named reserves"
+			// );
 			Ok(())
 		}
 

@@ -54,6 +54,7 @@ mod fungible_and_currency;
 mod fungible_conformance_tests;
 mod fungible_tests;
 mod general_tests;
+mod reback_reserved_tests;
 mod reentrancy_tests;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -171,7 +172,6 @@ impl ExtBuilder {
 		self.reentrant_dust_action = Some(ReentrantDustAction::Lock(account));
 		self
 	}
-	#[cfg(feature = "try-runtime")]
 	pub fn auto_try_state(self, auto_try_state: bool) -> Self {
 		AutoTryState::set(auto_try_state);
 		self
