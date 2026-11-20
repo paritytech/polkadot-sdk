@@ -1,0 +1,16 @@
+title: 'pallet-psm: keep the minimum balance in the reserve on redeem'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `redeem` pays the external asset out with `Preservation::Expendable`. A payout that left
+      the reserve with a nonzero balance below the asset's minimum balance also paid that rest
+      to the caller, so the remaining debt had no reserve. If debt remains and the payout would
+      leave such a rest, `redeem` now pays out less, so that the minimum balance stays in the
+      reserve. The internal amount that is not redeemed stays with the caller. The redemption
+      never fails because of this rule. `Redeemed::external_received` now reports the amount
+      that the transfer actually paid.
+
+crates:
+  - name: pallet-psm
+    bump: patch
