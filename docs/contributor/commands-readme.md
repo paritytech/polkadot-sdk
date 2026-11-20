@@ -11,8 +11,8 @@ Note: it works only for members of the `paritytech` organization.
 
 ### Commands
 
-- `/cmd fmt` to format the code in the PR. It commits back with the formatted code (fmt), fixed crate features (zepter) and formatted
-  configs (taplo).
+- `/cmd fmt` to format the code in the PR. It commits back with the formatted code (fmt), fixed crate features
+  (zepter) and formatted configs (taplo).
 
 - `/cmd bench` to generate weights for a runtime. Read more about [Weight Generation](weight-generation.md)
 
