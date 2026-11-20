@@ -1,0 +1,9 @@
+title: 'chainHead RPC: clean up only successfully registered subscriptions'
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |
+    A failed subscription insertion now releases its connection reservation without
+    modifying subscriptions already tracked by the node.
+crates:
+- name: sc-rpc-spec-v2
+  bump: patch
