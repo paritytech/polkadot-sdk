@@ -1,0 +1,26 @@
+title: Keep chain-selection notified when a coalesced approval is only partly valid
+
+doc:
+  - audience: Node Dev
+    description: |
+      Defensive hardening of `import_approval` in approval-voting. It handles
+      every candidate named in a coalesced `ImportApproval` in one loop,
+      writing overlay state and collecting actions as it goes. A per-candidate
+      failure in the loop (typically `NoAssignment`) used to return early with
+      an empty action list. If an earlier candidate had already completed the
+      block, that dropped `Action::NoteApprovedInChainSelection` while the
+      overlay still recorded the block as approved.
+
+      This is not reachable from the network: approval-distribution rejects a
+      coalesced vote if any candidate in it has no known assignment. GRANDPA
+      uses `ApprovedAncestor` and does not depend on
+      `ChainSelectionMessage::Approved`.
+
+      A per-candidate failure now skips that candidate and moves on, so the
+      valid candidates are imported whatever their order in the vote, and the
+      collected actions are always returned. The result is still `Bad` if any
+      named candidate failed.
+
+crates:
+  - name: polkadot-node-core-approval-voting
+    bump: patch
