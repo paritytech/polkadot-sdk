@@ -59,6 +59,32 @@ impl<A, B> ContainsPair<A, B> for Tuple {
 	}
 }
 
+/// A trait for querying whether a type can be said to "contain" a call variant of the runtime.
+///
+/// A call variant is one call of one pallet, whatever the arguments of the call: one variant of
+/// the `Call` enum of one pallet. It is identified by the index of the pallet in the runtime, as
+/// [`PalletInfoAccess::index`](super::PalletInfoAccess::index) gives it, and by the index of the
+/// call in the pallet, as [`GetCallIndex`](super::GetCallIndex) gives it.
+///
+/// In this order, these two indices are the first two bytes of an encoded runtime call. So the
+/// variant of an encoded call can be looked for without decoding the call.
+pub trait ContainsCallVariant {
+	/// Return `true` if this "contains" the call at `call_index` of the pallet at `pallet_index`.
+	fn contains(pallet_index: u8, call_index: u8) -> bool;
+}
+
+#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
+#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
+#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
+impl ContainsCallVariant for Tuple {
+	fn contains(pallet_index: u8, call_index: u8) -> bool {
+		for_tuples!( #(
+			if Tuple::contains(pallet_index, call_index) { return true }
+		)* );
+		false
+	}
+}
+
 /// Converter `struct` to use a `ContainsPair` implementation for a `Contains` bound.
 pub struct FromContainsPair<CP>(PhantomData<CP>);
 impl<A, B, CP: ContainsPair<A, B>> Contains<(A, B)> for FromContainsPair<CP> {
@@ -88,6 +114,11 @@ impl<A, B> ContainsPair<A, B> for Everything {
 		true
 	}
 }
+impl ContainsCallVariant for Everything {
+	fn contains(_: u8, _: u8) -> bool {
+		true
+	}
+}
 
 /// A [`Contains`] implementation that contains no value.
 pub enum Nothing {}
@@ -98,6 +129,11 @@ impl<T> Contains<T> for Nothing {
 }
 impl<A, B> ContainsPair<A, B> for Nothing {
 	fn contains(_: &A, _: &B) -> bool {
+		false
+	}
+}
+impl ContainsCallVariant for Nothing {
+	fn contains(_: u8, _: u8) -> bool {
 		false
 	}
 }
@@ -203,6 +239,33 @@ mod tests {
 		for i in 0..=255 {
 			assert_eq!(OneOrTenToTwenty::contains(&i), i == 1 || i >= 10 && i <= 20);
 		}
+	}
+
+	struct Only<const PALLET: u8, const CALL: u8>;
+	impl<const PALLET: u8, const CALL: u8> ContainsCallVariant for Only<PALLET, CALL> {
+		fn contains(pallet_index: u8, call_index: u8) -> bool {
+			(pallet_index, call_index) == (PALLET, CALL)
+		}
+	}
+
+	fn contains<C: ContainsCallVariant>(pallet_index: u8, call_index: u8) -> bool {
+		C::contains(pallet_index, call_index)
+	}
+
+	#[test]
+	fn contains_call_variant_for_tuples_works() {
+		type Both = (Only<1, 2>, Only<3, 4>);
+
+		assert!(contains::<Both>(1, 2));
+		assert!(contains::<Both>(3, 4));
+		// The indices of a member are not mixed with the ones of another, nor swapped.
+		assert!(!contains::<Both>(1, 4));
+		assert!(!contains::<Both>(3, 2));
+		assert!(!contains::<Both>(2, 1));
+
+		assert!(!contains::<()>(1, 2));
+		assert!(!contains::<Nothing>(1, 2));
+		assert!(contains::<Everything>(1, 2));
 	}
 }
 

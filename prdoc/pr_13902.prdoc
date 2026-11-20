@@ -1,0 +1,31 @@
+title: Introduce the pallet unpaid-transact for Polkadot
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add the pallet `unpaid_transact` in `polkadot-runtime-parachains`, and its XCM barrier
+    `AllowUnpaidTransact`.
+
+    They let a non-system parachain have a few calls dispatched as itself without payment. The
+    barrier lets through a message made of `UnpaidExecution` and one `Transact` with
+    `OriginKind::Native`, for a call in `AllowedCalls`, if the message weighs at most
+    `MaxWeight`, and `MaxPerWindow` times per `Window` blocks for each parachain. The barrier does
+    not decode the call: `AllowedCalls` is a `ContainsCallVariant` that is asked for the pallet
+    index and the call index, which are the first two bytes of the encoded call. Only the messages
+    that the barrier lets through are counted.
+
+    What the pallet holds for a parachain that is offboarded is removed, once the window of the
+    parachain is over, by the call `remove_offboarded`, which anybody can submit without a
+    signature, and which the offchain worker submits every `CleanupPeriod` blocks.
+
+    Westend has the pallet and the barrier, with no allowed call yet.
+
+    Add the trait `ContainsCallVariant` in `frame-support`: a set of call variants of the runtime,
+    each identified by its pallet index and its call index, whatever the arguments of the call. It
+    is implemented for tuples, `Everything` and `Nothing`.
+crates:
+- name: frame-support
+  bump: minor
+- name: polkadot-runtime-parachains
+  bump: minor
+- name: westend-runtime
+  bump: minor

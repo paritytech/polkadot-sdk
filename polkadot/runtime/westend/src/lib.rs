@@ -79,7 +79,7 @@ use polkadot_runtime_parachains::{
 		v13 as parachains_runtime_api_impl, vstaging as parachains_staging_runtime_api_impl,
 	},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
-	shared as parachains_shared,
+	shared as parachains_shared, unpaid_transact as parachains_unpaid_transact,
 };
 use scale_info::TypeInfo;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -1160,6 +1160,16 @@ impl parachains_hrmp::Config for Runtime {
 	type WeightInfo = weights::polkadot_runtime_parachains_hrmp::WeightInfo<Self>;
 }
 
+impl parachains_unpaid_transact::Config for Runtime {
+	// No call is dispatched without payment yet.
+	type AllowedCalls = frame_support::traits::Nothing;
+	type MaxWeight = ();
+	type MaxPerWindow = ConstU32<10>;
+	type Window = ConstU32<{ DAYS }>;
+	type CleanupPeriod = ConstU32<{ 30 * DAYS }>;
+	type WeightInfo = weights::polkadot_runtime_parachains_unpaid_transact::WeightInfo<Runtime>;
+}
+
 impl parachains_paras_inherent::Config for Runtime {
 	type WeightInfo = weights::polkadot_runtime_parachains_paras_inherent::WeightInfo<Runtime>;
 }
@@ -1563,6 +1573,8 @@ mod runtime {
 	pub type OnDemandAssignmentProvider = parachains_on_demand;
 	// RIP CoretimeAssignmentProvider 57 - Moved to scheduler::assigner_coretime submodule in PR
 	// #10184 (Had no extrinsics nor events exposed)
+	#[runtime::pallet_index(58)]
+	pub type UnpaidTransact = parachains_unpaid_transact;
 
 	// Parachain Onboarding Pallets. Start indices at 60 to leave room.
 	#[runtime::pallet_index(60)]
@@ -1906,6 +1918,7 @@ mod benches {
 		[polkadot_runtime_parachains::initializer, Initializer]
 		[polkadot_runtime_parachains::paras, Paras]
 		[polkadot_runtime_parachains::paras_inherent, ParaInherent]
+		[polkadot_runtime_parachains::unpaid_transact, UnpaidTransact]
 		[polkadot_runtime_parachains::on_demand, OnDemandAssignmentProvider]
 		[polkadot_runtime_parachains::coretime, Coretime]
 		// Substrate
