@@ -1325,8 +1325,8 @@ pub mod pallet {
 			let was_frozen = account.status.is_frozen();
 			if account.is_tombstone() {
 				Self::ensure_account_can_die(id.clone(), &who)?;
+				let _ = Self::dead_account(&who, &mut details, &account.reason, false);
 				Account::<T, I>::remove(&id, &who);
-				details.accounts.saturating_dec();
 				Asset::<T, I>::insert(&id, details);
 				T::Freezer::died(id.clone(), &who);
 				T::Holder::died(id.clone(), &who);
