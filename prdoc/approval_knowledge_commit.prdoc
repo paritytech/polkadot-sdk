@@ -1,0 +1,9 @@
+title: 'Approval distribution: record local knowledge after successful import'
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |
+    Locally sourced approvals are recorded as known only after they are accepted by
+    the approval distribution block entry.
+crates:
+- name: polkadot-approval-distribution
+  bump: patch

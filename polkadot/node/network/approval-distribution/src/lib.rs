@@ -1912,21 +1912,13 @@ impl State {
 				},
 			}
 		} else {
-			if !entry
-				.knowledge
-				.insert(approval_knwowledge_key.0.clone(), approval_knwowledge_key.1)
-			{
+			if entry.knowledge.contains(&approval_knwowledge_key.0, approval_knwowledge_key.1) {
 				// if we already imported all approvals, there is no need to distribute it again
 				gum::warn!(
 					target: LOG_TARGET,
 					"Importing locally an already known approval",
 				);
 				return;
-			} else {
-				gum::debug!(
-					target: LOG_TARGET,
-					"Importing locally a new approval",
-				);
 			}
 		}
 
@@ -1945,6 +1937,15 @@ impl State {
 				return;
 			},
 		};
+		if source.peer_id().is_none() {
+			entry
+				.knowledge
+				.insert(approval_knwowledge_key.0.clone(), approval_knwowledge_key.1);
+			gum::debug!(
+				target: LOG_TARGET,
+				"Importing locally a new approval",
+			);
+		}
 
 		// Invariant: to our knowledge, none of the peers except for the `source` know about the
 		// approval.
