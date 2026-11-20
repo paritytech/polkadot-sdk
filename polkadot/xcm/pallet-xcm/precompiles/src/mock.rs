@@ -256,6 +256,7 @@ pub type LocalOriginToLocation = xcm_builder::SignedToAccountId32<RuntimeOrigin,
 parameter_types! {
 	pub static AdvertisedXcmVersion: xcm::prelude::XcmVersion = 4;
 	pub const AuthorizeAliasHoldReason: RuntimeHoldReason = RuntimeHoldReason::XcmPallet(pallet_xcm::HoldReason::AuthorizeAlias);
+	pub static GasScale: u32 = pallet_revive::config_preludes::GasScale::get();
 }
 
 pub struct ConvertDeposit;
@@ -302,6 +303,7 @@ impl pallet_revive::Config for Test {
 	type Time = Timestamp;
 	type UploadOrigin = frame_system::EnsureSigned<AccountId>;
 	type InstantiateOrigin = frame_system::EnsureSigned<AccountId>;
+	type GasScale = GasScale;
 }
 
 pub(crate) fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {

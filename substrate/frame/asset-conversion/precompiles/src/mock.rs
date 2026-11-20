@@ -54,6 +54,7 @@ parameter_types! {
 	pub LpFee: Permill = Permill::from_rational(3u32, 1_000u32); // 0.3%
 	pub MaxSwapFee: Permill = Permill::from_percent(10);
 	pub storage LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
+	pub static GasScale: u32 = pallet_revive::config_preludes::GasScale::get();
 }
 
 frame_support::ord_parameter_types! {
@@ -136,6 +137,7 @@ impl pallet_revive::Config for Test {
 	type Balance = u64;
 	type Currency = Balances;
 	type Precompiles = (super::AssetConversion<PRECOMPILE_ADDRESS, Self>,);
+	type GasScale = GasScale;
 }
 
 /// Helper: create the precompile's fixed address.

@@ -86,10 +86,15 @@ where
 			Origin::Signed(account_id) => RawOrigin::Signed(account_id.clone()).into(),
 		};
 
+		if matches!(input, IXcmCalls::send(_) | IXcmCalls::execute(_)) {
+			frame_support::ensure!(
+				!env.is_read_only(),
+				pallet_revive::Error::<Self::T>::StateChangeDenied
+			);
+			env.ensure_not_stipend_limited()?;
+		}
+
 		match input {
-			IXcmCalls::send(_) | IXcmCalls::execute(_) if env.is_read_only() => {
-				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
-			},
 			IXcmCalls::send(IXcm::sendCall { destination, message }) => {
 				// Charged before decoding; see `WeightInfo::decode_xcm`.
 				env.charge(
