@@ -169,7 +169,7 @@ where
 	let mut parent_header =
 		codec::decode_from_bytes::<B::Header>(parachain_head.clone()).expect("Invalid parent head");
 
-	let (blocks, proof, lifts) = block_data.into_parts();
+	let (blocks, proof, lifts) = block_data.into_inner();
 
 	verify_blocks_form_chain::<B>(&blocks, &parent_header);
 

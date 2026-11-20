@@ -313,7 +313,7 @@ fn validate_block_rejects_lifts_for_unconsumed_sources() {
 		Default::default(),
 		Default::default(),
 	);
-	let (blocks, proof) = block.into_inner();
+	let (blocks, proof, _) = block.into_inner();
 	let validate = |lifts| {
 		let pov = ParachainBlockData::new_with_lifts(blocks.clone(), proof.clone(), None, lifts);
 		call_validate_block(parent_head.clone(), pov, validation_data.relay_parent_storage_root)
