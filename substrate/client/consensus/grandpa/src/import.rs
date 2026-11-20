@@ -103,15 +103,14 @@ where
 		let mut out = Vec::new();
 		let chain_info = self.inner.info();
 
-		// request justifications for all pending changes for which change blocks have already been
-		// imported
+		// Request justifications for stored effective blocks, which may be above the best block
+		// during header-only sync.
 		let pending_changes: Vec<_> =
 			self.authority_set.inner().pending_changes().cloned().collect();
 
 		for pending_change in pending_changes {
 			if pending_change.delay_kind == DelayKind::Finalized &&
-				pending_change.effective_number() > chain_info.finalized_number &&
-				pending_change.effective_number() <= chain_info.best_number
+				pending_change.effective_number() > chain_info.finalized_number
 			{
 				let effective_block_hash = if !pending_change.delay.is_zero() {
 					self.select_chain
