@@ -3974,7 +3974,7 @@ impl<T: Config> Pallet<T> {
 		let mut pools_members = BTreeMap::<PoolId, u32>::new();
 		let mut pools_members_pending_rewards = BTreeMap::<PoolId, BalanceOf<T>>::new();
 		let mut all_members = 0u32;
-		let mut total_balance_members = Default::default();
+		let mut total_balance_members: BalanceOf<T> = Default::default();
 		PoolMembers::<T>::iter().try_for_each(|(_, d)| -> Result<(), TryRuntimeError> {
 			let bonded_pool = BondedPools::<T>::get(d.pool_id).unwrap();
 			ensure!(!d.total_points().is_zero(), "No member should have zero points");
@@ -4085,9 +4085,10 @@ impl<T: Config> Pallet<T> {
 			"TVL deviates from the actual sum of funds of all Pools."
 		);
 
+		let max_rounding_dust = BalanceOf::<T>::from(all_members);
 		ensure!(
-			TotalValueLocked::<T>::get() <= total_balance_members,
-			"TVL must be equal to or less than the total balance of all PoolMembers."
+			TotalValueLocked::<T>::get() <= total_balance_members.saturating_add(max_rounding_dust),
+			"TVL must be equal to or less than the total balance of all PoolMembers (allowing post-slash rounding dust)."
 		);
 
 		if level <= 1 {
