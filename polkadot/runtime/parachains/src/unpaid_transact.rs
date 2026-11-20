@@ -22,8 +22,8 @@
 //! [`Config::MaxPerWindow`] of them per [`Config::Window`], be executed without payment.
 //!
 //! The barrier does not decode the call: it only reads its first two bytes, which are its pallet
-//! index and its call index, and looks for them in [`Config::AllowedCalls`]. Only the messages
-//! that the barrier lets through are counted.
+//! index and its call index, and looks for this call variant in [`Config::AllowedCalls`]. Only
+//! the messages that the barrier lets through are counted.
 //!
 //! The storage footprint is paid by the parachain deposit, for offboarded parachains it is removed
 //! lazily with the free call [`Call::remove_offboarded`] triggered from the offchain worker.
@@ -33,7 +33,7 @@ use core::marker::PhantomData;
 use frame_support::{
 	ensure,
 	pallet_prelude::*,
-	traits::{Contains, ProcessMessageError},
+	traits::{ContainsCallVariant, ProcessMessageError},
 };
 use frame_system::{
 	offchain::{CreateAuthorizedTransaction, SubmitTransaction},
@@ -83,12 +83,12 @@ pub mod pallet {
 	pub trait Config:
 		frame_system::Config + paras::Config + CreateAuthorizedTransaction<Call<Self>>
 	{
-		/// The calls a parachain gets dispatched without payment, each as its pallet index and
-		/// its call index: the first two bytes of the encoded call.
+		/// The call variants a parachain gets dispatched without payment, each told by its pallet
+		/// index and its call index: the first two bytes of the encoded call.
 		///
 		/// A whole call is never decoded to be looked for in here, so its arguments can not be
 		/// filtered.
-		type AllowedCalls: Contains<(u8, u8)>;
+		type AllowedCalls: ContainsCallVariant;
 
 		/// The heaviest message a parachain gets executed without payment, as the XCM executor
 		/// weighs it.
@@ -235,10 +235,10 @@ impl<T: Config> Pallet<T> {
 /// `OriginKind::Native`.
 ///
 /// The barrier does not decode the call: it reads only its first two bytes, its pallet index and
-/// its call index, and looks for them in [`Config::AllowedCalls`]. Whether the rest of the call
-/// decodes is not checked here: the executor weighs a message before it runs its barrier, and a
-/// weigher that decodes the call to weigh it, as the ones of `xcm-builder` do, fails a message
-/// whose call does not decode before it gets here.
+/// its call index, and looks for this call variant in [`Config::AllowedCalls`]. Whether the rest
+/// of the call decodes is not checked here: the executor weighs a message before it runs its
+/// barrier, and a weigher that decodes the call to weigh it, as the ones of `xcm-builder` do, fails
+/// a message whose call does not decode before it gets here.
 ///
 /// A message that is let through is counted, whether its call then succeeds or not. A message
 /// that is refused is not counted.
@@ -275,7 +275,7 @@ impl<T: Config> ShouldExecute for AllowUnpaidTransact<T> {
 			return Err(ProcessMessageError::Unsupported);
 		};
 		ensure!(
-			T::AllowedCalls::contains(&(pallet_index, call_index)),
+			T::AllowedCalls::contains(pallet_index, call_index),
 			ProcessMessageError::Unsupported
 		);
 

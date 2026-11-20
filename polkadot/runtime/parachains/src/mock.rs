@@ -37,8 +37,8 @@ use frame_support::{
 	dispatch::GetDispatchInfo,
 	parameter_types,
 	traits::{
-		Contains, Currency, PalletInfoAccess, ProcessMessage, ProcessMessageError, ValidatorSet,
-		ValidatorSetWithIdentification,
+		ContainsCallVariant, Currency, PalletInfoAccess, ProcessMessage, ProcessMessageError,
+		ValidatorSet, ValidatorSetWithIdentification,
 	},
 	weights::{Weight, WeightMeter},
 	PalletId,
@@ -298,9 +298,9 @@ parameter_types! {
 /// The calls that are dispatched without payment in tests: `hrmp_init_open_channel` and
 /// `hrmp_accept_open_channel`, the calls 0 and 1 of HRMP.
 pub struct UnpaidTransactCalls;
-impl Contains<(u8, u8)> for UnpaidTransactCalls {
-	fn contains((pallet_index, call_index): &(u8, u8)) -> bool {
-		usize::from(*pallet_index) == <Hrmp as PalletInfoAccess>::index() &&
+impl ContainsCallVariant for UnpaidTransactCalls {
+	fn contains(pallet_index: u8, call_index: u8) -> bool {
+		usize::from(pallet_index) == <Hrmp as PalletInfoAccess>::index() &&
 			matches!(call_index, 0 | 1)
 	}
 }

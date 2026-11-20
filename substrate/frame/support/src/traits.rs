@@ -34,9 +34,10 @@ pub use tokens::{
 
 mod members;
 pub use members::{
-	AsContains, ChangeMembers, Contains, ContainsLengthBound, ContainsPair, Equals, Everything,
-	EverythingBut, FromContains, FromContainsPair, InitializeMembers, InsideBoth, IsInVec, Nothing,
-	RankedMembers, RankedMembersSwapHandler, SortedMembers, TheseExcept,
+	AsContains, ChangeMembers, Contains, ContainsCallVariant, ContainsLengthBound, ContainsPair,
+	Equals, Everything, EverythingBut, FromContains, FromContainsPair, InitializeMembers,
+	InsideBoth, IsInVec, Nothing, RankedMembers, RankedMembersSwapHandler, SortedMembers,
+	TheseExcept,
 };
 
 mod validation;
