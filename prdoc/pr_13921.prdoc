@@ -1,0 +1,10 @@
+title: 'fatxpool: make revalidation resubmit linear instead of quadratic'
+doc:
+- audience: Node Dev
+  description: |-
+    Closes #8120
+
+    `ValidatedPool::resubmit` drained its `IndexMap` by taking the first key and calling `shift_remove`, which moves every remaining entry on each call, so applying a view revalidation result was quadratic in the number of transactions. It now walks a snapshot of the hashes in their original order and removes entries with `swap_remove`, so the resubmission order stays exactly the same while the cost becomes linear. Resubmitting 17,603 transactions, the size from the issue logs, drops from about 1 s to 21 ms in a release build (10,000 goes from 323 ms to 11 ms), and the single state pool benefits too since it shares this code.
+crates:
+- name: sc-transaction-pool
+  bump: patch
