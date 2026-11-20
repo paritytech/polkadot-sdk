@@ -533,13 +533,8 @@ impl EthRpcServer for EthRpcServerImpl {
 		&self,
 		transaction_hash: H256,
 	) -> RpcResult<Option<TransactionInfoV1>> {
-		let receipt = self.client.receipt(&transaction_hash).await;
-		let signed_tx = self.client.signed_tx_by_hash(&transaction_hash).await;
-		if let (Some(receipt), Some(signed_tx)) = (receipt, signed_tx) {
-			return Ok(Some(receipt.transaction_info(signed_tx)));
-		}
-
-		Ok(None)
+		let transaction = self.client.transaction(&transaction_hash).await;
+		Ok(transaction.map(|(signed_tx, receipt)| receipt.transaction_info(signed_tx)))
 	}
 
 	async fn get_transaction_count(&self, address: H160, block: BlockId) -> RpcResult<U256> {
@@ -643,21 +638,14 @@ impl EthRpcServerImpl {
 		substrate_block_hash: H256,
 		transaction_index: U256,
 	) -> RpcResult<Option<TransactionInfoV1>> {
-		let Some(receipt) = self
+		let transaction = self
 			.client
-			.receipt_by_hash_and_index(
+			.transaction_by_hash_and_index(
 				&substrate_block_hash,
 				transaction_index.try_into().map_err(|_| EthRpcError::ConversionError)?,
 			)
-			.await
-		else {
-			return Ok(None);
-		};
-		let Some(signed_tx) = self.client.signed_tx_by_hash(&receipt.transaction_hash).await else {
-			return Ok(None);
-		};
-
-		Ok(Some(receipt.transaction_info(signed_tx)))
+			.await;
+		Ok(transaction.map(|(signed_tx, receipt)| receipt.transaction_info(signed_tx)))
 	}
 
 	async fn handle_subscription_forwarding(

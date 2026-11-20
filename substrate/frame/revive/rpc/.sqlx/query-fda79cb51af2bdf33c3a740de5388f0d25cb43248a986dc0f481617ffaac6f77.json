@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n\t\t\tINSERT OR REPLACE INTO eth_to_substrate_blocks\n\t\t\t\t(ethereum_block_hash, substrate_block_hash, receipts_version)\n\t\t\tVALUES ($1, $2, $3)\n\t\t\t",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "fda79cb51af2bdf33c3a740de5388f0d25cb43248a986dc0f481617ffaac6f77"
+}
