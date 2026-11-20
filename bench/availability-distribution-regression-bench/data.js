@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795128539462,
+  "lastUpdate": 1795173958148,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f2bc410c455ea0a82162d92ce4dcc41ae644c143",
-          "message": "ci: new ci-unified with updated forklift and resolc (#12019)\n\ncc https://github.com/paritytech/devops/issues/5285",
-          "timestamp": "2026-05-08T12:01:00Z",
-          "tree_id": "d8731de162658dcfd33d371c1d0d6ac3aa6a182d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f2bc410c455ea0a82162d92ce4dcc41ae644c143"
-        },
-        "date": 1778246716318,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007122918946666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14165717864666671,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023853804326666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009628209473333314,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14602128961333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bkontur@gmail.com",
+            "name": "Branislav Kontur",
+            "username": "bkontur"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "9c2cd60e68c300a31990c66e6a04fc1a8c13ddb9",
+          "message": "Fix musl build of PVF workers and make test-syscalls required (#13922)\n\nSince #13445 bumped `libc` to 0.2.191, the PVF workers no longer compile\nfor `x86_64-unknown-linux-musl`, which breaks the `test-syscalls` job:\n\n```\nerror[E0659]: `STATX_TYPE` is ambiguous\n  --> rustix-1.0.8/src/backend/libc/c.rs\n```\n\n`libc` 0.2.191 now defines the `STATX_*` constants for musl, which clash\nwith `rustix` 1.0.8's own definitions. `rustix` 1.1.6 fixes this, so\nthis PR bumps it in `Cargo.lock` (together with `linux-raw-sys` 0.9.4 ->\n0.12.1).\n\nChecked in the CI image: both workers build for musl and their syscall\nlists are unchanged.\n\nThis went unnoticed because `test-syscalls` is not blocking. It was\nrequired on GitLab (`allow_failure: false`), but the setting got\ninverted to `continue-on-error: true` when the job was moved to GitHub\nActions in #4441. This PR removes `continue-on-error` and adds the job\nto `confirm-required-tests-jobs-passed`, so it is required again.\n\n---------\n\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>",
+          "timestamp": "2026-11-20T09:44:13Z",
+          "tree_id": "8f5b1aca7b3c4bee38e8063babdfbefc044e51d2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9c2cd60e68c300a31990c66e6a04fc1a8c13ddb9"
+        },
+        "date": 1795173915444,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00754362948,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009844685999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024520141533333328,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1442264358533334,
             "unit": "seconds"
           }
         ]
