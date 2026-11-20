@@ -1,0 +1,26 @@
+title: '[pallet-bounties] allow closing/awarding bounties with active child bounties'
+doc:
+- audience: Runtime Dev
+  description: |-
+    resolves https://github.com/paritytech/polkadot-sdk/issues/10790
+
+    Previously the parent bounty `award_bounty` and `close_bounty` calls were blocked whenever the
+    bounty had active child bounties. This let a curator prevent governance from closing a bounty
+    simply by keeping a child bounty active.
+
+    These calls now proactively close all active child bounties of the parent bounty via the new
+    `ChildBountyManager::close_child_bounties` method: every child bounty curator deposit is
+    refunded, the child bounty funds are returned to the parent bounty account and the child bounty
+    storage is cleared, so no orphaned child bounty (a child without a parent) is left behind. The
+    parent calls reserve the worst-case weight (`MaxActiveChildBountyCount` child bounties) up front
+    and refund the unused weight via `PostDispatchInfo`; `award_bounty` now returns
+    `DispatchResultWithPostInfo`.
+
+    The `ChildBountyManager` trait gains `close_child_bounties` (now returning the consumed weight)
+    and `close_child_bounties_max_weight`; runtimes implementing this trait manually must update
+    their implementation.
+crates:
+- name: pallet-bounties
+  bump: major
+- name: pallet-child-bounties
+  bump: minor
