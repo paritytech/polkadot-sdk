@@ -503,13 +503,39 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 }
 
 parameter_types! {
+	pub const DapMaxDistributableAssets: u32 = 1;
+	pub const NativeCurrencyAssetKind: Option<u32> = None;
 	pub const DapPalletId: frame_support::PalletId = pallet_dap::DAP_PALLET_ID;
 	pub const DapIssuanceCadence: u64 = 60_000;
 	pub const DapMaxElapsedPerDrip: u64 = 600_000;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct DapBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_dap::BenchmarkHelper<AccountId, u32> for DapBenchmarkHelper {
+	fn create_asset(asset_id_seed: u32) -> Result<u32, sp_runtime::DispatchError> {
+		use frame_support::traits::fungibles::Create;
+
+		<super::Assets as Create<AccountId>>::create(
+			asset_id_seed,
+			AccountId::from([0; 32]),
+			true,
+			1,
+		)?;
+
+		Ok(asset_id_seed)
+	}
+}
+
 impl pallet_dap::Config for Runtime {
-	type Currency = Balances;
+	type IssuedCurrency = Balances;
+	type Assets = super::Assets;
+	type NativeCurrencyAssetKind = NativeCurrencyAssetKind;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = DapBenchmarkHelper;
+	type MaxDistributableAssets = DapMaxDistributableAssets;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = PolkadotIssuanceCurve;
 	type BudgetRecipients = (
