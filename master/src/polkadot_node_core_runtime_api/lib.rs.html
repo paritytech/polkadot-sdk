@@ -479,7 +479,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#329 id=329 data-nosnippet>329</a>					<span class="self">self</span>.requests_cache.session_executor_params(session_index)
 <a href=#330 id=330 data-nosnippet>330</a>				{
 <a href=#331 id=331 data-nosnippet>331</a>					<span class="self">self</span>.metrics.on_cached_request();
-<a href=#332 id=332 data-nosnippet>332</a>					<span class="kw">let _ </span>= sender.send(<span class="prelude-val">Ok</span>(executor_params.clone()));
+<a href=#332 id=332 data-nosnippet>332</a>					<span class="kw">let _ </span>= sender.send(<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(executor_params.clone())));
 <a href=#333 id=333 data-nosnippet>333</a>					<span class="prelude-val">None
 <a href=#334 id=334 data-nosnippet>334</a>				</span>} <span class="kw">else </span>{
 <a href=#335 id=335 data-nosnippet>335</a>					<span class="prelude-val">Some</span>(Request::SessionExecutorParams(session_index, sender))
