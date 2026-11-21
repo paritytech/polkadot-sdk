@@ -125,11 +125,21 @@ async fn v3_dynamic_enablement_test(
 						}
 					}
 				}))
-				// Standard collator protocol validators (groups 0, 1).
-				.with_validator(|node| node.with_name("validator-0"));
+				// Legacy collator protocol validators (groups 0, 1).
+				.with_validator(|node| {
+					node.with_name("validator-0").with_args(vec![
+						("-lparachain=debug,runtime=debug").into(),
+						("--experimental-collator-protocol=false").into(),
+					])
+				});
 
 			let r = (1..4).fold(r, |acc, i| {
-				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+				acc.with_validator(|node| {
+					node.with_name(&format!("validator-{i}")).with_args(vec![
+						("-lparachain=debug,runtime=debug").into(),
+						("--experimental-collator-protocol=false").into(),
+					])
+				})
 			});
 			(4..10).fold(r, |acc, i| {
 				acc.with_validator(|node| {
@@ -198,6 +208,8 @@ async fn v3_dynamic_enablement_test(
 
 	// Assign 2 extra cores to para 2901 for elastic scaling (3 cores total).
 	assign_cores(&relay_client, 2901, vec![0, 1]).await?;
+
+	wait_for_pvf_prepare(&network, if relay_parent_offset == 0 { 2 } else { 3 }).await?;
 
 	let para_2900 = ParaId::from(2900);
 	let para_2901 = ParaId::from(2901);

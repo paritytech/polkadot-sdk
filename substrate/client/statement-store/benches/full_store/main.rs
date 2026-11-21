@@ -123,7 +123,7 @@ fn write_benches(c: &mut Criterion, store: &Arc<Store>) {
 
 	g.bench_function("submit_640", |b| {
 		b.iter_batched(
-			|| sacrificial_batch(TOTAL_OPS, 0),
+			|| sacrificial_batch(TOTAL_OPS, 1),
 			|statements| submit_concurrently(store, statements),
 			BatchSize::LargeInput,
 		)
@@ -140,7 +140,7 @@ fn write_benches(c: &mut Criterion, store: &Arc<Store>) {
 	g.bench_function("maintain_after_640_removals", |b| {
 		b.iter_batched(
 			|| {
-				let statements = sacrificial_batch(TOTAL_OPS, 0);
+				let statements = sacrificial_batch(TOTAL_OPS, 1);
 				let hashes: Vec<_> = statements.iter().map(|s| s.hash()).collect();
 				for statement in statements {
 					let result = store.submit(statement, StatementSource::Local);
@@ -160,7 +160,7 @@ fn write_benches(c: &mut Criterion, store: &Arc<Store>) {
 			|| {
 				// Drain whatever previous benches left in `recent`, then stage exactly 1000.
 				let _ = store.take_recent_statements();
-				for statement in sacrificial_batch(1000, 0) {
+				for statement in sacrificial_batch(1000, 1) {
 					let result = store.submit(statement, StatementSource::Local);
 					assert!(matches!(result, SubmitResult::New));
 				}
@@ -292,7 +292,7 @@ fn account_rotation_benches(c: &mut Criterion, store: &Arc<Store>) {
 					.map(|k| {
 						create_statement(
 							base + k,
-							&[],
+							&[topic(u64::MAX)],
 							STATEMENT_DATA_SIZE,
 							LOW_EXPIRY,
 							&keypairs[k as usize % ACCOUNTS],
@@ -413,7 +413,15 @@ fn eviction_bench(c: &mut Criterion, dir: &std::path::Path) {
 				let expiry = EVICT_EXPIRY.fetch_add(1, Ordering::Relaxed);
 				let base = fresh_id_base();
 				let batch: Vec<_> = (0..TOTAL_OPS as u64)
-					.map(|k| create_statement(base + k, &[], STATEMENT_DATA_SIZE, expiry, &acc0))
+					.map(|k| {
+						create_statement(
+							base + k,
+							&[topic(u64::MAX)],
+							STATEMENT_DATA_SIZE,
+							expiry,
+							&acc0,
+						)
+					})
 					.collect();
 				added.extend(batch.iter().map(|s| s.hash()));
 				batch

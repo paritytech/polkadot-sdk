@@ -22,14 +22,11 @@ use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracy
 use pallet_staking_async::{RewardPoint, UseValidatorsMap};
 use pallet_staking_async_rc_client as rc_client;
 use polkadot_runtime_common::{prod_or_fast, BalanceToU256, U256ToBalance};
-use scale_info::TypeInfo;
 use sp_runtime::{
 	transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, SaturatedConversion,
 };
 use sp_staking::{EraIndex, ServiceKind};
-use testnet_parachains_constants::westend::{
-	locations::PeopleLocation, staking::MAX_VALIDATOR_SET,
-};
+use testnet_parachains_constants::westend::staking::MAX_VALIDATOR_SET;
 use xcm::latest::prelude::*;
 
 parameter_types! {
@@ -494,24 +491,12 @@ impl pallet_staking_async::OnEraStart<AccountId> for AnnounceValidatorSet {
 	}
 }
 
-/// The system chains the announcer sends the validator set of every era to, one variant each.
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
-)]
-pub enum ValidatorSetDestination {
-	People,
-}
-
-parameter_types! {
-	pub ValidatorSetDestinations: Vec<ValidatorSetDestination> =
-		vec![ValidatorSetDestination::People];
-}
-
 // `people-westend-integration-tests` executes this call on the People Westend runtime and fails
-// if this encoding drifts.
+// if this encoding drifts. The Bulletin Westend runtime is built in
+// `paritytech/polkadot-bulletin-chain` and must keep the same index.
 #[derive(Encode)]
-enum PeopleRuntimePallets {
-	// index of `ValidatorCollators` in the People Westend runtime.
+enum ReceivingChainPallets {
+	// index of `ValidatorCollators` on every receiving chain.
 	#[codec(index = 25)]
 	ValidatorCollators(ValidatorCollatorsCalls),
 }
@@ -527,23 +512,16 @@ enum ValidatorCollatorsCalls {
 /// destination dispatches with Asset Hub's location as an XCM origin.
 pub struct ValidatorSetToSystemChains;
 impl pallet_validator_set_announcer::SendValidatorSet<AccountId> for ValidatorSetToSystemChains {
-	type Destination = ValidatorSetDestination;
+	type Destination = ParaId;
 
-	fn send(
-		destination: &ValidatorSetDestination,
-		era: EraIndex,
-		validators: &[AccountId],
-	) -> Result<(), ()> {
-		let (location, call) = match destination {
-			ValidatorSetDestination::People => (
-				PeopleLocation::get(),
-				PeopleRuntimePallets::ValidatorCollators(ValidatorCollatorsCalls::SetValidators {
-					era,
-					validators: validators.to_vec(),
-				})
-				.encode(),
-			),
-		};
+	fn send(destination: &ParaId, era: EraIndex, validators: &[AccountId]) -> Result<(), ()> {
+		let location = Location::new(1, Parachain((*destination).into()));
+		let call =
+			ReceivingChainPallets::ValidatorCollators(ValidatorCollatorsCalls::SetValidators {
+				era,
+				validators: validators.to_vec(),
+			})
+			.encode();
 		send_xcm::<xcm_config::XcmRouter>(
 			location,
 			rc_client::build_transact_xcm(call, OriginKind::Xcm),
@@ -558,7 +536,7 @@ impl pallet_validator_set_announcer::SendValidatorSet<AccountId> for ValidatorSe
 	}
 
 	#[cfg(feature = "std")]
-	fn max_message_size(_: &ValidatorSetDestination) -> Option<usize> {
+	fn max_message_size(_: &ParaId) -> Option<usize> {
 		Some(
 			testnet_parachains_constants::westend::staking::LAST_KNOWN_HRMP_MAX_MESSAGE_SIZE
 				as usize,
@@ -566,14 +544,8 @@ impl pallet_validator_set_announcer::SendValidatorSet<AccountId> for ValidatorSe
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful_send(destination: &ValidatorSetDestination) {
-		match destination {
-			ValidatorSetDestination::People => {
-				ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
-					testnet_parachains_constants::westend::locations::PeopleParaId::get(),
-				)
-			},
-		}
+	fn ensure_successful_send(destination: &ParaId) {
+		ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(*destination)
 	}
 }
 

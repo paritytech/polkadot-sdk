@@ -9,7 +9,7 @@ Key characteristics:
 - **Off-chain storage** — keeps the data off-chain to avoid blockchain state bloat.
 - **Gossip-based distribution** — statements propagate node-to-node over a notification protocol.
 - **Cryptographic verification** — every statement is signed and verified before acceptance.
-- **Topic-based indexing** — up to four topics per statement for efficient querying.
+- **Topic-based indexing** — one to four topics per statement for efficient querying.
 - **Account-based limits** — per-account quotas bound how much an account may store.
 - **Automatic eviction** — lower-priority statements are evicted when limits are reached.
 - **Multiple access methods** — reachable over JSON-RPC for applications and via the runtime API
@@ -93,7 +93,7 @@ priority-based eviction or expiry. The store does not prescribe how a channel id
 
 ## Topics
 
-Topics are the primary attribute used to query and filter statements. A statement carries up to
+Topics are the primary attribute used to query and filter statements. A statement carries one to
 `MAX_TOPICS` (4) topics, each a 32-byte identifier, and the store maintains a `topic -> statements`
 index for fast lookups.
 

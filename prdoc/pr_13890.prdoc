@@ -1,0 +1,10 @@
+title: 'Asset Hub Westend: teleport WND to and from Bulletin Westend'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Bulletin Westend is a sibling parachain outside the system parachain range, so Asset Hub
+    Westend did not trust it for WND teleports, in either direction. Asset Hub Westend now trusts
+    WND teleports with Bulletin, so WND can be teleported from Asset Hub to Bulletin and back.
+crates:
+- name: asset-hub-westend-runtime
+  bump: minor

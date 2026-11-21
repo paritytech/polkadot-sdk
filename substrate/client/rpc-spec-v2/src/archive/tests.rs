@@ -17,13 +17,13 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
-	archive::MethodResult,
+	archive::{api::ArchiveApiClient, MethodResult},
 	common::events::{
 		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageDiffOperationType,
 		ArchiveStorageDiffResult, ArchiveStorageDiffType, ArchiveStorageEvent, StorageQuery,
 		StorageQueryType, StorageResult, StorageResultType,
 	},
-	hex_string,
+	hex_string, SubscriptionTaskExecutor,
 };
 
 use super::{archive::Archive, *};
@@ -45,7 +45,14 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT},
 	SaturatedConversion,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{
+	collections::HashMap,
+	sync::{
+		atomic::{AtomicUsize, Ordering},
+		Arc,
+	},
+	time::Duration,
+};
 use substrate_test_runtime::Transfer;
 use substrate_test_runtime_client::{
 	prelude::*, runtime, Backend, BlockBuilderExt, Client, ClientBlockImportExt,
@@ -61,7 +68,9 @@ const CHILD_VALUE: &[u8] = b"child value";
 type Header = substrate_test_runtime_client::runtime::Header;
 type Block = substrate_test_runtime_client::runtime::Block;
 
-fn setup_api() -> (Arc<Client<Backend>>, RpcModule<Archive<Backend, Block, Client<Backend>>>) {
+fn setup_api_with_executor(
+	executor: SubscriptionTaskExecutor,
+) -> (Arc<Client<Backend>>, RpcModule<Archive<Backend, Block, Client<Backend>>>) {
 	let child_info = ChildInfo::new_default(CHILD_STORAGE_KEY);
 	let builder = TestClientBuilder::new().add_extra_child_storage(
 		&child_info,
@@ -71,15 +80,13 @@ fn setup_api() -> (Arc<Client<Backend>>, RpcModule<Archive<Backend, Block, Clien
 	let backend = builder.backend();
 	let client = Arc::new(builder.build());
 
-	let api = Archive::new(
-		client.clone(),
-		backend,
-		CHAIN_GENESIS,
-		Arc::new(TokioTestExecutor::default()),
-	)
-	.into_rpc();
+	let api = Archive::new(client.clone(), backend, CHAIN_GENESIS, executor).into_rpc();
 
 	(client, api)
+}
+
+fn setup_api() -> (Arc<Client<Backend>>, RpcModule<Archive<Backend, Block, Client<Backend>>>) {
+	setup_api_with_executor(Arc::new(TokioTestExecutor::default()))
 }
 
 async fn get_next_event<T: serde::de::DeserializeOwned>(sub: &mut RpcSubscription) -> T {
@@ -89,6 +96,137 @@ async fn get_next_event<T: serde::de::DeserializeOwned>(sub: &mut RpcSubscriptio
 		.unwrap()
 		.unwrap();
 	event
+}
+
+#[derive(Clone, Debug)]
+struct TrackingExecutor {
+	handle: tokio::runtime::Handle,
+	running: Arc<AtomicUsize>,
+}
+
+impl TrackingExecutor {
+	fn new() -> Self {
+		Self { handle: tokio::runtime::Handle::current(), running: Arc::new(AtomicUsize::new(0)) }
+	}
+
+	fn running(&self) -> usize {
+		self.running.load(Ordering::SeqCst)
+	}
+}
+
+impl sp_core::traits::SpawnNamed for TrackingExecutor {
+	fn spawn_blocking(
+		&self,
+		_name: &'static str,
+		_group: Option<&'static str>,
+		future: futures::future::BoxFuture<'static, ()>,
+	) {
+		let running = self.running.clone();
+		let handle = self.handle.clone();
+		running.fetch_add(1, Ordering::SeqCst);
+		self.handle.spawn_blocking(move || {
+			handle.block_on(future);
+			running.fetch_sub(1, Ordering::SeqCst);
+		});
+	}
+
+	fn spawn(
+		&self,
+		_name: &'static str,
+		_group: Option<&'static str>,
+		future: futures::future::BoxFuture<'static, ()>,
+	) {
+		let running = self.running.clone();
+		running.fetch_add(1, Ordering::SeqCst);
+		self.handle.spawn(async move {
+			let _ = future.await;
+			running.fetch_sub(1, Ordering::SeqCst);
+		});
+	}
+}
+
+async fn wait_for_running_tasks(
+	executor: &TrackingExecutor,
+	expected: usize,
+	timeout: Duration,
+	context: &str,
+) {
+	let deadline = tokio::time::Instant::now() + timeout;
+	while executor.running() != expected {
+		assert!(
+			tokio::time::Instant::now() < deadline,
+			"expected {expected} running subscription task(s) ({context}), but {} are still running",
+			executor.running()
+		);
+		tokio::time::sleep(Duration::from_millis(25)).await;
+	}
+}
+
+async fn get_next_client_event<T: serde::de::DeserializeOwned>(
+	sub: &mut jsonrpsee::core::client::Subscription<T>,
+) -> T {
+	tokio::time::timeout(Duration::from_secs(60), sub.next())
+		.await
+		.expect("the subscription must produce an event within 60s")
+		.expect("the subscription must stay open")
+		.expect("the event must deserialize")
+}
+
+#[tokio::test]
+async fn archive_storage_disconnect_terminates_subscription_task() {
+	let tracker = TrackingExecutor::new();
+	let (client, api) = setup_api_with_executor(Arc::new(tracker.clone()));
+
+	let mut block_builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
+	for index in 0..5_000 {
+		let key = format!(":leak:{index:05}").into_bytes();
+		let value = format!("value-{index}").into_bytes();
+		block_builder.push_storage_change(key, Some(value)).unwrap();
+	}
+	let block = block_builder.build().unwrap().block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block).await.unwrap();
+
+	let server = jsonrpsee::server::ServerBuilder::default().build("127.0.0.1:0").await.unwrap();
+	let addr = server.local_addr().unwrap();
+	let _server_handle = server.start(api);
+	let ws_client = jsonrpsee::ws_client::WsClientBuilder::default()
+		.build(format!("ws://{addr}"))
+		.await
+		.unwrap();
+
+	let mut subscription = ArchiveApiClient::<String>::archive_v1_storage(
+		&ws_client,
+		block_hash,
+		vec![StorageQuery {
+			key: hex_string(b":leak:"),
+			query_type: StorageQueryType::DescendantsValues,
+			pagination_start_key: None,
+		}],
+		None,
+	)
+	.await
+	.unwrap();
+
+	assert_matches!(
+		get_next_client_event(&mut subscription).await,
+		ArchiveStorageEvent::Storage(_)
+	);
+	wait_for_running_tasks(&tracker, 1, Duration::from_secs(10), "while subscribed").await;
+
+	drop(subscription);
+	drop(ws_client);
+	wait_for_running_tasks(
+		&tracker,
+		0,
+		Duration::from_secs(30),
+		"after the client disconnected mid-query",
+	)
+	.await;
 }
 
 #[tokio::test]

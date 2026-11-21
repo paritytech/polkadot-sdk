@@ -30,6 +30,9 @@ use scale_info::TypeInfo;
 /// A parachain id.
 pub type ParaId = u32;
 
+/// A deposit amount, in the relay chain's native token.
+pub type Balance = u128;
+
 /// One end of a channel, in the order the relay chain names them.
 #[derive(
 	Encode,
@@ -52,64 +55,192 @@ pub struct ChannelId {
 	pub recipient: ParaId,
 }
 
-/// HRMP control-plane messages sent to the relay chain.
-///
-/// The variant's `#[codec(index)]` is the on-wire version tag.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
-pub enum MessageToRelay {
-	/// Version 1 of the HRMP control-plane messages to the relay chain.
+/// Which end of a channel pays a deposit.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+pub enum DepositSide {
+	/// The para that sends on the channel.
 	#[codec(index = 0)]
-	V1(MessageToRelayV1),
+	Sender,
+	/// The para that receives on the channel.
+	#[codec(index = 1)]
+	Recipient,
 }
 
-/// Version 1 payloads for [`MessageToRelay`].
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
-pub enum MessageToRelayV1 {
-	#[codec(index = 0)]
-	TODO,
+impl DepositSide {
+	/// The para of `channel` that pays this side's deposit.
+	pub fn para(&self, channel: &ChannelId) -> ParaId {
+		match self {
+			Self::Sender => channel.sender,
+			Self::Recipient => channel.recipient,
+		}
+	}
 }
 
-/// HRMP report messages sent back to the parachain.
+/// Why the parachain could not set the deposits it was asked to.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+pub enum DepositError {
+	/// A side cannot cover its deposit.
+	#[codec(index = 0)]
+	InsufficientFunds,
+	/// Any other reason.
+	#[codec(index = 1)]
+	Other,
+}
+
+/// Messages from the relay chain to the parachain that holds the deposits.
 ///
 /// The variant's `#[codec(index)]` is the on-wire version tag.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub enum MessageToPara {
-	/// Version 1 of the HRMP report messages to the parachain.
+	/// Version 1.
 	#[codec(index = 0)]
 	V1(MessageToParaV1),
 }
 
 /// Version 1 payloads for [`MessageToPara`].
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub enum MessageToParaV1 {
+	/// Request to set the deposits for some sides of `channel`.
+	///
+	/// For each side, `Some(amount)` means to set that side's deposit to `amount`, and `None`
+	/// means to not modify that side's deposit. The request fails without touching any deposit
+	/// if any side's operation fails.
+	///
+	/// The request is answered with [`MessageToRelayV1::DepositsSet`] carrying `id`.
 	#[codec(index = 0)]
-	TODO,
+	SetDeposits {
+		/// Chosen by the relay chain, echoed back in the answer.
+		id: u64,
+		/// The channel whose deposits change.
+		channel: ChannelId,
+		/// What the sender deposit for this channel is requested to be.
+		sender: Option<Balance>,
+		/// What the recipient deposit for this channel is requested to be.
+		recipient: Option<Balance>,
+	},
+	/// Request to release everything held for the named sides of `channel`.
+	///
+	/// Never fails, never answered.
+	#[codec(index = 1)]
+	Release {
+		/// The channel whose deposits are given back.
+		channel: ChannelId,
+		/// Whether the sender's deposit is given back.
+		sender: bool,
+		/// Whether the recipient's deposit is given back.
+		recipient: bool,
+	},
 }
 
-/// One channel, as it arrives at the destination from the chain that used to hold its deposits.
+/// Messages from the parachain that holds the deposits to the relay chain.
 ///
-/// Carries no deposit. [`ReceiveMigratedChannels::receive_channel`] takes the sender's, and for a
-/// confirmed channel the recipient's, deposit at the destination's own prices.
-///
-/// Note: We recreate even if there is not enough fund to pay for the deposit so no RC channel
-/// is dropped.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
-pub struct MigratedChannel {
-	/// Which channel.
+/// The variant's `#[codec(index)]` is the on-wire version tag.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub enum MessageToRelay {
+	/// Version 1.
+	#[codec(index = 0)]
+	V1(MessageToRelayV1),
+}
+
+/// Version 1 payloads for [`MessageToRelay`].
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub enum MessageToRelayV1 {
+	/// The answer to [`MessageToParaV1::SetDeposits`] with this `id`.
+	#[codec(index = 0)]
+	DepositsSet {
+		/// The `id` of the request.
+		id: u64,
+		/// The `result` of the request.
+		result: Result<(), DepositError>,
+	},
+}
+
+/// What a deposit is held for: one side of one channel.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+pub struct DepositKey {
+	/// The channel the deposit is for.
 	pub channel: ChannelId,
-	/// Whether the source chain has the channel itself, or only an open request the recipient
-	/// has not accepted.
-	pub confirmed: bool,
+	/// The side that pays it.
+	pub side: DepositSide,
 }
 
-/// Takes migrated channels into the pallet that owns HRMP on the destination.
-pub trait ReceiveMigratedChannels {
-	/// Take one channel, charging its deposits at this chain's prices.
-	fn receive_channel(channel: MigratedChannel) -> sp_runtime::DispatchResult;
+impl DepositKey {
+	/// The para that pays this deposit.
+	pub fn para(&self) -> ParaId {
+		self.side.para(&self.channel)
+	}
 }
 
-impl ReceiveMigratedChannels for () {
-	fn receive_channel(_: MigratedChannel) -> sp_runtime::DispatchResult {
+/// Receive a migrated HRMP deposit.
+///
+/// `HoldReason` is the hold reason type of the currency the deposits are held in.
+pub trait ReceiveMigratedDeposits<HoldReason> {
+	/// Set the deposit of `key` to `amount`, by moving the balance from/into the `source` hold
+	/// reason.
+	///
+	/// The function is idempotent, the current deposit is reset, so a deposit can be delivered
+	/// twice.
+	fn receive_deposit(
+		key: DepositKey,
+		amount: Balance,
+		source: &HoldReason,
+	) -> sp_runtime::DispatchResult;
+
+	/// The weight of [`Self::receive_deposit`].
+	fn weight_of_receive_deposit() -> sp_runtime::Weight;
+}
+
+impl<HoldReason> ReceiveMigratedDeposits<HoldReason> for () {
+	fn receive_deposit(_: DepositKey, _: Balance, _: &HoldReason) -> sp_runtime::DispatchResult {
 		Err(sp_runtime::DispatchError::Unavailable)
+	}
+
+	fn weight_of_receive_deposit() -> sp_runtime::Weight {
+		sp_runtime::Weight::zero()
 	}
 }

@@ -17,9 +17,6 @@
 
 //! A [`ResubmittableSegment`] of V3 parablock headers, hydrated into [`CollationParts`] from
 //! local state only.
-//!
-//! Dead until the collation task wires it in; the allow comes off then.
-#![allow(dead_code)]
 
 use super::message::CollationParts;
 use codec::Encode;
@@ -207,7 +204,11 @@ where
 			.ok_or(HydrateError::BodyMissing)?;
 
 		if anchor.is_none() {
-			anchor = Some((stored.relay_parent_header, stored.max_pov_size));
+			anchor = Some((
+				stored.relay_parent_header,
+				stored.relay_parent_session,
+				stored.max_pov_size,
+			));
 		}
 
 		blocks.push(Block::new(header, body));
@@ -215,7 +216,8 @@ where
 	}
 
 	// `into_bundles` never emits an empty bundle, so the anchor is always set.
-	let (relay_parent_header, max_pov_size) = anchor.ok_or(HydrateError::EmptyBundle)?;
+	let (relay_parent_header, relay_parent_session, max_pov_size) =
+		anchor.ok_or(HydrateError::EmptyBundle)?;
 	let relay_parent = relay_parent_header.hash();
 
 	let validation_data = PersistedValidationData {
@@ -232,6 +234,7 @@ where
 		proof: StorageProof::merge(proofs),
 		validation_code_hash,
 		validation_data,
+		relay_parent_session,
 	})
 }
 

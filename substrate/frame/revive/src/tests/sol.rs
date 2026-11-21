@@ -81,6 +81,61 @@ fn make_initcode_from_runtime_code(runtime_code: &Vec<u8>) -> Vec<u8> {
 	init_code
 }
 
+/// The weight consumed by calling the Solc build of `fixture` with `data` on a fresh chain.
+///
+/// Two calls that run the same op-codes consume the same weight, apart from the charges that their
+/// operands change.
+fn weight_of_solc_call(fixture: &str, data: Vec<u8>) -> Weight {
+	let (code, _) = compile_module_with_type(fixture, FixtureType::Solc).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let output = builder::bare_call(addr).data(data).build();
+		assert!(!output.result.unwrap().did_revert(), "the call reverted");
+		output.weight_consumed
+	})
+}
+
+/// The weight consumed by calling hand-built EVM runtime code on a fresh chain.
+fn weight_of_evm_call(runtime_code: Vec<u8>) -> Weight {
+	let code = make_initcode_from_runtime_code(&runtime_code);
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let output = builder::bare_call(addr).build();
+		assert!(!output.result.expect("the call failed").did_revert(), "the call reverted");
+		output.weight_consumed
+	})
+}
+
+/// The weight of one repetition of a benchmark that is linear in its component.
+fn slope(weight_fn: fn(u32) -> Weight) -> Weight {
+	weight_fn(1).saturating_sub(weight_fn(0))
+}
+
+#[test]
+fn evm_dispatch_is_charged_once_per_instruction() {
+	use crate::{
+		precompiles::Token,
+		vm::{
+			RuntimeCosts,
+			evm::{EvmDispatch, EvmOpcodeCosts},
+		},
+	};
+
+	// Padding after STOP keeps the code lengths equal without executing extra op-codes.
+	let baseline = weight_of_evm_call(vec![STOP, STOP, STOP]);
+	let with_pair = weight_of_evm_call(vec![ADDRESS, POP, STOP]);
+	let expected = <EvmDispatch as Token<Test>>::weight(&EvmDispatch)
+		.saturating_mul(2)
+		.saturating_add(<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::Address))
+		.saturating_add(<EvmOpcodeCosts as Token<Test>>::weight(&EvmOpcodeCosts::Pop));
+
+	assert_eq!(with_pair, baseline.saturating_add(expected));
+}
+
 /// Init code for a contract that `EXTCODECOPY`s `copy_len` bytes from the address in calldata.
 fn make_extcodecopy_reader(copy_len: u32) -> Vec<u8> {
 	let [b0, b1, b2, b3] = copy_len.to_be_bytes();
@@ -1728,6 +1783,7 @@ mod emitter_logs {
 		test_utils::{ALICE, WEIGHT_LIMIT, deposit_limit},
 		tests::{
 			Contracts, ExtBuilder, RuntimeCall, RuntimeEvent, System, Test, builder, pallet_dummy,
+			test_utils::eth_extrinsic_revert,
 		},
 	};
 	use alloy_core::sol_types::{SolCall, SolEvent};
@@ -1775,16 +1831,6 @@ mod emitter_logs {
 				_ => None,
 			})
 			.collect()
-	}
-
-	/// The error the ethereum transaction failed with, if it failed.
-	fn eth_extrinsic_revert() -> Option<sp_runtime::DispatchError> {
-		System::events().into_iter().find_map(|record| match record.event {
-			RuntimeEvent::Contracts(crate::Event::EthExtrinsicRevert { dispatch_error }) => {
-				Some(dispatch_error)
-			},
-			_ => None,
-		})
 	}
 
 	fn bloom_of(contract: H160, topic: H256) -> [u8; 256] {
@@ -2105,6 +2151,7 @@ mod receipt_size_limit {
 			PGAS_ASSET_ID, RuntimeCall, RuntimeEvent, RuntimeOrigin, System, Test, builder,
 			initialize_block, pallet_dummy,
 			precompiles::{INoInfo, NoInfo},
+			test_utils::eth_extrinsic_revert,
 		},
 		tracing::trace,
 	};
@@ -2128,7 +2175,7 @@ mod receipt_size_limit {
 	};
 	use pretty_assertions::assert_eq;
 	use sp_core::{H160, H256};
-	use sp_runtime::{DispatchError, traits::Dispatchable};
+	use sp_runtime::traits::Dispatchable;
 	use test_case::test_case;
 
 	/// The data of a log without topics that takes up 65,536 bytes of the receipt: 32 of them
@@ -2190,16 +2237,6 @@ mod receipt_size_limit {
 				_ => None,
 			})
 			.collect()
-	}
-
-	/// The error the ethereum transaction failed with, if it failed.
-	fn eth_extrinsic_revert() -> Option<DispatchError> {
-		System::events().into_iter().find_map(|record| match record.event {
-			RuntimeEvent::Contracts(crate::Event::EthExtrinsicRevert { dispatch_error }) => {
-				Some(dispatch_error)
-			},
-			_ => None,
-		})
 	}
 
 	/// Finalize the block holding a single ethereum transaction and return that transaction's

@@ -4,7 +4,7 @@
 // Test that a parachain that uses a single slot-based collator with elastic scaling can use 12
 // cores in order to achieve 500ms blocks.
 
-use crate::utils::maybe_enable_experimental_collator_protocol;
+use crate::utils::maybe_enable_legacy_collator_protocol;
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -34,7 +34,7 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(maybe_enable_experimental_collator_protocol(vec![
+				.with_default_args(maybe_enable_legacy_collator_protocol(vec![
 					("-lparachain=debug").into(),
 				]))
 				.with_genesis_overrides(json!({
