@@ -15,11 +15,13 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use bitvec::{bitvec, prelude::Lsb0};
+use codec::Encode;
 use frame_benchmarking::v2::*;
 use pallet_message_queue as mq;
 use polkadot_primitives::{
-	CandidateCommitments, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, HrmpChannelId,
-	OutboundHrmpMessage, SessionIndex,
+	v9::MAX_COMMITMENT_ENTRIES, CandidateCommitments,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash, HrmpChannelId,
+	OutboundHrmpMessage, RequiresSet, SessionIndex, StreamsRoot, UMPSignal, UMP_SEPARATOR,
 };
 
 use super::*;
@@ -29,6 +31,14 @@ use crate::{
 	hrmp::{HrmpChannel, HrmpChannels},
 	initializer, HeadData, ValidationCode,
 };
+
+/// A distinct `StreamsRoot` per `n`. `H256::from_low_u64_be` is std-only, and benchmarks build for
+/// the wasm runtime too.
+fn root(n: u64) -> StreamsRoot {
+	let mut bytes = [0u8; 32];
+	bytes[24..].copy_from_slice(&n.to_be_bytes());
+	StreamsRoot(Hash::from(bytes))
+}
 
 fn create_candidate_commitments<T: crate::hrmp::pallet::Config>(
 	para_id: ParaId,
@@ -93,7 +103,7 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn enact_candidate(u: Linear<0, 2>, h: Linear<0, 2>, c: Linear<0, 1>) {
+	fn enact_candidate(u: Linear<0, 2>, h: Linear<0, 2>, c: Linear<0, 1>, p: Linear<0, 1>) {
 		let para = 42_u32.into(); // not especially important.
 
 		let max_len = mq::MaxMessageLenOf::<T>::get() as usize;
@@ -113,7 +123,27 @@ mod benchmarks {
 		let head_data = HeadData(vec![0xFF; 1024]);
 
 		let relay_parent_number = BlockNumberFor::<T>::from(10_u32);
-		let commitments = create_candidate_commitments::<T>(para, head_data, max_len, u, h, c != 0);
+		let mut commitments =
+			create_candidate_commitments::<T>(para, head_data, max_len, u, h, c != 0);
+
+		// Enactment decodes the entire Requires signal even when the candidate has no Provides.
+		let requires = RequiresSet::try_from_iter(
+			(0..MAX_COMMITMENT_ENTRIES).map(|i| (ParaId::from(i), root(i as u64))),
+		)
+		.expect("distinct sources within the commitment bound; qed");
+		commitments.upward_messages.force_push(UMP_SEPARATOR);
+		commitments.upward_messages.force_push(UMPSignal::Requires(requires).encode());
+
+		// With `p`, carry a `Provides` into a full window, so the record reads the whole window,
+		// drops the oldest root and writes it back.
+		if p != 0 {
+			commitments
+				.upward_messages
+				.force_push(UMPSignal::Provides(root(u64::MAX)).encode());
+			for i in 0..MAX_PROVIDES_WINDOW_SIZE {
+				Pallet::<T>::record_provides(para, root(i as u64));
+			}
+		}
 		let backers = bitvec![u8, Lsb0; 1; backing_group_size as usize];
 		let availability_votes = bitvec![u8, Lsb0; 1; n_validators as usize];
 		let core_index = CoreIndex::from(0);
@@ -145,6 +175,28 @@ mod benchmarks {
 				core_index,
 				backing_group,
 			);
+		}
+	}
+
+	/// `r` sources, each a full window whose oldest entry is the required root: every match
+	/// decodes a whole window and scans all of it.
+	#[benchmark]
+	fn requires_satisfied(r: Linear<1, { MAX_COMMITMENT_ENTRIES }>) {
+		let requires =
+			RequiresSet::try_from_iter((0..r).map(|i| (ParaId::from(i), root(i as u64))))
+				.expect("at most MAX_COMMITMENT_ENTRIES entries; qed");
+		for (source, required) in requires.iter() {
+			let window: Vec<_> = core::iter::once(*required)
+				.chain((1..MAX_PROVIDES_WINDOW_SIZE).map(|filler| root(u64::MAX - filler as u64)))
+				.collect();
+			let window: BoundedVec<_, ConstU32<MAX_PROVIDES_WINDOW_SIZE>> =
+				window.try_into().expect("exactly MAX_PROVIDES_WINDOW_SIZE roots; qed");
+			RecentProvides::<T>::insert(*source, window);
+		}
+
+		#[block]
+		{
+			assert!(Pallet::<T>::requires_satisfied(&requires).is_ok());
 		}
 	}
 

@@ -3209,3 +3209,191 @@ fn check_validation_outputs_for_runtime_api_rejects_oversized_new_validation_cod
 		assert!(!ParaInclusion::check_validation_outputs_for_runtime_api(chain_a, 1, commitments,));
 	});
 }
+
+#[cfg(test)]
+mod speculative_provides_window {
+	//! Isolation tests for the relay-side speculative-messaging provides window: window
+	//! advance/trim and requires matching by root.
+	use super::*;
+	use polkadot_primitives::{RequiresSet, StreamsRoot};
+
+	fn sr(b: u8) -> StreamsRoot {
+		StreamsRoot(Hash::repeat_byte(b))
+	}
+
+	fn requires(entries: &[(u32, u8)]) -> RequiresSet {
+		RequiresSet::try_from_iter(
+			entries.iter().map(|(src, root)| (ParaId::from(*src), sr(*root))),
+		)
+		.unwrap()
+	}
+
+	#[test]
+	fn enactment_counts_only_queued_upward_messages() {
+		let root = sr(1);
+		for (messages, count) in [(vec![], 0), (vec![vec![1]], 1)] {
+			let mut commitments = CandidateCommitments {
+				upward_messages: messages.try_into().expect("at most one ordinary message; qed"),
+				..Default::default()
+			};
+			commitments.upward_messages.force_push(UMP_SEPARATOR);
+			commitments.upward_messages.force_push(UMPSignal::Provides(root).encode());
+
+			assert_eq!(
+				ParaInclusion::upward_message_weight_inputs(&commitments),
+				(count, Some(root))
+			);
+		}
+	}
+
+	#[test]
+	fn record_provides_trims_to_window_and_keeps_newest() {
+		new_test_ext(genesis_config(Vec::new())).execute_with(|| {
+			let source = ParaId::from(1000);
+			let total = MAX_PROVIDES_WINDOW_SIZE + 3;
+			for i in 0..total {
+				ParaInclusion::record_provides(source, sr(i as u8));
+			}
+			// The window holds exactly `MAX_PROVIDES_WINDOW_SIZE` entries.
+			assert_eq!(
+				RecentProvides::<Test>::get(source).len(),
+				MAX_PROVIDES_WINDOW_SIZE as usize
+			);
+			// The 3 oldest roots were dropped; roots from index 3 onward are retained.
+			assert!(ParaInclusion::requires_satisfied(&requires(&[(1000, 0)])).is_err());
+			assert!(ParaInclusion::requires_satisfied(&requires(&[(1000, 2)])).is_err());
+			assert!(ParaInclusion::requires_satisfied(&requires(&[(1000, 3)])).is_ok());
+			assert!(
+				ParaInclusion::requires_satisfied(&requires(&[(1000, (total - 1) as u8)])).is_ok()
+			);
+		});
+	}
+
+	#[test]
+	fn requires_satisfied_needs_all_sources_and_exact_roots() {
+		new_test_ext(genesis_config(Vec::new())).execute_with(|| {
+			let (a, b) = (ParaId::from(1), ParaId::from(2));
+			ParaInclusion::record_provides(a, sr(0xA));
+			ParaInclusion::record_provides(b, sr(0xB));
+			// Both sources present with the right roots → satisfied.
+			assert!(ParaInclusion::requires_satisfied(&requires(&[(1, 0xA), (2, 0xB)])).is_ok());
+			// Wrong root for a present source → Err names that (source, root).
+			assert_eq!(
+				ParaInclusion::requires_satisfied(&requires(&[(1, 0xA), (2, 0xC)])),
+				Err((ParaId::from(2), sr(0xC))),
+			);
+			// Unknown source → Err names it.
+			assert_eq!(
+				ParaInclusion::requires_satisfied(&requires(&[(1, 0xA), (3, 0xB)])),
+				Err((ParaId::from(3), sr(0xB))),
+			);
+			// No empty case: a `RequiresSet` is non-empty by construction. A candidate that
+			// requires nothing carries no `Requires` signal, so `paras_inherent` never calls this.
+		});
+	}
+
+	#[test]
+	fn newest_included_provides_is_the_window_head() {
+		new_test_ext(genesis_config(Vec::new())).execute_with(|| {
+			use crate::runtime_api_impl::vstaging::newest_included_provides;
+			let source = ParaId::from(1000);
+			// Never provided.
+			assert_eq!(newest_included_provides::<Test>(source), None);
+
+			// The newest entry wins, including after the window trims.
+			for i in 0..MAX_PROVIDES_WINDOW_SIZE + 3 {
+				ParaInclusion::record_provides(source, sr(i as u8));
+				assert_eq!(newest_included_provides::<Test>(source), Some(sr(i as u8)));
+			}
+			// Other sources are independent.
+			assert_eq!(newest_included_provides::<Test>(ParaId::from(1001)), None);
+		});
+	}
+
+	#[test]
+	fn newest_included_provides_is_none_while_offboarding() {
+		new_test_ext(genesis_config(vec![(ParaId::from(1000), ParaKind::Parachain)])).execute_with(
+			|| {
+				use crate::runtime_api_impl::vstaging::newest_included_provides;
+				let source = ParaId::from(1000);
+				ParaInclusion::record_provides(source, sr(0xA));
+				assert_eq!(newest_included_provides::<Test>(source), Some(sr(0xA)));
+
+				paras::Pallet::<Test>::schedule_para_cleanup(source).unwrap();
+				assert_eq!(newest_included_provides::<Test>(source), None);
+			},
+		);
+	}
+
+	#[test]
+	fn offboarding_clears_provides_window() {
+		new_test_ext(genesis_config(Vec::new())).execute_with(|| {
+			let (staying, leaving) = (ParaId::from(1), ParaId::from(2));
+			ParaInclusion::record_provides(staying, sr(0xA));
+			ParaInclusion::record_provides(leaving, sr(0xB));
+			assert!(!RecentProvides::<Test>::get(leaving).is_empty());
+
+			// A session change that offboards `leaving` drops its window; `staying` is untouched.
+			let notification = crate::initializer::SessionChangeNotification::default();
+			ParaInclusion::initializer_on_new_session(&notification, &[leaving]);
+
+			assert!(RecentProvides::<Test>::get(leaving).is_empty());
+			assert!(!RecentProvides::<Test>::get(staying).is_empty());
+		});
+	}
+
+	/// Seeded random pushes and offboardings across a few senders, checked after every
+	/// step against a plain model: window length, newest root and membership of a random root.
+	#[test]
+	fn window_matches_a_model_under_random_operations() {
+		use std::collections::{BTreeMap, VecDeque};
+
+		new_test_ext(genesis_config(Vec::new())).execute_with(|| {
+			// Few distinct roots, so repeated roots and the eviction of a repeated one both occur.
+			let root = |n: u64| StreamsRoot(Hash::from_low_u64_be(n));
+			let distinct_roots = 3 * MAX_PROVIDES_WINDOW_SIZE as u64;
+			let sources: Vec<ParaId> = (1..=3u32).map(ParaId::from).collect();
+			let mut model: BTreeMap<ParaId, VecDeque<StreamsRoot>> = BTreeMap::new();
+			// xorshift64, so a failure replays from the same seed.
+			let mut state = 0x2545_f491_4f6c_dd1d_u64;
+			let mut next = |bound: u64| {
+				state ^= state << 13;
+				state ^= state >> 7;
+				state ^= state << 17;
+				state % bound
+			};
+
+			for _ in 0..20_000 {
+				let source = sources[next(sources.len() as u64) as usize];
+				match next(1000) {
+					0 | 1 => {
+						let notification = crate::initializer::SessionChangeNotification::default();
+						ParaInclusion::initializer_on_new_session(&notification, &[source]);
+						model.remove(&source);
+					},
+					_ => {
+						let pushed = root(next(distinct_roots));
+						ParaInclusion::record_provides(source, pushed);
+						let window = model.entry(source).or_default();
+						window.push_back(pushed);
+						if window.len() > MAX_PROVIDES_WINDOW_SIZE as usize {
+							window.pop_front();
+						}
+					},
+				}
+
+				for source in &sources {
+					let window = model.get(source).cloned().unwrap_or_default();
+					assert_eq!(RecentProvides::<Test>::get(source).len(), window.len());
+					assert_eq!(ParaInclusion::newest_provides(*source), window.back().copied());
+					let probe = root(next(distinct_roots));
+					let set = RequiresSet::try_from_iter([(*source, probe)]).unwrap();
+					assert_eq!(
+						ParaInclusion::requires_satisfied(&set).is_ok(),
+						window.contains(&probe)
+					);
+				}
+			}
+		});
+	}
+}

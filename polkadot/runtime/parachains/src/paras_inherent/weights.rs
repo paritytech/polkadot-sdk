@@ -176,6 +176,7 @@ pub fn enact_candidates_max_weight<T: Config>(
 			max_ump_msgs,
 			max_hrmp_msgs,
 			1, // runtime upgrade
+			1, // `Provides` record
 		)
 		.saturating_mul(bitfield_size as u64),
 		bitfields,
@@ -193,9 +194,25 @@ pub fn backed_candidate_weight<T: frame_system::Config + Config>(
 				candidate.validity_votes().len() as u32,
 			)
 		}
-		.saturating_sub(<<T as Config>::WeightInfo as WeightInfo>::enter_empty()),
+		.saturating_sub(<<T as Config>::WeightInfo as WeightInfo>::enter_empty())
+		.saturating_add(requires_weight::<T>(candidate)),
 		candidate,
 	)
+}
+
+/// The `Requires` check for `candidate`, by its actual number of entries; none without `Requires`.
+fn requires_weight<T: Config>(candidate: &BackedCandidate<T::Hash>) -> Weight {
+	let entries = candidate
+		.candidate()
+		.commitments
+		.ump_signals()
+		.ok()
+		.and_then(|signals| signals.requires().map(|requires| requires.len() as u32))
+		.unwrap_or(0);
+	if entries == 0 {
+		return Weight::zero();
+	}
+	<<T as inclusion::Config>::WeightInfo as inclusion::WeightInfo>::requires_satisfied(entries)
 }
 
 pub fn backed_candidates_weight<T: frame_system::Config + Config>(
