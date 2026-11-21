@@ -1480,6 +1480,94 @@ async fn chained_recovery_child_succeeds_before_parent() {
 }
 
 #[tokio::test]
+async fn chained_recovery_retries_descendants_after_parent_failure() {
+	let (recovery_subsystem_tx, _recovery_subsystem_rx) =
+		AvailabilityRecoverySubsystemHandle::new();
+	let (_explicit_recovery_chan_tx, explicit_recovery_chan_rx) = mpsc::channel(10);
+	let known_blocks =
+		Arc::new(Mutex::new(HashMap::from([(GENESIS_HASH, BlockStatus::InChainWithState)])));
+	let (parachain_client, _import_notifications_tx, _finality_notifications_tx) =
+		ParachainClient::new(vec![dummy_usage_info(0)], known_blocks);
+	let (parachain_import_queue, mut import_requests_rx) = ParachainImportQueue::new();
+	let mut recovery = PoVRecovery::<Block, _, _>::new(
+		Box::new(recovery_subsystem_tx),
+		RecoveryDelayRange { min: Duration::ZERO, max: Duration::ZERO },
+		Arc::new(parachain_client),
+		Box::new(parachain_import_queue),
+		Relaychain::new(vec![]),
+		ParaId::new(1000),
+		explicit_recovery_chan_rx,
+		Arc::new(DummySyncOracle::default()),
+	);
+	let candidates = make_candidate_chain(1..4);
+	let headers = candidates
+		.iter()
+		.map(|candidate| Header::decode(&mut &candidate.commitments.head_data.0[..]).unwrap())
+		.collect::<Vec<_>>();
+	let pov_for = |header: &Header| PoV {
+		block_data: ParachainBlockData::<Block>::new(
+			vec![Block::new(header.clone(), vec![])],
+			CompactProof { encoded_nodes: vec![] },
+			None,
+		)
+		.encode()
+		.into(),
+	};
+
+	let mut unrelated_candidate = candidates[0].clone();
+	let mut unrelated_header = headers[0].clone();
+	unrelated_header.state_root = H256::repeat_byte(1);
+	let unrelated_hash = unrelated_header.hash();
+	unrelated_candidate.commitments.head_data = unrelated_header.encode().into();
+	for candidate in candidates.into_iter().chain([unrelated_candidate]) {
+		recovery.handle_pending_candidate(candidate, TEST_SESSION_INDEX);
+		let hash = recovery.candidate_recovery_queue.next_recovery().await;
+		assert!(recovery.candidates[&hash].waiting_recovery);
+	}
+
+	// Recover the grandchild and child before their parent, so both wait for its recovery.
+	for header in headers[1..].iter().rev() {
+		recovery.handle_candidate_recovered(header.hash(), Some(&pov_for(header))).await;
+		assert_eq!(recovery.waiting_for_parent[header.parent_hash()][0].hash(), header.hash());
+	}
+
+	let parent_hash = headers[0].hash();
+	recovery.handle_candidate_recovered(parent_hash, None).await;
+	assert_eq!(recovery.candidate_recovery_queue.next_recovery().await, parent_hash);
+	recovery.handle_candidate_recovered(parent_hash, None).await;
+
+	assert!(recovery.waiting_for_parent.is_empty());
+	for header in &headers {
+		assert!(
+			!recovery.candidates[&header.hash()].waiting_recovery,
+			"Discarded descendants must be eligible for recovery again",
+		);
+	}
+	assert!(recovery.candidates[&unrelated_hash].waiting_recovery);
+
+	// Every discarded candidate can be scheduled again and the chain can be imported.
+	for header in &headers {
+		recovery.recover(RecoveryRequest { hash: header.hash(), kind: RecoveryKind::Simple });
+		assert_eq!(
+			recovery
+				.candidate_recovery_queue
+				.next_recovery()
+				.timeout(Duration::from_secs(1))
+				.await,
+			Some(header.hash()),
+		);
+	}
+	for header in headers.iter().rev() {
+		recovery.handle_candidate_recovered(header.hash(), Some(&pov_for(header))).await;
+	}
+	let imported = import_requests_rx.next().await.unwrap();
+	assert_eq!(
+		imported.into_iter().map(|block| block.header.unwrap()).collect::<Vec<_>>(),
+		headers,
+	);
+}
+
+#[tokio::test]
 async fn recovery_multiple_blocks_per_candidate() {
 	sp_tracing::init_for_tests();
 
