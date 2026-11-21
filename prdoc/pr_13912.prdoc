@@ -2,7 +2,7 @@ title: Deprecate the legacy staking pallets
 doc:
 - audience: Runtime Dev
   description: |-
-    `pallet-staking`, `pallet-fast-unstake` and `pallet-election-provider-multi-phase` are deprecated and will be removed after November 2027. Use `pallet-staking-async` instead, with `pallet-election-provider-multi-block` for elections.
+    `pallet-staking`, `pallet-fast-unstake` and `pallet-election-provider-multi-phase` are deprecated and will be removed after November 2027. Relay chains move staking to `pallet-staking-async` on Asset Hub. Other chains can fork these pallets.
 crates:
 - name: pallet-staking
   bump: minor
@@ -11,7 +11,7 @@ crates:
 - name: pallet-election-provider-multi-phase
   bump: minor
 - name: polkadot-runtime-common
-  bump: minor
+  bump: none
 - name: polkadot-runtime-parachains
   bump: none
 - name: pallet-babe

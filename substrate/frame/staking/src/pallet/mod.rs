@@ -63,7 +63,7 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 
 #[frame_support::pallet]
 #[deprecated(
-	note = "`pallet-staking` will be removed after November 2027. Use `pallet-staking-async` instead."
+	note = "`pallet-staking` will be removed after November 2027. Relay chains move staking to `pallet-staking-async` on Asset Hub. Other chains can fork this pallet."
 )]
 pub mod pallet {
 	use super::*;

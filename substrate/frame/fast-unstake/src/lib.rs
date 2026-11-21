@@ -147,7 +147,7 @@ macro_rules! log {
 
 #[frame_support::pallet]
 #[deprecated(
-	note = "`pallet-fast-unstake` will be removed after November 2027. With `pallet-staking-async`, nominators unbond in `NominatorFastUnbondDuration` eras when `AreNominatorsSlashable` is `false`."
+	note = "`pallet-fast-unstake` will be removed after November 2027, together with `pallet-staking`."
 )]
 pub mod pallet {
 	use super::*;
