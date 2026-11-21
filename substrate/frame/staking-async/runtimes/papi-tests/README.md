@@ -32,8 +32,7 @@ This parachain contains:
 - `pallet-staking-async`
 - `pallet-staking-async-rc-client`
 - `pallet-election-provider-multi-block` and family
-- aux staking pallets `pallet-nomination-pools`, `pallet-fast-unstake`, `pallet-bags-list`, and
-  `pallet-delegated-staking`.
+- aux staking pallets `pallet-nomination-pools`, `pallet-bags-list`, and `pallet-delegated-staking`.
 
 All of the above are means to stake and select validators for the RELAY-CHAIN, which is eventually
 communicated to it via the `pallet-staking-async-rc-client` pallet.

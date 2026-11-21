@@ -25,6 +25,7 @@ pub mod shared;
 
 // shared tests.
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
 	use super::*;
 	use crate::{

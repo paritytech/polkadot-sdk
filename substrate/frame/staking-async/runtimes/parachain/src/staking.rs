@@ -629,17 +629,6 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	}
 }
 
-impl pallet_fast_unstake::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type BatchSize = ConstU32<64>;
-	type Deposit = ConstU128<{ UNITS }>;
-	type ControlOrigin = EnsureRoot<AccountId>;
-	type Staking = Staking;
-	type MaxErasToCheckPerBlock = ConstU32<1>;
-	type WeightInfo = weights::pallet_fast_unstake::WeightInfo<Runtime>;
-}
-
 parameter_types! {
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
 	pub const MaxPointsToBalance: u8 = 10;

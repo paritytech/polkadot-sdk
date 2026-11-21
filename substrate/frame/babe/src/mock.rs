@@ -17,6 +17,8 @@
 
 //! Test utilities
 
+#![allow(deprecated)]
+
 use crate::{self as pallet_babe, Config, CurrentSlot};
 use codec::Encode;
 use frame_election_provider_support::{

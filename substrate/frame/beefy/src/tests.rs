@@ -312,6 +312,7 @@ fn report_double_voting(
 	)
 }
 
+#[allow(deprecated)]
 fn report_equivocation_current_set_works(
 	mut f: impl ReportEquivocationFn,
 	hardcoded_slash_fraction: Option<Perbill>,
@@ -1004,6 +1005,7 @@ fn report_fork_voting_invalid_equivocation_proof() {
 	});
 }
 
+#[allow(deprecated)]
 #[test]
 fn report_fork_voting_invalid_context() {
 	let authorities = test_authorities();

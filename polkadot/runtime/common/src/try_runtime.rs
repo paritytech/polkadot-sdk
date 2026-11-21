@@ -16,6 +16,8 @@
 
 //! Common try-runtime only tests for runtimes.
 
+#![allow(deprecated)]
+
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use frame_support::{
 	dispatch::RawOrigin,

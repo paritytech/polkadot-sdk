@@ -18,6 +18,8 @@
 //! Benchmarks for the Session Pallet.
 // This is separated into its own crate due to cyclic dependency issues.
 
+#![allow(deprecated)]
+
 use alloc::vec::Vec;
 use sp_runtime::traits::{One, StaticLookup};
 

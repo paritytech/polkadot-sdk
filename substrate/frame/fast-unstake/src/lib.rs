@@ -107,6 +107,7 @@
 //!   the pallet will halt/disable itself.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(deprecated)]
 
 extern crate alloc;
 
@@ -145,6 +146,9 @@ macro_rules! log {
 }
 
 #[frame_support::pallet]
+#[deprecated(
+	note = "`pallet-fast-unstake` will be removed after November 2027, together with `pallet-staking`."
+)]
 pub mod pallet {
 	use super::*;
 	use crate::types::*;
