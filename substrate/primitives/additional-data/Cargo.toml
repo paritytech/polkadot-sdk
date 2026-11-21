@@ -1,0 +1,34 @@
+[package]
+name = "sp-additional-data"
+version = "0.1.0"
+license = "Apache-2.0"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Per-block additional data: types, finalizer registry and the finalize host function"
+documentation = "https://docs.rs/sp-additional-data"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { workspace = true }
+sp-crypto-hashing = { workspace = true }
+sp-externalities = { workspace = true }
+sp-runtime-interface = { workspace = true }
+
+[dev-dependencies]
+sp-io = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"sp-crypto-hashing/std",
+	"sp-externalities/std",
+	"sp-runtime-interface/std",
+]

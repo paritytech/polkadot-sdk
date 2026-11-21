@@ -18491,6 +18491,7 @@ dependencies = [
  "sc-utils 14.0.0",
  "sc-virtualization",
  "slot-range-helper",
+ "sp-additional-data",
  "sp-api 26.0.0",
  "sp-api-proc-macro 15.0.0",
  "sp-application-crypto 30.0.0",
@@ -25392,6 +25393,17 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version 29.0.0",
  "substrate-wasm-builder",
+]
+
+[[package]]
+name = "sp-additional-data"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "sp-crypto-hashing 0.1.0",
+ "sp-externalities 0.25.0",
+ "sp-io 30.0.0",
+ "sp-runtime-interface 24.0.0",
 ]
 
 [[package]]
