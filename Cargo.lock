@@ -12816,6 +12816,7 @@ dependencies = [
  "pallet-proxy",
  "pallet-root-offences",
  "pallet-session",
+ "pallet-staking",
  "pallet-staking-async",
  "pallet-staking-async-ah-client",
  "pallet-staking-async-rc-client",

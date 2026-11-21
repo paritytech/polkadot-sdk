@@ -61,57 +61,65 @@ pub fn in_rc(f: impl FnMut() -> ()) {
 	})
 }
 
-/// Put the staking state that the Asset Hub migration moves from the relay chain into AH.
-///
-/// The relay chain started era 1 in session 5, with validators 1, 2, 5 and 6.
-pub fn put_migrated_staking_state() {
-	// NOTE: this is not exhaustive, only the state that is needed for the tests.
-	shared::in_ah(|| {
-		pallet_staking_async::CurrentEra::<ah::Runtime>::set(Some(1));
-		// Session 5 starts at RC block 150, and the RC timestamp is the block number * 1000.
-		pallet_staking_async::ActiveEra::<ah::Runtime>::set(Some(
-			pallet_staking_async::ActiveEraInfo { index: 1, start: Some(150_000) },
-		));
-		pallet_staking_async::BondedEras::<ah::Runtime>::set(
-			vec![(0, 2), (1, 5)].try_into().unwrap(),
-		);
-		// 11 authored one block of era 1 before the migration started.
-		pallet_staking_async::ErasRewardPoints::<ah::Runtime>::insert(
-			1,
-			pallet_staking_async::EraRewardPoints {
-				total: 20,
-				individual: [(11, 20)]
-					.into_iter()
-					.collect::<std::collections::BTreeMap<_, _>>()
-					.try_into()
-					.unwrap(),
-			},
-		);
+#[allow(deprecated)]
+pub fn migrate_state() {
+	// NOTE: this is not exhaustive, only migrates the state that is needed for the tests.
+	shared::in_rc(|| {
+		let current_era = pallet_staking::CurrentEra::<rc::Runtime>::take();
+		let active_era = pallet_staking::ActiveEra::<rc::Runtime>::take().unwrap();
+		shared::in_ah(|| {
+			pallet_staking_async::CurrentEra::<ah::Runtime>::set(current_era);
+			pallet_staking_async::ActiveEra::<ah::Runtime>::set(Some(
+				pallet_staking_async::ActiveEraInfo {
+					index: active_era.index,
+					start: active_era.start,
+				},
+			));
+		});
 
-		let exposed_nominators: [(ah::AccountId, Vec<(ah::AccountId, ah::Balance)>); 4] = [
-			(1, vec![(107, 49), (104, 53), (100, 85), (112, 100), (102, 100)]),
-			(2, vec![(110, 62), (106, 57), (108, 100), (101, 62), (100, 15)]),
-			(5, vec![(110, 38), (101, 38), (104, 47), (105, 100)]),
-			(6, vec![(106, 43), (107, 51), (111, 100)]),
-		];
-		for (validator, nominators) in exposed_nominators {
-			let own = 100;
-			let others = nominators
-				.into_iter()
-				.map(|(who, value)| sp_staking::IndividualExposure { who, value })
-				.collect::<Vec<_>>();
-			let total = own + others.iter().map(|other| other.value).sum::<ah::Balance>();
-			let (overview, pages) = sp_staking::Exposure { total, own, others }
-				.into_pages(ah::MaxExposurePageSize::get());
-			pallet_staking_async::ErasStakersOverview::<ah::Runtime>::insert(
-				1, validator, overview,
-			);
-			for (page, exposure_page) in pages.into_iter().enumerate() {
+		for (era, reward_points) in pallet_staking::ErasRewardPoints::<rc::Runtime>::drain() {
+			shared::in_ah(|| {
+				pallet_staking_async::ErasRewardPoints::<ah::Runtime>::insert(
+					era,
+					pallet_staking_async::EraRewardPoints {
+						total: reward_points.total,
+						individual: reward_points.individual.clone().try_into().unwrap(),
+					},
+				)
+			});
+		}
+
+		// exposure
+		for (era, account, overview) in pallet_staking::ErasStakersOverview::<rc::Runtime>::drain()
+		{
+			shared::in_ah(|| {
+				pallet_staking_async::ErasStakersOverview::<ah::Runtime>::insert(
+					era, account, overview,
+				)
+			});
+		}
+
+		for ((era, account, page), exposure_page) in
+			pallet_staking::ErasStakersPaged::<rc::Runtime>::drain()
+		{
+			shared::in_ah(|| {
 				pallet_staking_async::ErasStakersPaged::<ah::Runtime>::insert(
-					(1, validator, page as sp_staking::Page),
-					exposure_page,
-				);
-			}
+					(era, account, page),
+					exposure_page.clone(),
+				)
+			});
+		}
+
+		shared::in_ah(|| {
+			pallet_staking_async::BondedEras::<ah::Runtime>::kill();
+		});
+
+		for (era, session) in pallet_staking::BondedEras::<rc::Runtime>::get() {
+			shared::in_ah(|| {
+				pallet_staking_async::BondedEras::<ah::Runtime>::mutate(|bonded| {
+					bonded.try_push((era, session)).unwrap()
+				})
+			});
 		}
 	})
 }
