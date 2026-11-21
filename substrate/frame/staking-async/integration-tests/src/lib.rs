@@ -15,8 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(deprecated)]
-
 #[cfg(test)]
 pub mod ah;
 #[cfg(test)]
@@ -27,6 +25,7 @@ pub mod shared;
 
 // shared tests.
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
 	use super::*;
 	use crate::{
