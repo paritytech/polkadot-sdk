@@ -1,0 +1,10 @@
+title: "dispute-coordinator: restore disputes with their session validators"
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      After a validator restarts, recover active disputes using the validator set from
+      each dispute's session. This preserves participation in disputes from earlier
+      sessions when the current validator set has changed.
+crates:
+  - name: polkadot-node-core-dispute-coordinator
+    bump: patch
