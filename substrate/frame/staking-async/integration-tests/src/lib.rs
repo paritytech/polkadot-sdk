@@ -25,7 +25,6 @@ pub mod shared;
 
 // shared tests.
 #[cfg(test)]
-#[allow(deprecated)]
 mod tests {
 	use super::*;
 	use crate::{
@@ -36,7 +35,6 @@ mod tests {
 	use frame::testing_prelude::*;
 	use frame_support::traits::Get;
 	use pallet_election_provider_multi_block as multi_block;
-	use pallet_staking as staking_classic;
 	use pallet_staking_async::{ActiveEra, ActiveEraInfo, Forcing};
 	use pallet_staking_async_ah_client::{self as ah_client, OffenceSendQueue};
 	use pallet_staking_async_rc_client as rc_client;
@@ -138,6 +136,8 @@ mod tests {
 		shared::put_rc_state(
 			rc::ExtBuilder::default()
 				.pre_migration()
+				// the validators that the local staking system on RC plans
+				.fallback_validators(vec![1, 2, 5, 6])
 				// set session keys for all "potential" validators
 				.session_keys(vec![1, 2, 3, 4, 5, 6, 7, 8])
 				// set a very low `MaxOffenceBatchSize` to test batching behavior
@@ -147,19 +147,18 @@ mod tests {
 		shared::put_ah_state(ah::ExtBuilder::default().build());
 
 		shared::in_rc(|| {
-			assert!(staking_classic::ActiveEra::<rc::Runtime>::get().is_none());
-
-			// - staking-classic is active on RC.
+			// - the local staking system (ah-client's fallback) is active on RC.
 			rc::roll_until_matches(
-				|| {
-					staking_classic::ActiveEra::<rc::Runtime>::get().map(|a| a.index).unwrap_or(0) ==
-						1
-				},
+				|| pallet_session::CurrentIndex::<rc::Runtime>::get() == 5,
 				true,
 			);
+			assert_eq!(pallet_session::Validators::<rc::Runtime>::get(), vec![1, 2, 5, 6]);
+			assert_eq!(rc::FallbackNewSessions::get(), vec![2, 3, 4, 5, 6]);
+			assert_eq!(rc::FallbackStartedSessions::get(), vec![1, 2, 3, 4, 5]);
+			assert_eq!(rc::FallbackEndedSessions::get(), vec![0, 1, 2, 3, 4]);
 
 			// No offence exist so far
-			assert!(staking_classic::UnappliedSlashes::<rc::Runtime>::get(4).is_empty());
+			assert!(rc::FallbackOffences::get().is_empty());
 
 			assert_ok!(RootOffences::create_offence(
 				rc::RuntimeOrigin::root(),
@@ -168,8 +167,9 @@ mod tests {
 				None
 			));
 
-			// offence is expected to be deferred to era 1 + 3 = 4
-			assert_eq!(staking_classic::UnappliedSlashes::<rc::Runtime>::get(4).len(), 1);
+			// the offence goes to the fallback, and nothing is queued for AH
+			assert_eq!(rc::FallbackOffences::get(), vec![(2, Perbill::from_percent(100), 5)]);
+			assert_eq!(OffenceSendQueue::<rc::Runtime>::count(), 0);
 		});
 
 		// nothing happened in ah-staking so far
@@ -188,8 +188,12 @@ mod tests {
 		shared::in_rc(|| {
 			rc::roll_next();
 
-			let pre_migration_era_points =
-				staking_classic::ErasRewardPoints::<rc::Runtime>::get(1).total;
+			let pre_migration_fallback_sessions = (
+				rc::FallbackNewSessions::get(),
+				rc::FallbackStartedSessions::get(),
+				rc::FallbackEndedSessions::get(),
+			);
+			let pre_migration_fallback_authors = rc::FallbackAuthors::get();
 
 			ah_client::Pallet::<rc::Runtime>::on_migration_start();
 			assert_eq!(ah_client::Mode::<rc::Runtime>::get(), OperatingMode::Buffered);
@@ -197,6 +201,8 @@ mod tests {
 			// get current session
 			let current_session = pallet_session::CurrentIndex::<rc::Runtime>::get();
 			pre_migration_block_number = frame_system::Pallet::<rc::Runtime>::block_number();
+			// the fallback received the author of every block so far
+			assert_eq!(pre_migration_fallback_authors, pre_migration_block_number as u32);
 
 			// assume migration takes at least one era
 			// go forward by more than `SessionsPerEra` sessions -- staking will not rotate a new
@@ -210,18 +216,20 @@ mod tests {
 			);
 			let migration_start_block_number = frame_system::Pallet::<rc::Runtime>::block_number();
 
-			// ensure era is still 1 on RC.
-			// (Session events are received by AHClient and never passed on to staking-classic once
+			// no new session is passed to the fallback.
+			// (Session events are received by AHClient and never passed on to the fallback once
 			// migration starts)
-			assert_eq!(staking_classic::ActiveEra::<rc::Runtime>::get().unwrap().index, 1);
-			// no new era is planned
-			assert_eq!(staking_classic::CurrentEra::<rc::Runtime>::get().unwrap(), 1);
-
-			// no new block author points accumulated
 			assert_eq!(
-				staking_classic::ErasRewardPoints::<rc::Runtime>::get(1).total,
-				pre_migration_era_points
+				(
+					rc::FallbackNewSessions::get(),
+					rc::FallbackStartedSessions::get(),
+					rc::FallbackEndedSessions::get(),
+				),
+				pre_migration_fallback_sessions
 			);
+
+			// no new block author is passed to the fallback
+			assert_eq!(rc::FallbackAuthors::get(), pre_migration_fallback_authors);
 
 			// some validator points have been recorded in ah-client
 			assert_eq!(
@@ -354,9 +362,8 @@ mod tests {
 				"No offences should be sent to AH in buffered mode"
 			);
 
-			// no new unapplied slashes are created in staking-classic (other than the previously
-			// created).
-			assert_eq!(staking_classic::UnappliedSlashes::<rc::Runtime>::get(4).len(), 1);
+			// no new offence is passed to the fallback (other than the previously created).
+			assert_eq!(rc::FallbackOffences::get(), vec![(2, Perbill::from_percent(100), 5)]);
 
 			// we have stored a total of 13 offences, in 7 pages
 			assert_eq!(OffenceSendQueue::<rc::Runtime>::count(), 13);
@@ -371,8 +378,8 @@ mod tests {
 			assert_eq!(ah::mock::staking_events_since_last_call(), vec![]);
 		});
 
-		// let's migrate state from RC::staking-classic to AH::staking-async
-		shared::migrate_state();
+		// put the staking state that the migration moves from RC to AH::staking-async
+		shared::put_migrated_staking_state();
 
 		// SCENE (3): AHM migration ends.
 		shared::in_rc(|| {

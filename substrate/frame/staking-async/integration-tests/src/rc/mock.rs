@@ -15,16 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(deprecated)]
-
 use crate::shared;
 use ah_client::OperatingMode;
 use frame::{
 	deps::sp_runtime::testing::UintAuthorityId, testing_prelude::*, traits::fungible::Mutate,
-};
-use frame_election_provider_support::{
-	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, SequentialPhragmen,
 };
 use frame_support::traits::FindAuthor;
 use pallet_session::TestSessionHandler;
@@ -43,7 +37,6 @@ construct_runtime! {
 
 		Session: pallet_session,
 		SessionHistorical: pallet_session::historical,
-		Staking: pallet_staking,
 		// NOTE: the session report is given by pallet-session to ah-client on-init, and ah-client
 		// will not send it immediately, but rather store it and sends it over on its own next
 		// on-init call. Yet, because session comes first here, its on-init is called before
@@ -65,8 +58,6 @@ pub fn roll_next() {
 
 	Session::on_initialize(next);
 	StakingAhClient::on_initialize(next);
-	Staking::on_initialize(next);
-	Staking::on_finalize(next);
 }
 
 parameter_types! {
@@ -187,40 +178,6 @@ impl pallet_authorship::Config for Runtime {
 	type EventHandler = StakingAhClient;
 }
 
-parameter_types! {
-	pub static MaxBackersPerWinner: u32 = 256;
-	pub static MaxWinnersPerPage: u32 = 100;
-	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
-}
-pub struct OnChainSeqPhragmen;
-impl onchain::Config for OnChainSeqPhragmen {
-	type System = Runtime;
-	type Solver = SequentialPhragmen<AccountId, Perbill>;
-	type DataProvider = Staking;
-	type WeightInfo = ();
-	type MaxBackersPerWinner = MaxBackersPerWinner;
-	type MaxWinnersPerPage = MaxWinnersPerPage;
-	type Bounds = ElectionsBounds;
-	type Sort = ConstBool<true>;
-}
-
-#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
-impl pallet_staking::Config for Runtime {
-	type OldCurrency = Balances;
-	type Currency = Balances;
-	type UnixTime = pallet_timestamp::Pallet<Self>;
-	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type EraPayout = ();
-	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
-	type GenesisElectionProvider = Self::ElectionProvider;
-	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
-	type TargetList = pallet_staking::UseValidatorsMap<Self>;
-	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
-	type SlashDeferDuration = ConstU32<2>;
-	type SessionInterface = Self;
-	type BondingDuration = ConstU32<3>;
-}
-
 impl pallet_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
@@ -274,8 +231,81 @@ impl ah_client::Config for Runtime {
 	type PointsPerBlock = ConstU32<20>;
 	type MaxOffenceBatchSize = MaxOffenceBatchSize;
 	type SessionInterface = Session;
-	type Fallback = Staking;
+	type Fallback = PassiveFallback;
 	type MaxSessionReportRetries = ConstU32<3>;
+}
+
+parameter_types! {
+	/// The validators that [`PassiveFallback`] plans for each new session.
+	pub static FallbackValidators: Vec<AccountId> = vec![];
+	/// The indices of the new sessions that ah-client passed to [`PassiveFallback`].
+	pub static FallbackNewSessions: Vec<SessionIndex> = vec![];
+	/// The indices of the started sessions that ah-client passed to [`PassiveFallback`].
+	pub static FallbackStartedSessions: Vec<SessionIndex> = vec![];
+	/// The indices of the ended sessions that ah-client passed to [`PassiveFallback`].
+	pub static FallbackEndedSessions: Vec<SessionIndex> = vec![];
+	/// The offences that ah-client passed to [`PassiveFallback`], as (offender, slash fraction,
+	/// slash session).
+	pub static FallbackOffences: Vec<(AccountId, Perbill, SessionIndex)> = vec![];
+	/// The number of authored blocks that ah-client passed to [`PassiveFallback`].
+	pub static FallbackAuthors: u32 = 0;
+}
+
+/// The local staking system that ah-client delegates to in [`OperatingMode::Passive`].
+///
+/// It plans [`FallbackValidators`] for each new session. It records the session hooks, the
+/// offences and the block authors that ah-client passes to it.
+pub struct PassiveFallback;
+
+impl pallet_session::SessionManager<AccountId> for PassiveFallback {
+	fn new_session(new_index: SessionIndex) -> Option<Vec<AccountId>> {
+		FallbackNewSessions::mutate(|sessions| sessions.push(new_index));
+		let validators = FallbackValidators::get();
+		(!validators.is_empty()).then_some(validators)
+	}
+	fn start_session(start_index: SessionIndex) {
+		FallbackStartedSessions::mutate(|sessions| sessions.push(start_index));
+	}
+	fn end_session(end_index: SessionIndex) {
+		FallbackEndedSessions::mutate(|sessions| sessions.push(end_index));
+	}
+}
+
+impl
+	sp_staking::offence::OnOffenceHandler<
+		AccountId,
+		(AccountId, sp_staking::Exposure<AccountId, Balance>),
+		Weight,
+	> for PassiveFallback
+{
+	fn on_offence(
+		offenders: &[sp_staking::offence::OffenceDetails<
+			AccountId,
+			(AccountId, sp_staking::Exposure<AccountId, Balance>),
+		>],
+		slash_fraction: &[Perbill],
+		slash_session: SessionIndex,
+	) -> Weight {
+		FallbackOffences::mutate(|offences| {
+			offences.extend(
+				offenders
+					.iter()
+					.zip(slash_fraction)
+					.map(|(details, fraction)| (details.offender.0, *fraction, slash_session)),
+			)
+		});
+		Weight::zero()
+	}
+}
+
+impl frame_support::traits::RewardsReporter<AccountId> for PassiveFallback {
+	fn reward_by_ids(_rewards_by_ids: impl IntoIterator<Item = (AccountId, u32)>) {}
+}
+
+impl pallet_authorship::EventHandler<AccountId, BlockNumber> for PassiveFallback {
+	fn note_author(_author: AccountId) {
+		FallbackAuthors::mutate(|count| *count += 1);
+	}
 }
 
 parameter_types! {
@@ -381,7 +411,6 @@ pub fn ah_client_events_since_last_call() -> Vec<ah_client::Event<Runtime>> {
 	all.into_iter().skip(seen).collect()
 }
 
-const INITIAL_STAKE: Balance = 100;
 const INITIAL_BALANCE: Balance = 1000;
 
 pub struct ExtBuilder {
@@ -415,9 +444,15 @@ impl ExtBuilder {
 		self
 	}
 
-	/// Set the staking-classic state to be pre-AHM-migration state.
+	/// Start ah-client in [`OperatingMode::Passive`], as before the Asset Hub migration.
 	pub fn pre_migration(mut self) -> Self {
 		self.pre_migration = true;
+		self
+	}
+
+	/// Set the validators that [`PassiveFallback`] plans for each new session.
+	pub fn fallback_validators(self, validators: Vec<AccountId>) -> Self {
+		FallbackValidators::set(validators);
 		self
 	}
 
@@ -435,58 +470,10 @@ impl ExtBuilder {
 
 	pub fn build(self) -> TestState {
 		let _ = sp_tracing::try_init_simple();
-		let mut t = frame_system::GenesisConfig::<T>::default().build_storage().unwrap();
+		let t = frame_system::GenesisConfig::<T>::default().build_storage().unwrap();
 
-		// add pre-migration state to staking-classic.
-		let operating_mode = if self.pre_migration {
-			let validators = vec![1, 2, 3, 4, 5, 6, 7, 8]
-				.into_iter()
-				.map(|x| (x, x, INITIAL_STAKE, pallet_staking::StakerStatus::Validator));
-
-			let nominators = vec![
-				(100, vec![1, 2]),
-				(101, vec![2, 5]),
-				(102, vec![1, 1]),
-				(103, vec![3, 3]),
-				(104, vec![1, 5]),
-				(105, vec![5, 4]),
-				(106, vec![6, 2]),
-				(107, vec![1, 6]),
-				(108, vec![2, 7]),
-				(109, vec![4, 8]),
-				(110, vec![5, 2]),
-				(111, vec![6, 6]),
-				(112, vec![8, 1]),
-			]
-			.into_iter()
-			.map(|(x, y)| (x, x, INITIAL_STAKE, pallet_staking_async::StakerStatus::Nominator(y)));
-
-			let stakers = validators.chain(nominators).collect::<Vec<_>>();
-			let balances = stakers
-				.clone()
-				.into_iter()
-				.map(|(x, _, _, _)| (x, INITIAL_BALANCE))
-				.collect::<Vec<_>>();
-
-			pallet_balances::GenesisConfig::<Runtime> { balances, ..Default::default() }
-				.assimilate_storage(&mut t)
-				.unwrap();
-
-			pallet_staking::GenesisConfig::<Runtime> {
-				stakers,
-				validator_count: 4,
-				minimum_validator_count: 2,
-				..Default::default()
-			}
-			.assimilate_storage(&mut t)
-			.unwrap();
-
-			// Set ah client in passive mode -> implies it is inactive and staking-classic is
-			// active.
-			OperatingMode::Passive
-		} else {
-			OperatingMode::Active
-		};
+		let operating_mode =
+			if self.pre_migration { OperatingMode::Passive } else { OperatingMode::Active };
 
 		let mut state: TestState = t.into();
 

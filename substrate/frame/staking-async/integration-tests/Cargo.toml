@@ -42,13 +42,11 @@ pallet-staking-async-rc-client = { workspace = true, default-features = true }
 
 # pallets we need in the RC
 pallet-authorship = { workspace = true, default-features = true }
+pallet-offences = { workspace = true, default-features = true }
+pallet-root-offences = { workspace = true, default-features = true }
 pallet-session = { workspace = true, default-features = true }
 pallet-staking-async-ah-client = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
-# staking classic which will be replaced by ah-client
-pallet-offences = { workspace = true, default-features = true }
-pallet-root-offences = { workspace = true, default-features = true }
-pallet-staking = { workspace = true, default-features = true }
 
 [features]
 std = [
@@ -59,8 +57,6 @@ try-runtime = [
 	"pallet-proxy/try-runtime",
 
 	"pallet-dap/try-runtime",
-
-	"pallet-staking/try-runtime",
 
 	"pallet-staking-async-rc-client/try-runtime",
 	"pallet-staking-async/try-runtime",
