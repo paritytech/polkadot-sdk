@@ -1,0 +1,12 @@
+title: 'pallet-asset-conversion: add `MutateLiquidity::create_pool_with_fee`'
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds `MutateLiquidity::create_pool_with_fee`, which lets runtime code create a pool with its
+      own swap fee. Unlike the `create_pool_with_fee` extrinsic, it does not check `AdminOrigin`,
+      but the fee is still bounded by `MaxSwapFee`.
+
+      Implementers of `MutateLiquidity` must add the method.
+crates:
+  - name: pallet-asset-conversion
+    bump: major
