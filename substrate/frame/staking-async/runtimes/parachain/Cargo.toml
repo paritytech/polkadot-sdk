@@ -43,7 +43,6 @@ pallet-balances = { workspace = true }
 pallet-conviction-voting = { workspace = true }
 pallet-delegated-staking = { workspace = true }
 pallet-election-provider-multi-block = { workspace = true }
-pallet-fast-unstake = { workspace = true }
 pallet-migrations = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-nft-fractionalization = { workspace = true }
@@ -179,7 +178,6 @@ runtime-benchmarks = [
 	"pallet-dap/runtime-benchmarks",
 	"pallet-delegated-staking/runtime-benchmarks",
 	"pallet-election-provider-multi-block/runtime-benchmarks",
-	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-migrations/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -247,7 +245,6 @@ try-runtime = [
 	"pallet-dap/try-runtime",
 	"pallet-delegated-staking/try-runtime",
 	"pallet-election-provider-multi-block/try-runtime",
-	"pallet-fast-unstake/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-migrations/try-runtime",
 	"pallet-multisig/try-runtime",
@@ -320,7 +317,6 @@ std = [
 	"pallet-dap/std",
 	"pallet-delegated-staking/std",
 	"pallet-election-provider-multi-block/std",
-	"pallet-fast-unstake/std",
 	"pallet-message-queue/std",
 	"pallet-migrations/std",
 	"pallet-multisig/std",

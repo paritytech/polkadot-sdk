@@ -15329,7 +15329,6 @@ dependencies = [
  "pallet-dap",
  "pallet-delegated-staking",
  "pallet-election-provider-multi-block",
- "pallet-fast-unstake",
  "pallet-message-queue",
  "pallet-migrations",
  "pallet-multisig",

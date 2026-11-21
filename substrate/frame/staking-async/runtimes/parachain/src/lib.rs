@@ -20,8 +20,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(non_local_definitions)]
 #![recursion_limit = "512"]
-// `construct_runtime!` generates crate-level code that uses deprecated pallet items.
-#![allow(deprecated)]
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -1183,7 +1181,6 @@ construct_runtime!(
 		// Staking.
 		Staking: pallet_staking_async = 80,
 		NominationPools: pallet_nomination_pools = 81,
-		FastUnstake: pallet_fast_unstake = 82,
 		VoterList: pallet_bags_list::<Instance1> = 83,
 		DelegatedStaking: pallet_delegated_staking = 84,
 		StakingRcClient: pallet_staking_async_rc_client = 89,
@@ -1352,7 +1349,6 @@ mod benches {
 		[pallet_election_provider_multi_block_verifier, MultiBlockElectionVerifier]
 		[pallet_election_provider_multi_block_unsigned, MultiBlockElectionUnsigned]
 		[pallet_election_provider_multi_block_signed, MultiBlockElectionSigned]
-		[pallet_fast_unstake, FastUnstake]
 		[pallet_message_queue, MessageQueue]
 		[pallet_migrations, MultiBlockMigrations]
 		[pallet_multisig, Multisig]
