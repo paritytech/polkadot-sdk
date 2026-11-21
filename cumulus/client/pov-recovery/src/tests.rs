@@ -615,6 +615,55 @@ fn dummy_pvd() -> PersistedValidationData {
 }
 
 #[tokio::test]
+async fn full_recovery_queues_candidates_before_unannounced_ancestor() {
+	let (recovery_subsystem_tx, _recovery_subsystem_rx) =
+		AvailabilityRecoverySubsystemHandle::new();
+	let (_explicit_recovery_chan_tx, explicit_recovery_chan_rx) = mpsc::channel(10);
+	let mut known_blocks = HashMap::new();
+	known_blocks.insert(GENESIS_HASH, BlockStatus::InChainWithState);
+	let (parachain_client, _import_notifications_tx, _finality_notifications_tx) =
+		ParachainClient::new(vec![dummy_usage_info(0)], Arc::new(Mutex::new(known_blocks)));
+	let (parachain_import_queue, _import_requests_rx) = ParachainImportQueue::new();
+	let mut recovery = PoVRecovery::<Block, _, _>::new(
+		Box::new(recovery_subsystem_tx),
+		RecoveryDelayRange { min: Duration::ZERO, max: Duration::ZERO },
+		Arc::new(parachain_client),
+		Box::new(parachain_import_queue),
+		Relaychain::new(vec![]),
+		ParaId::new(1000),
+		explicit_recovery_chan_rx,
+		Arc::new(DummySyncOracle::default()),
+	);
+	let candidates = make_candidate_chain(1..4);
+	let headers = candidates
+		.iter()
+		.map(|candidate| Header::decode(&mut &candidate.commitments.head_data.0[..]).unwrap())
+		.collect::<Vec<_>>();
+	let hashes = headers.iter().map(|header| header.hash()).collect::<Vec<_>>();
+
+	for candidate in candidates {
+		recovery.handle_pending_candidate(candidate, TEST_SESSION_INDEX);
+	}
+	for _ in &hashes {
+		recovery.candidate_recovery_queue.next_recovery().await;
+	}
+	for hash in &hashes {
+		recovery.clear_waiting_recovery(hash);
+	}
+
+	recovery.recover(RecoveryRequest { hash: hashes[2], kind: RecoveryKind::Full });
+
+	assert_eq!(
+		recovery.candidate_recovery_queue.recovery_queue,
+		vec![hashes[0], hashes[1], hashes[2]],
+		"full recovery must queue candidates up to the known genesis ancestor",
+	);
+	for hash in &hashes[..3] {
+		assert!(recovery.candidates[hash].waiting_recovery);
+	}
+}
+
+#[tokio::test]
 async fn pending_candidate_height_lower_than_latest_finalized() {
 	sp_tracing::init_for_tests();
 
