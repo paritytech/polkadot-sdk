@@ -267,14 +267,15 @@ impl V2DhtOrchestrator {
 
 	// === Advertise own filter ===
 
-	/// The [`AffinityFilter`] this node advertises, built from its current topics.
-	pub(crate) fn local_filter(&self) -> AffinityFilter {
-		self.explicit_affinity.local_filter()
+	/// The [`AffinityFilter`] for a newly connected peer, the one that every peer holds.
+	pub(crate) fn advertised_filter(&self) -> AffinityFilter {
+		self.explicit_affinity.advertised_filter()
 	}
 
-	/// The advertised filter if the local topic set changed since the last read, clearing the flag.
-	pub(crate) fn take_local_filter_if_changed(&mut self) -> Option<AffinityFilter> {
-		self.explicit_affinity.take_local_filter_if_changed()
+	/// The filters due for a broadcast, in sending order. After major sync the advertised filter
+	/// goes ahead of a changed one.
+	pub(crate) fn take_filters_to_broadcast(&mut self) -> Vec<AffinityFilter> {
+		self.explicit_affinity.take_filters_to_broadcast()
 	}
 
 	// === Notification-substream events ===
@@ -423,7 +424,9 @@ impl V2DhtOrchestrator {
 	fn on_pending_affinities_at(&mut self, now: Instant) {
 		self.peer_steering.update_unreachable_peers(now);
 		let topics = self.explicit_affinity.topics();
-		let mut desired = self.peers_topology.peers_for_topics(&topics);
+		let mut desired = self
+			.peers_topology
+			.peers_for_topics(&topics, |peer| self.peer_steering.is_unreachable(peer));
 		desired.extend(
 			self.peers_topology
 				.peers_for_routing(|peer| self.peer_steering.is_unreachable(peer)),
@@ -910,16 +913,34 @@ mod tests {
 	}
 
 	#[test]
-	fn take_local_filter_if_changed_reflects_subscription_topics() {
+	fn take_filters_to_broadcast_reflects_subscription_topics() {
 		let mut orchestrator = orchestrator();
-		assert!(orchestrator.take_local_filter_if_changed().is_none());
+		assert!(orchestrator.take_filters_to_broadcast().is_empty());
 
 		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(1)]));
-		let filter = orchestrator
-			.take_local_filter_if_changed()
-			.expect("a subscription topic marks the filter changed");
-		assert!(filter.contains(&topic(1)));
-		assert!(orchestrator.take_local_filter_if_changed().is_none());
+		let filters = orchestrator.take_filters_to_broadcast();
+		assert_eq!(filters.len(), 1, "a subscription topic marks the filter changed");
+		assert!(filters[0].contains(&topic(1)));
+		assert!(orchestrator.take_filters_to_broadcast().is_empty());
+	}
+
+	#[test]
+	fn subscription_changes_during_major_sync_repeat_the_filter_from_before_the_sync() {
+		let mut orchestrator = orchestrator();
+		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(1)]));
+		let before_sync = orchestrator.take_filters_to_broadcast().remove(0);
+
+		orchestrator.on_major_sync();
+		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(1), topic(2)]));
+		orchestrator.on_major_sync();
+		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(2), topic(3)]));
+		assert_eq!(orchestrator.advertised_filter(), before_sync);
+
+		let filters = orchestrator.take_filters_to_broadcast();
+		assert_eq!(filters.len(), 2);
+		assert_eq!(filters[0], before_sync);
+		assert!(filters[1].contains(&topic(3)));
+		assert_eq!(orchestrator.advertised_filter(), filters[1]);
 	}
 
 	#[test]
@@ -943,7 +964,7 @@ mod tests {
 		// are few, so the test needs a coverage peer outside them.
 		orchestrator.on_pending_affinities();
 		let routing = orchestrator.peers_topology.peers_for_routing(|_| false);
-		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)], |_| false);
 		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
 		// Every coverage peer is queued for a connection, since none are connected yet.
@@ -1011,6 +1032,40 @@ mod tests {
 
 		orchestrator.on_pending_affinities_at(retried_at + UNREACHABLE_AFTER);
 		assert!(orchestrator.peer_steering.peers_to_connect().is_empty());
+	}
+
+	#[test]
+	fn affinity_tick_replaces_a_coverage_peer_that_never_connects() {
+		let mut orchestrator = V2DhtOrchestrator::new(
+			&[topic(1)],
+			None,
+			DEFAULT_BLOOM_FALSE_POS_RATE,
+			peer(1),
+			topology_config(2, 3),
+			"/statement/test".into(),
+			None,
+		);
+		for seed in 2..=30 {
+			orchestrator.on_peers_discovered([peer(seed)]);
+			orchestrator.on_peer_identified(peer(seed), true);
+		}
+		let topology = &orchestrator.peers_topology;
+		let unreachable = topology.peers_for_topics(&[topic(1)], |_| false)[0];
+		let replacement = topology.peers_for_topics(&[topic(1)], |peer| *peer == unreachable)[0];
+		// A routing peer is dialed anyway, so the replacement must come from coverage alone.
+		assert!(!topology.peers_for_routing(|_| false).contains(&replacement));
+
+		let start = Instant::now();
+		orchestrator.on_pending_affinities_at(start);
+		assert!(!orchestrator.peer_steering.peers_to_connect().contains(&replacement));
+		orchestrator.peer_steering.reserve([unreachable]);
+
+		orchestrator.on_pending_affinities_at(start);
+		orchestrator.on_pending_affinities_at(start + UNREACHABLE_AFTER);
+
+		let connect = orchestrator.peer_steering.peers_to_connect();
+		assert!(connect.contains(&replacement));
+		assert!(!connect.contains(&unreachable));
 	}
 
 	#[test]
@@ -1087,7 +1142,7 @@ mod tests {
 		// routing peers are few, so the test needs a coverage peer outside them.
 		orchestrator.on_pending_affinities();
 		let routing = orchestrator.peers_topology.peers_for_routing(|_| false);
-		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)], |_| false);
 		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
 		// The desired peers connect, then the next tick recomputes the target.

@@ -19,15 +19,15 @@ use crate::{mock::*, Call, Deposit, Deposits, Error, Event, HoldReason, RECEIVE_
 use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
 	traits::{
-		fungible::{self, InspectHold},
+		fungible::{self, InspectHold, MutateHold},
 		GetCallIndex, UnfilteredDispatchable,
 	},
 };
 use hrmp_primitives::{
-	Balance, ChannelId, DepositError, DepositSide, MessageToPara, MessageToParaV1, MessageToRelay,
-	MessageToRelayV1, ParaId,
+	Balance, ChannelId, DepositError, DepositKey, DepositSide, MessageToPara, MessageToParaV1,
+	MessageToRelay, MessageToRelayV1, ParaId, ReceiveMigratedDeposits,
 };
-use sp_runtime::{DispatchError, DispatchResult};
+use sp_runtime::{DispatchError, DispatchResult, TokenError};
 
 use DepositSide::{Recipient, Sender};
 
@@ -38,6 +38,21 @@ fn ch(sender: ParaId, recipient: ParaId) -> ChannelId {
 /// What `para` holds for channel deposits.
 fn on_hold(para: ParaId) -> Balance {
 	Balances::balance_on_hold(&HoldReason::ChannelDeposit.into(), &para.into())
+}
+
+/// The reason a migration holds the deposits it hands over for.
+fn migration_reason() -> RuntimeHoldReason {
+	migration::HoldReason::HrmpDeposit.into()
+}
+
+/// What `para` holds for the migration.
+fn migration_hold(para: ParaId) -> Balance {
+	Balances::balance_on_hold(&migration_reason(), &para.into())
+}
+
+/// Hands the deposit of `amount` for `side` of `channel` over, from the migration's hold.
+fn receive_deposit(channel: ChannelId, side: DepositSide, amount: Balance) -> DispatchResult {
+	HrmpPara::receive_deposit(DepositKey { channel, side }, amount, &migration_reason())
 }
 
 fn deposit(channel: ChannelId, side: DepositSide) -> Option<Balance> {
@@ -403,6 +418,208 @@ fn set_after_reanchor_keeps_depositor() {
 		assert_eq!(on_hold(2), 0);
 		assert_eq!(Balances::balance_on_hold(&HoldReason::ChannelDeposit.into(), &1002), 20);
 		assert_eq!(Deposits::<Test>::get((ch(1, 2), Recipient)).map(|d| d.depositor), Some(1002));
+	});
+}
+
+/// A migrated deposit moves from the migration's hold to the side, and the free balance is left
+/// as it was.
+#[test]
+fn receive_deposit_moves_the_migration_hold() {
+	new_test_ext(|| {
+		assert_ok!(Balances::hold(&migration_reason(), &1, 50));
+		let free = Balances::free_balance(1);
+
+		assert_ok!(receive_deposit(ch(1, 2), Sender, 30));
+
+		assert_eq!((on_hold(1), migration_hold(1)), (30, 20));
+		assert_eq!(Balances::free_balance(1), free);
+		assert_eq!(deposit(ch(1, 2), Sender), Some(30));
+		assert_eq!(Deposits::<Test>::get((ch(1, 2), Sender)).map(|d| d.depositor), Some(1));
+		assert_eq!(
+			events(),
+			vec![
+				Event::DepositSet { channel: ch(1, 2), side: Sender, amount: 30 },
+				Event::DepositMigrated { channel: ch(1, 2), side: Sender, amount: 30, held: 30 },
+			]
+		);
+		assert!(sent().is_empty());
+	});
+}
+
+/// The whole balance but the existential deposit may be under the migration's hold.
+#[test]
+fn receive_deposit_with_only_the_existential_deposit_free() {
+	new_test_ext(|| {
+		assert_ok!(Balances::hold(&migration_reason(), &1, ENDOWMENT - 1));
+
+		assert_ok!(receive_deposit(ch(1, 2), Sender, ENDOWMENT - 1));
+
+		assert_eq!((on_hold(1), migration_hold(1)), (ENDOWMENT - 1, 0));
+		assert_eq!(Balances::free_balance(1), 1);
+	});
+}
+
+/// A side is one deposit: a migrated deposit delivered twice is held once, a higher one takes
+/// what is missing from the migration's hold, and a lower one gives the excess back to it. The
+/// free balance is left as it was throughout.
+#[test]
+fn receive_deposit_overrides_what_the_side_holds() {
+	new_test_ext(|| {
+		assert_ok!(Balances::hold(&migration_reason(), &1, 50));
+		let free = Balances::free_balance(1);
+
+		assert_ok!(receive_deposit(ch(1, 2), Sender, 20));
+		assert_ok!(receive_deposit(ch(1, 2), Sender, 20));
+		assert_eq!((on_hold(1), migration_hold(1)), (20, 30));
+
+		assert_ok!(receive_deposit(ch(1, 2), Sender, 25));
+		assert_eq!((on_hold(1), migration_hold(1)), (25, 25));
+
+		assert_ok!(receive_deposit(ch(1, 2), Sender, 15));
+		assert_eq!((on_hold(1), migration_hold(1)), (15, 35));
+		assert_eq!(deposit(ch(1, 2), Sender), Some(15));
+
+		assert_ok!(receive_deposit(ch(1, 2), Sender, 0));
+		assert_eq!((on_hold(1), migration_hold(1)), (0, 50));
+		assert_eq!(deposit(ch(1, 2), Sender), None);
+
+		assert_eq!(Balances::free_balance(1), free);
+		assert_eq!(
+			events(),
+			vec![
+				Event::DepositSet { channel: ch(1, 2), side: Sender, amount: 20 },
+				Event::DepositMigrated { channel: ch(1, 2), side: Sender, amount: 20, held: 20 },
+				Event::DepositMigrated { channel: ch(1, 2), side: Sender, amount: 20, held: 20 },
+				Event::DepositSet { channel: ch(1, 2), side: Sender, amount: 25 },
+				Event::DepositMigrated { channel: ch(1, 2), side: Sender, amount: 25, held: 25 },
+				Event::DepositSet { channel: ch(1, 2), side: Sender, amount: 15 },
+				Event::DepositMigrated { channel: ch(1, 2), side: Sender, amount: 15, held: 15 },
+				Event::DepositSet { channel: ch(1, 2), side: Sender, amount: 0 },
+				Event::DepositMigrated { channel: ch(1, 2), side: Sender, amount: 0, held: 0 },
+			]
+		);
+	});
+}
+
+/// A migration's hold that cannot cover a migrated deposit whole is not expected.
+#[test]
+#[should_panic(expected = "hrmp-para: moved holds not as wanted")]
+fn receive_deposit_with_a_short_migration_hold_is_defensive() {
+	new_test_ext(|| {
+		assert_ok!(Balances::hold(&migration_reason(), &1, 20));
+		let _ = receive_deposit(ch(1, 2), Sender, 30);
+	});
+}
+
+/// Nor is a para that the migration holds nothing for.
+#[test]
+#[should_panic(expected = "hrmp-para: moved holds not as wanted")]
+fn receive_deposit_without_a_migration_hold_is_defensive() {
+	new_test_ext(|| {
+		let _ = receive_deposit(ch(2, 3), Recipient, 10);
+	});
+}
+
+/// Nor is a para with no account at all.
+#[test]
+#[should_panic(expected = "hrmp-para: moved holds not as wanted")]
+fn receive_deposit_without_an_account_is_defensive() {
+	new_test_ext(|| {
+		let _ = receive_deposit(ch(1, 4), Recipient, 10);
+	});
+}
+
+/// After re-anchoring, a migrated deposit for a side that holds something moves on the recorded
+/// depositor.
+#[test]
+fn receive_deposit_after_reanchor_keeps_depositor() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 2), Some(10), None));
+		assert_ok!(Balances::hold(&migration_reason(), &1, 50));
+		let free = Balances::free_balance(1);
+
+		ANCHOR.set(1000);
+		assert_ok!(receive_deposit(ch(1, 2), Sender, 30));
+		assert_eq!((on_hold(1), migration_hold(1)), (30, 30));
+		assert_eq!(Balances::free_balance(1), free);
+		assert_eq!(Balances::balance_on_hold(&HoldReason::ChannelDeposit.into(), &1001), 0);
+		assert_eq!(Deposits::<Test>::get((ch(1, 2), Sender)).map(|d| d.depositor), Some(1));
+	});
+}
+
+/// The deposits of a para's several channels come out of its one migration hold; lowering one
+/// gives back to that hold and leaves the others as they are.
+#[test]
+fn receive_deposit_shares_the_migration_hold_across_channels() {
+	new_test_ext(|| {
+		assert_ok!(Balances::hold(&migration_reason(), &1, 60));
+
+		assert_ok!(receive_deposit(ch(1, 2), Sender, 20));
+		assert_ok!(receive_deposit(ch(1, 3), Sender, 20));
+		assert_ok!(receive_deposit(ch(2, 1), Recipient, 20));
+		assert_eq!((on_hold(1), migration_hold(1)), (60, 0));
+
+		assert_ok!(receive_deposit(ch(1, 2), Sender, 5));
+		assert_eq!((on_hold(1), migration_hold(1)), (45, 15));
+		assert_eq!(deposit(ch(1, 2), Sender), Some(5));
+		assert_eq!(deposit(ch(1, 3), Sender), Some(20));
+		assert_eq!(deposit(ch(2, 1), Recipient), Some(20));
+	});
+}
+
+/// The excess of a side the relay chain set goes under the migration's hold too, not to the
+/// free balance.
+#[test]
+fn receive_deposit_lowers_a_side_the_relay_set() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 2), Some(30), None));
+		let free = Balances::free_balance(1);
+
+		assert_ok!(receive_deposit(ch(1, 2), Sender, 10));
+		assert_eq!((on_hold(1), migration_hold(1)), (10, 20));
+		assert_eq!(Balances::free_balance(1), free);
+		assert_eq!(deposit(ch(1, 2), Sender), Some(10));
+	});
+}
+
+/// A migrated deposit that is released but cannot be held again writes nothing.
+#[test]
+fn receive_deposit_writes_nothing_if_it_fails() {
+	new_test_ext(|| {
+		assert_ok!(Balances::hold(&migration_reason(), &1, 30));
+		// Not a state the currency gets into by itself: an account that the release provides
+		// for anew, so that the hold has to leave it its existential deposit.
+		frame_system::Account::<Test>::mutate(1, |account| {
+			account.data.free = 0;
+			account.providers = 0;
+		});
+
+		assert_noop!(receive_deposit(ch(1, 2), Sender, 30), TokenError::FundsUnavailable);
+		assert_eq!((on_hold(1), migration_hold(1)), (0, 30));
+	});
+}
+
+/// A migration is charged the benchmarked weight for a deposit it hands over.
+#[test]
+fn receive_deposit_weight_is_the_benchmarked_one() {
+	assert_eq!(
+		<HrmpPara as ReceiveMigratedDeposits<RuntimeHoldReason>>::weight_of_receive_deposit(),
+		<() as crate::WeightInfo>::receive_deposit()
+	);
+}
+
+/// Nothing is held for a migrated deposit of nothing.
+#[test]
+fn receive_deposit_zero_holds_nothing() {
+	new_test_ext(|| {
+		assert_ok!(Balances::hold(&migration_reason(), &2, 50));
+		assert_ok!(receive_deposit(ch(1, 2), Recipient, 0));
+		assert_eq!((on_hold(2), migration_hold(2)), (0, 50));
+		assert_eq!(deposit(ch(1, 2), Recipient), None);
+		assert_eq!(
+			events(),
+			vec![Event::DepositMigrated { channel: ch(1, 2), side: Recipient, amount: 0, held: 0 }]
+		);
 	});
 }
 
