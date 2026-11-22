@@ -28,6 +28,7 @@ use frame_support::{
 	StorageNoopGuard,
 };
 use sp_runtime::{bounded_vec, TokenError};
+use std::panic::catch_unwind;
 
 /// Returns one `Inline`, `Lookup` and `Legacy` item each with different data and hash.
 pub fn make_bounded_values() -> (
@@ -131,7 +132,10 @@ fn unnote_preserves_preimage_and_deposit_if_release_fails() {
 				Preimage::unnote_preimage(RuntimeOrigin::signed(2), hash),
 				DEPOSIT_RELEASE_ERROR
 			);
-			assert_storage_noop!(<Preimage as StorePreimage>::unnote(&hash));
+			assert_storage_noop!({
+				let result = catch_unwind(|| <Preimage as StorePreimage>::unnote(&hash));
+				assert_eq!(result.is_err(), cfg!(debug_assertions));
+			});
 
 			FailDepositRelease::set(false);
 			assert_ok!(Preimage::unnote_preimage(RuntimeOrigin::signed(2), hash));

@@ -587,7 +587,9 @@ impl<T: Config> StorePreimage for Pallet<T> {
 	fn unnote(hash: &T::Hash) {
 		// Unlike the dispatchable, this trait method cannot return a deposit release error.
 		// Roll back any storage changes on failure so the deposit can still be released later.
-		if let Err(error) = with_storage_layer(|| Self::do_unnote_preimage(hash, None)) {
+		let result = with_storage_layer(|| Self::do_unnote_preimage(hash, None));
+		debug_assert!(result.is_ok(), "Could not unnote preimage {hash:?}: {result:?}");
+		if let Err(error) = result {
 			log::warn!(target: "runtime::preimage", "Could not unnote preimage {hash:?}: {error:?}");
 		}
 	}

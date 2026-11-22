@@ -4,6 +4,8 @@ doc:
   description: |
     An unnote operation that cannot release a preimage deposit now preserves the deposit
     record and preimage so it can be retried. The dispatchable returns the release error.
+    The StorePreimage trait method rolls back on failure, then triggers a debug assertion
+    in debug builds or logs the error in release builds.
 crates:
 - name: pallet-preimage
   bump: patch
