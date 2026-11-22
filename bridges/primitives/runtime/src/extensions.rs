@@ -20,6 +20,7 @@ use codec::{Compact, Decode, DecodeWithMemTracking, Encode};
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
+	generic::ExtensionVersion,
 	impl_tx_ext_default,
 	traits::{Dispatchable, TransactionExtension},
 	transaction_validity::TransactionValidityError,
@@ -133,7 +134,10 @@ where
 	const IDENTIFIER: &'static str = "Not needed.";
 	type Implicit = S::Implicit;
 
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+	fn implicit(
+		&self,
+		_extension_version: ExtensionVersion,
+	) -> Result<Self::Implicit, TransactionValidityError> {
 		// we shall not ever see this error in relay, because we are never signing decoded
 		// transactions. Instead we're constructing and signing new transactions. So the error code
 		// is kinda random here

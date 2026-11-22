@@ -20,7 +20,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::pallet_prelude::TransactionSource;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	generic::Era,
+	generic::{Era, ExtensionVersion},
 	impl_tx_ext_default,
 	traits::{DispatchInfoOf, SaturatedConversion, TransactionExtension, ValidateResult},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
@@ -61,7 +61,10 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMort
 	const IDENTIFIER: &'static str = "CheckMortality";
 	type Implicit = T::Hash;
 
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+	fn implicit(
+		&self,
+		_extension_version: ExtensionVersion,
+	) -> Result<Self::Implicit, TransactionValidityError> {
 		let current_u64 = <Pallet<T>>::block_number().saturated_into::<u64>();
 		let n = self.0.birth(current_u64).saturated_into::<BlockNumberFor<T>>();
 		if !<BlockHash<T>>::contains_key(n) {
@@ -126,14 +129,14 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			// future
 			assert_eq!(
-				CheckMortality::<Test>::from(Era::mortal(4, 2)).implicit().err().unwrap(),
+				CheckMortality::<Test>::from(Era::mortal(4, 2)).implicit(0).err().unwrap(),
 				InvalidTransaction::AncientBirthBlock.into(),
 			);
 
 			// correct
 			System::set_block_number(13);
 			<BlockHash<Test>>::insert(12, H256::repeat_byte(1));
-			assert!(CheckMortality::<Test>::from(Era::mortal(4, 12)).implicit().is_ok());
+			assert!(CheckMortality::<Test>::from(Era::mortal(4, 12)).implicit(0).is_ok());
 		})
 	}
 

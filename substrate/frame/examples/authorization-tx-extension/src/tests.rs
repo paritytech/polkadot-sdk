@@ -60,7 +60,7 @@ fn create_asset_works() {
 		// Create the transaction signature, to be used in the top level `VerifyMultiSignature`
 		// extension.
 		let tx_sign = MultiSignature::Sr25519(
-			(&(ext_version, &create_asset_call), &tx_ext, tx_ext.implicit().unwrap())
+			(&(ext_version, &create_asset_call), &tx_ext, tx_ext.implicit(ext_version).unwrap())
 				.using_encoded(|e| alice_keyring.sign(&sp_io::hashing::blake2_256(e))),
 		);
 		// Add the signature to the extension.
@@ -122,8 +122,11 @@ fn create_coowned_asset_works() {
 			frame_system::CheckEra::<Runtime>::from(sp_runtime::generic::Era::immortal()),
 		);
 		// Create the payload Alice and Bob need to sign.
-		let inner_payload =
-			(&(ext_version, &create_asset_call), &inner_ext, inner_ext.implicit().unwrap());
+		let inner_payload = (
+			&(ext_version, &create_asset_call),
+			&inner_ext,
+			inner_ext.implicit(ext_version).unwrap(),
+		);
 		// Create Alice's signature.
 		let alice_inner_sig = MultiSignature::Sr25519(
 			inner_payload.using_encoded(|e| alice_keyring.sign(&sp_io::hashing::blake2_256(e))),
@@ -148,7 +151,7 @@ fn create_coowned_asset_works() {
 		// Create Charlie's transaction signature, to be used in the top level
 		// `VerifyMultiSignature` extension.
 		let tx_sign = MultiSignature::Sr25519(
-			(&(ext_version, &create_asset_call), &tx_ext, tx_ext.implicit().unwrap())
+			(&(ext_version, &create_asset_call), &tx_ext, tx_ext.implicit(ext_version).unwrap())
 				.using_encoded(|e| charlie_keyring.sign(&sp_io::hashing::blake2_256(e))),
 		);
 		// Add the signature to the extension.
@@ -212,7 +215,8 @@ fn inner_authorization_works() {
 			frame_system::CheckEra::<Runtime>::from(sp_runtime::generic::Era::mortal(4, 0)),
 		);
 		// Create the payload Alice and Bob need to sign.
-		let inner_payload = (&create_asset_call, &inner_ext, inner_ext.implicit().unwrap());
+		let inner_payload =
+			(&create_asset_call, &inner_ext, inner_ext.implicit(ext_version).unwrap());
 		// Create Alice's signature.
 		let alice_inner_sig = MultiSignature::Sr25519(
 			inner_payload.using_encoded(|e| alice_keyring.sign(&sp_io::hashing::blake2_256(e))),
@@ -238,7 +242,7 @@ fn inner_authorization_works() {
 		// Create Charlie's transaction signature, to be used in the top level
 		// `VerifyMultiSignature` extension.
 		let tx_sign = MultiSignature::Sr25519(
-			(&(ext_version, &create_asset_call), &tx_ext, tx_ext.implicit().unwrap())
+			(&(ext_version, &create_asset_call), &tx_ext, tx_ext.implicit(ext_version).unwrap())
 				.using_encoded(|e| charlie_keyring.sign(&sp_io::hashing::blake2_256(e))),
 		);
 		// Add the signature to the extension that Charlie signed.

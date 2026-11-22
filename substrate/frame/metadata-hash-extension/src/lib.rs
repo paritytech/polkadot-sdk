@@ -43,11 +43,10 @@ use frame_support::{pallet_prelude::Weight, DebugNoBound};
 use frame_system::Config;
 use scale_info::TypeInfo;
 use sp_runtime::{
+	generic::ExtensionVersion,
 	impl_tx_ext_default,
-	traits::{DispatchInfoOf, DispatchOriginOf, Implication, TransactionExtension, ValidateResult},
-	transaction_validity::{
-		InvalidTransaction, TransactionSource, TransactionValidityError, UnknownTransaction,
-	},
+	traits::TransactionExtension,
+	transaction_validity::{InvalidTransaction, TransactionValidityError, UnknownTransaction},
 };
 
 #[cfg(test)]
@@ -154,9 +153,16 @@ impl<T> CheckMetadataHash<T> {
 impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMetadataHash<T> {
 	const IDENTIFIER: &'static str = "CheckMetadataHash";
 	type Implicit = Option<[u8; 32]>;
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+	fn implicit(
+		&self,
+		extension_version: ExtensionVersion,
+	) -> Result<Self::Implicit, TransactionValidityError> {
 		let signed = match self.mode {
 			Mode::Disabled => None,
+			// The metadata hash only covers extension version 0.
+			Mode::Enabled if extension_version != 0 => {
+				return Err(InvalidTransaction::BadProof.into())
+			},
 			Mode::Enabled => match self.metadata_hash.hash() {
 				Some(hash) => Some(hash),
 				None => return Err(UnknownTransaction::CannotLookup.into()),
@@ -180,24 +186,5 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMeta
 		Weight::zero()
 	}
 
-	fn validate(
-		&self,
-		origin: DispatchOriginOf<T::RuntimeCall>,
-		_call: &T::RuntimeCall,
-		_info: &DispatchInfoOf<T::RuntimeCall>,
-		_len: usize,
-		_self_implicit: Self::Implicit,
-		inherited_implication: &impl Implication,
-		_source: TransactionSource,
-	) -> ValidateResult<Self::Val, T::RuntimeCall> {
-		// The base implication starts with the extension version.
-		if self.mode == Mode::Enabled &&
-			inherited_implication.parts().base.using_encoded(|b| b.first() != Some(&0))
-		{
-			return Err(InvalidTransaction::BadProof.into());
-		}
-		Ok((Default::default(), (), origin))
-	}
-
-	impl_tx_ext_default!(T::RuntimeCall; prepare);
+	impl_tx_ext_default!(T::RuntimeCall; validate prepare);
 }

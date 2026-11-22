@@ -22,6 +22,7 @@ use super::{
 	PostDispatchInfoOf, RefundWeight,
 };
 use crate::{
+	generic::ExtensionVersion,
 	scale_info::{MetaType, StaticTypeInfo},
 	transaction_validity::{
 		TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction,
@@ -244,7 +245,13 @@ pub trait TransactionExtension<Call: Dispatchable>:
 	/// can be useful in authenticating the transaction. The expected usage of this is to include in
 	/// any data which is signed and verified as part of transaction validation. Also perform any
 	/// pre-signature-verification checks and return an error if needed.
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+	///
+	/// `extension_version` is the version of the extension pipeline the transaction uses. Signed
+	/// (format 4) transactions always use version `0`.
+	fn implicit(
+		&self,
+		_extension_version: ExtensionVersion,
+	) -> Result<Self::Implicit, TransactionValidityError> {
 		use crate::transaction_validity::InvalidTransaction::IndeterminateImplicit;
 		Ok(Self::Implicit::decode(&mut &[][..]).map_err(|_| IndeterminateImplicit)?)
 	}
@@ -541,8 +548,11 @@ pub struct TransactionExtensionMetadata {
 impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 	const IDENTIFIER: &'static str = "Use `metadata()`!";
 	for_tuples!( type Implicit = ( #( Tuple::Implicit ),* ); );
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
-		Ok(for_tuples!( ( #( Tuple.implicit()? ),* ) ))
+	fn implicit(
+		&self,
+		extension_version: ExtensionVersion,
+	) -> Result<Self::Implicit, TransactionValidityError> {
+		Ok(for_tuples!( ( #( Tuple.implicit(extension_version)? ),* ) ))
 	}
 	fn metadata() -> Vec<TransactionExtensionMetadata> {
 		let mut ids = Vec::new();
@@ -669,7 +679,10 @@ impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 impl<Call: Dispatchable> TransactionExtension<Call> for () {
 	const IDENTIFIER: &'static str = "UnitTransactionExtension";
 	type Implicit = ();
-	fn implicit(&self) -> core::result::Result<Self::Implicit, TransactionValidityError> {
+	fn implicit(
+		&self,
+		_extension_version: ExtensionVersion,
+	) -> core::result::Result<Self::Implicit, TransactionValidityError> {
 		Ok(())
 	}
 	type Val = ();
@@ -728,7 +741,10 @@ mod test {
 		impl TransactionExtension<()> for MockExtension {
 			const IDENTIFIER: &'static str = "MockExtension";
 			type Implicit = u8;
-			fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+			fn implicit(
+				&self,
+				_extension_version: ExtensionVersion,
+			) -> Result<Self::Implicit, TransactionValidityError> {
 				Ok(self.also_implicit)
 			}
 			type Val = ();
@@ -813,7 +829,7 @@ mod test {
 			MockExtension { also_implicit: 21, explicit: 22 },
 		);
 
-		let implicit = ext.implicit().unwrap();
+		let implicit = ext.implicit(0).unwrap();
 
 		let res = ext
 			.validate(
@@ -851,7 +867,7 @@ mod test {
 			),
 		);
 
-		let implicit = ext.implicit().unwrap();
+		let implicit = ext.implicit(0).unwrap();
 
 		let res = ext
 			.validate(

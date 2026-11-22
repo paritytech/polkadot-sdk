@@ -27,7 +27,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	generic,
-	generic::Preamble,
+	generic::{ExtensionVersion, Preamble},
 	testing::UintAuthorityId,
 	traits::{
 		Applyable, BlakeTwo256, Checkable, ExtensionVariant, IdentityLookup, TransactionExtension,
@@ -62,7 +62,10 @@ impl<const N: u32> TransactionExtension<RuntimeCall> for SimpleExt<N> {
 	type Val = ();
 	type Pre = ();
 
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+	fn implicit(
+		&self,
+		_extension_version: ExtensionVersion,
+	) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(())
 	}
 

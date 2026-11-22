@@ -1524,9 +1524,10 @@ mod tests {
 				);
 				assert_eq!(payload.encode().split_last().unwrap().1, bhr_indirect_payload.encode());
 				assert_eq!(
-					TxExtension::implicit(&payload).unwrap().encode().split_last().unwrap().1,
+					TxExtension::implicit(&payload, 0).unwrap().encode().split_last().unwrap().1,
 					sp_runtime::traits::TransactionExtension::<RuntimeCall>::implicit(
-						&bhr_indirect_payload
+						&bhr_indirect_payload,
+						0,
 					)
 					.unwrap()
 					.encode()

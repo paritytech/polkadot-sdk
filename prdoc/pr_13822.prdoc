@@ -1,14 +1,41 @@
-title: "CheckMetadataHash: reject mode 1 for extension versions other than 0"
+title: "TransactionExtension::implicit takes the extension version; CheckMetadataHash rejects mode 1 for versions other than 0"
 doc:
-  - audience: [Runtime Dev, Runtime User]
+  - audience: Runtime Dev
     description: |
-      The RFC-0078 metadata hash only describes the transaction extensions of extension
-      version 0. A transaction using another extension version with `mode = 1` signed a hash
-      that does not cover its own extensions. `CheckMetadataHash` now rejects such
-      transactions with `InvalidTransaction::BadProof` during validation.
+      `TransactionExtension::implicit` now takes the extension version of the transaction:
+      `fn implicit(&self, extension_version: ExtensionVersion)`. Signed (format 4) transactions
+      always pass version `0`. Custom extensions that override `implicit` must add the parameter,
+      and wrapper extensions should forward it to the inner extension. Extensions that use the
+      default `implicit` need no change.
 
-      Signed transactions (extrinsic format 4) and general transactions using extension
-      version 0 are unaffected. `mode = 0` is unaffected for every extension version.
+      `CheckMetadataHash` uses the version to reject `mode = 1` when the extension version is not
+      `0`, because the RFC-0078 metadata hash only describes the extensions of version `0`.
+  - audience: Runtime User
+    description: |
+      A general transaction that uses an extension version other than `0` with
+      `CheckMetadataHash` `mode = 1` is now rejected with `InvalidTransaction::BadProof`. Signed
+      transactions and general transactions using extension version `0` are unaffected. `mode = 0`
+      is unaffected for every extension version.
 crates:
+  - name: sp-runtime
+    bump: major
   - name: frame-metadata-hash-extension
     bump: patch
+  - name: frame-system
+    bump: patch
+  - name: pallet-meta-tx
+    bump: patch
+  - name: pallet-skip-feeless-payment
+    bump: patch
+  - name: pallet-pgas-allowance
+    bump: patch
+  - name: cumulus-pallet-weight-reclaim
+    bump: patch
+  - name: cumulus-pallet-parachain-system
+    bump: patch
+  - name: bp-runtime
+    bump: patch
+  - name: bridge-hub-rococo-runtime
+    bump: none
+  - name: bridge-hub-westend-runtime
+    bump: none

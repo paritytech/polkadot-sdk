@@ -54,7 +54,10 @@ where
 	const IDENTIFIER: &'static str = SE::IDENTIFIER;
 	type Implicit = SE::AdditionalSigned;
 
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+	fn implicit(
+		&self,
+		_extension_version: ExtensionVersion,
+	) -> Result<Self::Implicit, TransactionValidityError> {
 		self.0.additional_signed()
 	}
 	fn metadata() -> Vec<TransactionExtensionMetadata> {

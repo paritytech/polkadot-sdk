@@ -219,7 +219,7 @@ impl ExtrinsicBuilder {
 			let raw_payload = SignedPayload::from_raw(
 				self.function.clone(),
 				tx_ext.clone(),
-				tx_ext.implicit().unwrap(),
+				tx_ext.implicit(0).unwrap(),
 			);
 			let signature = raw_payload.using_encoded(|e| signer.sign(e));
 

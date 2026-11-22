@@ -37,6 +37,7 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
+	generic::ExtensionVersion,
 	traits::{DispatchInfoOf, Dispatchable, Implication, PostDispatchInfoOf, TransactionExtension},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 	DispatchResult,
@@ -127,8 +128,11 @@ where
 	// Initial proof size and inner extension pre.
 	type Pre = (Option<u64>, S::Pre);
 
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
-		self.0.implicit()
+	fn implicit(
+		&self,
+		extension_version: ExtensionVersion,
+	) -> Result<Self::Implicit, TransactionValidityError> {
+		self.0.implicit(extension_version)
 	}
 
 	fn metadata() -> Vec<sp_runtime::traits::TransactionExtensionMetadata> {

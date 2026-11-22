@@ -46,6 +46,7 @@ use frame_system::pallet_prelude::OriginFor;
 use pallet_transaction_payment::ChargeTransactionPayment;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
+	generic::ExtensionVersion,
 	traits::{
 		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, PostDispatchInfoOf,
 		RefundWeight, TransactionExtension, ValidateResult, Zero,
@@ -208,8 +209,11 @@ where
 	type Val = Val<S::Val, T>;
 	type Pre = Pre<S::Pre, T>;
 
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
-		self.inner.implicit()
+	fn implicit(
+		&self,
+		extension_version: ExtensionVersion,
+	) -> Result<Self::Implicit, TransactionValidityError> {
+		self.inner.implicit(extension_version)
 	}
 
 	fn metadata() -> alloc::vec::Vec<sp_runtime::traits::TransactionExtensionMetadata> {

@@ -19,6 +19,7 @@ use crate::{pallet_prelude::BlockNumberFor, Config, Pallet};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
+	generic::ExtensionVersion,
 	impl_tx_ext_default,
 	traits::{TransactionExtension, Zero},
 	transaction_validity::TransactionValidityError,
@@ -56,7 +57,10 @@ impl<T: Config + Send + Sync> CheckGenesis<T> {
 impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckGenesis<T> {
 	const IDENTIFIER: &'static str = "CheckGenesis";
 	type Implicit = T::Hash;
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+	fn implicit(
+		&self,
+		_extension_version: ExtensionVersion,
+	) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(<Pallet<T>>::block_hash(BlockNumberFor::<T>::zero()))
 	}
 	type Val = ();

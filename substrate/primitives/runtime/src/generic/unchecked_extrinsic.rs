@@ -942,7 +942,7 @@ where
 		call: impl Into<CallAndMaybeEncoded<Call>>,
 		tx_ext: ExtensionV0,
 	) -> Result<Self, TransactionValidityError> {
-		let implicit = ExtensionV0::implicit(&tx_ext)?;
+		let implicit = ExtensionV0::implicit(&tx_ext, 0)?;
 		Ok(Self((call.into(), tx_ext, implicit)))
 	}
 
@@ -1367,7 +1367,7 @@ mod tests {
 		let sig_payload = SignedPayload::from_raw(
 			FakeDispatchable::from(vec![0u8; 0]),
 			DummyExtension,
-			DummyExtension.implicit().unwrap(),
+			DummyExtension.implicit(0).unwrap(),
 		);
 		let ux = Ex::new_signed(
 			vec![0u8; 0].into(),
@@ -1396,7 +1396,7 @@ mod tests {
 		let sig_payload = SignedPayload::from_raw(
 			call.clone(),
 			DummyExtension,
-			DummyExtension.implicit().unwrap(),
+			DummyExtension.implicit(0).unwrap(),
 		);
 
 		// Sanity-check the test setup: the *raw* encoded tuple is > 256 bytes, but
@@ -1467,7 +1467,7 @@ mod tests {
 		let call: TestCall = Call::Raw(vec![0u8; 4]).into();
 		let signed = TEST_ACCOUNT;
 		let extension = DummyExtension;
-		let implicit = extension.implicit().unwrap();
+		let implicit = extension.implicit(0).unwrap();
 		let legacy_signature = TestSig(TEST_ACCOUNT, (&call, &extension, &implicit).encode());
 
 		let old_ux =
@@ -1501,7 +1501,7 @@ mod tests {
 		let call: TestCall = Call::Raw(vec![0u8; 257]).into();
 		let signed = TEST_ACCOUNT;
 		let extension = DummyExtension;
-		let implicit = extension.implicit().unwrap();
+		let implicit = extension.implicit(0).unwrap();
 		let signature = TestSig(
 			TEST_ACCOUNT,
 			blake2_256(&(&call, DummyExtension, &implicit).encode()[..]).to_vec(),
@@ -1591,7 +1591,7 @@ mod tests {
 		let sig_payload = SignedPayload::from_raw(
 			FakeDispatchable::from(call.clone()),
 			DummyExtension,
-			DummyExtension.implicit().unwrap(),
+			DummyExtension.implicit(0).unwrap(),
 		);
 		let sig_payload_encoded = sig_payload.encode();
 

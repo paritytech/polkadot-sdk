@@ -47,6 +47,7 @@ use frame_support::{
 };
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
+	generic::ExtensionVersion,
 	traits::{
 		DispatchInfoOf, DispatchOriginOf, Implication, PostDispatchInfoOf, TransactionExtension,
 		ValidateResult,
@@ -136,8 +137,11 @@ where
 		S::metadata()
 	}
 
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
-		self.0.implicit()
+	fn implicit(
+		&self,
+		extension_version: ExtensionVersion,
+	) -> Result<Self::Implicit, TransactionValidityError> {
+		self.0.implicit(extension_version)
 	}
 	type Val =
 		Intermediate<S::Val, <DispatchOriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;

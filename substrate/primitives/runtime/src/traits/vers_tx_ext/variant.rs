@@ -231,7 +231,10 @@ mod tests {
 	impl TransactionExtension<MockCall> for ExtV0 {
 		const IDENTIFIER: &'static str = "OldSchoolV0";
 		type Implicit = ();
-		fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		fn implicit(
+			&self,
+			_extension_version: ExtensionVersion,
+		) -> Result<Self::Implicit, TransactionValidityError> {
 			Ok(())
 		}
 		type Val = ();
@@ -285,7 +288,10 @@ mod tests {
 	impl TransactionExtension<MockCall> for OtherExtension {
 		const IDENTIFIER: &'static str = "OtherExtension";
 		type Implicit = ();
-		fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		fn implicit(
+			&self,
+			_extension_version: ExtensionVersion,
+		) -> Result<Self::Implicit, TransactionValidityError> {
 			Ok(())
 		}
 		type Val = ();

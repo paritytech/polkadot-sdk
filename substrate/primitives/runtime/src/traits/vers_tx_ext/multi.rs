@@ -220,6 +220,7 @@ declare_multi_version_enum! {
 mod tests {
 	use super::*;
 	use crate::{
+		generic::ExtensionVersion,
 		traits::{
 			AsTransactionAuthorizedOrigin, DecodeWithVersion, DispatchInfoOf, Dispatchable,
 			Implication, Pipeline, PipelineVersion, TransactionExtension, TransactionSource,
@@ -288,7 +289,10 @@ mod tests {
 		type Val = ();
 		type Pre = ();
 
-		fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		fn implicit(
+			&self,
+			_extension_version: ExtensionVersion,
+		) -> Result<Self::Implicit, TransactionValidityError> {
 			Ok(())
 		}
 
@@ -340,7 +344,10 @@ mod tests {
 		type Val = ();
 		type Pre = ();
 
-		fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		fn implicit(
+			&self,
+			_extension_version: ExtensionVersion,
+		) -> Result<Self::Implicit, TransactionValidityError> {
 			Ok(())
 		}
 

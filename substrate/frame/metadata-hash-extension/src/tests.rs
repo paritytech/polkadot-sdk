@@ -52,7 +52,7 @@ impl frame_system::Config for Test {
 #[test]
 fn rejects_when_no_metadata_hash_was_passed() {
 	let ext = CheckMetadataHash::<Test>::decode(&mut &1u8.encode()[..]).unwrap();
-	assert_eq!(Err(UnknownTransaction::CannotLookup.into()), ext.implicit());
+	assert_eq!(Err(UnknownTransaction::CannotLookup.into()), ext.implicit(0));
 }
 
 #[test]
