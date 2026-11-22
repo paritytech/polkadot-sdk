@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795172767233,
+  "lastUpdate": 1795388211472,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -149363,6 +149363,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3239682935,
             "range": "± 39866167",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ross@jkrb.io",
+            "name": "Ross Bulat",
+            "username": "rossbulat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e603a47c9412a237e2667cddd57fb3c2661eb032",
+          "message": "ci: exclude failing PBA YouTube playlist from link checks (#13683)\n\n# Description\n\nThe [Check links\njob](https://github.com/paritytech/polkadot-sdk/actions/runs/41555228991/job/125652413364)\nfailed because the PBA YouTube playlist returned an HTTP/2 protocol\nerror. The same URL was reported in both documentation paths.\n\nAdd an exclusion for this exact playlist URL to `.config/lychee.toml` so\nthat this transport failure no longer blocks CI. The documentation link\nremains available, and other YouTube URLs continue to be checked.\n\n## Integration\n\nCI configuration only. No downstream integration or crate publishing is\nrequired.\n\n## Review Notes\n\nThe regex is anchored and escapes the domain dots and query delimiter. A\ncomment records why this URL is excluded. Includes the required PRDoc\nwith no crate changes.\n\nValidation:\n- Parsed the updated configuration with Python `tomllib`.\n- Confirmed that the new regex matches the failed URL and rejects six\naltered or unrelated URLs.\n- Confirmed that all existing configuration and exclusion entries are\npreserved.\n- Parsed the PRDoc as YAML and checked its fields and audience against\nthe repository schema.\n- The full repository Lychee scan is left to the Check links workflow.\n\n# Checklist\n\n- [x] Description, integration notes, and review notes are included.\n- [x] Required topic and release labels are applied.\n- [x] PRDoc is included; the documentation URL remains unchanged.\n- [x] TOML parsing and exact URL matching were checked.",
+          "timestamp": "2026-11-22T21:38:48Z",
+          "tree_id": "2644442d5b5e446af1331218ccc13838e26710f0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e603a47c9412a237e2667cddd57fb3c2661eb032"
+        },
+        "date": 1795388179156,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19141575,
+            "range": "± 147129",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19913471,
+            "range": "± 225512",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20987435,
+            "range": "± 72368",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25336717,
+            "range": "± 202994",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57547225,
+            "range": "± 968031",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 351606242,
+            "range": "± 3232453",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2497978315,
+            "range": "± 225730269",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17023321,
+            "range": "± 165862",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17116859,
+            "range": "± 157093",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17655288,
+            "range": "± 117255",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22232919,
+            "range": "± 116205",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61730965,
+            "range": "± 570016",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 357086099,
+            "range": "± 2980166",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2738594140,
+            "range": "± 14678917",
             "unit": "ns/iter"
           }
         ]
