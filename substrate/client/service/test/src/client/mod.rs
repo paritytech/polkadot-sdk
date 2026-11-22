@@ -60,6 +60,7 @@ use substrate_test_runtime_client::{
 	TestClientBuilder, TestClientBuilderExt,
 };
 
+mod check_inherents;
 mod db;
 
 const TEST_ENGINE_ID: ConsensusEngineId = *b"TEST";
