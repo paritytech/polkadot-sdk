@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795174075479,
+  "lastUpdate": 1795389204994,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "912969a78efada22616c5f3f74ed12274e872545",
-          "message": "ci: fix resolc download (#12008)\n\nPR adds some logic to retry download resolc to avoid\n[such](https://github.com/paritytech/polkadot-sdk/actions/runs/25483886193/job/74774666969)\nproblems\n\ncc https://github.com/paritytech/devops/issues/5285",
-          "timestamp": "2026-05-07T14:16:45Z",
-          "tree_id": "4240b9e11b6c4949c5bfcea8a5dae01bdde6b367",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/912969a78efada22616c5f3f74ed12274e872545"
-        },
-        "date": 1778169907767,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.172,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03844913401600001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08423718999399993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03901503420200001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ross@jkrb.io",
+            "name": "Ross Bulat",
+            "username": "rossbulat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e603a47c9412a237e2667cddd57fb3c2661eb032",
+          "message": "ci: exclude failing PBA YouTube playlist from link checks (#13683)\n\n# Description\n\nThe [Check links\njob](https://github.com/paritytech/polkadot-sdk/actions/runs/41555228991/job/125652413364)\nfailed because the PBA YouTube playlist returned an HTTP/2 protocol\nerror. The same URL was reported in both documentation paths.\n\nAdd an exclusion for this exact playlist URL to `.config/lychee.toml` so\nthat this transport failure no longer blocks CI. The documentation link\nremains available, and other YouTube URLs continue to be checked.\n\n## Integration\n\nCI configuration only. No downstream integration or crate publishing is\nrequired.\n\n## Review Notes\n\nThe regex is anchored and escapes the domain dots and query delimiter. A\ncomment records why this URL is excluded. Includes the required PRDoc\nwith no crate changes.\n\nValidation:\n- Parsed the updated configuration with Python `tomllib`.\n- Confirmed that the new regex matches the failed URL and rejects six\naltered or unrelated URLs.\n- Confirmed that all existing configuration and exclusion entries are\npreserved.\n- Parsed the PRDoc as YAML and checked its fields and audience against\nthe repository schema.\n- The full repository Lychee scan is left to the Check links workflow.\n\n# Checklist\n\n- [x] Description, integration notes, and review notes are included.\n- [x] Required topic and release labels are applied.\n- [x] PRDoc is included; the documentation URL remains unchanged.\n- [x] TOML parsing and exact URL matching were checked.",
+          "timestamp": "2026-11-22T21:38:48Z",
+          "tree_id": "2644442d5b5e446af1331218ccc13838e26710f0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e603a47c9412a237e2667cddd57fb3c2661eb032"
+        },
+        "date": 1795389167664,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.082,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03830311256400001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08455808575199994,
             "unit": "seconds"
           }
         ]
