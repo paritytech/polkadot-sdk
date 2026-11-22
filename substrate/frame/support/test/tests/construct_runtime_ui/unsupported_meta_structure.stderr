@@ -1,40 +1,5 @@
-error[E0539]: malformed `cfg` attribute input
-  --> tests/construct_runtime_ui/unsupported_meta_structure.rs:39:5
+error[E0537]: invalid predicate `feature`
+  --> tests/construct_runtime_ui/unsupported_meta_structure.rs:39:9
    |
 39 |         #[cfg(feature(test))]
-   |           ^^^^-------------^
-   |               |
-   |               valid arguments are `any`, `all`, `not` or `target`
-   |
-   = note: for more information, visit <https://doc.rust-lang.org/reference/conditional-compilation.html#the-cfg-attribute>
-help: must be of the form
-   |
-39 -         #[cfg(feature(test))]
-39 +         #[cfg(predicate)]
-   |
-
-error[E0539]: malformed `cfg` attribute input
-  --> tests/construct_runtime_ui/unsupported_meta_structure.rs:36:1
-   |
-36 | / frame_support::construct_runtime!(
-37 | |     pub enum Runtime {
-38 | |         System: frame_system,
-39 | |         #[cfg(feature(test))]
-   | |               ------------- valid arguments are `any`, `all`, `not` or `target`
-...  |
-42 | | );
-   | |_^
-   |
-   = note: for more information, visit <https://doc.rust-lang.org/reference/conditional-compilation.html#the-cfg-attribute>
-   = note: this error originates in the macro `frame_support::construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
-help: must be of the form
-   |
-36 - frame_support::construct_runtime!(
-37 -     pub enum Runtime {
-38 -         System: frame_system,
-39 -         #[cfg(feature(test))]
-40 -         Pallet: pallet,
-41 -     }
-42 - );
-36 + cfg(predicate);
-   |
+   |               ^^^^^^^^^^^^^
