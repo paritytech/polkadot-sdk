@@ -1037,6 +1037,7 @@ pub mod storage_key_generator {
 			vec![b"Babe", b"SegmentIndex"],
 			vec![b"Balances", b":__STORAGE_VERSION__:"],
 			vec![b"Balances", b"TotalIssuance"],
+			vec![b"InherentUpgrade", b":__STORAGE_VERSION__:"],
 			vec![b"SubstrateTest", b":__STORAGE_VERSION__:"],
 			vec![b"SubstrateTest", b"Authorities"],
 			vec![b"System", b":__STORAGE_VERSION__:"],
