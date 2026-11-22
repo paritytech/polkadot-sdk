@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795174135932,
+  "lastUpdate": 1795389248144,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bbaa06f68d1e10fcd4aa43ee136819e16cf760eb",
-          "message": "Update `TargetBlockRate` impl to match configured runtime block processing velocity on all test chains (#12005)\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>",
-          "timestamp": "2026-05-07T07:17:47Z",
-          "tree_id": "46be5d023cdc50bbba42833314e69d5bc79bea93",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bbaa06f68d1e10fcd4aa43ee136819e16cf760eb"
-        },
-        "date": 1778143390049,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.011038373199999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00268880721,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009570493669999975,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009831553779999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ross@jkrb.io",
+            "name": "Ross Bulat",
+            "username": "rossbulat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e603a47c9412a237e2667cddd57fb3c2661eb032",
+          "message": "ci: exclude failing PBA YouTube playlist from link checks (#13683)\n\n# Description\n\nThe [Check links\njob](https://github.com/paritytech/polkadot-sdk/actions/runs/41555228991/job/125652413364)\nfailed because the PBA YouTube playlist returned an HTTP/2 protocol\nerror. The same URL was reported in both documentation paths.\n\nAdd an exclusion for this exact playlist URL to `.config/lychee.toml` so\nthat this transport failure no longer blocks CI. The documentation link\nremains available, and other YouTube URLs continue to be checked.\n\n## Integration\n\nCI configuration only. No downstream integration or crate publishing is\nrequired.\n\n## Review Notes\n\nThe regex is anchored and escapes the domain dots and query delimiter. A\ncomment records why this URL is excluded. Includes the required PRDoc\nwith no crate changes.\n\nValidation:\n- Parsed the updated configuration with Python `tomllib`.\n- Confirmed that the new regex matches the failed URL and rejects six\naltered or unrelated URLs.\n- Confirmed that all existing configuration and exclusion entries are\npreserved.\n- Parsed the PRDoc as YAML and checked its fields and audience against\nthe repository schema.\n- The full repository Lychee scan is left to the Check links workflow.\n\n# Checklist\n\n- [x] Description, integration notes, and review notes are included.\n- [x] Required topic and release labels are applied.\n- [x] PRDoc is included; the documentation URL remains unchanged.\n- [x] TOML parsing and exact URL matching were checked.",
+          "timestamp": "2026-11-22T21:38:48Z",
+          "tree_id": "2644442d5b5e446af1331218ccc13838e26710f0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e603a47c9412a237e2667cddd57fb3c2661eb032"
+        },
+        "date": 1795389210468,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002559663089999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009715954249999981,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01164628002,
             "unit": "seconds"
           }
         ]
