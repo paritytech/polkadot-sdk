@@ -162,7 +162,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-st
     fn <a href="#method.set_heap_pages" class="fn">set_heap_pages</a>(self, heap_pages: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u64.html">u64</a>) -&gt; Self { ... }
 <span class="item-spacer"></span>    fn <a href="#method.add_extra_child_storage" class="fn">add_extra_child_storage</a>&lt;K, V&gt;(
         self,
-        child_info: &amp;ChildInfo,
+        child_info: &amp;<a class="enum" href="../sp_storage/enum.ChildInfo.html" title="enum sp_storage::ChildInfo">ChildInfo</a>,
         key: K,
         value: V,
     ) -&gt; Self
@@ -185,7 +185,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-st
 </div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.set_heap_pages" class="method"><h4 class="code-header">fn <a href="#method.set_heap_pages" class="fn">set_heap_pages</a>(self, heap_pages: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u64.html">u64</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Override the default value for Wasm heap pages.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.add_extra_child_storage" class="method"><h4 class="code-header">fn <a href="#method.add_extra_child_storage" class="fn">add_extra_child_storage</a>&lt;K, V&gt;(
     self,
-    child_info: &amp;ChildInfo,
+    child_info: &amp;<a class="enum" href="../sp_storage/enum.ChildInfo.html" title="enum sp_storage::ChildInfo">ChildInfo</a>,
     key: K,
     value: V,
 ) -&gt; Self<div class="where">where
