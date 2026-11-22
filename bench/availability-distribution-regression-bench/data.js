@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795173958148,
+  "lastUpdate": 1795389119122,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "claravanstaden64@gmail.com",
-            "name": "Clara van Staden",
-            "username": "claravanstaden"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "2b5a0e15122b7d24eca7371d20d5f8b7e31fa9fd",
-          "message": "Snowbridge: Set default asset claimer to local network (#11919)\n\nThe inbound-queue v2 message converter falls back to the Snowbridge\nsovereign account on AssetHub as the asset claimer when no explicit\nclaimer is supplied. Previously this fallback used `AccountId32 {\nnetwork: None, .. }`, which did not match the location AssetHub's\nsigned-origin converter produces (it sets `network:\nSome(LocalNetwork)`). The trap-key hash stored on `AssetsTrapped`\ntherefore could not be matched by a signed `polkadotXcm.claim_assets`\ncall, making default-claimer trapped funds effectively unrecoverable\nwithout a runtime upgrade.\n\nThis PR sets `network: Some(LocalNetwork::get())` on the fallback\nclaimer so its `Location` agrees with what `SignedToAccountId32<_, _,\nLocalNetwork>` yields on AssetHub, and adds a test covering the\nno-claimer-supplied path.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-05-08T13:59:03Z",
-          "tree_id": "aa40f757496e1f52cf0c7a61dd30ab49f089c50b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2b5a0e15122b7d24eca7371d20d5f8b7e31fa9fd"
-        },
-        "date": 1778254757494,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.00704316310666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023686971966666675,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14068538840666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009688916566666655,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1442264358533334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ross@jkrb.io",
+            "name": "Ross Bulat",
+            "username": "rossbulat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e603a47c9412a237e2667cddd57fb3c2661eb032",
+          "message": "ci: exclude failing PBA YouTube playlist from link checks (#13683)\n\n# Description\n\nThe [Check links\njob](https://github.com/paritytech/polkadot-sdk/actions/runs/41555228991/job/125652413364)\nfailed because the PBA YouTube playlist returned an HTTP/2 protocol\nerror. The same URL was reported in both documentation paths.\n\nAdd an exclusion for this exact playlist URL to `.config/lychee.toml` so\nthat this transport failure no longer blocks CI. The documentation link\nremains available, and other YouTube URLs continue to be checked.\n\n## Integration\n\nCI configuration only. No downstream integration or crate publishing is\nrequired.\n\n## Review Notes\n\nThe regex is anchored and escapes the domain dots and query delimiter. A\ncomment records why this URL is excluded. Includes the required PRDoc\nwith no crate changes.\n\nValidation:\n- Parsed the updated configuration with Python `tomllib`.\n- Confirmed that the new regex matches the failed URL and rejects six\naltered or unrelated URLs.\n- Confirmed that all existing configuration and exclusion entries are\npreserved.\n- Parsed the PRDoc as YAML and checked its fields and audience against\nthe repository schema.\n- The full repository Lychee scan is left to the Check links workflow.\n\n# Checklist\n\n- [x] Description, integration notes, and review notes are included.\n- [x] Required topic and release labels are applied.\n- [x] PRDoc is included; the documentation URL remains unchanged.\n- [x] TOML parsing and exact URL matching were checked.",
+          "timestamp": "2026-11-22T21:38:48Z",
+          "tree_id": "2644442d5b5e446af1331218ccc13838e26710f0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e603a47c9412a237e2667cddd57fb3c2661eb032"
+        },
+        "date": 1795389081403,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14139768818000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007595905693333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023996765246666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009679446466666625,
             "unit": "seconds"
           }
         ]
