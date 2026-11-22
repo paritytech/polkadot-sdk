@@ -390,10 +390,7 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 		commit: &mut CommitSet<Key>,
 	) -> Result<u64, StateDbError> {
 		trace!(target: LOG_TARGET, "Canonicalizing {:?}", hash);
-		let level = match self.levels.pop_front() {
-			Some(level) => level,
-			None => return Err(StateDbError::InvalidBlock),
-		};
+		let level = self.levels.front().ok_or(StateDbError::InvalidBlock)?;
 		let index = level
 			.blocks
 			.iter()
@@ -401,6 +398,8 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 			.ok_or(StateDbError::InvalidBlock)?;
 
 		// No failures are possible beyond this point.
+		// The front level was checked above and the deque has not changed; qed
+		let level = self.levels.pop_front().expect("the front overlay level exists");
 
 		// Force pin canonicalized block so that it is no discarded immediately
 		self.pin(hash);
@@ -592,12 +591,14 @@ mod tests {
 	}
 
 	#[test]
-	#[should_panic]
-	fn canonicalize_empty_panics() {
+	fn canonicalize_empty_returns_invalid_block() {
 		let db = make_db(&[]);
-		let mut overlay = NonCanonicalOverlay::<H256, H256>::new(&db).unwrap();
+		let mut overlay = NonCanonicalOverlay::<H256, H256>::new(&db).expect("empty test database");
 		let mut commit = CommitSet::default();
-		overlay.canonicalize(&H256::default(), &mut commit).unwrap();
+		assert_eq!(
+			overlay.canonicalize(&H256::default(), &mut commit),
+			Err(StateDbError::InvalidBlock)
+		);
 	}
 
 	#[test]
@@ -646,15 +647,18 @@ mod tests {
 	}
 
 	#[test]
-	#[should_panic]
-	fn canonicalize_unknown_panics() {
-		let h1 = H256::random();
-		let h2 = H256::random();
+	fn canonicalize_unknown_preserves_pending_block() {
+		let h1 = H256::repeat_byte(1);
+		let h2 = H256::repeat_byte(2);
 		let db = make_db(&[]);
-		let mut overlay = NonCanonicalOverlay::<H256, H256>::new(&db).unwrap();
-		overlay.insert(&h1, 1, &H256::default(), ChangeSet::default()).unwrap();
+		let mut overlay = NonCanonicalOverlay::<H256, H256>::new(&db).expect("empty test database");
+		overlay
+			.insert(&h1, 1, &H256::default(), ChangeSet::default())
+			.expect("first pending block");
 		let mut commit = CommitSet::default();
-		overlay.canonicalize(&h2, &mut commit).unwrap();
+
+		assert_eq!(overlay.canonicalize(&h2, &mut commit), Err(StateDbError::InvalidBlock));
+		assert_eq!(overlay.canonicalize(&h1, &mut commit), Ok(1));
 	}
 
 	#[test]

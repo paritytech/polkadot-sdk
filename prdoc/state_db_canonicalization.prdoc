@@ -1,0 +1,10 @@
+title: "sc-state-db: preserve pending state on invalid canonicalization"
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      State database canonicalization now validates the requested block before removing the
+      front overlay level. A rejected request leaves pending blocks available for later
+      canonicalization.
+crates:
+  - name: sc-state-db
+    bump: patch
