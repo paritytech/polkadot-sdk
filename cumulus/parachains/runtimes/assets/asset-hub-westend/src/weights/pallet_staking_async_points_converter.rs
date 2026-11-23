@@ -63,13 +63,33 @@ impl<T: frame_system::Config> pallet_staking_async_points_converter::WeightInfo 
 	}
 	/// Storage: `StakingPointsConverter::PointsPerService` (r:1 w:0)
 	/// Proof: `StakingPointsConverter::PointsPerService` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
-	fn report_authored_blocks() -> Weight {
+	/// Storage: `Staking::ActiveEra` (r:1 w:0)
+	/// Proof: `Staking::ActiveEra` (`max_values`: Some(1), `max_size`: Some(13), added: 508, mode: `MaxEncodedLen`)
+	/// Storage: `StakingPointsConverter::CreditedUnits` (r:1 w:1)
+	/// Proof: `StakingPointsConverter::CreditedUnits` (`max_values`: None, `max_size`: Some(29), added: 2504, mode: `MaxEncodedLen`)
+	/// Storage: `StakingPointsConverter::UnitsPerEraLimit` (r:1 w:0)
+	/// Proof: `StakingPointsConverter::UnitsPerEraLimit` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 1000]`.
+	fn report_authored_blocks(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `4`
-		//  Estimated: `3490`
+		//  Estimated: `3494`
 		// Minimum execution time: 6_329_000 picoseconds.
-		Weight::from_parts(7_021_000, 0)
-			.saturating_add(Weight::from_parts(0, 3490))
-			.saturating_add(T::DbWeight::get().reads(1))
+		Weight::from_parts(15_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3494))
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `StakingPointsConverter::UnitsPerEraLimit` (r:0 w:1)
+	/// Proof: `StakingPointsConverter::UnitsPerEraLimit` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
+	fn set_units_per_era_limit() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 7_090_000 picoseconds.
+		Weight::from_parts(7_847_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }

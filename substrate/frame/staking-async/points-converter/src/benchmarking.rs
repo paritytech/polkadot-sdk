@@ -26,7 +26,7 @@ use codec::Decode;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::traits::{EnsureOrigin, Get};
 use sp_runtime::traits::TrailingZeroInput;
-use sp_staking::ServiceKind;
+use sp_staking::{RewardPoints, ServiceKind};
 
 fn any_source<T: Config>() -> T::Source {
 	T::Source::decode(&mut TrailingZeroInput::zeroes())
@@ -51,28 +51,51 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// The part of `report_authored_blocks` this pallet does, measured with a report from a
-	/// source without points so that [`Config::RewardPoints`] is not measured here.
 	#[benchmark]
-	fn report_authored_blocks() {
+	fn set_units_per_era_limit() -> Result<(), BenchmarkError> {
+		let origin =
+			T::PointsOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let source = any_source::<T>();
-		PointsPerService::<T>::remove(source, ServiceKind::Collation);
-		let blocks = (0..1_000)
+		let limit = T::MaxUnitsPerEraLimit::get();
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, source, ServiceKind::Collation, limit);
+
+		assert_eq!(UnitsPerEraLimit::<T>::get(source, ServiceKind::Collation), limit);
+		Ok(())
+	}
+
+	/// A report of `n` entries from a source with points in an active era but a limit of zero,
+	/// so that every entry is cut and [`Config::RewardPoints`] is not measured here.
+	#[benchmark]
+	fn report_authored_blocks(n: Linear<1, 1_000>) -> Result<(), BenchmarkError> {
+		let origin =
+			T::ReportOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let source = T::ReportOrigin::ensure_origin(origin.clone()).map_err(|_| {
+			BenchmarkError::Stop("`ReportOrigin` rejects its own successful origin")
+		})?;
+		PointsPerService::<T>::insert(source, ServiceKind::Collation, 1);
+		T::RewardPoints::ensure_active_era();
+		let era = T::RewardPoints::active_era()
+			.ok_or(BenchmarkError::Stop("no active era after `ensure_active_era`"))?;
+		UnitsPerEraLimit::<T>::insert(source, ServiceKind::Collation, 0);
+		let blocks = (0..n)
 			.map(|i| (account::<T::AccountId>("validator", i, 0), 1))
 			.collect::<Vec<_>>();
 		let total_blocks = blocks.len() as u32;
 
-		#[block]
-		{
-			Pallet::<T>::credit_authored_blocks(source, blocks);
-		}
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, blocks);
 
 		frame_system::Pallet::<T>::assert_last_event(
-			<T as frame_system::Config>::RuntimeEvent::from(Event::<T>::BlocksIgnored {
+			<T as frame_system::Config>::RuntimeEvent::from(Event::<T>::BlocksOverCap {
 				source,
+				era,
 				blocks: total_blocks,
 			}),
 		);
+		assert_eq!(CreditedUnits::<T>::get(source, ServiceKind::Collation), (era, 0));
+		Ok(())
 	}
 
 	impl_benchmark_test_suite!(

@@ -30,7 +30,8 @@ use frame_support::{
 /// Weight functions needed for `pallet_staking_async_points_converter`.
 pub trait WeightInfo {
 	fn set_points_per_service() -> Weight;
-	fn report_authored_blocks() -> Weight;
+	fn report_authored_blocks(n: u32) -> Weight;
+	fn set_units_per_era_limit() -> Weight;
 }
 
 /// Default weights for `pallet_staking_async_points_converter`, see the module doc for their
@@ -46,8 +47,27 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `StakingPointsConverter::PointsPerService` (r:1 w:0)
 	/// Proof: `StakingPointsConverter::PointsPerService` (`max_values`: None, `max_size`: Some(25),
 	/// added: 2500, mode: `MaxEncodedLen`)
-	fn report_authored_blocks() -> Weight {
-		Weight::from_parts(6_923_000, 3_490).saturating_add(T::DbWeight::get().reads(1_u64))
+	/// Storage: `Staking::ActiveEra` (r:1 w:0)
+	/// Proof: `Staking::ActiveEra` (`max_values`: Some(1), `max_size`: Some(13), added: 508, mode:
+	/// `MaxEncodedLen`)
+	/// Storage: `StakingPointsConverter::CreditedUnits` (r:1 w:1)
+	/// Proof: `StakingPointsConverter::CreditedUnits` (`max_values`: None, `max_size`: Some(29),
+	/// added: 2504, mode: `MaxEncodedLen`)
+	/// Storage: `StakingPointsConverter::UnitsPerEraLimit` (r:1 w:0)
+	/// Proof: `StakingPointsConverter::UnitsPerEraLimit` (`max_values`: None, `max_size`:
+	/// Some(25), added: 2500, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 1000]`.
+	fn report_authored_blocks(n: u32) -> Weight {
+		Weight::from_parts(15_000_000, 3_494)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `StakingPointsConverter::UnitsPerEraLimit` (r:0 w:1)
+	/// Proof: `StakingPointsConverter::UnitsPerEraLimit` (`max_values`: None, `max_size`:
+	/// Some(25), added: 2500, mode: `MaxEncodedLen`)
+	fn set_units_per_era_limit() -> Weight {
+		Weight::from_parts(3_948_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -62,7 +82,26 @@ impl WeightInfo for () {
 	/// Storage: `StakingPointsConverter::PointsPerService` (r:1 w:0)
 	/// Proof: `StakingPointsConverter::PointsPerService` (`max_values`: None, `max_size`: Some(25),
 	/// added: 2500, mode: `MaxEncodedLen`)
-	fn report_authored_blocks() -> Weight {
-		Weight::from_parts(6_923_000, 3_490).saturating_add(RocksDbWeight::get().reads(1_u64))
+	/// Storage: `Staking::ActiveEra` (r:1 w:0)
+	/// Proof: `Staking::ActiveEra` (`max_values`: Some(1), `max_size`: Some(13), added: 508, mode:
+	/// `MaxEncodedLen`)
+	/// Storage: `StakingPointsConverter::CreditedUnits` (r:1 w:1)
+	/// Proof: `StakingPointsConverter::CreditedUnits` (`max_values`: None, `max_size`: Some(29),
+	/// added: 2504, mode: `MaxEncodedLen`)
+	/// Storage: `StakingPointsConverter::UnitsPerEraLimit` (r:1 w:0)
+	/// Proof: `StakingPointsConverter::UnitsPerEraLimit` (`max_values`: None, `max_size`:
+	/// Some(25), added: 2500, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 1000]`.
+	fn report_authored_blocks(n: u32) -> Weight {
+		Weight::from_parts(15_000_000, 3_494)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `StakingPointsConverter::UnitsPerEraLimit` (r:0 w:1)
+	/// Proof: `StakingPointsConverter::UnitsPerEraLimit` (`max_values`: None, `max_size`:
+	/// Some(25), added: 2500, mode: `MaxEncodedLen`)
+	fn set_units_per_era_limit() -> Weight {
+		Weight::from_parts(3_948_000, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

@@ -1269,10 +1269,17 @@ impl pallet_validator_set_announcer::Config for Runtime {
 }
 
 parameter_types! {
-	/// Twice the blocks a system chain can author in an expected era duration.
-	pub const MaxBlocksPerEntry: u32 = (2 *
-		testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS /
-		(RELAY_CHAIN_SLOT_DURATION_MILLIS / BLOCK_PROCESSING_VELOCITY) as u64) as u32;
+	/// The blocks a system chain can author in an expected era duration.
+	pub const MaxBlocksPerEntry: u32 =
+		(testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS /
+			(RELAY_CHAIN_SLOT_DURATION_MILLIS / BLOCK_PROCESSING_VELOCITY) as u64) as u32;
+	/// Twice the blocks a system chain can author in an expected era duration. Blocks reach the
+	/// era active when their report arrives, so an era can also receive up to one era of blocks
+	/// reported late.
+	pub const DefaultUnitsPerEraLimit: u32 = 2 * MaxBlocksPerEntry::get();
+	/// The highest limit governance can set. Room above the default for a chain that authors
+	/// more blocks per era than the default assumes, or for an era that lasts longer than expected.
+	pub const MaxUnitsPerEraLimit: u32 = 4 * DefaultUnitsPerEraLimit::get();
 	/// The sibling system chains that run `pallet-validator-collators` and report their authored
 	/// blocks here.
 	pub ValidatorCollatorChains: Vec<ParaId> = vec![
@@ -1290,6 +1297,8 @@ impl pallet_staking_async_points_converter::Config for Runtime {
 	// per-unit value that matches it, while an era's total stays far from saturating.
 	type MaxPointsPerService = ConstU32<1_000>;
 	type MaxBlocksPerEntry = MaxBlocksPerEntry;
+	type DefaultUnitsPerEraLimit = DefaultUnitsPerEraLimit;
+	type MaxUnitsPerEraLimit = MaxUnitsPerEraLimit;
 	type WeightInfo = weights::pallet_staking_async_points_converter::WeightInfo<Runtime>;
 }
 

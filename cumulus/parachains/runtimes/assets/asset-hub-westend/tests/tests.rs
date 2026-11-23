@@ -4001,7 +4001,7 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 			.individual
 			.into_iter()
 			.collect::<Vec<_>>(),
-			vec![(alice, 15)]
+			vec![(alice.clone(), 15)]
 		);
 		let events = frame_system::Pallet::<Runtime>::events()
 			.into_iter()
@@ -4018,6 +4018,81 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 				dropped: 0
 			}
 		)));
+		// AND they count against this chain's limit in era 1
+		assert_eq!(
+			pallet_staking_async_points_converter::CreditedUnits::<Runtime>::get(
+				own,
+				sp_staking::ServiceKind::Collation
+			),
+			(1, 3)
+		);
+
+		let author = |blocks: u32| {
+			for _ in 0..blocks {
+				<ValidatorCollators as pallet_authorship::EventHandler<_, _>>::note_author(
+					alice.clone(),
+				);
+			}
+		};
+		let report = || {
+			frame_system::Pallet::<Runtime>::reset_events();
+			ValidatorCollators::on_poll(period, &mut frame_support::weights::WeightMeter::new());
+			frame_system::Pallet::<Runtime>::events()
+				.into_iter()
+				.map(|r| r.event)
+				.collect::<Vec<_>>()
+		};
+		// GIVEN root limits this chain to 4 blocks per era, and Alice authored 3 more blocks
+		assert_ok!(StakingPointsConverter::set_units_per_era_limit(
+			RuntimeOrigin::root(),
+			own,
+			sp_staking::ServiceKind::Collation,
+			4
+		));
+		author(3);
+		// WHEN the next report block comes
+		let events = report();
+		// THEN only 1 more block is credited and the other 2 are over the limit
+		assert_eq!(pallet_staking_async::ErasRewardPoints::<Runtime>::get(1).total, 20);
+		assert!(events.contains(&RuntimeEvent::StakingPointsConverter(
+			pallet_staking_async_points_converter::Event::BlocksCredited { source: own, blocks: 1 }
+		)));
+		assert!(events.contains(&RuntimeEvent::StakingPointsConverter(
+			pallet_staking_async_points_converter::Event::BlocksOverCap {
+				source: own,
+				era: 1,
+				blocks: 2
+			}
+		)));
+
+		// GIVEN era 2 is active with Alice exposed, and Alice authored 2 blocks
+		pallet_staking_async::ActiveEra::<Runtime>::put(pallet_staking_async::ActiveEraInfo {
+			index: 2,
+			start: Some(0),
+		});
+		pallet_staking_async::session_rotation::Eras::<Runtime>::upsert_exposure(
+			2,
+			&alice,
+			pallet_staking_async::Exposure { total: 1, own: 1, others: vec![] },
+		);
+		author(2);
+		// WHEN the next report block comes
+		report();
+		// THEN both blocks are credited, as the count starts again from zero in era 2
+		assert_eq!(
+			pallet_staking_async::ErasRewardPoints::<Runtime>::get(2)
+				.individual
+				.into_iter()
+				.collect::<Vec<_>>(),
+			vec![(alice, 10)]
+		);
+		assert_eq!(
+			pallet_staking_async_points_converter::CreditedUnits::<Runtime>::get(
+				own,
+				sp_staking::ServiceKind::Collation
+			),
+			(2, 2)
+		);
 	});
 }
 

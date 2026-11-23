@@ -24,15 +24,27 @@
 //! reports the counts of the validators. Other chains call [`Pallet::report_authored_blocks`]
 //! from [`Config::ReportOrigin`], which names the reporting chain as a [`Config::Source`]. The
 //! chain that runs this pallet credits its own counts through [`Pallet::credit_authored_blocks`].
-//! A count becomes `min(count, MaxBlocksPerEntry) × PointsPerService[(source, Collation)]` era
-//! points, handed to [`Config::RewardPoints`] as [`sp_staking::ServiceKind::Collation`]
-//! points. A source without an entry for [`sp_staking::ServiceKind::Collation`] in
-//! [`PointsPerService`] earns nothing. Governance sets the entries through
-//! [`Config::PointsOrigin`]. Relay chain consensus points are not converted here.
+//! A credited count becomes `count × PointsPerService[(source, Collation)]` era points, handed to
+//! [`Config::RewardPoints`] as [`sp_staking::ServiceKind::Collation`] points. A source without an
+//! entry for [`sp_staking::ServiceKind::Collation`] in [`PointsPerService`] earns nothing.
+//! Governance sets the entries through [`Config::PointsOrigin`]. Relay chain consensus points are
+//! not converted here.
 //!
 //! For example, with `PointsPerService[(source, Collation)] = 10` for a reporting chain, a report
 //! from that chain of 40 units (blocks authored, for
 //! [`sp_staking::ServiceKind::Collation`]) for an account credits it 400 era points.
+//!
+//! ## Limits
+//!
+//! Each count is first clamped to [`Config::MaxBlocksPerEntry`]. A source is then credited at
+//! most [`UnitsPerEraLimit`] units of a service per era, and [`CreditedUnits`] tracks what it was
+//! credited in the active era. When a report asks for more than what is left, every entry is cut
+//! by the same ratio, rounded down. Blocks that are not credited are dropped and reported in
+//! [`Event::BlocksOverCap`]. Governance sets the limits through [`Config::PointsOrigin`].
+//!
+//! For example, with 80 units left in the era, a report of 50 blocks for each of three accounts
+//! asks for 150. Each account is credited `50 × 80 / 150 = 26` blocks and 72 blocks are over the
+//! limit.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -56,8 +68,8 @@ pub mod pallet {
 	use alloc::vec::Vec;
 	use frame_support::{pallet_prelude::*, DefaultNoBound};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::{MaybeSerializeDeserialize, Saturating};
-	use sp_staking::{RewardPoints, ServiceKind};
+	use sp_runtime::traits::{MaybeSerializeDeserialize, SaturatedConversion, Saturating};
+	use sp_staking::{EraIndex, RewardPoints, ServiceKind};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -86,8 +98,22 @@ pub mod pallet {
 
 		/// Largest count of blocks credited for one entry of a report. A larger count is credited
 		/// as this many blocks.
+		///
+		/// Each count is clamped before the limit in [`UnitsPerEraLimit`] applies. The clamp has no
+		/// effect for a source whose limit is not above it.
 		#[pallet::constant]
 		type MaxBlocksPerEntry: Get<u32>;
+
+		/// Units of a service credited to a source per era until governance sets
+		/// [`UnitsPerEraLimit`] for that source and service.
+		#[pallet::constant]
+		type DefaultUnitsPerEraLimit: Get<u32>;
+
+		/// Largest limit [`Pallet::set_units_per_era_limit`] accepts.
+		///
+		/// Crediting also bounds a stored limit by it.
+		#[pallet::constant]
+		type MaxUnitsPerEraLimit: Get<u32>;
 
 		/// Weight information for this pallet.
 		type WeightInfo: WeightInfo;
@@ -101,6 +127,35 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PointsPerService<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, T::Source, Twox64Concat, ServiceKind, u32, ValueQuery>;
+
+	/// Units of a service credited to a source per era, bounded by
+	/// [`Config::MaxUnitsPerEraLimit`] when crediting. Zero credits nothing.
+	///
+	/// A unit is the one of [`PointsPerService`].
+	#[pallet::storage]
+	pub type UnitsPerEraLimit<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		T::Source,
+		Twox64Concat,
+		ServiceKind,
+		u32,
+		ValueQuery,
+		T::DefaultUnitsPerEraLimit,
+	>;
+
+	/// The era a source was last credited in for a service, and the units credited to it in
+	/// that era. The units count as zero in any other era.
+	#[pallet::storage]
+	pub type CreditedUnits<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		T::Source,
+		Twox64Concat,
+		ServiceKind,
+		(EraIndex, u32),
+		ValueQuery,
+	>;
 
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
@@ -136,8 +191,14 @@ pub mod pallet {
 		/// Era points for `blocks` blocks authored on `source` were handed to
 		/// [`Config::RewardPoints`].
 		BlocksCredited { source: T::Source, blocks: u32 },
-		/// `blocks` blocks authored on `source` earned no points and were not credited.
+		/// `blocks` blocks authored on `source` were not credited, because `source` earns no
+		/// points or no era is active.
 		BlocksIgnored { source: T::Source, blocks: u32 },
+		/// `source` is credited at most `limit` units of `service` per era.
+		UnitsPerEraLimitSet { source: T::Source, service: ServiceKind, limit: u32 },
+		/// `blocks` blocks authored on `source` were not credited in `era`, because they exceed
+		/// [`Config::MaxBlocksPerEntry`] or the limit of `source` in [`UnitsPerEraLimit`].
+		BlocksOverCap { source: T::Source, era: EraIndex, blocks: u32 },
 	}
 
 	#[pallet::error]
@@ -152,6 +213,8 @@ pub mod pallet {
 		/// being on the horizon, and the effort of altering relay chain not being considered
 		/// worthwhile.
 		RelayConsensusNotWeighted,
+		/// The limit exceeds [`Config::MaxUnitsPerEraLimit`].
+		UnitsPerEraLimitTooHigh,
 	}
 
 	#[pallet::hooks]
@@ -159,6 +222,24 @@ pub mod pallet {
 		fn integrity_test() {
 			assert!(T::MaxPointsPerService::get() > 0, "`MaxPointsPerService` must not be zero");
 			assert!(T::MaxBlocksPerEntry::get() > 0, "`MaxBlocksPerEntry` must not be zero");
+			assert!(
+				T::DefaultUnitsPerEraLimit::get() > 0,
+				"`DefaultUnitsPerEraLimit` must not be zero"
+			);
+			assert!(
+				T::DefaultUnitsPerEraLimit::get() <= T::MaxUnitsPerEraLimit::get(),
+				"`DefaultUnitsPerEraLimit` must not exceed `MaxUnitsPerEraLimit`"
+			);
+			assert!(
+				T::MaxBlocksPerEntry::get() <= T::DefaultUnitsPerEraLimit::get(),
+				"`MaxBlocksPerEntry` must not exceed `DefaultUnitsPerEraLimit`"
+			);
+			assert!(
+				T::MaxUnitsPerEraLimit::get()
+					.checked_mul(T::MaxPointsPerService::get())
+					.is_some(),
+				"`MaxUnitsPerEraLimit` times `MaxPointsPerService` must fit a `u32`"
+			);
 		}
 	}
 
@@ -190,64 +271,148 @@ pub mod pallet {
 
 		/// Credit the blocks the validators authored on the calling chain.
 		///
-		/// The weight of crediting is refunded when the calling chain earns no points.
+		/// The weight of crediting is refunded for the entries not handed to
+		/// [`Config::RewardPoints`].
 		#[pallet::call_index(1)]
-		#[pallet::weight(Pallet::<T>::report_authored_blocks_weight(blocks.len() as u32))]
+		#[pallet::weight(Pallet::<T>::report_authored_blocks_weight(
+			blocks.len() as u32,
+			blocks.len() as u32,
+		))]
 		pub fn report_authored_blocks(
 			origin: OriginFor<T>,
 			blocks: Vec<(T::AccountId, u32)>,
 		) -> DispatchResultWithPostInfo {
 			let source = T::ReportOrigin::ensure_origin(origin)?;
+			let entries = blocks.len() as u32;
 			let credited = Self::credit_authored_blocks(source, blocks);
-			Ok(Some(Self::report_authored_blocks_weight(credited)).into())
+			Ok(Some(Self::report_authored_blocks_weight(entries, credited)).into())
+		}
+
+		/// Set the units of `service` credited to `source` per era.
+		///
+		/// Zero is stored and stops crediting for `source` and `service` without changing
+		/// [`PointsPerService`]. The limit applies from the next report on. Units already credited
+		/// in the active era stay credited. Fails with [`Error::UnitsPerEraLimitTooHigh`] above
+		/// [`Config::MaxUnitsPerEraLimit`], and with [`Error::RelayConsensusNotWeighted`] for
+		/// [`ServiceKind::RelayConsensus`].
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::set_units_per_era_limit())]
+		pub fn set_units_per_era_limit(
+			origin: OriginFor<T>,
+			source: T::Source,
+			service: ServiceKind,
+			limit: u32,
+		) -> DispatchResult {
+			T::PointsOrigin::ensure_origin(origin)?;
+			ensure!(service != ServiceKind::RelayConsensus, Error::<T>::RelayConsensusNotWeighted);
+			ensure!(limit <= T::MaxUnitsPerEraLimit::get(), Error::<T>::UnitsPerEraLimitTooHigh);
+			UnitsPerEraLimit::<T>::insert(source, service, limit);
+			Self::deposit_event(Event::UnitsPerEraLimitSet { source, service, limit });
+			Ok(())
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Credit `blocks` authored on `source` as era points, with the points per service of
-		/// `source` for [`ServiceKind::Collation`]. Each count is credited up to
-		/// [`Config::MaxBlocksPerEntry`]. Nothing is credited when `blocks` is empty or `source`
-		/// earns no points, and an empty `blocks` deposits no event.
+		/// Credit `blocks` authored on `source` as era points in the active era, with the points
+		/// per service of `source` for [`ServiceKind::Collation`].
+		///
+		/// Each count is clamped to [`Config::MaxBlocksPerEntry`]. If the clamped counts exceed
+		/// what is left of the limit of `source` in [`UnitsPerEraLimit`] for the active era, every
+		/// count is cut by the same ratio, rounded down. The outcome is one of:
+		/// - nothing is credited when `blocks` is empty, with no event.
+		/// - nothing is credited when `source` earns no points or no era is active, with
+		///   [`Event::BlocksIgnored`]. The limit of `source` is not used.
+		/// - otherwise, entries credited at least one block are handed to [`Config::RewardPoints`]
+		///   with [`Event::BlocksCredited`], and blocks not credited are reported in
+		///   [`Event::BlocksOverCap`].
 		///
 		/// Returns the number of entries handed to [`Config::RewardPoints`].
 		pub fn credit_authored_blocks(
 			source: T::Source,
 			blocks: impl IntoIterator<Item = (T::AccountId, u32)>,
 		) -> u32 {
-			let points_per_service = PointsPerService::<T>::get(source, ServiceKind::Collation)
-				.min(T::MaxPointsPerService::get());
-			let mut blocks = blocks.into_iter().peekable();
-			if blocks.peek().is_none() {
-				return 0;
-			}
-			if points_per_service == 0 {
-				let blocks = blocks.fold(0u32, |total, (_, blocks)| total.saturating_add(blocks));
-				Self::deposit_event(Event::BlocksIgnored { source, blocks });
-				return 0;
-			}
 			let max_blocks = T::MaxBlocksPerEntry::get();
-			let mut credited_blocks = 0u32;
-			let points: Vec<_> = blocks
-				.map(|(who, blocks)| {
-					let blocks = blocks.min(max_blocks);
-					credited_blocks.saturating_accrue(blocks);
-					(who, blocks.saturating_mul(points_per_service))
+			let mut requested = 0u64;
+			let clamped: Vec<_> = blocks
+				.into_iter()
+				.map(|(who, count)| {
+					requested.saturating_accrue(count.into());
+					(who, count.min(max_blocks))
 				})
 				.collect();
+			if clamped.is_empty() {
+				return 0;
+			}
+			let points_per_unit = PointsPerService::<T>::get(source, ServiceKind::Collation)
+				.min(T::MaxPointsPerService::get());
+			let era = match points_per_unit {
+				0 => None,
+				_ => T::RewardPoints::active_era(),
+			};
+			let Some(era) = era else {
+				Self::deposit_event(Event::BlocksIgnored {
+					source,
+					blocks: requested.saturated_into(),
+				});
+				return 0;
+			};
+
+			let (counter_era, counter_units) =
+				CreditedUnits::<T>::get(source, ServiceKind::Collation);
+			let used = if counter_era == era { counter_units } else { 0 };
+			let limit = UnitsPerEraLimit::<T>::get(source, ServiceKind::Collation)
+				.min(T::MaxUnitsPerEraLimit::get());
+			let remaining = limit.saturating_sub(used);
+
+			let total = clamped
+				.iter()
+				.fold(0u64, |total, (_, count)| total.saturating_add((*count).into()));
+			// When `total > remaining` the divisor is not zero and each credit is at most its
+			// clamped count.
+			let credit = |count: u32| {
+				if total <= remaining.into() {
+					count
+				} else {
+					(u64::from(count) * u64::from(remaining) / total).saturated_into()
+				}
+			};
+			let mut credited = 0u32;
+			let points: Vec<_> = clamped
+				.into_iter()
+				.map(|(who, count)| (who, credit(count)))
+				.inspect(|(_, credit)| credited.saturating_accrue(*credit))
+				.filter(|(_, credit)| *credit > 0)
+				.map(|(who, credit)| (who, credit.saturating_mul(points_per_unit)))
+				.collect();
+			CreditedUnits::<T>::insert(
+				source,
+				ServiceKind::Collation,
+				(era, used.saturating_add(credited)),
+			);
 			let entries = points.len() as u32;
-			T::RewardPoints::reward(ServiceKind::Collation, points);
-			Self::deposit_event(Event::BlocksCredited { source, blocks: credited_blocks });
+			if !points.is_empty() {
+				T::RewardPoints::reward(ServiceKind::Collation, points);
+				Self::deposit_event(Event::BlocksCredited { source, blocks: credited });
+			}
+			let over = requested.saturating_sub(credited.into());
+			if over > 0 {
+				Self::deposit_event(Event::BlocksOverCap {
+					source,
+					era,
+					blocks: over.saturated_into(),
+				});
+			}
 			entries
 		}
 
-		/// Weight of [`Self::report_authored_blocks`] when `credited` entries are handed to
-		/// [`Config::RewardPoints`].
-		pub fn report_authored_blocks_weight(credited: u32) -> Weight {
+		/// Weight of [`Self::report_authored_blocks`] for a report of `entries` entries, of which
+		/// `credited` are handed to [`Config::RewardPoints`].
+		pub fn report_authored_blocks_weight(entries: u32, credited: u32) -> Weight {
 			let reward = match credited {
 				0 => Weight::zero(),
 				credited => T::RewardPoints::weight(credited),
 			};
-			T::WeightInfo::report_authored_blocks().saturating_add(reward)
+			T::WeightInfo::report_authored_blocks(entries).saturating_add(reward)
 		}
 	}
 }

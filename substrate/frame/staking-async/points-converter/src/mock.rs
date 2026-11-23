@@ -46,6 +46,8 @@ impl Config for Test {
 	type RewardPoints = MockRewardPoints;
 	type MaxPointsPerService = ConstU32<10>;
 	type MaxBlocksPerEntry = ConstU32<100>;
+	type DefaultUnitsPerEraLimit = ConstU32<200>;
+	type MaxUnitsPerEraLimit = ConstU32<1_000>;
 	type WeightInfo = ();
 }
 
@@ -59,6 +61,7 @@ impl SortedMembers<u64> for Reporters {
 
 parameter_types! {
 	pub static Rewarded: Vec<(ServiceKind, Vec<(u64, u32)>)> = Vec::new();
+	pub static ActiveEra: Option<u32> = Some(1);
 }
 
 pub struct MockRewardPoints;
@@ -69,6 +72,17 @@ impl RewardPoints<u64> for MockRewardPoints {
 
 	fn weight(entries: u32) -> Weight {
 		Weight::from_parts(1_000, 0).saturating_mul(entries.into())
+	}
+
+	fn active_era() -> Option<u32> {
+		ActiveEra::get()
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_active_era() {
+		if ActiveEra::get().is_none() {
+			ActiveEra::set(Some(1));
+		}
 	}
 }
 

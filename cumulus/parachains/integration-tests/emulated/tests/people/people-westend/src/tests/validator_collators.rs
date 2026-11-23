@@ -422,6 +422,7 @@ fn people_full_report_fits_the_message_queue_of_asset_hub() {
 	let max_entries = <MaxEntries as frame_support::traits::Get<u32>>::get();
 	let message = asset_hub_westend_runtime::StakingPointsConverter::report_authored_blocks_weight(
 		max_entries,
+		max_entries,
 	);
 	// WHEN Asset Hub processes it from its message queue
 	// THEN it fits the service weight, so it is not set aside as overweight

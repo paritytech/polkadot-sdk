@@ -76,6 +76,13 @@ pub trait RewardPoints<AccountId> {
 
 	/// Weight of [`Self::reward`] for `entries` entries.
 	fn weight(entries: u32) -> Weight;
+
+	/// The era [`Self::reward`] credits points to, if any.
+	fn active_era() -> Option<EraIndex>;
+
+	/// Make sure an era is active, so that [`Self::reward`] credits points.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_active_era();
 }
 
 /// Trait for reporting additional validator reward points.
