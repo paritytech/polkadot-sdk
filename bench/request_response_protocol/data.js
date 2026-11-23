@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795445569585,
+  "lastUpdate": 1795448125609,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -149903,6 +149903,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2764932623,
             "range": "± 21289393",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6a82e3088227a9ad49d04aeb41496d101281a4e7",
+          "message": "frame-support: Allow `cfg`-exclusive pallets to share an index (#13935)\n\nLeave `cfg` evaluation to rustc instead of the runtime macros.\n\nIndex conflicts are reported with `compile_error!` gated on both\npallets' `cfg`s, so only conflicts in the actual build are rejected.\n\n`AllPallets*` are declared per combination of the pallets' `cfg`\nconditions, so any `cfg` predicate is supported, not just `feature` and\n`test`.\n\nPallet `#[cfg]`s are stored as `syn::Attribute` and `cfg-expr` is\ndropped.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-23T13:24:20Z",
+          "tree_id": "b7d76e7901632a3ac73788337a839002e70bda5c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6a82e3088227a9ad49d04aeb41496d101281a4e7"
+        },
+        "date": 1795448083369,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19303226,
+            "range": "± 135333",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20004038,
+            "range": "± 72608",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21427686,
+            "range": "± 176522",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25574925,
+            "range": "± 89147",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56564598,
+            "range": "± 592346",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 331768891,
+            "range": "± 2372508",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2326775959,
+            "range": "± 66276558",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17169733,
+            "range": "± 117947",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17122402,
+            "range": "± 123971",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17861182,
+            "range": "± 174079",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22272628,
+            "range": "± 126607",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58637789,
+            "range": "± 263594",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 341465760,
+            "range": "± 7653700",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2701235534,
+            "range": "± 13671408",
             "unit": "ns/iter"
           }
         ]
