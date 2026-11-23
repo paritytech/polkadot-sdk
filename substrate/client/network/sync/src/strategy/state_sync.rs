@@ -378,6 +378,8 @@ where
 			end: (!complete).then(|| next_key.to_vec()),
 			child_trie_copies: values.child_trie_copies(),
 		};
+		// TODO: the write could run in a blocking task while the next range is requested, see
+		// https://github.com/paritytech/polkadot-sdk/issues/13948
 		if let Err(e) = self.client.import_partial_state(&chunk) {
 			// Not retried. A chunk the store refuses is refused again, and after a failed commit
 			// the database usually takes no more writes until the node restarts. Nothing was
