@@ -29,15 +29,13 @@
 
 extern crate alloc;
 
-use alloc::{collections::btree_map::BTreeMap, string::String, sync::Arc, vec::Vec};
+use alloc::{collections::btree_map::BTreeMap, string::String, vec::Vec};
 use codec::Encode;
 use sp_crypto_hashing::blake2_256;
 use sp_runtime_interface::{pass_by::PassPointerAndWrite, runtime_interface};
 
 #[cfg(feature = "std")]
-use alloc::boxed::Box;
-#[cfg(feature = "std")]
-use sp_externalities::ExternalitiesExt;
+pub use node::*;
 
 /// A block's additional data, keyed by producer.
 pub type AdditionalData = BTreeMap<String, Vec<u8>>;
@@ -62,35 +60,6 @@ pub fn hash_additional_data(data: &AdditionalData) -> Option<[u8; 32]> {
 	hash_commitments(data.values().map(|value| hash_value(value)))
 }
 
-/// One producer's commitment to the value it carries in the current block.
-pub trait AdditionalDataFinalizer: Send {
-	/// The commitment, or `None` when the producer recorded nothing. Must be idempotent.
-	fn finalize(&self) -> Option<[u8; 32]>;
-}
-
-impl<T: AdditionalDataFinalizer + Sync + ?Sized> AdditionalDataFinalizer for Arc<T> {
-	fn finalize(&self) -> Option<[u8; 32]> {
-		(**self).finalize()
-	}
-}
-
-#[cfg(feature = "std")]
-sp_externalities::decl_extension! {
-	/// Externalities extension holding the registered finalizers, keyed by producer.
-	///
-	/// Register it before executing a block whose runtime produces additional data.
-	pub struct AdditionalDataExt(BTreeMap<String, Box<dyn AdditionalDataFinalizer>>);
-}
-
-#[cfg(feature = "std")]
-impl AdditionalDataExt {
-	/// Fold the registered finalizers' commitments in key order, or `None` when nothing was
-	/// recorded.
-	pub fn finalize(&self) -> Option<[u8; 32]> {
-		hash_commitments(self.0.values().filter_map(|finalizer| finalizer.finalize()))
-	}
-}
-
 /// Host side of committing a block's additional data.
 #[runtime_interface]
 pub trait AdditionalDataHost {
@@ -113,9 +82,46 @@ pub fn finalize() -> Option<[u8; 32]> {
 	additional_data_host::finalize_into(&mut out).then_some(out)
 }
 
+#[cfg(feature = "std")]
+mod node {
+	use super::*;
+	use alloc::{boxed::Box, sync::Arc};
+
+	/// One producer's commitment to the value it carries in the current block.
+	pub trait AdditionalDataFinalizer: Send {
+		/// The commitment, or `None` when the producer recorded nothing. Must be idempotent.
+		fn finalize(&self) -> Option<[u8; 32]>;
+	}
+
+	impl<T: AdditionalDataFinalizer + Sync + ?Sized> AdditionalDataFinalizer for Arc<T> {
+		fn finalize(&self) -> Option<[u8; 32]> {
+			(**self).finalize()
+		}
+	}
+
+	sp_externalities::decl_extension! {
+		/// Externalities extension holding the registered finalizers, keyed by producer.
+		///
+		/// Register it before executing a block whose runtime produces additional data.
+		pub struct AdditionalDataExt(BTreeMap<String, Box<dyn AdditionalDataFinalizer>>);
+	}
+
+	impl AdditionalDataExt {
+		/// Fold the registered finalizers' commitments in key order, or `None` when nothing was
+		/// recorded.
+		pub fn finalize(&self) -> Option<[u8; 32]> {
+			hash_commitments(self.0.values().filter_map(|finalizer| finalizer.finalize()))
+		}
+	}
+}
+
+#[cfg(feature = "std")]
+use sp_externalities::ExternalitiesExt;
+
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use alloc::sync::Arc;
 	use sp_io::TestExternalities;
 
 	struct Fixed(Option<[u8; 32]>);
