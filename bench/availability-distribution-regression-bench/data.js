@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795446015156,
+  "lastUpdate": 1795448820421,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a52bee650106923f0fd0788f967305a2482bec73",
-          "message": "refactor share coretime to 3/4 paras (#12011)\n\n@alindima / @sandreim, from the thread\n[here](https://github.com/paritytech/polkadot-sdk/pull/11914#issuecomment-4371613324).\nFor now let's use 3 paras test and keep the 4 paras disabled until the\nproper fix land to master.\n\nThx!",
-          "timestamp": "2026-05-12T08:00:24Z",
-          "tree_id": "c904338bb9984406fd2482a3f110e58ccd862c53",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a52bee650106923f0fd0788f967305a2482bec73"
-        },
-        "date": 1778579049244,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024154716880000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14276992460666676,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009263686206666644,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0073641314000000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14214195332000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6a82e3088227a9ad49d04aeb41496d101281a4e7",
+          "message": "frame-support: Allow `cfg`-exclusive pallets to share an index (#13935)\n\nLeave `cfg` evaluation to rustc instead of the runtime macros.\n\nIndex conflicts are reported with `compile_error!` gated on both\npallets' `cfg`s, so only conflicts in the actual build are rejected.\n\n`AllPallets*` are declared per combination of the pallets' `cfg`\nconditions, so any `cfg` predicate is supported, not just `feature` and\n`test`.\n\nPallet `#[cfg]`s are stored as `syn::Attribute` and `cfg-expr` is\ndropped.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-23T13:24:20Z",
+          "tree_id": "b7d76e7901632a3ac73788337a839002e70bda5c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6a82e3088227a9ad49d04aeb41496d101281a4e7"
+        },
+        "date": 1795448782004,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00962675830666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007379938979999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14195904857333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024246318313333327,
             "unit": "seconds"
           }
         ]
