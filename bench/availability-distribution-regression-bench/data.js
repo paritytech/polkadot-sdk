@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795389119122,
+  "lastUpdate": 1795394419928,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "52418509+georgepisaltu@users.noreply.github.com",
-            "name": "georgepisaltu",
-            "username": "georgepisaltu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5989c0a8b435447d3197040eb162525c92db80c9",
-          "message": "Extend PGAS filter to allow batches (#12027)\n\n# Description\n\nJust as the title says.\n\n---------\n\nSigned-off-by: georgepisaltu <george.pisaltu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-08T14:58:35Z",
-          "tree_id": "d6c9d3cb684c45a2745fa71e489ca73ba1ef0b86",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5989c0a8b435447d3197040eb162525c92db80c9"
-        },
-        "date": 1778257133607,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0071083665266666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14204264967333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009579804366666647,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02379877418,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009679446466666625,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "54c21d97b0b77c95919363c76a93183bbe51dab4",
+          "message": "Use `OnChainContext` for `check_inherents` (#13840)\n\nWhen calling `check_inherents`, we need to use the `OnChainContext`.\nThis is required because the extrinsics of the block to check could\nalready have been build by the new runtime. In this case, we need to\nalso use the new runtime to properly check them.",
+          "timestamp": "2026-11-22T23:02:56Z",
+          "tree_id": "c7d5acce0b2ba8b76605b48b24437e940c0a55b7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/54c21d97b0b77c95919363c76a93183bbe51dab4"
+        },
+        "date": 1795394376991,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14114065036000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009670296786666636,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024050488853333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007904559306666665,
             "unit": "seconds"
           }
         ]
