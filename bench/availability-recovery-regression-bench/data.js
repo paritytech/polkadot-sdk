@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795441537137,
+  "lastUpdate": 1795445958562,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9a0d118456879b86f6ce87159c0b64d20bd26956",
-          "message": "ci: update image tag for images in master branch (#12056)\n\ncc https://github.com/paritytech/devops/issues/5296",
-          "timestamp": "2026-05-12T13:21:10Z",
-          "tree_id": "57ddd3e007cb82cf91ffab2a671138a5a043c13f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9a0d118456879b86f6ce87159c0b64d20bd26956"
-        },
-        "date": 1778596918906,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.881403367266667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12908632609999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12940769,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e0e9af42891d79a2321a1ef5f46afc0dd21f7104",
+          "message": "Check CID length before acceptance on `bitswap_v1_get` (#13937)\n\nCheck CID length before we parse it.",
+          "timestamp": "2026-11-23T12:13:21Z",
+          "tree_id": "5750e73fdbf8a3c2bd4abf994d0200bc2af40210",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e0e9af42891d79a2321a1ef5f46afc0dd21f7104"
+        },
+        "date": 1795445925200,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1325102433,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.166879184133332,
             "unit": "seconds"
           }
         ]
