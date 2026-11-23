@@ -47,11 +47,14 @@ use sp_consensus::SyncOracle;
 use sp_keystore::KeystorePtr;
 use sp_price_oracle::runtime_api::{PriceOracleApi, PricingState};
 use sp_runtime::{traits::Block as BlockT, RuntimeAppPublic};
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use tick::{benefit::GOOD_REPORT, run_tick, LogState, TickOutcome, TickSetup, MIN_TICK_INTERVAL};
 use tokio::time::MissedTickBehavior;
 
 pub(crate) const LOG_TARGET: &str = "price-oracle";
+
+/// How long sending a report waits for a peer to have room for it.
+const SEND_TIMEOUT: Duration = Duration::from_millis(200);
 
 /// Parameters of [`run`].
 pub struct Params<Client, SyncService, Recipients, Id, Signature> {
@@ -236,9 +239,11 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 				// Send the report to every recipient reachable now.
 				let mut sent = 0;
 				for peer in targets.reachable() {
-					match notification_service.send_async_notification(peer, encoded.clone()).await {
-						Ok(()) => sent += 1,
-						Err(e) => log::debug!(target: LOG_TARGET, "Cannot send the report to {peer}: {e}"),
+					let send = notification_service.send_async_notification(peer, encoded.clone());
+					match tokio::time::timeout(SEND_TIMEOUT, send).await {
+						Ok(Ok(())) => sent += 1,
+						Ok(Err(e)) => log::debug!(target: LOG_TARGET, "Cannot send the report to {peer}: {e}"),
+						Err(_) => log::debug!(target: LOG_TARGET, "Sending the report to {peer} timed out"),
 					}
 				}
 				if sent < targets.len() {

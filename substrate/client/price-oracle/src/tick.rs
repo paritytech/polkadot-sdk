@@ -59,11 +59,17 @@ const TICK_MARGIN: Duration = Duration::from_millis(200);
 /// Reputation changes applied to peers for the reports they send.
 pub(crate) mod cost {
 	use sc_network::ReputationChange as Rep;
-	pub(crate) const MALFORMED: Rep = Rep::new(-500, "Price oracle: undecodable report");
-	pub(crate) const STALE_REPORT: Rep = Rep::new(-50, "Price oracle: stale report");
-	pub(crate) const DUPLICATE_REPORT: Rep = Rep::new(-50, "Price oracle: duplicate report");
-	pub(crate) const UNKNOWN_SIGNER: Rep = Rep::new(-150, "Price oracle: unknown signer");
-	pub(crate) const BAD_SIGNATURE: Rep = Rep::new(-100, "Price oracle: bad signature");
+	/// An honest peer does not send this. The peer is banned if it keeps sending several per
+	/// second, but not for one per tick.
+	const MAJOR: i32 = -(1 << 20);
+	/// An honest peer may send this.
+	const MINOR: i32 = -(1 << 12);
+
+	pub(crate) const MALFORMED: Rep = Rep::new(MAJOR, "Price oracle: undecodable report");
+	pub(crate) const STALE_REPORT: Rep = Rep::new(MINOR, "Price oracle: stale report");
+	pub(crate) const DUPLICATE_REPORT: Rep = Rep::new(MINOR, "Price oracle: duplicate report");
+	pub(crate) const UNKNOWN_SIGNER: Rep = Rep::new(MINOR, "Price oracle: unknown signer");
+	pub(crate) const BAD_SIGNATURE: Rep = Rep::new(MAJOR, "Price oracle: bad signature");
 }
 
 pub(crate) mod benefit {

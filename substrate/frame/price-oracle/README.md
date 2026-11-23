@@ -4,7 +4,7 @@ On-chain prices of asset pairs, such as DOT/USD, computed from data the block pr
 chain fetch from exchanges. The pallet stores what to fetch, prices the fetched data through
 runtime APIs, and aggregates the prices the nodes sign and report. Each accepted signer holds one
 vote per pair, and the price of a pair is the median of its votes once enough signers have
-reported. Governance registers exchanges, pairs and markets, and can pause a pair without a
+reported. Governance registers exchanges, pairs and markets, and can pause the oracle without a
 runtime upgrade. Consumers read prices through `frame_support::traits::PriceProvider`.
 
 How a market is priced is up to the runtime. The pallet ships one method, the execution band.
