@@ -1356,24 +1356,10 @@ fn opaque_notification_waits_when_message_slots_are_full() {
 
 #[test]
 fn opaque_notification_waits_when_queued_page_does_not_fit() {
-	use cumulus_primitives_core::AbridgedHrmpChannel;
-
 	new_test_ext().execute_with(|| {
 		let peer = ParaId::from(1000);
-		let open_channel = |total_size, msg_count| {
-			ParachainSystem::open_custom_outbound_hrmp_channel_for_benchmarks_or_tests(
-				peer,
-				AbridgedHrmpChannel {
-					max_capacity: 8,
-					max_total_size: 32,
-					max_message_size: 32,
-					msg_count,
-					total_size,
-					mqc_head: None,
-				},
-			);
-		};
-		open_channel(32, 1); // Byte-full with a free message slot: Ready(0, 32).
+		// Byte-full with free message slots: Ready(0, 32).
+		open_opaque_notification_test_channel(peer, 0, 1);
 
 		let page = generate_mock_xcm_page(0, 1, XcmEncoding::Simple);
 		let stored_page =
@@ -1396,7 +1382,8 @@ fn opaque_notification_waits_when_queued_page_does_not_fit() {
 		assert_eq!(after.queued_bytes, page.len() as u32);
 		assert_eq!(&OutboundXcmpMessages::<Test>::get(peer, 0)[..], page.as_slice());
 
-		open_channel(0, 0);
+		// With capacity restored, the queued page must go first.
+		open_opaque_notification_test_channel(peer, 32, 0);
 		assert_eq!(XcmpQueue::take_outbound_messages(1, &[]), vec![(peer, page)]);
 		let after = get_outbound_status(peer).expect("open channel remains");
 		assert!(!after.flags.contains(sent));
