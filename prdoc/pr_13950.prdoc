@@ -15,8 +15,9 @@ doc:
     emitted only when points reach staking and counts the credited blocks. A report that arrives
     without an active era now emits `BlocksIgnored`.
 
-    Asset Hub Westend sets `MaxBlocksPerEntry` to the blocks of one expected era with 2s blocks,
-    `DefaultUnitsPerEraLimit` to twice that and `MaxUnitsPerEraLimit` to four times the default.
+    Asset Hub Westend sets `MaxBlocksPerEntry` to the most blocks a system chain can author in
+    one expected era at its block processing velocity, `DefaultUnitsPerEraLimit` to twice that and
+    `MaxUnitsPerEraLimit` to four times the default.
     No migration is needed: the new storage items are empty on a running chain and their defaults
     apply.
 crates:

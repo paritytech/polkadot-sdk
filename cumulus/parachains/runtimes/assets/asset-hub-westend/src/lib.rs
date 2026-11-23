@@ -1269,13 +1269,14 @@ impl pallet_validator_set_announcer::Config for Runtime {
 }
 
 parameter_types! {
-	/// The blocks a system chain can author in an expected era duration.
+	/// The most blocks a system chain can author in an expected era duration, at the block
+	/// processing velocity of this chain. A reporting chain at a higher velocity needs a stored
+	/// limit to have all its blocks credited.
 	pub const MaxBlocksPerEntry: u32 =
 		(testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS /
 			(RELAY_CHAIN_SLOT_DURATION_MILLIS / BLOCK_PROCESSING_VELOCITY) as u64) as u32;
-	/// Twice the blocks a system chain can author in an expected era duration. Blocks reach the
-	/// era active when their report arrives, so an era can also receive up to one era of blocks
-	/// reported late.
+	/// Twice [`MaxBlocksPerEntry`]. Blocks reach the era active when their report arrives, so an
+	/// era can also receive up to one era of blocks reported late.
 	pub const DefaultUnitsPerEraLimit: u32 = 2 * MaxBlocksPerEntry::get();
 	/// The highest limit governance can set. Room above the default for a chain that authors
 	/// more blocks per era than the default assumes, or for an era that lasts longer than expected.
