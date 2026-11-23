@@ -2517,8 +2517,7 @@ mod enter {
 		});
 	}
 
-	/// The sanitize gate keeps a candidate whose signals fail to parse, so a malformed `Requires`
-	/// must be dropped by the signal check first. Both forms here name roots no window holds.
+	/// Malformed signals are dropped by the signal check, before the window check reads them.
 	#[test]
 	fn a_malformed_requires_is_dropped_before_the_window_check() {
 		new_test_ext(default_config()).execute_with(|| {

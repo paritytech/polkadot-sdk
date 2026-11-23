@@ -1171,12 +1171,12 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 }
 
 /// Whether to keep a candidate: every root its `Requires` names must be in the stored provides
-/// windows (inclusion tier). Malformed signals are rejected elsewhere.
+/// windows (inclusion tier).
 fn check_speculative_messaging<T: crate::inclusion::Config>(
 	candidate: &BackedCandidate<T::Hash>,
 ) -> bool {
 	let Ok(signals) = candidate.candidate().commitments.ump_signals() else {
-		return true;
+		return false;
 	};
 
 	if let Some(requires) = signals.requires() {
