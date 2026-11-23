@@ -1,0 +1,12 @@
+title: '''sc-chain-spec: return error instead of panicking on non-JSON presets'''
+doc:
+- audience: Todo
+  description: |-
+    `GenesisBuilder_get_preset` returns an opaque `Vec<u8>` from the node's point of view, and a non-conformant runtime can return bytes that are not a JSON blob.
+
+    `GenesisConfigBuilderRuntimeCaller::get_named_preset` used `expect()` on the JSON deserialization, so loading a chain spec naming such a preset crashed the node instead of returning an error. The deserialization failure is now mapped to a proper error. The test runtime gains an `invalid_json` preset, and error-path tests cover a non-JSON preset, an unknown preset name, and a malformed `build_state` config.
+crates:
+- name: sc-chain-spec
+  bump: major
+- name: frame-support
+  bump: major
