@@ -32,7 +32,7 @@ extern crate alloc;
 use alloc::{collections::btree_map::BTreeMap, string::String, sync::Arc, vec::Vec};
 use codec::Encode;
 use sp_crypto_hashing::blake2_256;
-use sp_runtime_interface::{pass_by::PassFatPointerAndReadWrite, runtime_interface};
+use sp_runtime_interface::{pass_by::PassPointerAndWrite, runtime_interface};
 
 #[cfg(feature = "std")]
 use alloc::boxed::Box;
@@ -115,10 +115,10 @@ impl core::fmt::Debug for CreateAdditionalDataExtensions {
 pub trait AdditionalDataHost {
 	/// Write the digest value into `hash_out` and return whether there was anything to commit.
 	/// A missing extension counts as nothing recorded.
-	fn finalize_into(&mut self, hash_out: PassFatPointerAndReadWrite<&mut [u8]>) -> bool {
+	fn finalize_into(&mut self, hash_out: PassPointerAndWrite<&mut [u8; 32], 32>) -> bool {
 		match self.extension::<AdditionalDataExt>().and_then(|ext| ext.finalize()) {
 			Some(hash) => {
-				hash_out[..32].copy_from_slice(&hash);
+				*hash_out = hash;
 				true
 			},
 			None => false,
@@ -133,7 +133,7 @@ pub mod additional_data {
 	/// The digest value of everything recorded this block, or `None` when nothing was recorded.
 	pub fn finalize() -> Option<[u8; 32]> {
 		let mut out = [0u8; 32];
-		finalize_into(&mut out[..]).then_some(out)
+		finalize_into(&mut out).then_some(out)
 	}
 }
 
