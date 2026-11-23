@@ -39,8 +39,8 @@
 //! Each count is first clamped to [`Config::MaxBlocksPerEntry`]. A source is then credited at
 //! most [`UnitsPerEraLimit`] units of a service per era, and [`CreditedUnits`] tracks what it was
 //! credited in the active era. When a report asks for more than what is left, every entry is cut
-//! by the same ratio, rounded down. Blocks that are not credited are dropped and reported in
-//! [`Event::BlocksOverCap`]. Governance sets the limits through [`Config::PointsOrigin`].
+//! by the same ratio, rounded down. Units that are not credited are dropped and reported in
+//! [`Event::UnitsOverLimit`]. Governance sets the limits through [`Config::PointsOrigin`].
 //!
 //! For example, with 80 units left in the era, a report of 50 blocks for each of three accounts
 //! asks for 150. Each account is credited `50 × 80 / 150 = 26` blocks and 72 blocks are over the
@@ -196,9 +196,10 @@ pub mod pallet {
 		BlocksIgnored { source: T::Source, blocks: u32 },
 		/// `source` is credited at most `limit` units of `service` per era.
 		UnitsPerEraLimitSet { source: T::Source, service: ServiceKind, limit: u32 },
-		/// `blocks` blocks authored on `source` were not credited in `era`, because they exceed
-		/// [`Config::MaxBlocksPerEntry`] or the limit of `source` in [`UnitsPerEraLimit`].
-		BlocksOverCap { source: T::Source, era: EraIndex, blocks: u32 },
+		/// `units` units of `service` on `source` were not credited in `era`, because they exceed
+		/// [`Config::MaxBlocksPerEntry`] or the limit of `source` for `service` in
+		/// [`UnitsPerEraLimit`].
+		UnitsOverLimit { source: T::Source, service: ServiceKind, era: EraIndex, units: u32 },
 	}
 
 	#[pallet::error]
@@ -324,7 +325,7 @@ pub mod pallet {
 		///   [`Event::BlocksIgnored`]. The limit of `source` is not used.
 		/// - otherwise, entries credited at least one block are handed to [`Config::RewardPoints`]
 		///   with [`Event::BlocksCredited`], and blocks not credited are reported in
-		///   [`Event::BlocksOverCap`].
+		///   [`Event::UnitsOverLimit`].
 		///
 		/// Returns the number of entries handed to [`Config::RewardPoints`].
 		pub fn credit_authored_blocks(
@@ -372,10 +373,11 @@ pub mod pallet {
 			}
 			let over = requested.saturating_sub(credited.into());
 			if over > 0 {
-				Self::deposit_event(Event::BlocksOverCap {
+				Self::deposit_event(Event::UnitsOverLimit {
 					source,
+					service,
 					era,
-					blocks: over.saturated_into(),
+					units: over.saturated_into(),
 				});
 			}
 			entries
@@ -409,20 +411,20 @@ pub mod pallet {
 			(used, limit.saturating_sub(used))
 		}
 
-		/// `blocks` unchanged if their total fits in `remaining`, otherwise every count cut by the
+		/// `counts` unchanged if their total fits in `remaining`, otherwise every count cut by the
 		/// same ratio, rounded down.
 		fn fit_to_remaining(
-			blocks: Vec<(T::AccountId, u32)>,
+			counts: Vec<(T::AccountId, u32)>,
 			remaining: u32,
 		) -> Vec<(T::AccountId, u32)> {
-			let total = blocks
+			let total = counts
 				.iter()
 				.fold(0u64, |total, (_, count)| total.saturating_add((*count).into()));
 			if total <= remaining.into() {
-				return blocks;
+				return counts;
 			}
 			// `total > remaining`, so the divisor is not zero and each count only shrinks.
-			blocks
+			counts
 				.into_iter()
 				.map(|(who, count)| {
 					let credit = u64::from(count) * u64::from(remaining) / total;

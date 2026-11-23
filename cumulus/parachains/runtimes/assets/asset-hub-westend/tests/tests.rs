@@ -4070,10 +4070,11 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 					}
 				),
 				RuntimeEvent::StakingPointsConverter(
-					pallet_staking_async_points_converter::Event::BlocksOverCap {
+					pallet_staking_async_points_converter::Event::UnitsOverLimit {
 						source: own,
+						service: sp_staking::ServiceKind::Collation,
 						era: 1,
-						blocks: 2
+						units: 2
 					}
 				),
 				RuntimeEvent::ValidatorCollators(

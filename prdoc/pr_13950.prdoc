@@ -1,4 +1,4 @@
-title: 'points-converter: limit the blocks a reporting chain can credit per era'
+title: 'points-converter: limit the units a chain can credit per era and service'
 doc:
 - audience: Runtime Dev
   description: |-
@@ -10,8 +10,8 @@ doc:
     a chain was credited in the active era.
 
     Each count is first clamped to `MaxBlocksPerEntry`. When a report asks for more than what is
-    left of the limit, every entry is cut by the same ratio, rounded down. Blocks that are not
-    credited are dropped and reported in the new `BlocksOverCap` event. `BlocksCredited` is now
+    left of the limit, every entry is cut by the same ratio, rounded down. Units that are not
+    credited are dropped and reported in the new `UnitsOverLimit` event. `BlocksCredited` is now
     emitted only when points reach staking and counts the credited blocks. A report that arrives
     without an active era now emits `BlocksIgnored`.
 

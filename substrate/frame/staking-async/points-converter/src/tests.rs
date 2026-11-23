@@ -184,7 +184,7 @@ fn era_limit_bounds_the_blocks_of_a_reporting_chain() {
 			events(),
 			vec![
 				Event::BlocksCredited { source: 2, blocks: 78 },
-				Event::BlocksOverCap { source: 2, era: 1, blocks: 72 },
+				Event::UnitsOverLimit { source: 2, service: Collation, era: 1, units: 72 },
 			]
 		);
 		assert_eq!(CreditedUnits::<Test>::get(2, Collation), (1, 198));
@@ -198,7 +198,7 @@ fn era_limit_bounds_the_blocks_of_a_reporting_chain() {
 			events(),
 			vec![
 				Event::BlocksCredited { source: 2, blocks: 2 },
-				Event::BlocksOverCap { source: 2, era: 1, blocks: 1 },
+				Event::UnitsOverLimit { source: 2, service: Collation, era: 1, units: 1 },
 			]
 		);
 		// AND the weight covers both entries but staking only for the credited one
@@ -213,7 +213,10 @@ fn era_limit_bounds_the_blocks_of_a_reporting_chain() {
 		let weight = report(2, vec![(10, 10)]);
 		// THEN nothing reaches `RewardPoints` and the weight of crediting is refunded
 		assert_eq!(Rewarded::get().len(), rewarded);
-		assert_eq!(events(), vec![Event::BlocksOverCap { source: 2, era: 1, blocks: 10 }]);
+		assert_eq!(
+			events(),
+			vec![Event::UnitsOverLimit { source: 2, service: Collation, era: 1, units: 10 }]
+		);
 		assert_eq!(weight, Some(<() as WeightInfo>::report_authored_blocks(1)));
 		assert_eq!(CreditedUnits::<Test>::get(2, Collation), (1, 200));
 
@@ -251,7 +254,7 @@ fn entries_are_clamped_before_the_era_limit_applies() {
 			events(),
 			vec![
 				Event::BlocksCredited { source: 2, blocks: 150 },
-				Event::BlocksOverCap { source: 2, era: 1, blocks: 999_900 },
+				Event::UnitsOverLimit { source: 2, service: Collation, era: 1, units: 999_900 },
 			]
 		);
 
@@ -265,7 +268,7 @@ fn entries_are_clamped_before_the_era_limit_applies() {
 			events(),
 			vec![
 				Event::BlocksCredited { source: 2, blocks: 50 },
-				Event::BlocksOverCap { source: 2, era: 1, blocks: u32::MAX },
+				Event::UnitsOverLimit { source: 2, service: Collation, era: 1, units: u32::MAX },
 			]
 		);
 		assert_eq!(CreditedUnits::<Test>::get(2, Collation), (1, 200));
@@ -320,7 +323,7 @@ fn governance_sets_the_era_limit_per_chain_and_service() {
 			vec![
 				Event::UnitsPerEraLimitSet { source: 2, service: Collation, limit: 30 },
 				Event::BlocksCredited { source: 2, blocks: 30 },
-				Event::BlocksOverCap { source: 2, era: 1, blocks: 20 },
+				Event::UnitsOverLimit { source: 2, service: Collation, era: 1, units: 20 },
 				Event::BlocksCredited { source: 3, blocks: 50 },
 			]
 		);
@@ -337,7 +340,7 @@ fn governance_sets_the_era_limit_per_chain_and_service() {
 			events(),
 			vec![
 				Event::UnitsPerEraLimitSet { source: 2, service: Collation, limit: 10 },
-				Event::BlocksOverCap { source: 2, era: 1, blocks: 5 },
+				Event::UnitsOverLimit { source: 2, service: Collation, era: 1, units: 5 },
 			]
 		);
 		assert_eq!(CreditedUnits::<Test>::get(2, Collation), (1, 30));
@@ -353,7 +356,7 @@ fn governance_sets_the_era_limit_per_chain_and_service() {
 			events(),
 			vec![
 				Event::UnitsPerEraLimitSet { source: 3, service: Collation, limit: 0 },
-				Event::BlocksOverCap { source: 3, era: 1, blocks: 5 },
+				Event::UnitsOverLimit { source: 3, service: Collation, era: 1, units: 5 },
 			]
 		);
 		assert!(UnitsPerEraLimit::<Test>::contains_key(3, Collation));
@@ -370,7 +373,7 @@ fn governance_sets_the_era_limit_per_chain_and_service() {
 			events(),
 			vec![
 				Event::BlocksCredited { source: 2, blocks: 1_000 },
-				Event::BlocksOverCap { source: 2, era: 2, blocks: 1_000 },
+				Event::UnitsOverLimit { source: 2, service: Collation, era: 2, units: 1_000 },
 			]
 		);
 	});

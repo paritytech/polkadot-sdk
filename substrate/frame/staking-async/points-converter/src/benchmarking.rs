@@ -90,10 +90,11 @@ mod benchmarks {
 		_(origin as T::RuntimeOrigin, blocks);
 
 		frame_system::Pallet::<T>::assert_last_event(
-			<T as frame_system::Config>::RuntimeEvent::from(Event::<T>::BlocksOverCap {
+			<T as frame_system::Config>::RuntimeEvent::from(Event::<T>::UnitsOverLimit {
 				source,
+				service: ServiceKind::Collation,
 				era,
-				blocks: total_blocks,
+				units: total_blocks,
 			}),
 		);
 		assert_eq!(CreditedUnits::<T>::get(source, ServiceKind::Collation), (era, 0));
