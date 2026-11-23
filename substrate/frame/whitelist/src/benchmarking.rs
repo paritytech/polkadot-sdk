@@ -22,9 +22,9 @@
 use super::*;
 #[cfg(test)]
 use crate::Pallet as Whitelist;
-use frame::benchmarking::prelude::*;
+use frame::{benchmarking::prelude::*, traits::Authorize};
 
-#[benchmarks]
+#[benchmarks(where <T as frame_system::Config>::RuntimeCall: From<Call<T>>)]
 mod benchmarks {
 	use super::*;
 
@@ -58,10 +58,54 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// Measured through `dispatch_whitelisted_call_with_preimage`, the worst case of the two
+	// defer sites: includes the origin check, the `WhitelistedCall` read and hashing the
+	// `n`-byte call.
+	#[benchmark]
+	fn defer_dispatch(n: Linear<1, 10_000>) -> Result<(), BenchmarkError> {
+		let origin = T::DispatchWhitelistedOrigin::try_successful_origin()
+			.map_err(|_| BenchmarkError::Weightless)?;
+		let remark = alloc::vec![1u8; n as usize];
+		let call: <T as Config>::RuntimeCall = frame_system::Call::remark { remark }.into();
+		let call_hash = T::Hashing::hash_of(&call);
+
+		#[extrinsic_call]
+		dispatch_whitelisted_call_with_preimage(origin as T::RuntimeOrigin, Box::new(call));
+
+		ensure!(DeferredDispatch::<T>::contains_key(call_hash), "dispatch not deferred");
+		Ok(())
+	}
+
+	#[benchmark]
+	fn remove_deferred_dispatch() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+		let call: <T as Config>::RuntimeCall =
+			frame_system::Call::remark { remark: alloc::vec![] }.into();
+		let call_hash = T::Hashing::hash_of(&call);
+
+		// Insert an already-expired deferred entry (`expire_at == now`), so it can be removed.
+		let now = T::BlockNumberProvider::current_block_number();
+		DeferredDispatch::<T>::insert(call_hash, now);
+
+		#[extrinsic_call]
+		_(frame_system::RawOrigin::Signed(caller), call_hash);
+
+		ensure!(!DeferredDispatch::<T>::contains_key(call_hash), "deferred entry not removed");
+		Ok(())
+	}
+
+	// Worst case: the call was deferred and is relayed by a signed origin, so on top of the
+	// direct-dispatch path this also reads and removes the deferred entry and emits
+	// `DeferredDispatchExecuted`.
+	//
 	// We benchmark with the maximum possible size for a call.
 	// If the resulting weight is too big, maybe it worth having a weight which depends
 	// on the size of the call, with a new witness in parameter.
-	#[benchmark(pov_mode = MaxEncodedLen {
+	// Root mode is `Measured` since `T::BlockNumberProvider` may read storage without a MEL
+	// bound (e.g. `ParachainSystem::ValidationData`).
+	#[benchmark(pov_mode = Measured {
+		Whitelist: MaxEncodedLen,
+		Preimage: MaxEncodedLen,
 		// Use measured PoV size for the Preimages since we pass in a length witness.
 		Preimage::PreimageFor: Measured
 	})]
@@ -69,8 +113,9 @@ mod benchmarks {
 	fn dispatch_whitelisted_call(
 		n: Linear<1, { T::Preimages::MAX_LENGTH as u32 - 10 }>,
 	) -> Result<(), BenchmarkError> {
-		let origin = T::DispatchWhitelistedOrigin::try_successful_origin()
+		let whitelist_origin = T::DispatchWhitelistedOrigin::try_successful_origin()
 			.map_err(|_| BenchmarkError::Weightless)?;
+		let caller: T::AccountId = whitelisted_caller();
 		let remark = alloc::vec![1u8; n as usize];
 		let call: <T as Config>::RuntimeCall = frame_system::Call::remark { remark }.into();
 		let call_weight = call.get_dispatch_info().call_weight;
@@ -78,36 +123,126 @@ mod benchmarks {
 		let call_encoded_len = encoded_call.len() as u32;
 		let call_hash = T::Hashing::hash_of(&call);
 
-		Pallet::<T>::whitelist_call(origin.clone(), call_hash)
+		Pallet::<T>::defer_dispatch(call_hash).expect("deferring dispatch must be successful");
+		Pallet::<T>::whitelist_call(whitelist_origin, call_hash)
 			.expect("whitelisting call must be successful");
-
 		T::Preimages::note(encoded_call.into()).unwrap();
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, call_hash, call_encoded_len, call_weight);
+		_(frame_system::RawOrigin::Signed(caller), call_hash, call_encoded_len, call_weight);
 
 		ensure!(!WhitelistedCall::<T>::contains_key(call_hash), "whitelist not removed");
+		ensure!(!DeferredDispatch::<T>::contains_key(call_hash), "deferred entry not removed");
 		ensure!(!T::Preimages::is_requested(&call_hash), "preimage still requested");
 		Ok(())
 	}
 
 	#[benchmark]
 	fn dispatch_whitelisted_call_with_preimage(n: Linear<1, 10_000>) -> Result<(), BenchmarkError> {
-		let origin = T::DispatchWhitelistedOrigin::try_successful_origin()
+		let whitelist_origin = T::DispatchWhitelistedOrigin::try_successful_origin()
 			.map_err(|_| BenchmarkError::Weightless)?;
+		let caller: T::AccountId = whitelisted_caller();
 		let remark = alloc::vec![1u8; n as usize];
 
 		let call: <T as Config>::RuntimeCall = frame_system::Call::remark { remark }.into();
 		let call_hash = T::Hashing::hash_of(&call);
 
-		Pallet::<T>::whitelist_call(origin.clone(), call_hash)
+		Pallet::<T>::defer_dispatch(call_hash).expect("deferring dispatch must be successful");
+		Pallet::<T>::whitelist_call(whitelist_origin, call_hash)
 			.expect("whitelisting call must be successful");
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, Box::new(call));
+		_(frame_system::RawOrigin::Signed(caller), Box::new(call));
 
 		ensure!(!WhitelistedCall::<T>::contains_key(call_hash), "whitelist not removed");
+		ensure!(!DeferredDispatch::<T>::contains_key(call_hash), "deferred entry not removed");
 		ensure!(!T::Preimages::is_requested(&call_hash), "preimage still requested");
+		Ok(())
+	}
+
+	// Worst case: hash whitelisted and preimage present at the witnessed length, so the callback
+	// fetches and decodes the `n`-byte call to check the weight witness.
+	#[benchmark(pov_mode = Measured {
+		Whitelist: MaxEncodedLen,
+		Preimage: MaxEncodedLen,
+		// Use measured PoV size for the Preimages since we pass in a length witness.
+		Preimage::PreimageFor: Measured
+	})]
+	// NOTE: we remove `10` because we need some bytes to encode the variants and vec length
+	fn authorize_dispatch_whitelisted_call(
+		n: Linear<1, { T::Preimages::MAX_LENGTH as u32 - 10 }>,
+	) -> Result<(), BenchmarkError> {
+		// Skip on runtimes that have not opted into permissionless dispatch.
+		let authorized: T::RuntimeOrigin =
+			frame_system::RawOrigin::<T::AccountId>::Authorized.into();
+		if T::DispatchWhitelistedOrigin::try_origin(authorized).is_err() {
+			return Err(BenchmarkError::Weightless);
+		}
+
+		let whitelist_origin =
+			T::WhitelistOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let remark = alloc::vec![1u8; n as usize];
+		let call: <T as Config>::RuntimeCall = frame_system::Call::remark { remark }.into();
+		let call_weight_witness = call.get_dispatch_info().call_weight;
+		let encoded_call = call.encode();
+		let call_encoded_len = encoded_call.len() as u32;
+		let call_hash = T::Hashing::hash_of(&call);
+
+		Pallet::<T>::whitelist_call(whitelist_origin, call_hash)
+			.expect("whitelisting call must be successful");
+		T::Preimages::note(encoded_call.into()).unwrap();
+
+		let call: <T as frame_system::Config>::RuntimeCall = Call::<T>::dispatch_whitelisted_call {
+			call_hash,
+			call_encoded_len,
+			call_weight_witness,
+		}
+		.into();
+
+		#[block]
+		{
+			let result = call
+				.authorize(TransactionSource::InBlock)
+				.expect("dispatch_whitelisted_call declares an authorize callback; qed");
+			assert!(result.is_ok());
+		}
+
+		Ok(())
+	}
+
+	// Includes hashing the `n`-byte call and reading its dispatch info. A single remark is one
+	// call node at any `n`; the fit assumes a flat payload.
+	#[benchmark]
+	fn authorize_dispatch_whitelisted_call_with_preimage(
+		n: Linear<1, { *T::BlockLength::get().max.get(DispatchClass::Normal) - 10 }>,
+	) -> Result<(), BenchmarkError> {
+		// Skip on runtimes that have not opted into permissionless dispatch.
+		let authorized: T::RuntimeOrigin =
+			frame_system::RawOrigin::<T::AccountId>::Authorized.into();
+		if T::DispatchWhitelistedOrigin::try_origin(authorized).is_err() {
+			return Err(BenchmarkError::Weightless);
+		}
+
+		let whitelist_origin =
+			T::WhitelistOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let remark = alloc::vec![1u8; n as usize];
+		let call: <T as Config>::RuntimeCall = frame_system::Call::remark { remark }.into();
+		let call_hash = T::Hashing::hash_of(&call);
+
+		Pallet::<T>::whitelist_call(whitelist_origin, call_hash)
+			.expect("whitelisting call must be successful");
+
+		let call: <T as frame_system::Config>::RuntimeCall =
+			Call::<T>::dispatch_whitelisted_call_with_preimage { call: Box::new(call) }.into();
+
+		#[block]
+		{
+			let result = call.authorize(TransactionSource::InBlock).expect(
+				"dispatch_whitelisted_call_with_preimage declares an authorize callback; qed",
+			);
+			assert!(result.is_ok());
+		}
+
 		Ok(())
 	}
 

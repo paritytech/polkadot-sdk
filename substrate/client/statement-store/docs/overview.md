@@ -9,7 +9,7 @@ Key characteristics:
 - **Off-chain storage** — keeps the data off-chain to avoid blockchain state bloat.
 - **Gossip-based distribution** — statements propagate node-to-node over a notification protocol.
 - **Cryptographic verification** — every statement is signed and verified before acceptance.
-- **Topic-based indexing** — up to four topics per statement for efficient querying.
+- **Topic-based indexing** — one to four topics per statement for efficient querying.
 - **Account-based limits** — per-account quotas bound how much an account may store.
 - **Automatic eviction** — lower-priority statements are evicted when limits are reached.
 - **Multiple access methods** — reachable over JSON-RPC for applications and via the runtime API
@@ -40,8 +40,8 @@ The implementation is split across several crates:
 
 - **`sp-statement-store`** — the [`Statement`] structure, core types, the [`StatementStore`] runtime
   and client interfaces, and cryptographic primitives.
-- **`sc-statement-store`** — the disk-backed (ParityDB) store: constraint management, the in-memory
-  index, and subscription handling.
+- **`sc-statement-store`** — the disk-backed (ParityDB) store: constraint management, the on-disk
+  indexes with their bounded in-memory caches, and subscription handling.
 - **`sc-network-statement`** — gossip-based propagation, per-peer state, and topic affinity.
 - **`pallet-statement`** — the runtime pallet: it turns on-chain statement events into statements
   (via an offchain worker) and defines the bounds used to compute account allowances.
@@ -67,7 +67,10 @@ When a submission would exceed either limit, the account's lowest-priority state
 the lowest expiry) are evicted to make room. If a single statement's data exceeds `max_size` it is
 rejected outright; and if, even after evicting every lower-priority statement, the new one still
 does not fit, it is rejected too. Global limits apply on top of per-account limits: the store holds
-at most `DEFAULT_MAX_TOTAL_STATEMENTS` statements and `DEFAULT_MAX_TOTAL_SIZE` of data.
+at most `DEFAULT_MAX_TOTAL_STATEMENTS` statements and `DEFAULT_MAX_TOTAL_SIZE` of data. On the v2
+DHT path the statements kept for DHT affinity and the transient ones also have a size limit each,
+and a full limit rejects only new statements of its own kind. Statements kept only for explicit
+affinity have no limit of their own.
 
 Allowances are not fixed in code: they are held in chain state (keyed under
 `STATEMENT_ALLOWANCE_PREFIX`) and granted or revoked by the runtime; an account with no allowance —
@@ -90,7 +93,7 @@ priority-based eviction or expiry. The store does not prescribe how a channel id
 
 ## Topics
 
-Topics are the primary attribute used to query and filter statements. A statement carries up to
+Topics are the primary attribute used to query and filter statements. A statement carries one to
 `MAX_TOPICS` (4) topics, each a 32-byte identifier, and the store maintains a `topic -> statements`
 index for fast lookups.
 

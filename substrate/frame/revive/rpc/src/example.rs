@@ -18,6 +18,7 @@
 use crate::{EthRpcClient, ReceiptInfo};
 use anyhow::Context;
 use pallet_revive::evm::*;
+use pallet_revive_types::runtime_api::GenericTransactionV1;
 use std::sync::Arc;
 
 /// Transaction type enum for specifying which type of transaction to send
@@ -159,7 +160,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 		let from = signer.address();
 		let result = client
 			.call(
-				GenericTransaction {
+				GenericTransactionV1 {
 					from: Some(from),
 					input: input.into(),
 					value: Some(value),
@@ -203,7 +204,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 		} else {
 			client
 				.estimate_gas(
-					GenericTransaction {
+					GenericTransactionV1 {
 						from: Some(from),
 						input: input.clone().into(),
 						value: Some(value),

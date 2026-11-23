@@ -1,0 +1,10 @@
+title: 'pallet-multi-asset-bounties: refund only remaining parent value'
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      Net parent-bounty refunds against settled child-bounty allocations so
+      closing a parent cannot refund value that has already left its escrow.
+      No storage migration is required.
+crates:
+  - name: pallet-multi-asset-bounties
+    bump: patch

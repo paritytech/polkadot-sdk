@@ -12,9 +12,9 @@ import difflib
 _HelpAction = _help._HelpAction
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-_REPO_ROOT = os.path.normpath(os.path.join(_SCRIPT_DIR, '..', '..', '..'))
+SCRIPT_REPO_ROOT = os.path.normpath(os.path.join(_SCRIPT_DIR, '..', '..', '..'))
 
-f = open(os.path.join(_REPO_ROOT, '.github/workflows/runtimes-matrix.json'), 'r')
+f = open(os.path.join(SCRIPT_REPO_ROOT, '.github/workflows/runtimes-matrix.json'), 'r')
 runtimesMatrix = json.load(f)
 
 runtimeNames = list(map(lambda x: x['name'], runtimesMatrix))
@@ -49,6 +49,11 @@ def fetch_repo_labels():
     else:
         print_and_log("REPO_LABELS not set in environment")
         return None
+
+
+def is_org_member():
+    """Whether the user who triggered the command is an organization member (set by the workflow)"""
+    return os.environ.get('IS_ORG_MEMBER', 'false').lower() == 'true'
 
 
 def check_pr_status(pr_number):
@@ -187,7 +192,7 @@ for arg, config in common_args.items():
 PRDOC
 """
 # Import generate-prdoc.py dynamically
-spec = importlib.util.spec_from_file_location("generate_prdoc", os.path.join(_REPO_ROOT, ".github/scripts/generate-prdoc.py"))
+spec = importlib.util.spec_from_file_location("generate_prdoc", os.path.join(SCRIPT_REPO_ROOT, ".github/scripts/generate-prdoc.py"))
 generate_prdoc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(generate_prdoc)
 
@@ -294,13 +299,27 @@ def main():
 
         profile = "production"
 
+        # A `build.rs` runs arbitrary code on the runner, so only org members may benchmark PRs
+        # that change one. Anything but `false` counts as a change.
+        changes_build_scripts = os.environ.get('CHANGES_BUILD_SCRIPTS') != 'false'
+        if changes_build_scripts and not is_org_member():
+            print_and_log('❌ Only organization members can run benchmarks on PRs that change `build.rs` files.')
+            sys.exit(1)
+
         print(f'Provided runtimes: {args.runtime}')
         # convert to mapped dict
         runtimesMatrix = list(filter(lambda x: x['name'] in args.runtime, runtimesMatrix))
         runtimesMatrix = {x['name']: x for x in runtimesMatrix}
         print(f'Filtered out runtimes: {runtimesMatrix}')
 
-        compile_bencher = os.system(f"cargo install -q --path substrate/utils/frame/omni-bencher --locked --profile {profile}")
+        # Build the bencher from upstream master, so the PR under test cannot change it.
+        bencher_src = '/tmp/omni-bencher-master'
+        compile_bencher = os.system(
+            f"rm -rf {bencher_src} && "
+            f"git clone -q --depth 1 --branch master https://github.com/paritytech/polkadot-sdk {bencher_src} && "
+            f"cd {bencher_src} && "
+            f"cargo install -q --path substrate/utils/frame/omni-bencher --locked --profile {profile}"
+        )
         if compile_bencher != 0:
             print_and_log('❌ Failed to compile frame-omni-bencher')
             sys.exit(1)
@@ -448,7 +467,8 @@ def main():
                 print_and_log(f'-- {runtime}: {pallets}')
 
     elif args.command == 'fmt':
-        command = f"cargo +nightly fmt"
+        # `cargo-fmt` directly, so `[alias]` entries in the PR's `.cargo/config.toml` cannot replace it.
+        command = "rustup run nightly cargo-fmt"
         print(f'Formatting with `{command}`')
         nightly_status = os.system(f'{command}')
         taplo_status = os.system('taplo format --config .config/taplo.toml')
@@ -458,7 +478,7 @@ def main():
             sys.exit(1)
 
     elif args.command == 'update-ui':
-        command = 'sh ./scripts/update-ui-tests.sh'
+        command = f"sh {os.path.join(SCRIPT_REPO_ROOT, 'scripts/update-ui-tests.sh')}"
         print(f'Updating ui with `{command}`')
         status = os.system(f'{command}')
 
@@ -468,7 +488,7 @@ def main():
 
     elif args.command == 'prdoc':
         # Call the main function from ./github/scripts/generate-prdoc.py module
-        exit_code = generate_prdoc.main(args)
+        exit_code = generate_prdoc.main(args, log=print_and_log)
         if exit_code != 0:
             print_and_log('❌ Failed to generate prdoc')
             sys.exit(exit_code)
@@ -485,10 +505,9 @@ def main():
                     raise ValueError("Cannot modify labels on merged PRs or PRs in merge queue")
 
             # Check if user has permission to modify labels
-            is_org_member = os.environ.get('IS_ORG_MEMBER', 'false').lower() == 'true'
             is_pr_author = os.environ.get('IS_PR_AUTHOR', 'false').lower() == 'true'
 
-            if not is_org_member and not is_pr_author:
+            if not is_org_member() and not is_pr_author:
                 raise ValueError("Only the PR author or organization members can modify labels")
 
             # Get allowed labels dynamically
@@ -505,14 +524,12 @@ def main():
                 print(message)
 
             # Output labels as JSON for GitHub Action
-            import json
             labels_output = {"labels": final_labels}
             print_and_log(f"LABELS_JSON: {json.dumps(labels_output)}")
         except ValueError as e:
             print_and_log(f'❌ {e}')
 
             # Output error as JSON for GitHub Action
-            import json
             error_output = {
                 "error": "validation_failed",
                 "message": "Invalid labels found. Please check the suggestions below and try again.",

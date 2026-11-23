@@ -110,7 +110,11 @@ fn nominators_can_unbond_in_next_era() {
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(101), 200));
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![Event::Unbonded { stash: 101, amount: 200 }]
+			vec![Event::Unbonded {
+				stash: 101,
+				amount: 200,
+				era: active_era() + NominatorFastUnbondDuration::get()
+			}]
 		);
 
 		// Unlocking should be set to active_era + NominatorFastUnbondDuration (not active_era +
@@ -180,7 +184,11 @@ fn validators_still_have_full_bonding_duration() {
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 200));
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![Event::Unbonded { stash: 11, amount: 200 }]
+			vec![Event::Unbonded {
+				stash: 11,
+				amount: 200,
+				era: active_era() + BondingDuration::get()
+			}]
 		);
 
 		// Unlocking should be set to active_era + BondingDuration (not active_era +
@@ -648,7 +656,11 @@ fn validator_cannot_switch_to_nominator_to_avoid_slashing() {
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 998));
 			assert_eq!(
 				staking_events_since_last_call(),
-				[Event::Unbonded { stash: alice, amount: 998 }]
+				[Event::Unbonded {
+					stash: alice,
+					amount: 998,
+					era: active_era() + BondingDuration::get()
+				}]
 			);
 
 			// Alice should still be a nominator

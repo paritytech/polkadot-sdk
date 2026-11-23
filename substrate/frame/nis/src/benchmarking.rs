@@ -251,7 +251,7 @@ mod benchmarks {
 			Pallet::<T>::process_queues(
 				Perquintill::one(),
 				Zero::zero(),
-				u32::max_value(),
+				u32::MAX,
 				&mut WeightCounter::unlimited(),
 			);
 		}

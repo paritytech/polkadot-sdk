@@ -67,8 +67,6 @@ impl pallet_balances::Config for MockRuntime {
 	type MaxLocks = ();
 	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = ConstU32<50>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type DoneSlashHandler = ();
@@ -95,6 +93,7 @@ impl pallet_assets::Config<Instance1> for MockRuntime {
 	type Extra = ();
 	type WeightInfo = ();
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	pallet_assets::runtime_benchmarks_enabled! {
 		type BenchmarkHelper = ();
 	}

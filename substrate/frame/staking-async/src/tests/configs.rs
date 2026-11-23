@@ -41,7 +41,7 @@ fn set_staking_configs_works() {
 		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(0));
 		assert_eq!(MaxStakedRewards::<Test>::get(), Some(Percent::from_percent(95)));
 		assert_eq!(AreNominatorsSlashable::<Test>::get(), false);
-		assert_eq!(ChillInactiveThreshold::<Test>::get(), 10);
+		assert_eq!(ChillInactiveThreshold::<Test>::get(), Some(10));
 
 		// noop does nothing
 		assert_storage_noop!(assert_ok!(Staking::set_staking_configs(
@@ -79,7 +79,43 @@ fn set_staking_configs_works() {
 		assert_eq!(MaxStakedRewards::<Test>::get(), None);
 		// AreNominatorsSlashable defaults to true when removed
 		assert_eq!(AreNominatorsSlashable::<Test>::get(), true);
-		assert_eq!(ChillInactiveThreshold::<Test>::get(), HistoryDepth::get());
+		assert_eq!(ChillInactiveThreshold::<Test>::get(), None);
+	});
+}
+
+#[test]
+fn chill_inactive_threshold_must_fit_in_a_block() {
+	ExtBuilder::default().build_and_execute(|| {
+		let set_threshold = |threshold| {
+			Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Set(threshold),
+			)
+		};
+
+		// GIVEN a normal extrinsic fits `chill_inactive` with a proof of 10 eras, and no more
+		let mut block_weights = BlockWeights::get();
+		block_weights.per_class.get_mut(DispatchClass::Normal).max_extrinsic =
+			Some(<Test as Config>::WeightInfo::chill_inactive(10));
+		BlockWeights::set(block_weights);
+
+		// WHEN setting a threshold of 10
+		// THEN it works
+		assert_ok!(set_threshold(10));
+		assert_eq!(ChillInactiveThreshold::<Test>::get(), Some(10));
+
+		// WHEN setting a threshold of 11
+		// THEN it fails, and the threshold stays
+		assert_noop!(set_threshold(11), Error::<Test>::InvalidChillInactiveThreshold);
+		assert_eq!(ChillInactiveThreshold::<Test>::get(), Some(10));
 	});
 }
 

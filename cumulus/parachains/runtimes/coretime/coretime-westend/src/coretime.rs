@@ -21,7 +21,9 @@ use cumulus_primitives_core::relay_chain;
 use frame_support::parameter_types;
 use pallet_broker::{
 	CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf, TaskId,
+	CORE_MASK_BITS,
 };
+use pallet_on_demand_para::{PoolCapacityProvider, QueueOnDemandOrders};
 use parachains_common::{AccountId, Balance};
 use sp_runtime::traits::MaybeConvert;
 use westend_runtime_constants::system_parachain::coretime;
@@ -53,10 +55,17 @@ enum CoretimeProviderCalls {
 		Vec<(CoreAssignment, PartsOf57600)>,
 		Option<relay_chain::BlockNumber>,
 	),
+	#[codec(index = 5)]
+	QueueOnDemandBatch(Vec<(ParaId, relay_chain::BlockNumber)>),
 }
+
+/// The maximum number of on-demand orders accepted in one block, and thus put into a single
+/// `QueueOnDemandBatch` message.
+const MAX_ORDERS_PER_MESSAGE: u32 = 100;
 
 parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
+	pub const OnDemandPalletId: PalletId = PalletId(*b"py/ondmd");
 	pub const MinimumCreditPurchase: Balance = UNITS / 10;
 	pub const MinimumEndPrice: Balance = UNITS;
 }
@@ -75,10 +84,10 @@ impl CoretimeInterface for CoretimeAllocator {
 		let request_core_count_call = RelayRuntimePallets::Coretime(RequestCoreCount(count));
 
 		// Weight for `request_core_count` from westend benchmarks:
-		// `ref_time` = 7889000 + (3 * 25000000) + (1 * 100000000) = 182889000
+		// `ref_time` = 11429000 + (3 * 25000000) + (1 * 100000000) = 186429000
 		// `proof_size` = 1636
 		// Add 5% to each component and round to 2 significant figures.
-		let call_weight = Weight::from_parts(190_000_000, 1700);
+		let call_weight = Weight::from_parts(200_000_000, 1700);
 
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
@@ -170,42 +179,67 @@ impl CoretimeInterface for CoretimeAllocator {
 		use crate::coretime::CoretimeProviderCalls::AssignCore;
 
 		// Weight for `assign_core` from westend benchmarks:
-		// `ref_time` = 10177115 + (1 * 25000000) + (2 * 100000000) + (57600 * 13932) = 937660315
-		// `proof_size` = 3612
+		// `ref_time` = 13959863 + (1 * 25000000) + (2 * 100000000) + (57600 * 8932) = 753443063
+		// `proof_size` = 1538
 		// Add 5% to each component and round to 2 significant figures.
-		let call_weight = Weight::from_parts(980_000_000, 3800);
+		let call_weight = Weight::from_parts(790_000_000, 1600);
 
-		// The relay chain currently only allows `assign_core` to be called with a complete mask
-		// and only ever with increasing `begin`. The assignments must be truncated to avoid
-		// dropping that core's assignment completely.
+		// A maximum of 28 assignments fit in one message, so we split the assignments and send as
+		// multiple messages. This will get reassembled into a full list of assignments on the
+		// relay chain side.
 
-		// This shadowing of `assignment` is temporary and can be removed when the relay can accept
-		// multiple messages to assign a single core.
-		let assignment = if assignment.len() > 28 {
-			let mut total_parts = 0u16;
-			// Account for missing parts with a new `Idle` assignment at the start as
-			// `assign_core` on the relay assumes this is sorted. We'll add the rest of the
-			// assignments and sum the parts in one pass, so this is just initialized to 0.
-			let mut assignment_truncated = vec![(CoreAssignment::Idle, 0)];
-			// Truncate to first 27 non-idle assignments.
-			assignment_truncated.extend(
-				assignment
-					.into_iter()
-					.filter(|(a, _)| *a != CoreAssignment::Idle)
-					.take(27)
-					.inspect(|(_, parts)| total_parts += *parts)
-					.collect::<Vec<_>>(),
-			);
+		for chunk in assignment.chunks(28) {
+			let partial_assignment = chunk.to_vec();
 
-			// Set the parts of the `Idle` assignment we injected at the start of the vec above.
-			assignment_truncated[0].1 = 57_600u16.saturating_sub(total_parts);
-			assignment_truncated
-		} else {
-			assignment
-		};
+			let assign_core_call = RelayRuntimePallets::Coretime(AssignCore(
+				core,
+				begin,
+				partial_assignment,
+				end_hint,
+			));
 
-		let assign_core_call =
-			RelayRuntimePallets::Coretime(AssignCore(core, begin, assignment, end_hint));
+			let message = Xcm(vec![
+				Instruction::UnpaidExecution {
+					weight_limit: WeightLimit::Unlimited,
+					check_origin: None,
+				},
+				Instruction::Transact {
+					origin_kind: OriginKind::Native,
+					call: assign_core_call.encode().into(),
+					fallback_max_weight: Some(call_weight),
+				},
+			]);
+
+			match PolkadotXcm::send_xcm(Here, Location::parent(), message) {
+				Ok(_) => tracing::debug!(
+					target: "runtime::coretime",
+					"Core assignment sent successfully."
+				),
+				Err(e) => tracing::error!(
+					target: "runtime::coretime", error=?e,
+					"Core assignment failed to send"
+				),
+			}
+		}
+	}
+}
+
+impl QueueOnDemandOrders<relay_chain::BlockNumber> for CoretimeAllocator {
+	fn queue_batch(batch: Vec<(TaskId, relay_chain::BlockNumber)>) {
+		use crate::coretime::CoretimeProviderCalls::QueueOnDemandBatch;
+
+		// Weight for `queue_on_demand_batch` from westend benchmarks:
+		// `ref_time` = 144596852 + (1 * 25000000) + (1 * 100000000) + (100 * 16204) = 271217252
+		// `proof_size` = 81641
+		// Add 5% to each component and round to 2 significant figures.
+		let call_weight = Weight::from_parts(280_000_000, 86000);
+
+		// `MaxBatchSize` keeps the batch small enough to fit into a single message.
+		let batch = batch
+			.into_iter()
+			.map(|(task, ordered_at)| (ParaId::from(task), ordered_at))
+			.collect::<Vec<_>>();
+		let queue_on_demand_batch_call = RelayRuntimePallets::Coretime(QueueOnDemandBatch(batch));
 
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
@@ -214,21 +248,61 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
-				call: assign_core_call.encode().into(),
+				call: queue_on_demand_batch_call.encode().into(),
 				fallback_max_weight: Some(call_weight),
 			},
 		]);
 
-		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
+		match PolkadotXcm::send_xcm(Here, Location::parent(), message) {
 			Ok(_) => tracing::debug!(
 				target: "runtime::coretime",
-				"Core assignment sent successfully."
+				"On-demand batch sent successfully."
 			),
 			Err(e) => tracing::error!(
 				target: "runtime::coretime", error=?e,
-				"Core assignment failed to send"
+				"On-demand batch failed to send"
 			),
 		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery() {
+		use cumulus_primitives_core::UpwardMessageSender;
+		ParachainSystem::ensure_successful_delivery();
+	}
+}
+
+/// Reports the size of the Instantaneous Coretime Pool as `pallet-broker` currently sees it.
+pub struct BrokerPoolCapacity;
+impl PoolCapacityProvider for BrokerPoolCapacity {
+	fn pool_cores() -> u32 {
+		pallet_broker::Status::<Runtime>::get().map_or(0, |status| {
+			// Adds CORE_MASK_BITS-1 to round up
+			status
+				.private_pool_size
+				.saturating_add(status.system_pool_size)
+				.saturating_add(CORE_MASK_BITS as u32 - 1) /
+				CORE_MASK_BITS as u32
+		})
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_pool_cores(cores: u32) {
+		if Self::pool_cores() >= cores {
+			return;
+		}
+		pallet_broker::Status::<Runtime>::mutate(|status| {
+			let status = status.get_or_insert(pallet_broker::StatusRecord {
+				core_count: cores.try_into().unwrap_or(CoreIndex::MAX),
+				private_pool_size: 0,
+				system_pool_size: 0,
+				last_committed_timeslice: 0,
+				last_timeslice: 0,
+			});
+			// Top up the system part of the pool, so that the whole pool spans `cores` cores.
+			let bits = cores.saturating_mul(CORE_MASK_BITS as u32);
+			status.system_pool_size = bits.saturating_sub(status.private_pool_size);
+		});
 	}
 }
 
@@ -249,6 +323,7 @@ impl pallet_broker::Config for Runtime {
 	type MaxLeasedCores = ConstU32<50>;
 	type MaxReservedCores = ConstU32<50>;
 	type Coretime = CoretimeAllocator;
+	type OnDemandRevenue = OnDemand;
 	type ConvertBalance = sp_runtime::traits::Identity;
 	type WeightInfo = weights::pallet_broker::WeightInfo<Runtime>;
 	type PalletId = BrokerPalletId;
@@ -257,4 +332,18 @@ impl pallet_broker::Config for Runtime {
 	type MaxAutoRenewals = ConstU32<50>;
 	type PriceAdapter = pallet_broker::MinimumPrice<Balance, MinimumEndPrice>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
+}
+
+impl pallet_on_demand_para::Config for Runtime {
+	type WeightInfo = weights::pallet_on_demand_para::WeightInfo<Runtime>;
+	type Currency = Balances;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type RelayBlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type PoolCapacityProvider = BrokerPoolCapacity;
+	type PricingProvider = pallet_on_demand_para::DefaultPricingProvider;
+	type OrderQueue = CoretimeAllocator;
+	type MaxBatchSize = ConstU32<MAX_ORDERS_PER_MESSAGE>;
+	type TimeslicePeriod = <Runtime as pallet_broker::Config>::TimeslicePeriod;
+	type MaxUnclaimedTimeslices = ConstU32<5>;
+	type PalletId = OnDemandPalletId;
 }

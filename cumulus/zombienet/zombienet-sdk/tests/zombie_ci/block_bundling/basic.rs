@@ -19,14 +19,13 @@ use crate::utils::initialize_network;
 use anyhow::anyhow;
 use cumulus_test_runtime::test_pallet::{HRMP_RECIPIENT_HIGH, HRMP_RECIPIENT_LOW};
 use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_throughput, assign_cores,
-	submit_extrinsic_and_wait_for_finalization_success,
+	assert_finality_lag, assert_para_throughput, assign_cores, open_hrmp_channel,
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use tokio::{join, spawn, task::JoinHandle};
 use zombienet_sdk::{
-	subxt::{ext::scale_value::value, OnlineClient, PolkadotConfig},
+	subxt::{OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder, NetworkNode,
 };
@@ -57,20 +56,7 @@ async fn block_bundling_basic() -> Result<(), anyhow::Error> {
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
 	for recipient in [HRMP_RECIPIENT_LOW, HRMP_RECIPIENT_HIGH] {
-		let call = zombienet_sdk::subxt::tx::dynamic(
-			"Sudo",
-			"sudo",
-			vec![value! {
-				Hrmp(force_open_hrmp_channel {
-					sender: PARA_ID,
-					recipient: recipient,
-					max_capacity: 1000u32,
-					max_message_size: 1024u32
-				})
-			}],
-		);
-		submit_extrinsic_and_wait_for_finalization_success(&relay_client, &call, &dev::alice())
-			.await?;
+		open_hrmp_channel(&relay_client, PARA_ID, recipient, 1000, 1024, &dev::alice(), 60).await?;
 	}
 	log::info!("HRMP channels opened to {HRMP_RECIPIENT_LOW} and {HRMP_RECIPIENT_HIGH}");
 

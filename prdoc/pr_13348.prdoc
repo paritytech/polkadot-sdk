@@ -1,0 +1,10 @@
+title: Remove deprecated BlockLength constructors
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+
+    This is part of #11561. `BlockLength::max` and `BlockLength::max_with_normal_ratio` were due for removal after July 2026, and nothing in the repository calls them. The deprecation notes pointed at `builder().max()` and `builder().normal_ratio()`, but the builder only had `max_length`. `max_length` already replaces `BlockLength::max`. This change adds `BlockLengthBuilder::normal_ratio` for the second constructor and deletes both old functions.
+crates:
+- name: frame-system
+  bump: major

@@ -495,6 +495,37 @@ impl AssignmentCriteria for MockAssignmentCriteria {
 	}
 }
 
+#[test]
+fn knowledge_insert_expands_all_candidates_after_duplicate() {
+	let hash = Hash::zero();
+	let validator = ValidatorIndex(0);
+
+	for existing_kind in [MessageKind::Assignment, MessageKind::Approval] {
+		for existing_index in [0u32, 1] {
+			let mut knowledge = Knowledge::default();
+			let existing = MessageSubject(hash, existing_index.into(), validator);
+			assert!(knowledge.insert(existing.clone(), existing_kind));
+
+			let multi = MessageSubject(hash, vec![0, 1, 2].try_into().unwrap(), validator);
+			// A duplicate still makes the aggregate insertion result false.
+			assert!(!knowledge.insert(multi.clone(), MessageKind::Assignment));
+			assert!(knowledge.contains(&multi, MessageKind::Assignment));
+
+			for candidate_index in 0u32..3 {
+				assert!(
+					knowledge.contains(
+						&MessageSubject(hash, candidate_index.into(), validator),
+						MessageKind::Assignment,
+					),
+					"candidate {candidate_index} missing after duplicate {existing_index} ({existing_kind:?})",
+				);
+			}
+			// Expanding an assignment must not downgrade existing approval knowledge.
+			assert_eq!(knowledge.known_messages.get(&existing), Some(&existing_kind));
+		}
+	}
+}
+
 /// import an assignment
 /// connect a new peer
 /// the new peer sends us the same assignment

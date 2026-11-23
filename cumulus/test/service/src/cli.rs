@@ -82,14 +82,6 @@ impl Display for AuthoringPolicy {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
-	/// Build a chain specification.
-	/// DEPRECATED: `build-spec` command will be removed after 1/04/2026. Use `export-chain-spec`
-	/// command instead.
-	#[deprecated(
-		note = "build-spec command will be removed after 1/04/2026. Use export-chain-spec command instead"
-	)]
-	BuildSpec(sc_cli::BuildSpecCmd),
-
 	/// Export the chain specification.
 	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
@@ -337,8 +329,8 @@ impl SubstrateCli for TestCollatorCli {
 					Some(ParaId::from(2500)),
 				)
 			},
-			"relay-parent-offset" => cumulus_test_service::get_chain_spec(
-				cumulus_test_runtime::relay_parent_offset::WASM_BINARY,
+			"relay-parent-offset-2" => cumulus_test_service::get_chain_spec(
+				cumulus_test_runtime::relay_parent_offset_2::WASM_BINARY,
 				Some(ParaId::from(2600)),
 			),
 			"with-authority-discovery" => {
@@ -387,6 +379,13 @@ impl SubstrateCli for TestCollatorCli {
 				tracing::info!("Using elastic scaling V3 chain spec.");
 				cumulus_test_service::get_chain_spec(
 					cumulus_test_runtime::elastic_scaling_v3::WASM_BINARY,
+					Some(ParaId::from(2800)),
+				)
+			},
+			"elastic-scaling-v3-rpo-1" => {
+				tracing::info!("Using elastic scaling V3 with relay parent offset 1 chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::elastic_scaling_v3_rpo_1::WASM_BINARY,
 					Some(ParaId::from(2800)),
 				)
 			},

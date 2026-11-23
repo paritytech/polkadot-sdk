@@ -3164,7 +3164,7 @@ fn should_trigger_assignment(
 					RequiredTranches::All,
 				)
 				// when all are required, we are just waiting for the first 1/3+
-				.is_approved(Tick::max_value()),
+				.is_approved(Tick::MAX),
 				RequiredTranches::Pending { maximum_broadcast, clock_drift, .. } => {
 					let drifted_tranche_now =
 						tranche_now.saturating_sub(clock_drift as DelayTranche);

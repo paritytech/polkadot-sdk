@@ -181,16 +181,14 @@ where
 	}
 
 	/// Store or remove the value to be associated with `key` so that `get` returns the `query`.
-	/// It decrements the counter when the value is removed.
+	/// It updates the counter when an entry is added or removed.
 	pub fn set<KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter>(
 		key: KArg,
 		query: QueryKind::Query,
 	) {
-		let option = QueryKind::from_query_to_optional_value(query);
-		if option.is_none() {
-			CounterFor::<Prefix>::mutate(|value| value.saturating_dec());
-		}
-		<Self as MapWrapper>::Map::set(key, QueryKind::from_optional_value_to_query(option))
+		Self::mutate_exists(key, |value| {
+			*value = QueryKind::from_query_to_optional_value(query);
+		})
 	}
 
 	/// Take a value from storage, removing it afterwards.
@@ -711,6 +709,31 @@ mod test {
 	}
 
 	#[test]
+	fn set_counts_keys_not_writes() {
+		type A = CountedStorageNMap<Prefix, NMapKey<Blake2_128Concat, u16>, u32, OptionQuery>;
+
+		TestExternalities::default().execute_with(|| {
+			A::insert((1,), 10);
+			assert_eq!(A::count(), 1);
+
+			A::set((2,), None);
+			assert_eq!(A::count(), 1);
+
+			A::set((2,), Some(20));
+			assert_eq!(A::get((2,)), Some(20));
+			assert_eq!(A::count(), 2);
+
+			A::set((2,), Some(21));
+			assert_eq!(A::get((2,)), Some(21));
+			assert_eq!(A::count(), 2);
+
+			A::set((2,), None);
+			assert_eq!(A::get((2,)), None);
+			assert_eq!(A::count(), 1);
+		});
+	}
+
+	#[test]
 	fn test_1_key() {
 		type A = CountedStorageNMap<Prefix, NMapKey<Blake2_128Concat, u16>, u32, OptionQuery>;
 		type AValueQueryWithAnOnEmpty =
@@ -835,7 +858,7 @@ mod test {
 			A::insert((3,), 10);
 			A::insert((4,), 10);
 			assert_eq!(A::count(), 3);
-			let _ = A::clear(u32::max_value(), None);
+			let _ = A::clear(u32::MAX, None);
 			assert!(!A::contains_key((2,)) && !A::contains_key((3,)) && !A::contains_key((4,)));
 			assert_eq!(A::count(), 0);
 
@@ -928,7 +951,7 @@ mod test {
 				]
 			);
 
-			let _ = WithLen::clear(u32::max_value(), None);
+			let _ = WithLen::clear(u32::MAX, None);
 			assert_eq!(WithLen::decode_len((3,)), None);
 			WithLen::append((0,), 10);
 			assert_eq!(WithLen::decode_len((0,)), Some(1));
@@ -1091,7 +1114,7 @@ mod test {
 			A::insert((3, 30), 10);
 			A::insert((4, 40), 10);
 			assert_eq!(A::count(), 3);
-			let _ = A::clear(u32::max_value(), None);
+			let _ = A::clear(u32::MAX, None);
 			// one of the item has been removed
 			assert!(
 				!A::contains_key((2, 20)) && !A::contains_key((3, 30)) && !A::contains_key((4, 40))
@@ -1195,7 +1218,7 @@ mod test {
 				]
 			);
 
-			let _ = WithLen::clear(u32::max_value(), None);
+			let _ = WithLen::clear(u32::MAX, None);
 			assert_eq!(WithLen::decode_len((3, 30)), None);
 			WithLen::append((0, 100), 10);
 			assert_eq!(WithLen::decode_len((0, 100)), Some(1));
@@ -1384,7 +1407,7 @@ mod test {
 			A::insert((3, 30, 300), 10);
 			A::insert((4, 40, 400), 10);
 			assert_eq!(A::count(), 3);
-			let _ = A::clear(u32::max_value(), None);
+			let _ = A::clear(u32::MAX, None);
 			// one of the item has been removed
 			assert!(
 				!A::contains_key((2, 20, 200)) &&
@@ -1495,7 +1518,7 @@ mod test {
 				]
 			);
 
-			let _ = WithLen::clear(u32::max_value(), None);
+			let _ = WithLen::clear(u32::MAX, None);
 			assert_eq!(WithLen::decode_len((3, 30, 300)), None);
 			WithLen::append((0, 100, 1000), 10);
 			assert_eq!(WithLen::decode_len((0, 100, 1000)), Some(1));

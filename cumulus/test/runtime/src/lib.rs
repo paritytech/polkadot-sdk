@@ -44,8 +44,6 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiAddress, MultiSignature,
 };
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 use cumulus_primitives_core::{ParaId, RelayProofRequest, VerifySchedulingSignature};
@@ -167,12 +165,6 @@ pub const DAYS: BlockNumber = HOURS * 24;
 // 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
 pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
 
-/// The version information used to identify this runtime when compiled natively.
-#[cfg(feature = "std")]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
-
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
 /// This is used to limit the maximal weight of a single extrinsic.
 const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
@@ -287,8 +279,6 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 	type DoneSlashHandler = ();
 }
 
@@ -323,19 +313,19 @@ impl pallet_glutton::Config for Runtime {
 
 /// Scheduling-info verifier used by `cumulus-test-runtime`.
 ///
-/// Accepts any signature; `V3_SCHEDULING_ENABLED` is gated on the `v3-descriptor` cargo
-/// feature so the test runtime can flip V3 scheduling on without needing a runtime upgrade
-/// per build.
-pub struct NoVerification;
+/// Delegates to the production [`cumulus_pallet_aura_ext::AuraSchedulingVerifier`];
+/// `V3_SCHEDULING_ENABLED` is gated on the `v3-descriptor` cargo feature so the test runtime
+/// can flip V3 scheduling on without needing a runtime upgrade per build.
+pub struct SchedulingVerifier;
 
-impl VerifySchedulingSignature for NoVerification {
+impl VerifySchedulingSignature for SchedulingVerifier {
 	const V3_SCHEDULING_ENABLED: bool = SCHEDULING_V3_ENABLED;
 
 	fn verify(
-		_signed_info: &cumulus_primitives_core::SignedSchedulingInfo,
-		_relay_slot: cumulus_primitives_core::relay_chain::Slot,
+		signed_info: &cumulus_primitives_core::SignedSchedulingInfo,
+		relay_slot: cumulus_primitives_core::relay_chain::Slot,
 	) -> bool {
-		true
+		cumulus_pallet_aura_ext::AuraSchedulingVerifier::<Runtime>::verify(signed_info, relay_slot)
 	}
 }
 
@@ -360,7 +350,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<{ relay_parent_offset() }>;
-	type SchedulingSignatureVerifier = NoVerification;
+	type SchedulingSignatureVerifier = SchedulingVerifier;
 }
 
 impl parachain_info::Config for Runtime {}

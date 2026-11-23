@@ -122,10 +122,10 @@ pub trait Polling<Tally> {
 	fn end_ongoing(index: Self::Index, approved: bool) -> Result<(), ()>;
 
 	/// The maximum amount of ongoing polls within any single class. By default it practically
-	/// unlimited (`u32::max_value()`).
+	/// unlimited (`u32::MAX`).
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_ongoing() -> (Self::Class, u32) {
-		(Self::classes().into_iter().next().expect("Always one class"), u32::max_value())
+		(Self::classes().into_iter().next().expect("Always one class"), u32::MAX)
 	}
 }
 

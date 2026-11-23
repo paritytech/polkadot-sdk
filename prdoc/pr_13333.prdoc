@@ -1,0 +1,12 @@
+title: Remove unused ChildBountyCount storage item from pallet-child-bounties
+doc:
+- audience: Runtime Dev
+  description: |-
+    `ChildBountyCount` was replaced by per-parent counters in a previous migration and is no
+    longer read anywhere, so this removes the storage item from the pallet. The storage version
+    stays at 1: the raw value, where it still exists on-chain, is cleaned up separately with
+    `RemoveStorage<ChildBountyCount>` in the runtimes that need it, rather than an in-pallet
+    migration.
+crates:
+- name: pallet-child-bounties
+  bump: major
