@@ -256,7 +256,18 @@ mod tests {
 		let peer_signal = UMPSignal::ApprovedPeer(peer(1)).encode();
 		for (raw, error) in [
 			(vec![select_core().encode(); 2], SignalError::DuplicateSelectCore),
-			(vec![peer_signal; 2], SignalError::DuplicateApprovedPeer),
+			(
+				vec![
+					select_core().encode(),
+					UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode(),
+				],
+				SignalError::DuplicateSelectCore,
+			),
+			(vec![peer_signal.clone(); 2], SignalError::DuplicateApprovedPeer),
+			(
+				vec![peer_signal, UMPSignal::ApprovedPeer(peer(2)).encode()],
+				SignalError::DuplicateApprovedPeer,
+			),
 			(vec![UMPSignal::Provides(root(2)).encode()], SignalError::BlockEmittedSpecMsgSignal),
 			(vec![UMPSignal::Requires(requires).encode()], SignalError::BlockEmittedSpecMsgSignal),
 			(vec![vec![0xff]], SignalError::UndecodableSignal),
@@ -270,6 +281,15 @@ mod tests {
 	#[test]
 	fn all_idle_bundle_emits_nothing() {
 		assert!(ump_signal_tail(&[], None, None, &[], None).unwrap().is_empty());
+	}
+
+	#[test]
+	fn provides_alone_has_a_separator() {
+		let provides = root(3);
+		assert_eq!(
+			ump_signal_tail(&[], None, Some(provides), &[], None).unwrap(),
+			vec![UMP_SEPARATOR, UMPSignal::Provides(provides).encode()]
+		);
 	}
 
 	#[test]
