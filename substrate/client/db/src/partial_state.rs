@@ -350,9 +350,15 @@ impl<Block: BlockT> DbPartialState<Block> {
 		Ok(())
 	}
 
-	/// Walks the trie under `state_root` through what `STATE` holds and removes every node it
-	/// finds, children first, in commits of `DISCARD_BATCH` removals. The last commit also drops
-	/// the `DISCARDING` marker. Returns how many nodes went.
+	/// Removes every node of the trie under `state_root` from `STATE`.
+	///
+	/// Walks the trie through what `STATE` holds and removes the nodes it finds, children first,
+	/// in commits of `DISCARD_BATCH` removals. The last commit also drops the `DISCARDING`
+	/// marker. Returns how many nodes went.
+	///
+	/// The walk is a work-around for parity-db, which cannot clear a column of an open database.
+	/// It goes away with the parity-db update, see
+	/// <https://github.com/paritytech/polkadot-sdk/issues/13946>.
 	fn remove_nodes(&self, state_root: Block::Hash) -> ClientResult<u64> {
 		let walk_err = |e: sp_trie::partial_state::Error| {
 			ClientError::Backend(format!(
@@ -406,6 +412,10 @@ impl<Block: BlockT> DbPartialState<Block> {
 		//
 		// Polling the root is enough: it is the last node removed, and commits are written in
 		// order, so once the root reads as gone, everything removed before it is gone too.
+		//
+		// This wait is a work-around for parity-db having no way to wait for queued commits. It
+		// goes away with the parity-db update, see
+		// https://github.com/paritytech/polkadot-sdk/issues/13946.
 		let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
 		while self.storage.db.get(columns::STATE, &root_key).is_some() {
 			if std::time::Instant::now() > deadline {
