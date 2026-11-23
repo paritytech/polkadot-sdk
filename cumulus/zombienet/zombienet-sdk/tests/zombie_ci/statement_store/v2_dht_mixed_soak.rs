@@ -7,12 +7,13 @@
 //! it speaks statement/2 but never advertises a filter
 //!
 //! The two kinds meet on sync links only, as a DHT-off node opens statement substreams to its sync
-//! peers alone. A DHT node serves a DHT-off peer silent past the filter grace as a node that wants
-//! everything: it pushes the peer every statement, sends it a match-all filter so the peer pushes
-//! everything back, and keeps it out of the DHT index. A DHT node without a link to the DHT-off
-//! node cannot tell it apart and keeps it in its index. So for each DHT-off node among a topic's K
-//! closest, one DHT node past them holds a replica only if it is linked to the DHT-off nodes ahead,
-//! and the soak does not check that node's store
+//! peers alone. A DHT-off peer settles for statement/2, and a DHT node serves it from then on as a
+//! node that wants everything: it pushes the peer every statement, sends it no filter so the peer
+//! pushes everything back, and keeps it out of the DHT index. A DHT node without a link to the
+//! DHT-off node learns the same from identify, which lists no statement/3, but it keeps a node
+//! that left the DHT path in its index until a fresh identify. So for each DHT-off node among a
+//! topic's K closest, one DHT node past them may hold a replica or not, and the soak does not
+//! check that node's store
 //!
 //! Every wave checks delivery in all four directions, entry kind to subscriber kind:
 //! - ring load on the wave topic, submitted round-robin through every node, with one subscriber of
@@ -324,9 +325,9 @@ fn describe_links(
 }
 
 /// Waits for the topology the replica oracle needs: every DHT node knows all the other DHT nodes as
-/// eligible, and the DHT-off ones it has no link to may count as well. A DHT node whose connected
-/// and wanted statement peers stay under the K-peer floor or a DHT-off node without a statement
-/// peer is a finding, not a stop
+/// eligible, and a node that left the DHT path may count until a fresh identify. A DHT node whose
+/// connected and wanted statement peers stay under the K-peer floor or a DHT-off node without a
+/// statement peer is a finding, not a stop
 async fn wait_for_mixed_topology(
 	nodes: &[NodeHandle],
 	dht_off: &[bool],
@@ -487,8 +488,9 @@ fn pick_probes(
 		}
 	}
 
-	// The subscriber's steering keeps one peer for the topic, its nearest known node: here a
-	// DHT-off node that refuses the subscriber, as they share no sync link
+	// The subscriber's steering keeps one peer for the topic, its nearest known DHT node. The
+	// topic's nearest node is DHT-off and lists no `statement/3`, so identify keeps it out of the
+	// subscriber's index
 	let nearest_dht_off = (0..TOPIC_SEARCH_LIMIT).find_map(|candidate| {
 		let topic = soak_topic(b"mixed-p2-hard", wave, candidate);
 		let order = ranked_by_distance(peer_keys, topic);
@@ -566,7 +568,7 @@ async fn dht_placement(
 /// Where `statement` must sit among the DHT nodes: on the DHT nodes among the K closest of its
 /// topic's `order`, and on `subscriber` when that is a DHT node that got it. Also returns the DHT
 /// nodes left unchecked: one past the K closest for each DHT-off node among them, as it holds a
-/// replica only if it is linked to the DHT-off nodes ahead. DHT-off stores are not checked, they
+/// replica unless its index still has a DHT-off node ahead. DHT-off stores are not checked, they
 /// keep whatever reaches them
 fn expected_dht_placement(
 	statement: &[u8],

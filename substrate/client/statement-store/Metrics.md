@@ -15,7 +15,6 @@ why it matters how to read it and what problems it helps diagnose.
   - [Network Overview](#network-overview)
   - [Network Throughput & Bandwidth](#network-throughput--bandwidth)
   - [Operation Latency](#operation-latency)
-  - [Network Health Indicators](#network-health-indicators)
   - [Statement Expiration & Cleanup](#statement-expiration--cleanup)
   - [Initial Sync](#initial-sync)
 ---
@@ -245,9 +244,9 @@ bandwidth, latency, and network health indicators.
 - **Why it matters:** Metric for sizing network requirements.
 - **How to read:** Two-line chart in bytes/sec. Compare sent vs received for balance.
 - **Labels:** `statements_received`, `propagated_statements`, `bytes_sent_total` and `bytes_received_total`
-  carry `route`: `dht` for peers served through the v2 DHT path, `legacy` for the rest (v1 peers and v2
-  peers without a filter). A peer counts as `dht` only once its affinity filter applies, so a peer in its grace
-  period counts as `legacy`. A node without the v2 DHT path reports every peer as `legacy`.
+  carry `route`: `dht` for peers served through the v2 DHT path, `legacy` for the rest (v1 peers and full
+  v2 peers). A peer counts as `dht` only once its affinity filter applies, so a `statement/3` peer counts as
+  `legacy` until its filter arrives. A node without the v2 DHT path reports every peer as `legacy`.
 - **Problems it solves:**
   - Detect bandwidth issues
   - Compare bandwidth across releases to measure protocol efficiency improvements
@@ -286,26 +285,6 @@ percentiles, making it easy to spot tail latency regressions.
   - Identify slow peers
   - Compare send latency across releases to measure protocol improvements
   - Set SLOs: "p99 send latency < 2s"
-
----
-
-### Network Health Indicators
-
-#### Peers Assumed Match-All
-- **Metric:** `rate(substrate_sync_statement_peers_assumed_match_all_total[$__rate_interval])`
-- **Type:** Counter (displayed as rate)
-- **What it measures:** v2 peers that sent no affinity filter within the 10s grace period, so the node
-  sends them everything.
-- **Why it matters:** v2 peers running without the DHT path land here once per connection. Compare with
-  `substrate_sync_statement_late_affinity_filters_total`.
-
-#### Late Affinity Filters
-- **Metric:** `rate(substrate_sync_statement_late_affinity_filters_total[$__rate_interval])`
-- **Type:** Counter (displayed as rate)
-- **What it measures:** Affinity filters that arrived after the grace period and moved their peer
-  back to the v2 DHT path.
-- **Why it matters:** Each one is a v2 peer that was slow with its filter and was sent everything in the
-  meantime. A steady rate suggests the grace period is too short.
 
 ---
 
