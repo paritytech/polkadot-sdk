@@ -2631,9 +2631,9 @@ impl<T: Config> Pallet<T> {
 						let Some(Call::<T>::eth_substrate_call { call: dispatch_call, .. }) =
 							call_info.call.is_sub_type()
 						else {
-							return Err(EthTransactError::Message(format!(
-								"Failed to decode pallet-call {input:?}"
-							)));
+							return Err(EthTransactError::Message(
+								"Unexpected call for the runtime pallets address".into(),
+							));
 						};
 
 						if let Err(result) = dispatch_call
