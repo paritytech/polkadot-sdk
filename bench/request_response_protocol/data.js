@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795448125609,
+  "lastUpdate": 1795453580591,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -150011,6 +150011,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2701235534,
             "range": "± 13671408",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "shlavik@gmail.com",
+            "name": "Viacheslav",
+            "username": "llblab"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "62cd4a2921bd19b3d021c64800ebbb57bb95dde2",
+          "message": "fix(xcmp-queue): respect byte capacity for opaque notifications (#13816)\n\n# Description\n\nNotification path introduced in #11263.\n\nFix an outbound XCMP capacity-admission bug in the\n`ConcatenatedOpaqueVersionedXcm` capability notification path.\n\nWhen an HRMP channel has available message slots but no remaining byte\ncapacity, `ChannelInfo::get_channel_status` may return\n`ChannelStatus::Ready(0, max_message_size)`. The existing\n`take_outbound_messages` implementation checks available capacity for\nqueued messages, but the opaque capability notification path previously\nexported the encoded notification without checking whether it fits.\n\nThe old path also set\n`CONCATENATED_OPAQUE_VERSIONED_XCM_NOTIFICATION_SENT` in the candidate's\nstate even when the notification exceeded the channel's remaining byte\ncapacity.\n\n**Reproduction on the unmodified upstream code:**\n\n```text\nChannelStatus::Ready(0, 32)\n\nActual:   (exported, sent) = ([(1000, [3])], true)\nExpected: (exported, sent) = ([], false)\n```\n\nThe channel has zero available bytes, although a message slot remains\navailable. The one-byte capability notification must not be exported in\nthis state.\n\n**Relay-chain acceptance implications:** `check_outbound_hrmp` rejects\noutbound messages that exceed the channel's `max_total_size` with\n`TotalSizeExceeded`. If the exported notification reaches candidate\nvalidation while the channel's byte capacity is exhausted, it can cause\nthe candidate to fail the HRMP acceptance check.\n\nThe fix checks the complete encoded notification length against the\ncurrent available byte capacity before exporting it or updating the\n`SENT` flag.\n\n## Severity & reachability\n\nLow severity; no funds, consensus, or security impact. The guard leaves\nqueued\nmessages intact and keeps the notification pending when it does not fit.\n\nTrigger: the relay-parent snapshot reports the channel exactly byte-full\n(`total_size == max_total_size`) with a free message slot, while the\none-shot\nnotification is still pending. Queued pages and signals both require\n`page.len() < max_size_now`; before this fix, only the notification path\nomitted\na byte-capacity check.\n\nImpact without the guard: if the channel is still byte-full at\nacceptance time,\n`check_outbound_hrmp` rejects the candidate (`TotalSizeExceeded` →\n`InvalidOutboundHrmp`). The block is lost, but its `SENT` update does\nnot persist,\nso the notification can be attempted again once capacity frees. If\nenough byte\ncapacity frees before acceptance, the notification does not cause a\n`TotalSizeExceeded` rejection.\n\nLatent coupling: the strict `<` checks leave at least one byte of\nheadroom\nrelative to the snapshot. Allowing exact fits (`<=`) would let queued\npages and\nsignals consume the last available byte. The guard makes notification\nadmission\nindependent of those checks.\n\n# Integration\n\nNo downstream changes are required.\n\nThe fix preserves existing XCMP message encoding, capability\nnegotiation, Simple-format fallback, storage layout, public APIs,\nruntime configuration, and Weight definitions.\n\nNo migration is needed. The change affects subsequent notification\nattempts; it does not retroactively modify previously persisted\nnotification flags.\n\n# Review Notes\n\n## Implementation\n\nThe production change adds a four-line guard in\n`cumulus/pallets/xcmp-queue/src/lib.rs`, immediately before the existing\nnotification-sent state transition:\n\n```rust\n// A free message slot does not imply sufficient byte capacity.\nif page.len() > max_size_now {\n    return true;\n}\n```\n\n`page` contains the encoded `ConcatenatedOpaqueVersionedXcm`\nnotification, while `max_size_now` comes from the current\n`ChannelStatus::Ready` response.\n\nWhen the notification does not fit, the existing channel status is\nretained and the `SENT` flag remains unset. The notification can\ntherefore be attempted again when capacity becomes available.\n\nWhen it fits, the existing one-shot notification behavior is unchanged.\n\n**Exact fit is intentionally allowed:** the `ChannelStatus::Ready`\ncontract and relay-side `TotalSizeExceeded` check both permit a message\nwhose encoded length equals the remaining byte capacity. The existing\nstrict `<` checks for queued pages and signals are left unchanged to\nkeep this fix narrowly scoped.\n\nThe fix reuses the established outbound channel-status handling and does\nnot introduce new storage, retry logic, wire formats, or Weight\ncalculations.\n\n## Regression tests\n\nThe new `opaque_notification_respects_channel_capacity` test covers\nthree conditions:\n\n| Channel condition | Expected behavior |\n| --- | --- |\n| Zero available bytes, with a message slot available | No export;\n`SENT` remains unset |\n| Exactly enough bytes for the notification | Export once; `SENT`\nbecomes set |\n| Exhausted message slots (`ChannelStatus::Full`) | No export; `SENT`\nremains unset |\n\nEach case then restores channel capacity and verifies that a previously\nblocked notification is emitted, while an already-sent notification is\nnot repeated.\n\nThe identical regression test was run against the unmodified upstream\nimplementation and failed on the zero-byte case:\n\n```text\nActual:   ([(1000, [3])], true)\nExpected: ([], false)\n```\n\nIt passes after the fix. The existing\n`concatenated_opaque_version_xcm_negotiation_works` regression also\ncontinues to pass.\n\n`opaque_notification_waits_when_queued_page_does_not_fit` covers the\nfall-through\nfrom an unfitting queued page to the notification path. At zero byte\ncapacity,\nnothing is exported, the queued page is retained, and `SENT` remains\nunset. Once\ncapacity returns, the queued page is exported first, then the\nnotification is\nexported exactly once.\n\n## Validation\n\nValidation on `e6953c5fde` (Rust 1.93.0 for tests and Clippy):\n\n- 42 default-feature tests passed.\n- 53 tests with `runtime-benchmarks` passed.\n- Clippy passed with `--all-targets --all-features -- -D warnings`.\n- `git diff --check` passed.\n- Nightly rustfmt reported no changes needed on the lines modified by\nthis PR.\n\nThe full-package nightly formatting check still reports an unrelated\npre-existing comment-formatting issue, also present on the unmodified\nbase. This PR intentionally leaves that code untouched.\n\n## Scope\n\nThis PR only addresses outbound notification byte-capacity admission. It\ndoes not change inbound XCMP decoding, resource-admission weights,\nMessage Queue execution, or the broader opaque transport protocol.\n\n# Checklist\n\n- [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n- [x] My PR follows the labeling requirements of this project (at\nminimum one `T*` label required).\n- [x] I have made corresponding changes to the documentation (if\napplicable; no documentation changes are needed).\n- [x] I have added tests that prove my fix is effective or that my\nfeature works.\n\n---------\n\nSigned-off-by: llblab <shlavik@gmail.com>",
+          "timestamp": "2026-11-23T13:58:13Z",
+          "tree_id": "6218ff89e7311e3d231d0d5b52cd336c2f86e826",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/62cd4a2921bd19b3d021c64800ebbb57bb95dde2"
+        },
+        "date": 1795453544492,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20034978,
+            "range": "± 239459",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20577452,
+            "range": "± 180548",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22032346,
+            "range": "± 570247",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25954386,
+            "range": "± 341359",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59229687,
+            "range": "± 705452",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 362120772,
+            "range": "± 5857323",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2622811904,
+            "range": "± 122131578",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17333911,
+            "range": "± 105830",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17364459,
+            "range": "± 191819",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18061707,
+            "range": "± 152245",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22739020,
+            "range": "± 345492",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61664627,
+            "range": "± 703401",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 359260111,
+            "range": "± 2876081",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2799584103,
+            "range": "± 18835757",
             "unit": "ns/iter"
           }
         ]
