@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795441593085,
+  "lastUpdate": 1795446015156,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "823a550f4be744bd1ba9e47a2ce82ede6e8aa4bd",
-          "message": "Statement store e2e integration tests lite person setup (#11415)\n\n## Summary\n\n- Add a lite person registration test that exercises the full\nPeopleLite::attest flow on a live parachain, including ring-VRF key\ngeneration, attestation, and subsequent statement submission.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-11T13:19:23Z",
-          "tree_id": "477f2e189ec1398609b4e1066c16c114d813fc65",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/823a550f4be744bd1ba9e47a2ce82ede6e8aa4bd"
-        },
-        "date": 1778512902290,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007258285193333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023817946406666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14125723693333342,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00974055195333331,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010023825853333309,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e0e9af42891d79a2321a1ef5f46afc0dd21f7104",
+          "message": "Check CID length before acceptance on `bitswap_v1_get` (#13937)\n\nCheck CID length before we parse it.",
+          "timestamp": "2026-11-23T12:13:21Z",
+          "tree_id": "5750e73fdbf8a3c2bd4abf994d0200bc2af40210",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e0e9af42891d79a2321a1ef5f46afc0dd21f7104"
+        },
+        "date": 1795445982194,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024153304846666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007507425246666669,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010028564919999983,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14214195332000004,
             "unit": "seconds"
           }
         ]
