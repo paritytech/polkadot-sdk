@@ -333,23 +333,18 @@ pub mod pallet {
 		) -> u32 {
 			let max_blocks = T::MaxBlocksPerEntry::get();
 			let mut requested = 0u64;
-			let clamped: Vec<_> = blocks
+			let blocks: Vec<_> = blocks
 				.into_iter()
 				.map(|(who, count)| {
 					requested.saturating_accrue(count.into());
 					(who, count.min(max_blocks))
 				})
 				.collect();
-			if clamped.is_empty() {
+			if blocks.is_empty() {
 				return 0;
 			}
-			let points_per_unit = PointsPerService::<T>::get(source, ServiceKind::Collation)
-				.min(T::MaxPointsPerService::get());
-			let era = match points_per_unit {
-				0 => None,
-				_ => T::RewardPoints::active_era(),
-			};
-			let Some(era) = era else {
+
+			let Some((era, points_per_unit)) = Self::era_and_points_per_unit(source) else {
 				Self::deposit_event(Event::BlocksIgnored {
 					source,
 					blocks: requested.saturated_into(),
@@ -357,38 +352,21 @@ pub mod pallet {
 				return 0;
 			};
 
-			let (counter_era, counter_units) =
-				CreditedUnits::<T>::get(source, ServiceKind::Collation);
-			let used = if counter_era == era { counter_units } else { 0 };
-			let limit = UnitsPerEraLimit::<T>::get(source, ServiceKind::Collation)
-				.min(T::MaxUnitsPerEraLimit::get());
-			let remaining = limit.saturating_sub(used);
-
-			let total = clamped
-				.iter()
-				.fold(0u64, |total, (_, count)| total.saturating_add((*count).into()));
-			// When `total > remaining` the divisor is not zero and each credit is at most its
-			// clamped count.
-			let credit = |count: u32| {
-				if total <= remaining.into() {
-					count
-				} else {
-					(u64::from(count) * u64::from(remaining) / total).saturated_into()
-				}
-			};
-			let mut credited = 0u32;
-			let points: Vec<_> = clamped
-				.into_iter()
-				.map(|(who, count)| (who, credit(count)))
-				.inspect(|(_, credit)| credited.saturating_accrue(*credit))
-				.filter(|(_, credit)| *credit > 0)
-				.map(|(who, credit)| (who, credit.saturating_mul(points_per_unit)))
-				.collect();
+			let (used, remaining) = Self::units_used_and_remaining(source, era);
+			let credits = Self::fit_to_remaining(blocks, remaining);
+			let credited =
+				credits.iter().fold(0u32, |total, (_, credit)| total.saturating_add(*credit));
 			CreditedUnits::<T>::insert(
 				source,
 				ServiceKind::Collation,
 				(era, used.saturating_add(credited)),
 			);
+
+			let points: Vec<_> = credits
+				.into_iter()
+				.filter(|(_, credit)| *credit > 0)
+				.map(|(who, credit)| (who, credit.saturating_mul(points_per_unit)))
+				.collect();
 			let entries = points.len() as u32;
 			if !points.is_empty() {
 				T::RewardPoints::reward(ServiceKind::Collation, points);
@@ -403,6 +381,50 @@ pub mod pallet {
 				});
 			}
 			entries
+		}
+
+		/// The active era and the points per unit of `source` for [`ServiceKind::Collation`], or
+		/// `None` if `source` earns no points or no era is active.
+		fn era_and_points_per_unit(source: T::Source) -> Option<(EraIndex, u32)> {
+			let points_per_unit = PointsPerService::<T>::get(source, ServiceKind::Collation)
+				.min(T::MaxPointsPerService::get());
+			if points_per_unit == 0 {
+				return None;
+			}
+			T::RewardPoints::active_era().map(|era| (era, points_per_unit))
+		}
+
+		/// The units of [`ServiceKind::Collation`] already credited to `source` in `era`, and what
+		/// is left of its limit.
+		fn units_used_and_remaining(source: T::Source, era: EraIndex) -> (u32, u32) {
+			let (counter_era, counter_units) =
+				CreditedUnits::<T>::get(source, ServiceKind::Collation);
+			let used = if counter_era == era { counter_units } else { 0 };
+			let limit = UnitsPerEraLimit::<T>::get(source, ServiceKind::Collation)
+				.min(T::MaxUnitsPerEraLimit::get());
+			(used, limit.saturating_sub(used))
+		}
+
+		/// `blocks` unchanged if their total fits in `remaining`, otherwise every count cut by the
+		/// same ratio, rounded down.
+		fn fit_to_remaining(
+			blocks: Vec<(T::AccountId, u32)>,
+			remaining: u32,
+		) -> Vec<(T::AccountId, u32)> {
+			let total = blocks
+				.iter()
+				.fold(0u64, |total, (_, count)| total.saturating_add((*count).into()));
+			if total <= remaining.into() {
+				return blocks;
+			}
+			// `total > remaining`, so the divisor is not zero and each count only shrinks.
+			blocks
+				.into_iter()
+				.map(|(who, count)| {
+					let credit = u64::from(count) * u64::from(remaining) / total;
+					(who, credit.saturated_into())
+				})
+				.collect()
 		}
 
 		/// Weight of [`Self::report_authored_blocks`] for a report of `entries` entries, of which
