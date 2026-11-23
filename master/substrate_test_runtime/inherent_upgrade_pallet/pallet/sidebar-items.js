@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["INHERENT_IDENTIFIER"],"enum":["Call"],"mod":["dispatchables","storage_types"],"struct":["Pallet"],"trait":["Config"],"type":["Migrated","Module"]};
