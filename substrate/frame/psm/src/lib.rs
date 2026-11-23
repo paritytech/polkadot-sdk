@@ -1049,7 +1049,9 @@ pub mod pallet {
 		/// ## Events
 		///
 		/// - [`Event::PsmCreated`].
-		#[pallet::call_index(2)]
+		// Call indices 2, 11 and 12 are retired and must not be reused: calls encoded for their
+		// argument types must fail to decode.
+		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::create_psm())]
 		pub fn create_psm(
 			origin: OriginFor<T>,
@@ -1542,7 +1544,7 @@ pub mod pallet {
 		/// ## Events
 		///
 		/// - [`Event::FullAdminChanged`].
-		#[pallet::call_index(11)]
+		#[pallet::call_index(14)]
 		#[pallet::weight(T::WeightInfo::set_full_admin())]
 		pub fn set_full_admin(
 			origin: OriginFor<T>,
@@ -1589,7 +1591,7 @@ pub mod pallet {
 		/// ## Events
 		///
 		/// - [`Event::EmergencyAdminChanged`].
-		#[pallet::call_index(12)]
+		#[pallet::call_index(15)]
 		#[pallet::weight(T::WeightInfo::set_emergency_admin())]
 		pub fn set_emergency_admin(
 			origin: OriginFor<T>,

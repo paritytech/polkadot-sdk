@@ -4458,6 +4458,25 @@ mod admin {
 		});
 	}
 
+	#[test]
+	fn retired_admin_call_indices_do_not_decode() {
+		let root = root_origin();
+		for index in [2u8, 11, 12] {
+			let mut encoded = vec![index];
+			INTERNAL_ASSET_ID.encode_to(&mut encoded);
+			root.encode_to(&mut encoded);
+			assert!(crate::Call::<Test>::decode(&mut &encoded[..]).is_err(), "index {index}");
+		}
+
+		let call = crate::Call::<Test>::set_full_admin {
+			internal_asset: INTERNAL_ASSET_ID,
+			new_admin: Box::new(fixed(root)),
+		};
+		let encoded = call.encode();
+		assert_eq!(encoded[0], 14);
+		assert_eq!(crate::Call::<Test>::decode(&mut &encoded[..]), Ok(call));
+	}
+
 	/// Create a PSM on `NEW_INTERNAL`, owned by ALICE, with the given roles.
 	fn create_owned_psm(full: AdminOrigin<OriginCaller>, emergency: AdminOrigin<OriginCaller>) {
 		assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
