@@ -1,22 +1,20 @@
-title: 'statement-store: resend statements a slow or failing peer missed'
+title: 'statement-store: disconnect a peer that stops reading statements'
 doc:
 - audience: Node Dev
   description: |-
-    A peer that stops reading or whose sends fail no longer loses statements. A full
-    propagation outbox now refuses new hashes instead of dropping its oldest, and a failed
-    propagation send gives up its chunk and the hashes queued behind it, except detours. In
-    both cases the peer records the lowest admission sequence it missed. Once its outbox drains
-    and its last chunk completes, an initial sync walks the admission journal from that
-    sequence to the current watermark, so the peer receives every missed statement. The walk
-    may resend a statement the peer already has. Before, the dropped hashes and the failed
-    chunks were never resent, and the peer got those statements only from another peer or a
-    later full resync.
+    A peer whose last two statement sends failed has stopped reading and is now disconnected.
+    There is no reputation change, because such a peer is broken or overloaded, not malicious.
+    A send left over from a previous connection does not count. When the peer reconnects it gets
+    a fresh initial sync, and in the meantime routing sends new statements to other peers.
+    Before, such a peer kept its connection and lost every chunk sent to it.
 
-    Statements left to a walk now count in `send_failures` only, so
-    `substrate_sync_statement_undelivered_total` counts statements no resync resends.
+    A full propagation outbox now refuses new hashes instead of dropping its oldest. A full
+    outbox alone disconnects nobody: a peer that is still reading keeps its connection and loses
+    only the refused hashes, counted in
+    `substrate_sync_statement_undelivered_total{reason="outbox_full"}`.
 
-    On the v2 path the retention sweep can still remove a forwarded statement before the walk
-    reaches it.
+    Each disconnect is logged with the peer id and counted in
+    `substrate_sync_statement_stalled_peers_disconnected`.
 crates:
 - name: sc-network-statement
   bump: patch

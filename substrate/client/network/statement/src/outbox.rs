@@ -35,8 +35,6 @@ use std::{
 pub(crate) struct PropagationOutboxes {
 	store: Option<Arc<dyn StatementStore>>,
 	outboxes: HashMap<PeerId, VecDeque<Hash>>,
-	/// Admission sequence of each queued hash, in step with `outboxes`.
-	seqs: HashMap<PeerId, VecDeque<u64>>,
 	/// Statements held in the store until they find a peer to go to.
 	dead_ends: Vec<DeadEnd>,
 }
@@ -49,36 +47,30 @@ pub(crate) struct DeadEnd {
 	pub(crate) topics: Vec<Topic>,
 	/// Unix time in seconds at which the statement expires.
 	pub(crate) expires_at: u64,
-	/// Peers that have the statement: they sent it to this node, or their outbox took it.
+	/// Peers that sent the statement to this node.
 	pub(crate) senders: HashSet<PeerId>,
 }
 
 impl PropagationOutboxes {
 	pub(crate) fn new(store: Option<Arc<dyn StatementStore>>) -> Self {
-		Self { store, outboxes: HashMap::new(), seqs: HashMap::new(), dead_ends: Vec::new() }
+		Self { store, outboxes: HashMap::new(), dead_ends: Vec::new() }
 	}
 
 	pub(crate) fn get(&self, who: &PeerId) -> Option<&VecDeque<Hash>> {
 		self.outboxes.get(who)
 	}
 
-	/// Append `hashes`, each with its admission sequence, to the peer's outbox until it is full
-	/// and return how many it took.
-	pub(crate) fn push(&mut self, who: PeerId, hashes: &[(u64, Hash)]) -> usize {
+	/// Append `hashes` to the peer's outbox until it is full and return how many it refused.
+	pub(crate) fn push(&mut self, who: PeerId, mut hashes: Vec<Hash>) -> usize {
 		let outbox = self.outboxes.entry(who).or_default();
-		let taken = hashes.len().min(MAX_PROPAGATION_OUTBOX_LEN.saturating_sub(outbox.len()));
-		let (seqs, hashes): (Vec<_>, Vec<_>) = hashes[..taken].iter().copied().unzip();
+		let offered = hashes.len();
+		hashes.truncate(MAX_PROPAGATION_OUTBOX_LEN.saturating_sub(outbox.len()));
 		if let Some(store) = &self.store {
 			store.hold_statements(&hashes);
 		}
+		let refused = offered - hashes.len();
 		outbox.extend(hashes);
-		self.seqs.entry(who).or_default().extend(seqs);
-		taken
-	}
-
-	/// Lowest admission sequence queued for the peer.
-	pub(crate) fn lowest_seq(&self, who: &PeerId) -> Option<u64> {
-		self.seqs.get(who)?.iter().copied().min()
+		refused
 	}
 
 	/// The peer's queued hashes as one slice, oldest first.
@@ -86,37 +78,18 @@ impl PropagationOutboxes {
 		self.outboxes.get_mut(who).map(|outbox| &*outbox.make_contiguous())
 	}
 
-	/// Remove the peer's `count` oldest hashes and return their lowest admission sequence.
-	pub(crate) fn consume(&mut self, who: &PeerId, count: usize) -> Option<u64> {
-		let consumed: Vec<_> = self.outboxes.get_mut(who)?.drain(..count).collect();
+	/// Remove the peer's `count` oldest hashes.
+	pub(crate) fn consume(&mut self, who: &PeerId, count: usize) {
+		let Some(outbox) = self.outboxes.get_mut(who) else { return };
+		let consumed: Vec<_> = outbox.drain(..count).collect();
 		self.release(&consumed);
-		self.seqs.get_mut(who)?.drain(..count).min()
 	}
 
 	/// Remove the peer's outbox and return how many hashes it held.
 	pub(crate) fn remove(&mut self, who: &PeerId) -> usize {
-		self.seqs.remove(who);
 		let Some(outbox) = self.outboxes.remove(who) else { return 0 };
 		let removed = Vec::from(outbox);
 		self.release(&removed);
-		removed.len()
-	}
-
-	/// Remove the peer's queued hashes except detours, queued under `DETOUR_SEQ`, and return how
-	/// many it removed.
-	pub(crate) fn retain_detours(&mut self, who: &PeerId) -> usize {
-		let (Some(outbox), Some(seqs)) = (self.outboxes.remove(who), self.seqs.remove(who)) else {
-			return self.remove(who);
-		};
-		let (detours, removed): (Vec<_>, Vec<_>) =
-			outbox.into_iter().zip(seqs).partition(|(_, seq)| *seq == crate::DETOUR_SEQ);
-		let removed: Vec<_> = removed.into_iter().map(|(hash, _)| hash).collect();
-		self.release(&removed);
-		if !detours.is_empty() {
-			let (hashes, seqs) = detours.into_iter().unzip();
-			self.outboxes.insert(*who, hashes);
-			self.seqs.insert(*who, seqs);
-		}
 		removed.len()
 	}
 
@@ -131,13 +104,6 @@ impl PropagationOutboxes {
 	/// The held dead-end statements, oldest first.
 	pub(crate) fn dead_ends(&self) -> &[DeadEnd] {
 		&self.dead_ends
-	}
-
-	/// Record that `peer` has the dead-end statement `hash`, so it is not sent to `peer` again.
-	pub(crate) fn add_dead_end_sender(&mut self, hash: &Hash, peer: PeerId) {
-		for dead_end in self.dead_ends.iter_mut().filter(|dead_end| dead_end.hash == *hash) {
-			dead_end.senders.insert(peer);
-		}
 	}
 
 	/// Release the dead-end statements that `is_stuck` rejects.
