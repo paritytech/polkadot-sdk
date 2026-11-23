@@ -282,21 +282,30 @@ fn governance_sets_the_era_limit_per_chain_and_service() {
 		set_points(2, 5);
 		set_points(3, 5);
 
-		// WHEN an account or a reporting chain sets a limit
+		// WHEN account 4 sets a limit
 		// THEN it fails with BadOrigin
 		assert_noop!(set(RuntimeOrigin::signed(4), 2, Collation, 30), BadOrigin);
+
+		// WHEN chain 2 sets its own limit
+		// THEN it fails with BadOrigin
 		assert_noop!(set(RuntimeOrigin::signed(2), 2, Collation, 30), BadOrigin);
 
-		// WHEN root sets a limit for relay consensus or above `MaxUnitsPerEraLimit` of 1000
-		// THEN it fails, and the bound itself is accepted
+		// WHEN root sets a limit for relay consensus, whose points the converter does not credit
+		// THEN it fails with RelayConsensusNotWeighted
 		assert_noop!(
 			set(RuntimeOrigin::root(), 2, RelayConsensus, 30),
 			Error::<Test>::RelayConsensusNotWeighted
 		);
+
+		// WHEN root sets a limit of 1001, above `MaxUnitsPerEraLimit` of 1000
+		// THEN it fails with UnitsPerEraLimitTooHigh
 		assert_noop!(
 			set(RuntimeOrigin::root(), 2, Collation, 1_001),
 			Error::<Test>::UnitsPerEraLimitTooHigh
 		);
+
+		// WHEN root sets a limit of 1000
+		// THEN it is stored
 		assert_ok!(set(RuntimeOrigin::root(), 2, Collation, 1_000));
 		assert_eq!(UnitsPerEraLimit::<Test>::get(2, Collation), 1_000);
 
