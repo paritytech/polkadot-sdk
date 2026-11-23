@@ -200,10 +200,10 @@ pub mod test_pallet {
 		type Call = Call<T>;
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			Ok(ValidTransaction {
-				priority: u64::max_value(),
+				priority: u64::MAX,
 				requires: Vec::new(),
 				provides: vec![call.encode()],
-				longevity: TransactionLongevity::max_value(),
+				longevity: TransactionLongevity::MAX,
 				propagate: true,
 			})
 		}
@@ -239,6 +239,7 @@ impl crate::Config for Runtime {
 	type WeightInfo = ();
 	type ConsensusHook = crate::ExpectParentIncluded;
 	type RelayParentOffset = ();
+	type SchedulingSignatureVerifier = ();
 }
 
 impl test_pallet::Config for Runtime {}
@@ -301,6 +302,7 @@ pub mod only_operational_runtime {
 		type WeightInfo = ();
 		type ConsensusHook = crate::ExpectParentIncluded;
 		type RelayParentOffset = ();
+		type SchedulingSignatureVerifier = ();
 	}
 
 	impl super::test_pallet::Config for RuntimeOnlyOperational {}

@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	AccountIdOf, CodeInfo, Config, ContractBlob, DispatchError, Error, H256, LOG_TARGET, Weight,
+	AccountIdOf, BalanceOf, CodeInfo, Config, ContractBlob, DispatchError, Error, H256, LOG_TARGET,
+	Weight,
 	debug::DebugSettings,
 	precompiles::Token,
 	tracing,
@@ -24,7 +25,10 @@ use crate::{
 };
 use alloc::vec::Vec;
 use core::{convert::Infallible, ops::ControlFlow};
-use revm::{bytecode::Bytecode, primitives::Bytes};
+use revm::{
+	bytecode::{Bytecode, opcode},
+	primitives::Bytes,
+};
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod instructions;
@@ -35,7 +39,7 @@ mod interpreter;
 pub use interpreter::{Halt, Interpreter};
 
 mod ext_bytecode;
-use ext_bytecode::ExtBytecode;
+pub use ext_bytecode::ExtBytecode;
 
 mod memory;
 mod stack;
@@ -55,8 +59,274 @@ pub struct EVMGas(pub u64);
 
 impl<T: Config> Token<T> for EVMGas {
 	fn weight(&self) -> Weight {
-		let base_cost = T::WeightInfo::evm_opcode(1).saturating_sub(T::WeightInfo::evm_opcode(0));
+		let base_cost = T::WeightInfo::evm_jumpdest_opcode(1)
+			.saturating_sub(T::WeightInfo::evm_jumpdest_opcode(0));
 		base_cost.saturating_mul(self.0)
+	}
+}
+
+/// The cost of an EVM op-code that is charged from its own benchmark rather than in [`EVMGas`].
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
+pub enum EvmOpcodeCosts {
+	// Control Opcodes
+	Jump,
+	Jumpi,
+	JumpDest,
+	Pc,
+
+	// Stack Opcodes
+	Push,
+	Pop,
+	Dup,
+	Swap,
+
+	// Block Info Opcodes
+	ChainId,
+	Difficulty,
+
+	// System Opcodes
+	CodeSize,
+	CallDataSize,
+	ReturnDataSize,
+	CallDataLoad,
+	CallDataCopy,
+	CodeCopy,
+	ReturnDataCopy,
+
+	// Memory Opcodes
+	MLoad,
+	MSize,
+	MStore,
+	MStore8,
+	MCopy { len: u32 },
+
+	// Bitwise Opcodes
+	Lt,
+	Gt,
+	Eq,
+	IsZero,
+	And,
+	Or,
+	Xor,
+	Not,
+	Byte,
+	Clz,
+	Slt,
+	Sgt,
+	Shl,
+	Shr,
+	Sar,
+
+	// Arithmetic Opcodes
+	AddMod,
+	Div,
+	Add,
+	Sub,
+	Mul,
+	SDiv,
+	Mod,
+	SMod,
+	MulMod,
+	Exp { exponent_bits: u32 },
+	SignExtend,
+}
+
+/// An op-code in one block of the `evm_dispatch_mix` benchmark.
+pub struct DispatchMixOpcode {
+	/// The op-code's byte.
+	pub opcode: u8,
+	/// What the op-code is charged.
+	cost: EvmOpcodeCosts,
+	/// How many times the op-code occurs in a block.
+	pub repetitions: u64,
+}
+
+impl DispatchMixOpcode {
+	/// Creates an entry for the dispatch mix.
+	const fn new(opcode: u8, cost: EvmOpcodeCosts, repetitions: u64) -> Self {
+		Self { opcode, cost, repetitions }
+	}
+}
+
+impl EvmOpcodeCosts {
+	/// The cost measured by the op-code's benchmark, where the interpreter always dispatches to
+	/// the same handler.
+	fn base_weight<T: Config>(&self) -> Weight {
+		let per_opcode = |weight_fn: fn(u32) -> Weight| weight_fn(1).saturating_sub(weight_fn(0));
+		match self {
+			Self::Jump => per_opcode(T::WeightInfo::evm_jump_opcode)
+				.saturating_sub(Self::JumpDest.base_weight::<T>()),
+			Self::Jumpi => per_opcode(T::WeightInfo::evm_jumpi_opcode)
+				.saturating_sub(Self::JumpDest.base_weight::<T>()),
+			Self::JumpDest => per_opcode(T::WeightInfo::evm_jumpdest_opcode),
+			Self::Pc => per_opcode(T::WeightInfo::evm_pc_opcode),
+			Self::Push => per_opcode(T::WeightInfo::evm_push_opcode),
+			Self::Pop => per_opcode(T::WeightInfo::evm_pop_opcode),
+			Self::Dup => per_opcode(T::WeightInfo::evm_dup_opcode),
+			Self::Swap => per_opcode(T::WeightInfo::evm_swap_opcode),
+			Self::ChainId => per_opcode(T::WeightInfo::evm_chainid_opcode),
+			Self::Difficulty => per_opcode(T::WeightInfo::evm_difficulty_opcode),
+			Self::CodeSize => per_opcode(T::WeightInfo::evm_codesize_opcode),
+			Self::CallDataSize => per_opcode(T::WeightInfo::evm_calldatasize_opcode),
+			Self::ReturnDataSize => per_opcode(T::WeightInfo::evm_returndatasize_opcode),
+			Self::CallDataLoad => per_opcode(T::WeightInfo::evm_calldataload_opcode),
+			Self::CallDataCopy => per_opcode(T::WeightInfo::evm_calldatacopy_opcode),
+			Self::CodeCopy => per_opcode(T::WeightInfo::evm_codecopy_opcode),
+			Self::ReturnDataCopy => per_opcode(T::WeightInfo::evm_returndatacopy_opcode),
+			Self::MLoad => per_opcode(T::WeightInfo::evm_mload_opcode),
+			Self::MSize => per_opcode(T::WeightInfo::evm_msize_opcode),
+			Self::MStore => per_opcode(T::WeightInfo::evm_mstore_opcode),
+			Self::MStore8 => per_opcode(T::WeightInfo::evm_mstore8_opcode),
+			Self::MCopy { len } => {
+				// The fixed cost covers the first 64 bytes, so shorter copies pay nothing more.
+				let extra_bytes = len.saturating_sub(64);
+				per_opcode(T::WeightInfo::evm_mcopy_opcode).saturating_add(
+					T::WeightInfo::evm_mcopy_per_byte(extra_bytes)
+						.saturating_sub(T::WeightInfo::evm_mcopy_per_byte(0)),
+				)
+			},
+			Self::Lt => per_opcode(T::WeightInfo::evm_lt_opcode),
+			Self::Gt => per_opcode(T::WeightInfo::evm_gt_opcode),
+			Self::Eq => per_opcode(T::WeightInfo::evm_eq_opcode),
+			Self::IsZero => per_opcode(T::WeightInfo::evm_iszero_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::And => per_opcode(T::WeightInfo::evm_and_opcode),
+			Self::Or => per_opcode(T::WeightInfo::evm_or_opcode),
+			Self::Xor => per_opcode(T::WeightInfo::evm_xor_opcode),
+			Self::Not => per_opcode(T::WeightInfo::evm_not_opcode),
+			Self::Byte => per_opcode(T::WeightInfo::evm_byte_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Clz => per_opcode(T::WeightInfo::evm_clz_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Slt => per_opcode(T::WeightInfo::evm_slt_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Sgt => per_opcode(T::WeightInfo::evm_sgt_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Shl => per_opcode(T::WeightInfo::evm_shl_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Shr => per_opcode(T::WeightInfo::evm_shr_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Sar => per_opcode(T::WeightInfo::evm_sar_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::AddMod => per_opcode(T::WeightInfo::evm_addmod_opcode)
+				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_three_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_addmod_opcode_fixed_knuth_variant))
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Div => per_opcode(T::WeightInfo::evm_div_opcode)
+				.max(per_opcode(T::WeightInfo::evm_div_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_div_opcode_three_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_div_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_div_opcode_fixed_knuth_variant))
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Add => per_opcode(T::WeightInfo::evm_add_opcode),
+			Self::Sub => per_opcode(T::WeightInfo::evm_sub_opcode),
+			Self::Mul => per_opcode(T::WeightInfo::evm_mul_opcode),
+			Self::SDiv => per_opcode(T::WeightInfo::evm_sdiv_opcode)
+				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_three_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_sdiv_opcode_fixed_knuth_variant))
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Mod => per_opcode(T::WeightInfo::evm_mod_opcode)
+				.max(per_opcode(T::WeightInfo::evm_mod_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_mod_opcode_three_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_mod_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_mod_opcode_fixed_knuth_variant))
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::SMod => per_opcode(T::WeightInfo::evm_smod_opcode)
+				.max(per_opcode(T::WeightInfo::evm_smod_opcode_one_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_smod_opcode_three_limb_variant))
+				.max(per_opcode(T::WeightInfo::evm_smod_opcode_mixed_variant))
+				.max(per_opcode(T::WeightInfo::evm_smod_opcode_fixed_knuth_variant))
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::MulMod => per_opcode(T::WeightInfo::evm_mulmod_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+			Self::Exp { exponent_bits: 0 } => per_opcode(T::WeightInfo::evm_exp_zero_opcode),
+			Self::Exp { exponent_bits } => per_opcode(T::WeightInfo::evm_exp_opcode)
+				.saturating_add(
+					T::WeightInfo::evm_exp_per_bit(exponent_bits.saturating_sub(1))
+						.saturating_sub(T::WeightInfo::evm_exp_per_bit(0)),
+				),
+			Self::SignExtend => per_opcode(T::WeightInfo::evm_signextend_opcode)
+				.saturating_sub(Self::Pop.base_weight::<T>()),
+		}
+	}
+
+	/// The op-codes in one block of the `evm_dispatch_mix` benchmark, which builds its code from
+	/// this table.
+	///
+	/// These are cheap op-codes whose work doesn't depend on their operands, so in the mix each
+	/// one does exactly the work it's charged for. The repetitions make every block leave the
+	/// stack as high as it found it.
+	pub const DISPATCH_MIX: [DispatchMixOpcode; 14] = [
+		DispatchMixOpcode::new(opcode::PC, Self::Pc, 5),
+		DispatchMixOpcode::new(opcode::CHAINID, Self::ChainId, 5),
+		DispatchMixOpcode::new(opcode::DIFFICULTY, Self::Difficulty, 5),
+		DispatchMixOpcode::new(opcode::CODESIZE, Self::CodeSize, 5),
+		DispatchMixOpcode::new(opcode::CALLDATASIZE, Self::CallDataSize, 5),
+		DispatchMixOpcode::new(opcode::RETURNDATASIZE, Self::ReturnDataSize, 5),
+		DispatchMixOpcode::new(opcode::MSIZE, Self::MSize, 5),
+		DispatchMixOpcode::new(opcode::JUMPDEST, Self::JumpDest, 5),
+		DispatchMixOpcode::new(opcode::NOT, Self::Not, 5),
+		DispatchMixOpcode::new(opcode::POP, Self::Pop, 7),
+		DispatchMixOpcode::new(opcode::AND, Self::And, 7),
+		DispatchMixOpcode::new(opcode::OR, Self::Or, 7),
+		DispatchMixOpcode::new(opcode::XOR, Self::Xor, 7),
+		DispatchMixOpcode::new(opcode::MUL, Self::Mul, 7),
+	];
+}
+
+impl<T: Config> Token<T> for EvmOpcodeCosts {
+	fn weight(&self) -> Weight {
+		self.base_weight::<T>()
+	}
+}
+
+/// What a mispredicted dispatch to an op-code's handler costs.
+///
+/// The benchmark of an op-code runs only that op-code, so the interpreter always dispatches to
+/// the same handler. Contracts mix op-codes, which makes many of these dispatches mispredict.
+/// `evm_dispatch_mix` runs [`EvmOpcodeCosts::DISPATCH_MIX`] in a pseudo-random order, and this
+/// charges the part of it that the charges of its op-codes don't cover, per op-code.
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
+pub struct EvmDispatch;
+
+impl EvmDispatch {
+	/// Checks that every op-code in the mix pays dispatch and the weights leave a charge above
+	/// zero. Otherwise `evm_dispatch_mix` measured no more than the charges of its op-codes, and
+	/// the dispatch charge would silently be zero.
+	pub fn integrity_test<T: Config>() {
+		for entry in EvmOpcodeCosts::DISPATCH_MIX {
+			assert!(
+				instructions::pays_dispatch(entry.opcode),
+				"op-code {:#04x} in `evm_dispatch_mix` must pay the dispatch charge",
+				entry.opcode,
+			);
+		}
+		assert!(
+			Token::<T>::weight(&Self).ref_time() > 0,
+			"`evm_dispatch_mix` must measure more than the charges of its op-codes",
+		);
+	}
+}
+
+impl<T: Config> Token<T> for EvmDispatch {
+	fn weight(&self) -> Weight {
+		let (mix_opcodes, mix_charges) = EvmOpcodeCosts::DISPATCH_MIX.iter().fold(
+			(0, Weight::zero()),
+			|(opcodes, charges), DispatchMixOpcode { cost, repetitions, .. }| {
+				(
+					opcodes + repetitions,
+					charges.saturating_add(cost.base_weight::<T>().saturating_mul(*repetitions)),
+				)
+			},
+		);
+		T::WeightInfo::evm_dispatch_mix(1)
+			.saturating_sub(T::WeightInfo::evm_dispatch_mix(0))
+			.saturating_sub(mix_charges)
+			.saturating_div(mix_opcodes)
 	}
 }
 
@@ -67,11 +337,6 @@ impl<T: Config> ContractBlob<T> {
 			!DebugSettings::is_unlimited_contract_size_allowed::<T>()
 		{
 			return Err(<Error<T>>::BlobTooLarge.into());
-		}
-
-		// EIP-3541: Reject new contract code starting with the 0xEF byte
-		if code.first() == Some(&0xEF) {
-			return Err(<Error<T>>::CodeRejected.into());
 		}
 
 		let code_len = code.len() as u32;
@@ -99,14 +364,39 @@ impl<T: Config> ContractBlob<T> {
 		code: Vec<u8>,
 		owner: AccountIdOf<T>,
 	) -> Result<Self, DispatchError> {
+		let code_len = code.len() as u32;
+		let deposit = super::calculate_code_deposit::<T>(code_len);
+		Self::from_evm_runtime_code_with_deposit(code, owner, deposit)
+	}
+
+	/// Create a new contract from EVM runtime code with an explicit owner and
+	/// deposit amount.
+	///
+	/// Used for `Origin::Root` uploads: there is no origin account to attribute
+	/// the deposit to, so the caller passes the pallet's own account as a
+	/// sentinel owner (no user can sign as it, so the code can't be removed via
+	/// the owner-gated path) and a zero deposit (both `charge_deposit` and
+	/// `refund_deposit` short-circuit at amount 0).
+	pub fn from_evm_runtime_code_with_deposit(
+		code: Vec<u8>,
+		owner: AccountIdOf<T>,
+		deposit: BalanceOf<T>,
+	) -> Result<Self, DispatchError> {
 		if code.len() > revm::primitives::eip170::MAX_CODE_SIZE &&
 			!DebugSettings::is_unlimited_contract_size_allowed::<T>()
 		{
 			return Err(<Error<T>>::BlobTooLarge.into());
 		}
 
+		// EIP-3541: reject new contract code (runtime code) starting with the 0xEF byte.
+		// Reserved for EIP-7702 delegation indicators; clashing here would let a
+		// constructor return bytes that subsequent calls would misinterpret as a
+		// delegation pointer.
+		if code.first() == Some(&0xEF) {
+			return Err(<Error<T>>::CodeRejected.into());
+		}
+
 		let code_len = code.len() as u32;
-		let deposit = super::calculate_code_deposit::<T>(code_len);
 
 		let code_info = CodeInfo {
 			owner,
@@ -140,7 +430,7 @@ pub fn call<E: Ext>(bytecode: Bytecode, ext: &mut E, input: Vec<u8>) -> ExecResu
 	halt.into()
 }
 
-fn run_plain<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt, Infallible> {
+pub fn run_plain<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt, Infallible> {
 	loop {
 		let opcode = interpreter.bytecode.opcode();
 		interpreter.bytecode.relative_jump(1);

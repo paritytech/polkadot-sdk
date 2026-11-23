@@ -20,7 +20,7 @@ use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, Currency, VariantCountOf},
+	traits::{ConstU64, Currency},
 	PalletId,
 };
 
@@ -70,8 +70,6 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
@@ -156,7 +154,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RewardCounter = sp_runtime::FixedU128;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type PostUnbondingPoolsWindow = ConstU32<2>;
+	type MaxUnbondingPools = ConstU32<5>;
 	type PalletId = PoolsPalletId;
 	type MaxMetadataLen = ConstU32<256>;
 	type MaxUnbonding = MaxUnbonding;

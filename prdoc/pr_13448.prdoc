@@ -1,0 +1,7 @@
+title: Bump revive differential tests
+doc:
+  - audience: Runtime Dev
+    description: |
+      Update the Revive differential tests used in CI and refresh the
+      expected failures for REVM and PolkaVM.
+crates: []

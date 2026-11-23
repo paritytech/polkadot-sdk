@@ -53,7 +53,7 @@ use polkadot_primitives::{
 use crate::{
 	error::{FatalResult, Result},
 	metrics::Metrics,
-	status::{get_active_with_status, SystemClock},
+	status::get_active_with_status,
 };
 use backend::{Backend, OverlayedBackend};
 use db::v1::DbBackend;
@@ -110,7 +110,7 @@ mod metrics;
 /// Status tracking of disputes (`DisputeStatus`).
 mod status;
 
-use crate::status::Clock;
+use polkadot_node_clock::Clock;
 
 #[cfg(test)]
 mod tests;
@@ -147,7 +147,7 @@ impl<Context: Send> DisputeCoordinatorSubsystem {
 				self.config.column_config(),
 				self.metrics.clone(),
 			);
-			self.run(ctx, backend, Box::new(SystemClock))
+			self.run(ctx, backend, polkadot_node_clock::system_clock())
 				.await
 				.map_err(|e| SubsystemError::with_origin("dispute-coordinator", e))
 		}
@@ -174,7 +174,7 @@ impl DisputeCoordinatorSubsystem {
 		self,
 		mut ctx: Context,
 		backend: B,
-		clock: Box<dyn Clock>,
+		clock: Arc<dyn Clock>,
 	) -> FatalResult<()>
 	where
 		B: Backend + 'static,
@@ -183,7 +183,10 @@ impl DisputeCoordinatorSubsystem {
 
 		let (participations, votes, first_leaf, initialized, backend) = match res {
 			// Concluded:
-			None => return Ok(()),
+			None => {
+				gum::debug!(target: LOG_TARGET, "received `Conclude` signal, exiting");
+				return Ok(());
+			},
 			Some(r) => r,
 		};
 
@@ -193,6 +196,8 @@ impl DisputeCoordinatorSubsystem {
 	}
 
 	/// Make sure to recover participations properly on startup.
+	///
+	/// Returns `None` if told to conclude before receiving the first leaf.
 	async fn initialize<B, Context>(
 		self,
 		ctx: &mut Context,
@@ -213,7 +218,8 @@ impl DisputeCoordinatorSubsystem {
 		loop {
 			let first_leaf = match wait_for_first_leaf(ctx).await {
 				Ok(Some(activated_leaf)) => activated_leaf,
-				Ok(None) => continue,
+				// Shut down cleanly if asked to conclude before receiving a leaf.
+				Ok(None) => return Ok(None),
 				Err(e) => {
 					e.split()?.log();
 					continue;
@@ -292,7 +298,7 @@ impl DisputeCoordinatorSubsystem {
 		initialized::OffchainDisabledValidators,
 		ControlledValidatorIndices,
 	)> {
-		let now = clock.now();
+		let now = clock.duration_since_epoch().as_secs();
 
 		// We assume the highest session is the passed leaf. If we can't get the session index
 		// we can't initialize the subsystem so we'll wait for a new leaf

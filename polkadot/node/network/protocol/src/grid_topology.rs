@@ -431,7 +431,7 @@ impl Default for SessionBoundGridTopologyStorage {
 			current_topology: GridTopologySessionBound {
 				// session 0 is valid so we should use the upper bound
 				// as the default instead of the lower bound.
-				session_index: SessionIndex::max_value(),
+				session_index: SessionIndex::MAX,
 				entry: SessionGridTopologyEntry {
 					topology: SessionGridTopology {
 						shuffled_indices: Vec::new(),

@@ -123,9 +123,7 @@ pub use self::{
 		StorageMap, StorageNMap, StoragePrefixedMap, StorageValue,
 	},
 };
-pub use sp_runtime::{
-	self, print, traits::Printable, ConsensusEngineId, MAX_MODULE_ERROR_ENCODED_SIZE,
-};
+pub use sp_runtime::{self, ConsensusEngineId, MAX_MODULE_ERROR_ENCODED_SIZE};
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -955,6 +953,9 @@ pub mod pallet_macros {
 	/// Defines constants that are added to the constant field of
 	/// [`PalletMetadata`](frame_metadata::v15::PalletMetadata) struct for this pallet.
 	///
+	/// Multiple `#[pallet::extra_constants]` blocks are allowed. Constants from all blocks are
+	/// included in metadata in declaration order, after the constants defined in `Config`.
+	///
 	/// Must be defined like:
 	///
 	/// ```
@@ -1278,6 +1279,8 @@ pub mod pallet_macros {
 	/// View functions methods must be read-only and always return some output. A
 	/// `view_functions` impl block only allows methods to be defined inside of
 	/// it.
+	/// Only one `#[pallet::view_functions]` block is allowed per pallet. Define all view
+	/// functions in that block.
 	///
 	/// ## Example
 	/// ```
@@ -1928,34 +1931,6 @@ pub mod pallet_macros {
 	///     }
 	/// }
 	/// ```
-	///
-	/// ## Former Usage
-	///
-	/// Prior to <https://github.com/paritytech/substrate/pull/14306>, the following syntax was used.
-	/// This is deprecated and will soon be removed.
-	///
-	/// ```
-	/// #[frame_support::pallet]
-	/// pub mod pallet {
-	/// #     #[pallet::config]
-	/// #     pub trait Config: frame_system::Config {}
-	/// #     #[pallet::pallet]
-	/// #     pub struct Pallet<T>(_);
-	/// #     use frame_support::traits::GenesisBuild;
-	///     #[pallet::genesis_config]
-	///     #[derive(frame_support::DefaultNoBound)]
-	///     pub struct GenesisConfig<T: Config> {
-	/// 		foo: Vec<T::AccountId>
-	/// 	}
-	///
-	///     #[pallet::genesis_build]
-	///     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
-	///         fn build(&self) {
-	///             todo!()
-	///         }
-	///     }
-	/// }
-	/// ```
 	pub use frame_support_procedural::genesis_build;
 
 	/// Allows adding an associated type trait bounded by
@@ -2280,12 +2255,6 @@ pub mod pallet_macros {
 	/// Read more about origins at the [Origin Reference
 	/// Docs](../../polkadot_sdk_docs/reference_docs/frame_origin/index.html).
 	pub use frame_support_procedural::origin;
-}
-
-#[deprecated(note = "Will be removed after July 2023; Use `sp_runtime::traits` directly instead.")]
-pub mod error {
-	#[doc(hidden)]
-	pub use sp_runtime::traits::{BadOrigin, LookupError};
 }
 
 #[doc(inline)]

@@ -143,7 +143,6 @@ impl Def {
 		let mut runtime_struct = None;
 		let mut runtime_types = None;
 
-		let mut indices = HashMap::new();
 		let mut names = HashMap::new();
 
 		let mut pallet_decls = vec![];
@@ -167,6 +166,12 @@ impl Def {
 						runtime_types = Some(types);
 					},
 					RuntimeAttr::PalletIndex(span, index) => {
+						if pallet_index_and_item.is_some() {
+							return Err(syn::Error::new(
+								span,
+								"Duplicate runtime::pallet_index attribute",
+							));
+						}
 						pallet_index_and_item = if let syn::Item::Type(item) = item {
 							Some((index, item.clone()))
 						} else {
@@ -210,17 +215,6 @@ impl Def {
 							disable_unsigned,
 							&bounds,
 						)?;
-
-						if let Some(used_pallet) = indices.insert(pallet.index, pallet.name.clone())
-						{
-							let msg = format!(
-								"Pallet indices are conflicting: Both pallets {} and {} are at index {}",
-								used_pallet, pallet.name, pallet.index,
-							);
-							let mut err = syn::Error::new(used_pallet.span(), &msg);
-							err.combine(syn::Error::new(pallet.name.span(), msg));
-							return Err(err);
-						}
 
 						pallets.push(pallet);
 					},
@@ -283,4 +277,31 @@ fn runtime_parsing_works() {
 	.expect("Failed to parse runtime definition");
 
 	assert_eq!(def.runtime_struct.ident, "Runtime");
+}
+
+#[test]
+fn duplicate_pallet_index_is_rejected() {
+	let pallet_types: [syn::Type; 2] = [
+		syn::parse_quote!(frame_system),
+		syn::parse_quote!(frame_system + Pallet + Call + Storage + Event<T>),
+	];
+	for pallet_type in pallet_types {
+		for second_index in [3u8, 7u8] {
+			let second_index =
+				syn::LitInt::new(&second_index.to_string(), proc_macro2::Span::call_site());
+			let result = Def::try_from(syn::parse_quote! {
+				mod runtime {
+					#[runtime::derive(RuntimeCall, RuntimeEvent)]
+					#[runtime::runtime]
+					pub struct Runtime;
+
+					#[runtime::pallet_index(3)]
+					#[runtime::pallet_index(#second_index)]
+					pub type System = #pallet_type;
+				}
+			});
+			let error = result.err().expect("duplicate index attributes must be rejected");
+			assert_eq!(error.to_string(), "Duplicate runtime::pallet_index attribute");
+		}
+	}
 }

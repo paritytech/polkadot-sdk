@@ -26,7 +26,7 @@ use crate::{
 	NODE_UNDER_TEST,
 };
 use codec::Encode;
-use futures::SinkExt;
+use futures::{channel::mpsc::TryRecvError, SinkExt};
 use itertools::Itertools;
 use polkadot_node_core_approval_voting::criteria::{compute_assignments, Config};
 
@@ -209,8 +209,8 @@ impl PeerMessagesGenerator {
 		let mut all_messages: BTreeMap<u64, Vec<MessagesBundle>> = BTreeMap::new();
 		// Receive all messages and sort them by Tick they have to be sent.
 		loop {
-			match rx.try_next() {
-				Ok(Some((block_hash, messages))) => {
+			match rx.try_recv() {
+				Ok((block_hash, messages)) => {
 					for message in messages {
 						let block_info = blocks
 							.iter()
@@ -225,8 +225,8 @@ impl PeerMessagesGenerator {
 						to_add.push(message);
 					}
 				},
-				Ok(None) => break,
-				Err(_) => {
+				Err(TryRecvError::Closed) => break,
+				Err(TryRecvError::Empty) => {
 					std::thread::sleep(Duration::from_millis(50));
 				},
 			}
@@ -312,7 +312,6 @@ impl PeerMessagesGenerator {
 			block_info.relay_vrf_story.clone(),
 			&config,
 			leaving_cores.clone(),
-			self.options.enable_assignments_v2,
 		);
 
 		let random_sending_nodes = self
@@ -325,16 +324,13 @@ impl PeerMessagesGenerator {
 			.collect_vec();
 
 		let mut unique_assignments = HashSet::new();
-		for (core_index, assignment) in assignments {
+		for (_core_index, assignment) in assignments {
 			let assigned_cores = match &assignment.cert().kind {
 				approval::v2::AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } => {
 					core_bitfield.iter_ones().map(|val| CoreIndex::from(val as u32)).collect_vec()
 				},
 				approval::v2::AssignmentCertKindV2::RelayVRFDelay { core_index } => {
 					vec![*core_index]
-				},
-				approval::v2::AssignmentCertKindV2::RelayVRFModulo { sample: _ } => {
-					vec![core_index]
 				},
 			};
 

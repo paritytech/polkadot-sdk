@@ -30,12 +30,20 @@ use crate::{
 
 pub use gas::SignedGas;
 pub use storage::Diff;
-pub use weight::{ChargedAmount, Token};
+pub use weight::{ChargedAmount, EngineMeter, Token, slope};
+
+/// The gas of one iteration of the benchmarks that derive the ref time per gas.
+///
+/// Only `benchmarking` and the benchmark contracts in `call_builder` need them outside of
+/// `weight`.
+#[cfg(feature = "runtime-benchmarks")]
+pub use weight::{INDIRECT_JUMP_GAS, LOAD_CHAIN_GAS};
 
 use frame_support::{DebugNoBound, DefaultNoBound};
 use num_traits::Zero;
 
 use core::{fmt::Debug, marker::PhantomData, ops::ControlFlow};
+use math::eip_150::Rule;
 use sp_runtime::{FixedPointNumber, Weight};
 use storage::{DepositOf, GenericMeter as GenericStorageMeter, Meter as RootStorageMeter};
 use weight::WeightMeter;
@@ -45,7 +53,10 @@ use sp_runtime::{DispatchError, DispatchResult, FixedU128, SaturatedConversion};
 /// A type-state pattern ensuring that meters can only be used in valid states (root vs nested).
 ///
 /// It is sealed and cannot be implemented outside of this module.
-pub trait State: private::Sealed + Default + Debug {}
+pub trait State: private::Sealed + Default + Debug {
+	/// Whether the EIP-150 63/64 rule applies to the frames a meter in this state creates.
+	const EIP_150_RULE: Rule;
+}
 
 /// Root state for transaction-level resource metering.
 ///
@@ -59,8 +70,12 @@ pub struct Root;
 #[derive(Default, Debug)]
 pub struct Nested;
 
-impl State for Root {}
-impl State for Nested {}
+impl State for Root {
+	const EIP_150_RULE: Rule = Rule::Skip;
+}
+impl State for Nested {
+	const EIP_150_RULE: Rule = Rule::Apply;
+}
 
 mod private {
 	pub trait Sealed {}
@@ -72,6 +87,14 @@ mod private {
 pub type TransactionMeter<T> = ResourceMeter<T, Root>;
 /// The type of resource meter used for an execution frame.
 pub type FrameMeter<T> = ResourceMeter<T, Nested>;
+
+/// Snapshot of a [`ResourceMeter`]'s consumption at a point in time.
+///
+/// Produced by [`ResourceMeter::snapshot`] and consumed by [`ResourceMeter::delta_since`].
+pub struct MeterSnapshot<T: Config> {
+	weight: Weight,
+	gas: SignedGas<T>,
+}
 
 /// Resource meter tracking weight and storage deposit consumption.
 #[derive(DefaultNoBound)]
@@ -106,7 +129,12 @@ pub struct ResourceMeter<T: Config, S: State> {
 	_phantom: PhantomData<S>,
 }
 
-/// Transaction-wide resource limit configuration.
+/// Parameters required to construct a root [`TransactionMeter`].
+///
+/// Despite the name, the `EthereumGas` variant carries more than just limits: it also bundles
+/// the gas-conversion context (`eth_tx_info`) and any deposit already consumed before contract
+/// execution (`authorization_deposit`). It is the full set of inputs needed to build the root
+/// meter for an ethereum-style transaction, not a pure cap descriptor.
 ///
 /// Represents the two supported resource accounting modes:
 /// - EthereumGas: Single gas limit
@@ -123,6 +151,12 @@ pub enum TransactionLimits<T: Config> {
 		weight_limit: Weight,
 		/// Some extra information about the transaction that is required to calculate gas usage.
 		eth_tx_info: EthTxInfo<T>,
+		/// Net deposit movement caused by EIP-7702 authorization processing before contract
+		/// execution begins. Not a cap: applied to the meter at creation so the available deposit
+		/// budget reflects either a pre-charge (auths net to a charge) or a pre-credit (auths net
+		/// to a refund — e.g. pure-revoke). Only relevant at root meter construction; nested
+		/// frames do not see it.
+		authorization_deposit: StorageDeposit<BalanceOf<T>>,
 	},
 	/// Substrate execution mode: the transaction specifies a weight limit and a storage deposit
 	/// limit
@@ -139,16 +173,23 @@ impl<T: Config> Default for TransactionLimits<T> {
 }
 
 impl<T: Config, S: State> ResourceMeter<T, S> {
-	/// Create a new nested meter with derived resource limits.
+	/// Creates a nested meter with limits derived from `limit` and this meter's remaining
+	/// resources.
+	///
+	/// Except for the transaction's first call, the EIP-150 63/64 rule applies: with `r` the
+	/// remaining resources and `s` the call stipend (zero without one), the nested meter gets at
+	/// most `63/64 * (r - s) + s`.
 	pub fn new_nested(&self, limit: &CallResources<T>) -> Result<FrameMeter<T>, DispatchError> {
 		log::trace!(
 			target: LOG_TARGET,
 			"Creating nested meter from parent: \
 				limit={limit:?}, \
+				eip_150_rule={:?}, \
 				weight_left={:?}, \
 				deposit_left={:?}, \
 				weight_consumed={:?}, \
 				deposit_consumed={:?}",
+			S::EIP_150_RULE,
 			self.weight_left(),
 			self.deposit_left(),
 			self.weight_consumed(),
@@ -182,6 +223,15 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		Ok(new_meter)
 	}
 
+	/// Returns the weight and deposit this frame consumed, and the transaction's totals so far.
+	fn consumed_resources(&self) -> (Weight, DepositOf<T>, Weight, DepositOf<T>) {
+		let self_weight = self.weight.weight_consumed();
+		let self_deposit = self.deposit.consumed();
+		let total_weight = self.total_consumed_weight_before.saturating_add(self_weight);
+		let total_deposit = self.total_consumed_deposit_before.saturating_add(&self_deposit);
+		(self_weight, self_deposit, total_weight, total_deposit)
+	}
+
 	/// Absorb only the weight consumption from a nested frame meter.
 	pub fn absorb_weight_meter_only(&mut self, other: FrameMeter<T>) {
 		log::trace!(
@@ -191,21 +241,29 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 				parent_deposit_left={:?}, \
 				parent_weight_consumed={:?}, \
 				parent_deposit_consumed={:?}, \
+				parent_weight_required={:?}, \
+				parent_deposit_required={:?}, \
 				child_weight_left={:?}, \
 				child_deposit_left={:?}, \
 				child_weight_consumed={:?}, \
-				child_deposit_consumed={:?}",
+				child_deposit_consumed={:?}, \
+				child_weight_required={:?}, \
+				child_deposit_required={:?}",
 			self.weight_left(),
 			self.deposit_left(),
 			self.weight_consumed(),
 			self.deposit_consumed(),
+			self.weight_required(),
+			self.deposit_required(),
 			other.weight_left(),
 			other.deposit_left(),
 			other.weight_consumed(),
 			other.deposit_consumed(),
+			other.weight_required(),
+			other.deposit_required(),
 		);
 
-		self.weight.absorb_nested(other.weight);
+		self.weight.absorb_nested(other.weight, S::EIP_150_RULE);
 		self.deposit.absorb_only_max_charged(other.deposit);
 
 		log::trace!(
@@ -214,11 +272,15 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 				parent_weight_left={:?}, \
 				parent_deposit_left={:?}, \
 				parent_weight_consumed={:?}, \
-				parent_deposit_consumed={:?}",
+				parent_deposit_consumed={:?}, \
+				parent_weight_required={:?}, \
+				parent_deposit_required={:?}",
 			self.weight_left(),
 			self.deposit_left(),
 			self.weight_consumed(),
 			self.deposit_consumed(),
+			self.weight_required(),
+			self.deposit_required(),
 		);
 	}
 
@@ -236,21 +298,29 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 				parent_deposit_left={:?}, \
 				parent_weight_consumed={:?}, \
 				parent_deposit_consumed={:?}, \
+				parent_weight_required={:?}, \
+				parent_deposit_required={:?}, \
 				child_weight_left={:?}, \
 				child_deposit_left={:?}, \
 				child_weight_consumed={:?}, \
-				child_deposit_consumed={:?}",
+				child_deposit_consumed={:?}, \
+				child_weight_required={:?}, \
+				child_deposit_required={:?}",
 			self.weight_left(),
 			self.deposit_left(),
 			self.weight_consumed(),
 			self.deposit_consumed(),
+			self.weight_required(),
+			self.deposit_required(),
 			other.weight_left(),
 			other.deposit_left(),
 			other.weight_consumed(),
 			other.deposit_consumed(),
+			other.weight_required(),
+			other.deposit_required(),
 		);
 
-		self.weight.absorb_nested(other.weight);
+		self.weight.absorb_nested(other.weight, S::EIP_150_RULE);
 		self.deposit.absorb(other.deposit, contract, info);
 
 		let result = self.adjust_effective_weight_limit();
@@ -262,11 +332,15 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 				parent_weight_left={:?}, \
 				parent_deposit_left={:?}, \
 				parent_weight_consumed={:?}, \
-				parent_deposit_consumed={:?}",
+				parent_deposit_consumed={:?}, \
+				parent_weight_required={:?}, \
+				parent_deposit_required={:?}",
 			self.weight_left(),
 			self.deposit_left(),
 			self.weight_consumed(),
 			self.deposit_consumed(),
+			self.weight_required(),
+			self.deposit_required(),
 		);
 	}
 
@@ -333,18 +407,14 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 			self.deposit.max_charged(),
 		);
 
-		self.deposit.record_charge(deposit);
-		self.adjust_effective_weight_limit()?;
-
-		if self.deposit.is_root {
-			if self.deposit_left().is_none() {
-				self.deposit.reset();
-				self.adjust_effective_weight_limit()?;
+		if let StorageDeposit::Charge(amount) = deposit {
+			if self.deposit.is_root && self.deposit_left().map_or(true, |left| left < *amount) {
 				return Err(<Error<T>>::StorageDepositLimitExhausted.into());
 			}
 		}
 
-		Ok(())
+		self.deposit.record_charge(deposit);
+		self.adjust_effective_weight_limit()
 	}
 
 	/// Get remaining ethereum gas equivalent.
@@ -422,12 +492,13 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		self.weight.weight_consumed()
 	}
 
-	/// Get total weight required
-	/// This is the maximum amount of weight consumption that occurred during execution so far
-	/// This is relevant because consumed weight can decrease in case it is asjusted a posteriori
-	/// for some operations
+	/// Get total weight required including the EIP-150 63/64 overhead for nested calls.
+	///
+	/// This is at least the maximum amount of weight consumption that occurred during execution so
+	/// far. This is relevant because consumed weight can decrease in case it is adjusted a
+	/// posteriori for some operations.
 	pub fn weight_required(&self) -> Weight {
-		self.weight.weight_required()
+		self.weight.weight_required_with_eip_150()
 	}
 
 	/// Get total storage deposit consumed in the current frame.
@@ -437,26 +508,55 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		self.deposit.consumed()
 	}
 
-	/// Get maximum storage deposit required at any point.
+	/// Get maximum storage deposit required at any point including the EIP-150 63/64 overhead for
+	/// nested calls.
 	///
 	/// Returns the highest deposit amount needed during execution,
 	/// accounting for temporary storage spikes before later refunds.
 	pub fn deposit_required(&self) -> DepositOf<T> {
-		self.deposit.max_charged()
+		self.deposit.deposit_required_with_eip_150()
 	}
 
 	/// Get the Ethereum gas that has been consumed during the lifetime of this meter
 	pub fn eth_gas_consumed(&self) -> BalanceOf<T> {
-		let signed_gas = match &self.transaction_limits {
+		self.eth_gas_consumed_signed().to_ethereum_gas().unwrap_or_default()
+	}
+
+	/// Same as [`Self::eth_gas_consumed`] but returns the unrounded [`SignedGas`].
+	///
+	/// Prefer this when computing a delta across two snapshots: subtracting in [`SignedGas`] form
+	/// avoids the double ceil-rounding that [`Self::eth_gas_consumed`] performs at each call.
+	pub fn eth_gas_consumed_signed(&self) -> SignedGas<T> {
+		match &self.transaction_limits {
 			TransactionLimits::EthereumGas { eth_tx_info, .. } => {
 				math::ethereum_execution::eth_gas_consumed(self, eth_tx_info)
 			},
 			TransactionLimits::WeightAndDeposit { .. } => {
 				math::substrate_execution::eth_gas_consumed(self)
 			},
-		};
+		}
+	}
 
-		signed_gas.to_ethereum_gas().unwrap_or_default()
+	/// Take a snapshot of the meter's current consumption for later use with
+	/// [`Self::delta_since`].
+	pub fn snapshot(&self) -> MeterSnapshot<T> {
+		MeterSnapshot { weight: self.weight_consumed(), gas: self.eth_gas_consumed_signed() }
+	}
+
+	/// Ethereum gas and weight consumed since `snapshot` was taken.
+	///
+	/// Gas subtraction happens in [`SignedGas`] form so that the ceil-rounding inside
+	/// `to_ethereum_gas` is applied once to the delta, not to each snapshot.
+	pub fn delta_since(&self, snapshot: &MeterSnapshot<T>) -> (u64, Weight) {
+		let gas = self
+			.eth_gas_consumed_signed()
+			.saturating_sub(&snapshot.gas)
+			.to_ethereum_gas()
+			.unwrap_or_default()
+			.try_into()
+			.unwrap_or(u64::MAX);
+		let weight = self.weight_consumed().saturating_sub(snapshot.weight);
+		(gas, weight)
 	}
 
 	/// Determine and set the new effective weight limit of the weight meter.
@@ -492,13 +592,23 @@ impl<T: Config> TransactionMeter<T> {
 		);
 
 		let mut transaction_meter = match transaction_limits {
-			TransactionLimits::EthereumGas { eth_gas_limit, weight_limit, eth_tx_info } => {
-				math::ethereum_execution::new_root(eth_gas_limit, weight_limit, eth_tx_info)
+			TransactionLimits::EthereumGas {
+				eth_gas_limit,
+				weight_limit,
+				eth_tx_info,
+				authorization_deposit,
+			} => {
+				let mut meter =
+					math::ethereum_execution::new_root(eth_gas_limit, weight_limit, eth_tx_info)?;
+				if !authorization_deposit.is_zero() {
+					meter.deposit.record_charge(&authorization_deposit);
+				}
+				meter
 			},
 			TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit } => {
-				math::substrate_execution::new_root(weight_limit, deposit_limit)
+				math::substrate_execution::new_root(weight_limit, deposit_limit)?
 			},
-		}?;
+		};
 
 		transaction_meter.adjust_effective_weight_limit()?;
 
@@ -528,7 +638,8 @@ impl<T: Config> TransactionMeter<T> {
 
 	/// Execute all postponed storage deposit operations.
 	///
-	/// Returns `Err(Error::StorageDepositNotEnoughFunds)` if deposit limit would be exceeded.
+	/// Returns `Err(Error::StorageDepositNotEnoughFunds)` if deposit limit would be exceeded. The
+	/// limit is checked again after the refunds, since paying them can raise the deposit consumed.
 	pub fn execute_postponed_deposits(
 		&mut self,
 		origin: &Origin<T>,
@@ -554,7 +665,15 @@ impl<T: Config> TransactionMeter<T> {
 			return Err(<Error<T>>::StorageDepositNotEnoughFunds.into());
 		}
 
-		self.deposit.execute_postponed_deposits(origin, exec_config)
+		// Paying the refunds can increase the deposit consumed: the refunds recorded for a
+		// terminated contract are dropped and a refund can be released only in part. Check the
+		// limit again before any charge is paid.
+		self.deposit.execute_postponed_refunds(origin, exec_config)?;
+		if self.deposit_left().is_none() {
+			return Err(<Error<T>>::StorageDepositNotEnoughFunds.into());
+		}
+
+		self.deposit.execute_postponed_charges(origin, exec_config)
 	}
 
 	/// Mark a contract as terminated
@@ -637,6 +756,15 @@ impl<T: Config> FrameMeter<T> {
 	pub fn apply_pending_storage_changes(&self, info: &mut ContractInfo<T>) {
 		self.deposit.apply_pending_changes_to_contract(info);
 	}
+
+	/// See [`storage::RawMeter::bank_pending_changes`].
+	pub fn bank_pending_storage_changes(
+		&mut self,
+		contract: T::AccountId,
+		info: &mut ContractInfo<T>,
+	) {
+		self.deposit.bank_pending_changes(contract, info);
+	}
 }
 
 /// Ethereum transaction context for gas conversions.
@@ -665,16 +793,34 @@ impl<T: Config> EthTxInfo<T> {
 		consumed_weight: &Weight,
 		consumed_deposit: &DepositOf<T>,
 	) -> SignedGas<T> {
+		self.deposit_and_fixed_fee_gas(consumed_deposit)
+			.saturating_add(&self.weight_gas_consumption(consumed_weight))
+	}
+
+	/// Returns the gas that `consumed_deposit` and the transaction's fixed fee cost.
+	fn deposit_and_fixed_fee_gas(&self, consumed_deposit: &DepositOf<T>) -> SignedGas<T> {
 		let fixed_fee = T::FeeInfo::fixed_fee(self.encoded_len);
 		let deposit_and_fixed_fee =
 			consumed_deposit.saturating_add(&DepositOf::<T>::Charge(fixed_fee));
-		let deposit_gas = SignedGas::from_adjusted_deposit_charge(&deposit_and_fixed_fee);
+		SignedGas::from_adjusted_deposit_charge(&deposit_and_fixed_fee)
+	}
 
-		let weight_gas = SignedGas::from_weight_fee(T::FeeInfo::weight_to_fee(
+	/// Returns the gas that `consumed_weight` and the transaction's extra weight cost.
+	fn weight_gas_consumption(&self, consumed_weight: &Weight) -> SignedGas<T> {
+		SignedGas::from_weight_fee(T::FeeInfo::weight_to_fee(
 			&consumed_weight.saturating_add(self.extra_weight),
-		));
+		))
+	}
 
-		deposit_gas.saturating_add(&weight_gas)
+	/// Compute the maximum deposit available from a gas budget assuming zero execution weight
+	/// and zero deposit consumed. This is the upper bound on how much deposit the transaction
+	/// could ever spend.
+	pub fn max_deposit(&self, eth_gas_limit: BalanceOf<T>) -> BalanceOf<T> {
+		let max_gas = SignedGas::<T>::from_ethereum_gas(eth_gas_limit);
+		let overhead_gas =
+			self.gas_consumption(&Weight::zero(), &DepositOf::<T>::Charge(Zero::zero()));
+		let remaining = max_gas.saturating_sub(&overhead_gas);
+		remaining.to_adjusted_deposit_charge().unwrap_or_default()
 	}
 
 	/// Calculate maximal possible remaining weight that can be consumed given a particular gas
@@ -687,12 +833,23 @@ impl<T: Config> EthTxInfo<T> {
 		total_weight_consumption: &Weight,
 		total_deposit_consumption: &DepositOf<T>,
 	) -> Option<Weight> {
-		let fixed_fee = T::FeeInfo::fixed_fee(self.encoded_len);
-		let deposit_and_fixed_fee =
-			total_deposit_consumption.saturating_add(&DepositOf::<T>::Charge(fixed_fee));
-		let deposit_gas = SignedGas::from_adjusted_deposit_charge(&deposit_and_fixed_fee);
+		self.weight_remaining_with_deposit_and_fixed_fee_gas(
+			max_total_gas,
+			total_weight_consumption,
+			&self.deposit_and_fixed_fee_gas(total_deposit_consumption),
+		)
+	}
 
-		let consumable_fee = max_total_gas.saturating_sub(&deposit_gas).to_weight_fee()?;
+	/// Returns what `weight_remaining` returns, given the gas that the consumed deposit and the
+	/// fixed fee cost.
+	fn weight_remaining_with_deposit_and_fixed_fee_gas(
+		&self,
+		max_total_gas: &SignedGas<T>,
+		total_weight_consumption: &Weight,
+		deposit_and_fixed_fee_gas: &SignedGas<T>,
+	) -> Option<Weight> {
+		let consumable_fee =
+			max_total_gas.saturating_sub(deposit_and_fixed_fee_gas).to_weight_fee()?;
 
 		T::FeeInfo::fee_to_weight(consumable_fee)
 			.checked_sub(&total_weight_consumption.saturating_add(self.extra_weight))

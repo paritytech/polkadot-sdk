@@ -195,7 +195,7 @@ fn linear_regression(
 }
 
 impl Analysis {
-	// Useful for when there are no components, and we just need an median value of the benchmark
+	// Useful for when there are no components, and we just need a median value of the benchmark
 	// results. Note: We choose the median value because it is more robust to outliers.
 	fn median_value(
 		r: &Vec<BenchmarkResult>,
@@ -203,16 +203,7 @@ impl Analysis {
 	) -> Result<Self, anyhow::Error> {
 		anyhow::ensure!(!r.is_empty(), "benchmark results cannot be empty");
 
-		let mut values: Vec<u128> = r
-			.iter()
-			.map(|result| match selector {
-				BenchmarkSelector::ExtrinsicTime => result.extrinsic_time,
-				BenchmarkSelector::StorageRootTime => result.storage_root_time,
-				BenchmarkSelector::Reads => result.reads.into(),
-				BenchmarkSelector::Writes => result.writes.into(),
-				BenchmarkSelector::ProofSize => result.proof_size.into(),
-			})
-			.collect();
+		let mut values: Vec<u128> = r.iter().map(|result| selector.get_value(result)).collect();
 
 		values.sort();
 		let mid = values.len() / 2;
@@ -223,7 +214,7 @@ impl Analysis {
 			names: Vec::new(),
 			value_dists: None,
 			errors: None,
-			minimum: selector.get_minimum(&r),
+			minimum: selector.get_minimum(r),
 			selector,
 		})
 	}
@@ -261,17 +252,7 @@ impl Analysis {
 							.enumerate()
 							.all(|(j, (v1, v2))| j == i || v1 == *v2)
 					})
-					.map(|result| {
-						// Extract the data we are interested in analyzing
-						let data = match selector {
-							BenchmarkSelector::ExtrinsicTime => result.extrinsic_time,
-							BenchmarkSelector::StorageRootTime => result.storage_root_time,
-							BenchmarkSelector::Reads => result.reads.into(),
-							BenchmarkSelector::Writes => result.writes.into(),
-							BenchmarkSelector::ProofSize => result.proof_size.into(),
-						};
-						(result.components[i].1, data)
-					})
+					.map(|result| (result.components[i].1, selector.get_value(result)))
 					.collect::<Vec<_>>();
 				(format!("{:?}", param), i, others, values)
 			})
@@ -341,7 +322,7 @@ impl Analysis {
 			names: results.into_iter().map(|x| x.0).collect::<Vec<_>>(),
 			value_dists: None,
 			errors: None,
-			minimum: selector.get_minimum(&r),
+			minimum: selector.get_minimum(r),
 			selector,
 		})
 	}
@@ -352,20 +333,21 @@ impl Analysis {
 	) -> Result<Self, anyhow::Error> {
 		anyhow::ensure!(!r.is_empty(), "benchmark results cannot be empty");
 
-		if r[0].components.is_empty() || r.len() <= 2 {
+		if r[0].components.is_empty() {
 			return Self::median_value(r, selector);
+		}
+
+		// The OLS fit below requires more than two samples. Fall back to
+		// `median_slopes` because two samples at distinct x-values still uniquely
+		// determine a slope.
+		if r.len() <= 2 {
+			return Self::median_slopes(r, selector);
 		}
 
 		let mut results = BTreeMap::<Vec<u32>, Vec<u128>>::new();
 		for result in r.iter() {
 			let p = result.components.iter().map(|x| x.1).collect::<Vec<_>>();
-			results.entry(p).or_default().push(match selector {
-				BenchmarkSelector::ExtrinsicTime => result.extrinsic_time,
-				BenchmarkSelector::StorageRootTime => result.storage_root_time,
-				BenchmarkSelector::Reads => result.reads.into(),
-				BenchmarkSelector::Writes => result.writes.into(),
-				BenchmarkSelector::ProofSize => result.proof_size.into(),
-			})
+			results.entry(p).or_default().push(selector.get_value(result));
 		}
 
 		for (_, rs) in results.iter_mut() {
@@ -422,7 +404,7 @@ impl Analysis {
 					.map(|value| selector.scale_and_cast_weight(value, false))
 					.collect(),
 			),
-			minimum: selector.get_minimum(&r),
+			minimum: selector.get_minimum(r),
 			selector,
 		})
 	}
@@ -450,7 +432,7 @@ impl Analysis {
 		let names = median_slopes.names;
 		let value_dists = min_squares.value_dists;
 		let errors = min_squares.errors;
-		let minimum = selector.get_minimum(&r);
+		let minimum = selector.get_minimum(r);
 
 		Ok(Self { base, slopes, names, value_dists, errors, selector, minimum })
 	}
@@ -606,6 +588,41 @@ mod tests {
 		assert_eq!(params[0] as i64, 33968513);
 		assert_eq!(errors.len(), 1);
 		assert_eq!(errors[0] as i64, 217331);
+	}
+
+	// Regression: `min_squares_iqr` used to short-circuit to `median_value` (which
+	// has no slopes) whenever `r.len() <= 2`, so benchmarks whose valid sample set
+	// is narrowed to two distinct x-values — for example by `BenchmarkError::Skip`
+	// filtering all but two values of a `Linear<lo, hi>` parameter — lost their
+	// linear component entirely. Two distinct-x samples uniquely determine a
+	// slope; the fallback now goes through `median_slopes`, which handles that
+	// case exactly.
+	#[test]
+	fn min_squares_iqr_fits_slope_with_two_distinct_x_samples() {
+		// y = 4 + 1·n at n=4 (reads=8) and n=8 (reads=12)
+		let data = vec![
+			benchmark_result(vec![(BenchmarkParameter::n, 4)], 0, 0, 8, 0),
+			benchmark_result(vec![(BenchmarkParameter::n, 8)], 0, 0, 12, 0),
+		];
+		let analysis = Analysis::min_squares_iqr(&data, BenchmarkSelector::Reads).unwrap();
+		assert_eq!(analysis.slopes, vec![1]);
+		assert_eq!(analysis.base, 4);
+	}
+
+	// All samples at the same x cannot determine a slope. The previous
+	// `median_value` fallback silently produced a constant; the new fallback
+	// surfaces an explicit error from `median_slopes`.
+	#[test]
+	fn min_squares_iqr_two_samples_same_x_errors() {
+		let data = vec![
+			benchmark_result(vec![(BenchmarkParameter::n, 4)], 0, 0, 8, 0),
+			benchmark_result(vec![(BenchmarkParameter::n, 4)], 0, 0, 10, 0),
+		];
+		let err = Analysis::min_squares_iqr(&data, BenchmarkSelector::Reads).unwrap_err();
+		assert!(
+			err.to_string().contains("only has 1 unique value"),
+			"expected 'only has 1 unique value' diagnostic, got: {err}",
+		);
 	}
 
 	#[test]

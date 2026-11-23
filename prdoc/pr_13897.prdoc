@@ -1,0 +1,11 @@
+title: 'statement-store: log an error when the v2 DHT path runs on the libp2p backend'
+doc:
+- audience: Node Operator
+  description: |-
+    A node started with `--statement-v2-dht` and `--network-backend libp2p` now logs an error.
+    The v2 DHT path learns peers only from litep2p discovery and identify events, so on libp2p it
+    dials no statement peer and sends statements only to peers that dial in. A network of libp2p
+    nodes exchanges no statements.
+crates:
+- name: sc-network-statement
+  bump: patch

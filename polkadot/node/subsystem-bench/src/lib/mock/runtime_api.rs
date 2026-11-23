@@ -29,7 +29,7 @@ use polkadot_primitives::{
 	node_features, ApprovalVotingParams, AsyncBackingParams, CandidateEvent,
 	CandidateReceiptV2 as CandidateReceipt, CoreIndex, CoreState, GroupIndex, GroupRotationInfo,
 	Id as ParaId, IndexedVec, NodeFeatures, OccupiedCore, ScheduledCore, SessionIndex, SessionInfo,
-	ValidationCode, ValidatorIndex,
+	ValidationCode, ValidatorIndex, MAX_COALESCE_APPROVALS,
 };
 use sp_consensus_babe::Epoch as BabeEpoch;
 use sp_core::H256;
@@ -319,7 +319,9 @@ impl MockRuntimeApi {
 							_parent,
 							RuntimeApiRequest::ApprovalVotingParams(_, tx),
 						) => {
-							if let Err(err) = tx.send(Ok(ApprovalVotingParams::default())) {
+							if let Err(err) = tx.send(Ok(ApprovalVotingParams {
+								max_approval_coalesce_count: MAX_COALESCE_APPROVALS,
+							})) {
 								gum::error!(target: LOG_TARGET, ?err, "Voting params weren't received");
 							}
 						},

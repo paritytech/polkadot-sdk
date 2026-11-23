@@ -496,6 +496,108 @@ fn refund_submission_deposit_works() {
 		assert_ok!(Referenda::kill(RuntimeOrigin::root(), 1));
 		let e = Error::<Test>::NoDeposit;
 		assert_noop!(Referenda::refund_submission_deposit(RuntimeOrigin::signed(2), 0), e);
+		// refund of a rejected referendum fails.
+		let h = set_balance_proposal_bounded(1);
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(1),
+			Box::new(RawOrigin::Root.into()),
+			h.clone(),
+			DispatchTime::At(30),
+		));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 2));
+		// prepare_period=4, decision_period=4, so rejected at 1 + 4 + 4 = 9.
+		run_to(9);
+		assert_eq!(rejected_since(2), 9);
+		let e = Error::<Test>::BadStatus;
+		assert_noop!(Referenda::refund_submission_deposit(RuntimeOrigin::signed(3), 2), e);
+		// refund of a timed out referendum fails.
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(1),
+			Box::new(RawOrigin::Root.into()),
+			h,
+			DispatchTime::At(50),
+		));
+		// Don't place decision deposit, let it time out (UndecidingTimeout = 20).
+		// Submitted at block 9, so times out at 9 + 20 = 29.
+		run_to(29);
+		assert_eq!(timed_out_since(3), 29);
+		let e = Error::<Test>::BadStatus;
+		assert_noop!(Referenda::refund_submission_deposit(RuntimeOrigin::signed(3), 3), e);
+	});
+}
+
+#[test]
+fn slash_submission_deposit_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		// slash of non-existing referendum fails.
+		let e = Error::<Test>::BadReferendum;
+		assert_noop!(Referenda::slash_submission_deposit(RuntimeOrigin::signed(1), 0), e);
+		// create a referendum.
+		let h = set_balance_proposal_bounded(1);
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(1),
+			Box::new(RawOrigin::Root.into()),
+			h.clone(),
+			DispatchTime::At(10),
+		));
+		// slash of an ongoing referendum fails.
+		let e = Error::<Test>::BadStatus;
+		assert_noop!(Referenda::slash_submission_deposit(RuntimeOrigin::signed(3), 0), e);
+		// cancel referendum.
+		assert_ok!(Referenda::cancel(RuntimeOrigin::signed(4), 0));
+		// slash of cancelled referendum fails (should use refund instead).
+		let e = Error::<Test>::BadStatus;
+		assert_noop!(Referenda::slash_submission_deposit(RuntimeOrigin::signed(3), 0), e);
+
+		// create another referendum that will be rejected.
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(1),
+			Box::new(RawOrigin::Root.into()),
+			h.clone(),
+			DispatchTime::At(30),
+		));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 1));
+		// Let it run until rejected (failing state, past decision period).
+		// Track 0 has prepare_period=4 and decision_period=4, so 1 + 4 + 4 = 9
+		run_to(9);
+		assert_eq!(rejected_since(1), 9);
+		// Note free balance to ensure it won't change.
+		let initial_free = Balances::free_balance(&1);
+		// Both cancelled referendum 0 and rejected referendum 1 have their submission
+		// deposits (2 each) still reserved for account 1.
+		assert_eq!(Balances::reserved_balance(&1), 4);
+
+		// Now slashing should work.
+		assert_ok!(Referenda::slash_submission_deposit(RuntimeOrigin::signed(3), 1));
+		System::assert_last_event(RuntimeEvent::Referenda(crate::Event::DepositSlashed {
+			who: 1,
+			amount: 2,
+		}));
+		// The slashed deposit is removed from account 1's reserved balance.
+		assert_eq!(Balances::reserved_balance(&1), 2);
+		// The free balance shouldn't have changed
+		assert_eq!(Balances::free_balance(&1), initial_free);
+		// fails if already slashed.
+		let e = Error::<Test>::NoDeposit;
+		assert_noop!(Referenda::slash_submission_deposit(RuntimeOrigin::signed(2), 1), e);
+
+		// Also test with timed out referendum.
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(1),
+			Box::new(RawOrigin::Root.into()),
+			h,
+			DispatchTime::At(50),
+		));
+		// Don't place decision deposit, let it time out (UndecidingTimeout = 20).
+		// Submitted at block 9, so times out at 9 + 20 = 29.
+		run_to(29);
+		assert_eq!(timed_out_since(2), 29);
+		// Slashing timed out referendum works.
+		assert_ok!(Referenda::slash_submission_deposit(RuntimeOrigin::signed(3), 2));
+		System::assert_last_event(RuntimeEvent::Referenda(crate::Event::DepositSlashed {
+			who: 1,
+			amount: 2,
+		}));
 	});
 }
 
@@ -705,5 +807,104 @@ fn zero_enactment_delay_executes_proposal_at_next_block() {
 		run_to(9);
 
 		assert_eq!(Balances::free_balance(42), 20);
+	});
+}
+
+#[test]
+fn cancel_queued_referendum_does_not_desync_deciding_count() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(1),
+			Box::new(RawOrigin::Root.into()),
+			set_balance_proposal_bounded(1),
+			DispatchTime::At(20),
+		));
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(2),
+			Box::new(RawOrigin::Root.into()),
+			set_balance_proposal_bounded(2),
+			DispatchTime::At(20),
+		));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(3), 0));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(5), 1));
+
+		run_to(5);
+
+		assert_eq!(DecidingCount::<Test>::get(0u8), 1);
+		let queue = TrackQueue::<Test>::get(0u8);
+		assert!(queue.iter().any(|(idx, _)| *idx == 1), "ref 1 should be in the queue");
+
+		assert_ok!(Referenda::cancel(RuntimeOrigin::signed(4), 1));
+		assert!(matches!(
+			ReferendumInfoFor::<Test>::get(1),
+			Some(ReferendumInfo::Cancelled(_, _, _))
+		));
+
+		run_to(6);
+
+		assert_eq!(DecidingCount::<Test>::get(0u8), 1);
+
+		let stored = DecidingCount::<Test>::get(0u8);
+		let mut actual: u32 = 0;
+		for (_, info) in ReferendumInfoFor::<Test>::iter() {
+			if let ReferendumInfo::Ongoing(status) = info {
+				if status.track == 0u8 && status.deciding.is_some() {
+					actual += 1;
+				}
+			}
+		}
+		assert_eq!(
+			stored, actual,
+			"track 0: DecidingCount={} but found {} Ongoing referenda with deciding.is_some()",
+			stored, actual,
+		);
+	});
+}
+
+#[test]
+fn kill_queued_referendum_does_not_desync_deciding_count() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(1),
+			Box::new(RawOrigin::Root.into()),
+			set_balance_proposal_bounded(1),
+			DispatchTime::At(20),
+		));
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(2),
+			Box::new(RawOrigin::Root.into()),
+			set_balance_proposal_bounded(2),
+			DispatchTime::At(20),
+		));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(3), 0));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(5), 1));
+
+		run_to(5);
+
+		assert_eq!(DecidingCount::<Test>::get(0u8), 1);
+		let queue = TrackQueue::<Test>::get(0u8);
+		assert!(queue.iter().any(|(idx, _)| *idx == 1), "ref 1 should be in the queue");
+
+		assert_ok!(Referenda::kill(RuntimeOrigin::root(), 1));
+		assert!(matches!(ReferendumInfoFor::<Test>::get(1), Some(ReferendumInfo::Killed(_))));
+
+		run_to(6);
+
+		assert_eq!(DecidingCount::<Test>::get(0u8), 1);
+
+		let stored = DecidingCount::<Test>::get(0u8);
+		let mut actual: u32 = 0;
+		for (_, info) in ReferendumInfoFor::<Test>::iter() {
+			if let ReferendumInfo::Ongoing(status) = info {
+				if status.track == 0u8 && status.deciding.is_some() {
+					actual += 1;
+				}
+			}
+		}
+		assert_eq!(
+			stored, actual,
+			"track 0: DecidingCount={} but found {} Ongoing referenda with deciding.is_some()",
+			stored, actual,
+		);
 	});
 }

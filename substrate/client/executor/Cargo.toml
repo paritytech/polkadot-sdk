@@ -47,6 +47,7 @@ num_cpus = { workspace = true }
 paste = { workspace = true, default-features = true }
 sc-runtime-test = { workspace = true }
 sc-tracing = { workspace = true, default-features = true }
+sc-virtualization = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }

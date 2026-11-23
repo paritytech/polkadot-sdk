@@ -284,9 +284,12 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 
 					*std::cell::RefCell::borrow_mut(&self.transaction_depth) += 1;
 					let res = call(self);
-					std::cell::RefCell::borrow_mut(&self.transaction_depth)
-						.checked_sub(1)
-						.expect("Transactions are opened and closed together; qed");
+					{
+						let mut depth = std::cell::RefCell::borrow_mut(&self.transaction_depth);
+						*depth = depth
+							.checked_sub(1)
+							.expect("Transactions are opened and closed together; qed");
+					}
 
 					self.commit_or_rollback_transaction(
 						std::matches!(res, #crate_::TransactionOutcome::Commit(_))
@@ -366,6 +369,10 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 
 				fn register_extension<E: #crate_::Extension>(&mut self, extension: E) {
 					std::cell::RefCell::borrow_mut(&self.extensions).register(extension);
+				}
+
+				fn set_overlayed_changes(&mut self, changes: #crate_::OverlayedChanges<#crate_::HashingFor<Block>>) {
+					*self.changes.borrow_mut() = changes;
 				}
 			}
 

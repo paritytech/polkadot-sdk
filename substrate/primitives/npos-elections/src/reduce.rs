@@ -476,26 +476,28 @@ fn reduce_all<A: IdentifierT>(assignments: &mut Vec<StakedAssignment<A>>) -> u32
 
 				// all of these values must be set by now, we assign them to un-mut values, no
 				// longer being optional either.
-				let (min_value, min_target, min_voter, min_index, min_direction) =
-					match (
+				let (min_value, min_target, min_voter, min_index, min_direction) = match (
+					min_value,
+					maybe_min_target,
+					maybe_min_voter,
+					maybe_min_index,
+					maybe_min_direction,
+				) {
+					(
 						min_value,
-						maybe_min_target,
-						maybe_min_voter,
-						maybe_min_index,
-						maybe_min_direction,
-					) {
-						(
-							min_value,
-							Some(min_target),
-							Some(min_voter),
-							Some(min_index),
-							Some(min_direction),
-						) => (min_value, min_target, min_voter, min_index, min_direction),
-						_ => {
-							sp_runtime::print("UNREACHABLE code reached in `reduce` algorithm. This must be a bug.");
-							break;
-						},
-					};
+						Some(min_target),
+						Some(min_voter),
+						Some(min_index),
+						Some(min_direction),
+					) => (min_value, min_target, min_voter, min_index, min_direction),
+					_ => {
+						log::error!(
+							target: "runtime::npos-elections",
+							"UNREACHABLE code reached in `reduce` algorithm. This must be a bug."
+						);
+						break;
+					},
+				};
 
 				// if the min edge is in the voter's sub-chain.
 				// [target, ..., X, Y, ... voter]

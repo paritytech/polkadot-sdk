@@ -23,7 +23,7 @@ use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstBool, ConstU64, ConstU8, Nothing, VariantCountOf},
+	traits::{ConstBool, ConstU64, ConstU8, Nothing},
 	PalletId,
 };
 use frame_system::EnsureRoot;
@@ -71,8 +71,6 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
@@ -166,7 +164,7 @@ impl Convert<sp_core::U256, Balance> for U256ToBalance {
 }
 
 parameter_types! {
-	pub const PostUnbondingPoolsWindow: u32 = 10;
+	pub const MaxUnbondingPools: u32 = 13;
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
 	pub static LegacyAdapter: bool = false;
 }
@@ -297,7 +295,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
 	type StakeAdapter = MockAdapter;
-	type PostUnbondingPoolsWindow = PostUnbondingPoolsWindow;
+	type MaxUnbondingPools = MaxUnbondingPools;
 	type MaxMetadataLen = ConstU32<256>;
 	type MaxUnbonding = ConstU32<8>;
 	type MaxPointsToBalance = ConstU8<10>;
@@ -385,6 +383,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			pallet_staking_async::ConfigOp::Noop,
 			pallet_staking_async::ConfigOp::Noop,
 			pallet_staking_async::ConfigOp::Noop, // are_nominators_slashable
+			pallet_staking_async::ConfigOp::Noop,
 		));
 
 		// Set up validators that tests can nominate

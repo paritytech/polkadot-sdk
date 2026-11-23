@@ -1,0 +1,22 @@
+title: "Make points originating from parachain consensus configurable"
+doc:
+  - audience: Runtime Dev
+    description: |
+      `RewardValidatorsWithEraPoints` now takes a third type parameter, `PointsPerWork: Get<u32>`,
+      which is the amount of era points given per unit of parachain consensus work. Previously
+      these were hardcoded through the `BACKING_POINTS` and `DISPUTE_STATEMENT_POINTS` constants,
+      which are now removed.
+
+      The unit of work depends on where the type is used: backing an included candidate when set
+      as `inclusion::Config::RewardValidators`, and casting a dispute statement when set as
+      `disputes::Config::RewardValidators`. Use a separate `PointsPerWork` for each to reward them
+      differently, e.g. from `pallet-parameters`.
+
+      To keep the previous behaviour, use `ConstU32<20>` for both:
+      `RewardValidatorsWithEraPoints<Runtime, StakingAhClient, ConstU32<20>>`.
+
+crates:
+  - name: polkadot-runtime-parachains
+    bump: major
+  - name: westend-runtime
+    bump: patch

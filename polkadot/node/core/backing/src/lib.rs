@@ -1125,7 +1125,7 @@ fn core_index_from_statement(
 	let core_index =
 		sp_state.group_rotation_info.core_for_group(*group_index, sp_state.n_cores as _);
 
-	if core_index.0 > sp_state.n_cores {
+	if core_index.0 >= sp_state.n_cores {
 		gum::warn!(target: LOG_TARGET, ?candidate_hash, ?core_index, n_cores = sp_state.n_cores, "Invalid CoreIndex");
 		return None;
 	}

@@ -1,0 +1,12 @@
+title: Remove executed PSM migration on WAH
+doc:
+- audience: Runtime Dev
+  description: |-
+    Removes the `RemovePallet<Psm>` and `RemovePallet<Parameters>` migrations added in #12245
+    from the Westend Asset Hub runtime.
+
+    Both already ran on Westend Asset Hub (spec 1_025_000). Since `RemovePallet` runs on every
+    upgrade, leaving them in would wipe any PSM created from now on.
+crates:
+- name: asset-hub-westend-runtime
+  bump: major

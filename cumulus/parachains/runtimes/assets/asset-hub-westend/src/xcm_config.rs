@@ -48,7 +48,8 @@ use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
 use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
 use testnet_parachains_constants::westend::{
-	accumulate_forward::AccumulateForwardPalletId, locations::AssetHubParaId,
+	accumulate_forward::AccumulateForwardPalletId,
+	locations::{AssetHubParaId, BulletinLocation},
 };
 use westend_runtime_constants::system_parachain::{
 	BRIDGE_HUB_ID, BROKER_ID, COLLECTIVES_ID, PEOPLE_ID,
@@ -92,6 +93,12 @@ parameter_types! {
 	pub StakingPot: AccountId = CollatorSelection::account_id();
 	/// Asset Hub has mint authority since the Asset Hub migration.
 	pub TeleportTracking: Option<(AccountId, MintLocation)> = Some((CheckingAccount::get(), MintLocation::Local));
+	// TODO: remove once Bulletin Westend runs on a system parachain id, see
+	// https://github.com/paritytech/polkadot-bulletin-chain/issues/857.
+	pub WndFromBulletin: (AssetFilter, Location) = (
+		Wild(AllOf { fun: WildFungible, id: AssetId(WestendLocation::get()) }),
+		BulletinLocation::get(),
+	);
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -215,7 +222,7 @@ parameter_types! {
 	pub const ERC20TransferGasLimit: Weight = Weight::from_parts(500_000_000_000, 10 * 1024 * 1024);
 	pub const ERC20TransferStorageDepositLimit: Balance = 10_200_000_000;
 	pub ERC20TransfersCheckingAccount: AccountId = PalletId(*b"py/revch").into_account_truncating();
-	pub DapBufferAccount: AccountId = pallet_dap::Pallet::<Runtime>::buffer_account();
+	pub DapStagingAccount: AccountId = pallet_dap::Pallet::<Runtime>::staging_account();
 }
 
 /// Transactor for ERC20 tokens.
@@ -307,6 +314,17 @@ impl Contains<Location> for SecretaryEntities {
 	}
 }
 
+/// The locations of the `ValidatorCollatorChains`.
+pub struct ValidatorCollatorChainLocations;
+impl Contains<Location> for ValidatorCollatorChainLocations {
+	fn contains(location: &Location) -> bool {
+		matches!(
+			location.unpack(),
+			(1, [Parachain(id)]) if crate::ValidatorCollatorChains::get().contains(&(*id).into())
+		)
+	}
+}
+
 pub struct SystemChainAccumulationAccounts;
 impl Contains<Location> for SystemChainAccumulationAccounts {
 	fn contains(location: &Location) -> bool {
@@ -339,19 +357,24 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent and sibling system parachains get free execution.
-					AllowExplicitUnpaidExecutionFrom<(
-						IsParentsOnly<ConstU8<1>>,
-						RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
-						FellowshipEntities,
-						AmbassadorEntities,
-						SecretaryEntities,
-					)>,
+					// Parent, sibling system parachains and the `ValidatorCollatorChains` get free
+					// execution.
+					AllowExplicitUnpaidExecutionFrom<
+						(
+							IsParentsOnly<ConstU8<1>>,
+							RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
+							FellowshipEntities,
+							AmbassadorEntities,
+							SecretaryEntities,
+							ValidatorCollatorChainLocations,
+						),
+						CheapTrustedAliasers,
+					>,
 					// Accumulation accounts get free execution, while aliasing allows the chain
 					// (as the XCM sending origin) to claim the identity of these accounts.
 					AllowExplicitUnpaidExecutionFrom<
 						SystemChainAccumulationAccounts,
-						AliasChildLocation,
+						CheapTrustedAliasers,
 					>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<Everything>,
@@ -387,21 +410,32 @@ pub type TrustedReserves = (
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 ///
-/// - WND with the parent Relay Chain and sibling system parachains; and
+/// - WND with the parent Relay Chain and sibling system parachains;
+/// - WND with Bulletin Chain;
 /// - Sibling parachains' assets according to their configured trusted reserves (teleportable when
 ///   `Here` and `origin` are both trusted reserve locations).
 pub type TrustedTeleporters = (
 	ConcreteAssetFromSystem<WestendLocation>,
+	xcm_builder::Case<WndFromBulletin>,
 	IsForeignConcreteAsset<
 		TeleportableAssetWithTrustedReserve<AssetHubParaId, crate::ForeignAssets>,
 	>,
 );
 
-/// Defines origin aliasing rules for this chain.
+/// Aliasing rules that are pure computation and thus cheap enough to also be evaluated by
+/// barriers, before any payment is taken.
 ///
-/// - Allow any origin to alias into a child sub-location (equivalent to DescendOrigin),
+/// - Allow any origin to alias into a child sub-location (equivalent to DescendOrigin).
+///
+/// `AuthorizedAliasers` is deliberately NOT part of this: it reads storage, which is more than a
+/// barrier is allowed to cost.
+pub type CheapTrustedAliasers = (AliasChildLocation,);
+
+/// Defines origin aliasing rules for this chain. Used by the executor.
+///
+/// - Allow all the cheap aliasing rules also used by the barriers,
 /// - Allow origins explicitly authorized by the alias target location.
-pub type TrustedAliasers = (AliasChildLocation, AuthorizedAliasers<Runtime>);
+pub type TrustedAliasers = (CheapTrustedAliasers, AuthorizedAliasers<Runtime>);
 
 /// Asset converter for pool assets.
 /// Used to convert one asset to another, when there is a pool available between the two.
@@ -477,7 +511,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetExchanger = PoolAssetsExchanger;
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
-		SendXcmFeeToAccount<Self::AssetTransactor, DapBufferAccount>,
+		SendXcmFeeToAccount<Self::AssetTransactor, DapStagingAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases =

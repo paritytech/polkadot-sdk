@@ -362,21 +362,6 @@ impl From<()> for PostDispatchInfo {
 	}
 }
 
-impl sp_runtime::traits::Printable for PostDispatchInfo {
-	fn print(&self) {
-		"actual_weight=".print();
-		match self.actual_weight {
-			Some(weight) => weight.print(),
-			None => "max-weight".print(),
-		};
-		"pays_fee=".print();
-		match self.pays_fee {
-			Pays::Yes => "Yes".print(),
-			Pays::No => "No".print(),
-		}
-	}
-}
-
 /// Allows easy conversion from `DispatchError` to `DispatchErrorWithPostInfo` for dispatchables
 /// that want to return a custom a posterior weight on error.
 pub trait WithPostDispatchInfo {

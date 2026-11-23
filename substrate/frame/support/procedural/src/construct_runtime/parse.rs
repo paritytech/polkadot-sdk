@@ -15,9 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::str::FromStr;
 use frame_support_procedural_tools::syn_ext as ext;
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::ToTokens;
 use std::collections::{HashMap, HashSet};
 use syn::{
@@ -29,9 +28,6 @@ use syn::{
 };
 
 mod keyword {
-	syn::custom_keyword!(Block);
-	syn::custom_keyword!(NodeBlock);
-	syn::custom_keyword!(UncheckedExtrinsic);
 	syn::custom_keyword!(Pallet);
 	syn::custom_keyword!(Call);
 	syn::custom_keyword!(Storage);
@@ -73,7 +69,6 @@ pub struct ImplicitRuntimeDeclaration {
 #[derive(Debug)]
 pub struct ExplicitRuntimeDeclaration {
 	pub name: Ident,
-	pub where_section: Option<WhereSection>,
 	pub pallets: Vec<Pallet>,
 	pub pallets_token: token::Brace,
 }
@@ -90,7 +85,14 @@ impl Parse for RuntimeDeclaration {
 		}
 
 		let name = input.parse::<syn::Ident>()?;
-		let where_section = if input.peek(token::Where) { Some(input.parse()?) } else { None };
+		if input.peek(Token![where]) {
+			let where_token = input.parse::<Token![where]>()?;
+			return Err(Error::new(
+				where_token.span(),
+				"construct_runtime! no longer accepts a `where` clause. \
+				Set the block type with `frame_system::Config` and delete this clause",
+			));
+		}
 		let pallets =
 			input.parse::<ext::Braces<ext::Punctuated<PalletDeclaration, Token![,]>>>()?;
 		let pallets_token = pallets.token;
@@ -102,7 +104,6 @@ impl Parse for RuntimeDeclaration {
 			PalletsConversion::Explicit(pallets) => {
 				Ok(RuntimeDeclaration::Explicit(ExplicitRuntimeDeclaration {
 					name,
-					where_section,
 					pallets,
 					pallets_token,
 				}))
@@ -110,80 +111,11 @@ impl Parse for RuntimeDeclaration {
 			PalletsConversion::ExplicitExpanded(pallets) => {
 				Ok(RuntimeDeclaration::ExplicitExpanded(ExplicitRuntimeDeclaration {
 					name,
-					where_section,
 					pallets,
 					pallets_token,
 				}))
 			},
 		}
-	}
-}
-
-#[derive(Debug)]
-pub struct WhereSection {
-	pub span: Span,
-}
-
-impl Parse for WhereSection {
-	fn parse(input: ParseStream) -> Result<Self> {
-		input.parse::<token::Where>()?;
-
-		let mut definitions = Vec::new();
-		while !input.peek(token::Brace) {
-			let definition: WhereDefinition = input.parse()?;
-			definitions.push(definition);
-			if !input.peek(Token![,]) {
-				if !input.peek(token::Brace) {
-					return Err(input.error("Expected `,` or `{`"));
-				}
-				break;
-			}
-			input.parse::<Token![,]>()?;
-		}
-		remove_kind(input, WhereKind::Block, &mut definitions)?;
-		remove_kind(input, WhereKind::NodeBlock, &mut definitions)?;
-		remove_kind(input, WhereKind::UncheckedExtrinsic, &mut definitions)?;
-		if let Some(WhereDefinition { ref kind_span, ref kind, .. }) = definitions.first() {
-			let msg = format!(
-				"`{:?}` was declared above. Please use exactly one declaration for `{:?}`.",
-				kind, kind
-			);
-			return Err(Error::new(*kind_span, msg));
-		}
-		Ok(Self { span: input.span() })
-	}
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub enum WhereKind {
-	Block,
-	NodeBlock,
-	UncheckedExtrinsic,
-}
-
-#[derive(Debug)]
-pub struct WhereDefinition {
-	pub kind_span: Span,
-	pub kind: WhereKind,
-}
-
-impl Parse for WhereDefinition {
-	fn parse(input: ParseStream) -> Result<Self> {
-		let lookahead = input.lookahead1();
-		let (kind_span, kind) = if lookahead.peek(keyword::Block) {
-			(input.parse::<keyword::Block>()?.span(), WhereKind::Block)
-		} else if lookahead.peek(keyword::NodeBlock) {
-			(input.parse::<keyword::NodeBlock>()?.span(), WhereKind::NodeBlock)
-		} else if lookahead.peek(keyword::UncheckedExtrinsic) {
-			(input.parse::<keyword::UncheckedExtrinsic>()?.span(), WhereKind::UncheckedExtrinsic)
-		} else {
-			return Err(lookahead.error());
-		};
-
-		let _: Token![=] = input.parse()?;
-		let _: syn::TypePath = input.parse()?;
-
-		Ok(Self { kind_span, kind })
 	}
 }
 
@@ -528,22 +460,6 @@ impl PalletPart {
 	}
 }
 
-fn remove_kind(
-	input: ParseStream,
-	kind: WhereKind,
-	definitions: &mut Vec<WhereDefinition>,
-) -> Result<WhereDefinition> {
-	if let Some(pos) = definitions.iter().position(|d| d.kind == kind) {
-		Ok(definitions.remove(pos))
-	} else {
-		let msg = format!(
-			"Missing associated type for `{:?}`. Add `{:?}` = ... to where section.",
-			kind, kind
-		);
-		Err(input.error(msg))
-	}
-}
-
 /// The declaration of a part without its generics
 #[derive(Debug, Clone)]
 pub struct PalletPartNoGeneric {
@@ -592,8 +508,8 @@ pub struct Pallet {
 	pub instance: Option<Ident>,
 	/// The pallet parts to use for the pallet.
 	pub pallet_parts: Vec<PalletPart>,
-	/// Expressions specified inside of a #[cfg] attribute.
-	pub cfg_pattern: Vec<cfg_expr::Expression>,
+	/// The pallet's `#[cfg]` attributes, each of the form `#[cfg(..)]`.
+	pub cfg_pattern: Vec<syn::Attribute>,
 	/// The doc literals
 	pub docs: Vec<syn::Expr>,
 }
@@ -616,14 +532,8 @@ impl Pallet {
 
 	// Get runtime attributes for the pallet, mostly used for macros
 	pub fn get_attributes(&self) -> TokenStream {
-		self.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-			let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
-				.expect("was successfully parsed before; qed");
-			quote::quote! {
-				#acc
-				#attr
-			}
-		})
+		let cfg_pattern = &self.cfg_pattern;
+		quote::quote!( #( #cfg_pattern )* )
 	}
 }
 
@@ -669,7 +579,6 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 		return Ok(PalletsConversion::Implicit(pallets));
 	}
 
-	let mut indices = HashMap::new();
 	let mut last_index: Option<u8> = None;
 	let mut names = HashMap::new();
 	let mut is_expanded = true;
@@ -686,16 +595,6 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 			};
 
 			last_index = Some(final_index);
-
-			if let Some(used_pallet) = indices.insert(final_index, pallet.name.clone()) {
-				let msg = format!(
-					"Pallet indices are conflicting: Both pallets {} and {} are at index {}",
-					used_pallet, pallet.name, final_index,
-				);
-				let mut err = syn::Error::new(used_pallet.span(), &msg);
-				err.combine(syn::Error::new(pallet.name.span(), msg));
-				return Err(err);
-			}
 
 			if let Some(used_pallet) = names.insert(pallet.name.clone(), pallet.name.span()) {
 				let msg = "Two pallets with the same name!";
@@ -758,13 +657,8 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 						return Err(syn::Error::new(attr.span(), msg));
 					}
 
-					attr.parse_args_with(|input: syn::parse::ParseStream| {
-						// Required, otherwise the parse stream doesn't advance and will result in
-						// an error.
-						let input = input.parse::<proc_macro2::TokenStream>()?;
-						cfg_expr::Expression::parse(&input.to_string())
-							.map_err(|e| syn::Error::new(attr.span(), e.to_string()))
-					})
+					attr.meta.require_list()?;
+					Ok(attr.clone())
 				})
 				.collect::<Result<Vec<_>>>()?;
 

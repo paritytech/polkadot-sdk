@@ -37,7 +37,7 @@ use sp_wasm_interface::HostFunctions;
 use std::{
 	panic::AssertUnwindSafe,
 	path::{Path, PathBuf},
-	sync::Arc,
+	sync::{Arc, LazyLock},
 };
 
 /// Specification of different methods of executing the runtime Wasm code.
@@ -66,10 +66,63 @@ struct VersionedRuntimeId {
 	wasm_method: WasmExecutionMethod,
 }
 
+type ModuleResult = Result<Box<dyn WasmModule>, WasmError>;
+type ModuleInit = Box<dyn FnOnce() -> ModuleResult + Send>;
+
+/// Module of a cached runtime compiled with support for execution timeouts (see
+/// [`WasmInstance::call_with_timeout`]).
+///
+/// Initialized on first use, or ahead of time by [`Self::compile_in_background`]. For wasmtime
+/// this is a separate epoch-interruption compile; PolkaVM modules support timeouts as-is
+/// (uncapped), so their initialization is trivial.
+#[derive(Clone)]
+struct InterruptibleModule(Arc<LazyLock<ModuleResult, ModuleInit>>);
+
+impl InterruptibleModule {
+	fn new(init: impl FnOnce() -> ModuleResult + Send + 'static) -> Self {
+		let init: ModuleInit = Box::new(init);
+		Self(Arc::new(LazyLock::new(init)))
+	}
+
+	/// Get the module, blocking until it is available. Compiles it on the calling thread unless
+	/// another thread already is or has.
+	fn get(&self) -> Result<&dyn WasmModule, Error> {
+		match LazyLock::force(&self.0) {
+			Ok(module) => Ok(&**module),
+			Err(e) => Err(Error::from(e.clone())),
+		}
+	}
+
+	/// Compile the module on a background thread, so that the first call with a timeout
+	/// (usually) doesn't have to wait for it. If the thread cannot be spawned, that first call
+	/// compiles it instead.
+	///
+	/// A panic during compilation aborts the process through Substrate's panic hook, exactly as
+	/// it would when compiling the main module.
+	fn compile_in_background(&self) {
+		let module = self.clone();
+		let spawned = std::thread::Builder::new().name("wasm-interruptible-compile".into()).spawn(
+			move || {
+				let _ = LazyLock::force(&module.0);
+			},
+		);
+
+		if let Err(err) = spawned {
+			tracing::warn!(
+				target: "wasm-runtime",
+				error = %err,
+				"Cannot spawn the interruptible runtime compilation thread, compiling on first use",
+			);
+		}
+	}
+}
+
 /// A Wasm runtime object along with its cached runtime version.
 struct VersionedRuntime {
 	/// Shared runtime that can spawn instances.
 	module: Box<dyn WasmModule>,
+	/// The same runtime compiled with support for execution timeouts.
+	interruptible_module: InterruptibleModule,
 	/// Runtime version according to `Core_version` if any.
 	version: Option<RuntimeVersion>,
 
@@ -155,6 +208,29 @@ impl VersionedRuntime {
 				f(&*self.module, &mut *instance, self.version.as_ref(), ext)
 			},
 		}
+	}
+
+	/// Run the given closure `f` with a fresh instance of this runtime supporting execution
+	/// timeouts.
+	///
+	/// Blocks until the interruptible module is available, compiling it if needed. These
+	/// instances are not pooled: every call gets a fresh instance.
+	fn with_interruptible_instance<R, F>(
+		&self,
+		ext: &mut dyn Externalities,
+		heap_alloc_strategy: HeapAllocStrategy,
+		f: F,
+	) -> Result<R, Error>
+	where
+		F: FnOnce(
+			&mut dyn WasmInstance,
+			Option<&RuntimeVersion>,
+			&mut dyn Externalities,
+		) -> Result<R, Error>,
+	{
+		let mut instance = self.interruptible_module.get()?.new_instance(heap_alloc_strategy)?;
+
+		f(&mut *instance, self.version.as_ref(), ext)
 	}
 }
 
@@ -243,55 +319,136 @@ impl RuntimeCache {
 			&mut dyn Externalities,
 		) -> Result<R, Error>,
 	{
+		let versioned_runtime = self.versioned_runtime::<H>(
+			runtime_code,
+			ext,
+			wasm_method,
+			heap_alloc_strategy,
+			allow_missing_func_imports,
+		)?;
+
+		Ok(versioned_runtime.with_instance(ext, heap_alloc_strategy, f))
+	}
+
+	/// Prepares a fresh WASM module instance supporting execution timeouts and executes given
+	/// function for it.
+	///
+	/// Same as [`Self::with_instance`], but `f` gets an instance on which
+	/// [`WasmInstance::call_with_timeout`] works. May block until the interruptible module is
+	/// available, compiling it if needed.
+	///
+	/// NOTE: engines without an execution-interruption mechanism (PolkaVM) ignore the timeout
+	/// and run uncapped.
+	pub fn with_interruptible_instance<'c, H, R, F>(
+		&self,
+		runtime_code: &'c RuntimeCode<'c>,
+		ext: &mut dyn Externalities,
+		wasm_method: WasmExecutionMethod,
+		heap_alloc_strategy: HeapAllocStrategy,
+		allow_missing_func_imports: bool,
+		f: F,
+	) -> Result<Result<R, Error>, Error>
+	where
+		H: HostFunctions,
+		F: FnOnce(
+			&mut dyn WasmInstance,
+			Option<&RuntimeVersion>,
+			&mut dyn Externalities,
+		) -> Result<R, Error>,
+	{
+		let versioned_runtime = self.versioned_runtime::<H>(
+			runtime_code,
+			ext,
+			wasm_method,
+			heap_alloc_strategy,
+			allow_missing_func_imports,
+		)?;
+
+		Ok(versioned_runtime.with_interruptible_instance(ext, heap_alloc_strategy, f))
+	}
+
+	/// Get the cached [`VersionedRuntime`] for the given code, creating and caching it first if
+	/// needed.
+	fn versioned_runtime<H>(
+		&self,
+		runtime_code: &RuntimeCode,
+		ext: &mut dyn Externalities,
+		wasm_method: WasmExecutionMethod,
+		heap_alloc_strategy: HeapAllocStrategy,
+		allow_missing_func_imports: bool,
+	) -> Result<Arc<VersionedRuntime>, WasmError>
+	where
+		H: HostFunctions,
+	{
 		let code_hash = &runtime_code.hash;
 
 		let versioned_runtime_id = VersionedRuntimeId { code_hash: code_hash.clone(), wasm_method };
 
-		let mut runtimes = self.runtimes.lock(); // this must be released prior to calling f
-		let versioned_runtime = if let Some(versioned_runtime) = runtimes.get(&versioned_runtime_id)
-		{
-			versioned_runtime.clone()
-		} else {
-			let code = runtime_code.fetch_runtime_code().ok_or(WasmError::CodeNotFound)?;
+		// The lock is released when the guard goes out of scope, prior to calling any
+		// instance method.
+		let mut runtimes = self.runtimes.lock();
+		if let Some(versioned_runtime) = runtimes.get(&versioned_runtime_id) {
+			return Ok(versioned_runtime.clone());
+		}
 
-			let time = std::time::Instant::now();
+		let code = runtime_code.fetch_runtime_code().ok_or(WasmError::CodeNotFound)?;
 
-			let result = create_versioned_wasm_runtime::<H>(
-				&code,
-				ext,
-				wasm_method,
-				heap_alloc_strategy,
-				allow_missing_func_imports,
-				self.max_runtime_instances,
-				self.cache_path.as_deref(),
-			);
+		let time = std::time::Instant::now();
 
-			match result {
-				Ok(ref result) => {
-					tracing::debug!(
-						target: "wasm-runtime",
-						"Prepared new runtime version {:?} in {} ms.",
-						result.version,
-						time.elapsed().as_millis(),
-					);
-				},
-				Err(ref err) => {
-					tracing::warn!(target: "wasm-runtime", error = ?err, "Cannot create a runtime");
-				},
-			}
+		let result = create_versioned_wasm_runtime::<H>(
+			&code,
+			ext,
+			wasm_method,
+			heap_alloc_strategy,
+			allow_missing_func_imports,
+			self.max_runtime_instances,
+			self.cache_path.as_deref(),
+		);
 
-			let versioned_runtime = Arc::new(result?);
+		match result {
+			Ok(ref result) => {
+				tracing::debug!(
+					target: "wasm-runtime",
+					"Prepared new runtime version {:?} in {} ms.",
+					result.version,
+					time.elapsed().as_millis(),
+				);
+			},
+			Err(ref err) => {
+				tracing::warn!(target: "wasm-runtime", error = ?err, "Cannot create a runtime");
+			},
+		}
 
-			// Save new versioned wasm runtime in cache
-			runtimes.insert(versioned_runtime_id, versioned_runtime.clone());
+		let versioned_runtime = Arc::new(result?);
 
-			versioned_runtime
-		};
+		// Save new versioned wasm runtime in cache
+		runtimes.insert(versioned_runtime_id, versioned_runtime.clone());
 
-		// Lock must be released prior to calling f
-		drop(runtimes);
+		Ok(versioned_runtime)
+	}
+}
 
-		Ok(versioned_runtime.with_instance(ext, heap_alloc_strategy, f))
+fn wasmtime_config(
+	heap_alloc_strategy: HeapAllocStrategy,
+	instantiation_strategy: sc_executor_wasmtime::InstantiationStrategy,
+	allow_missing_func_imports: bool,
+	cache_path: Option<&Path>,
+) -> sc_executor_wasmtime::Config {
+	sc_executor_wasmtime::Config {
+		allow_missing_func_imports,
+		cache_path: cache_path.map(ToOwned::to_owned),
+		semantics: sc_executor_wasmtime::Semantics {
+			heap_alloc_strategy,
+			instantiation_strategy,
+			deterministic_stack_limit: None,
+			canonicalize_nans: false,
+			parallel_compilation: true,
+			wasm_multi_value: false,
+			wasm_bulk_memory: false,
+			wasm_reference_types: false,
+			wasm_simd: false,
+			epoch_interruption: false,
+		},
 	}
 }
 
@@ -307,32 +464,105 @@ where
 	H: HostFunctions,
 {
 	if let Some(blob) = blob.as_polkavm_blob() {
-		return sc_executor_polkavm::create_runtime::<H>(blob);
+		return sc_executor_polkavm::create_runtime::<H>(blob)
+			.map(|pre| -> Box<dyn WasmModule> { Box::new(pre) });
 	}
 
 	match wasm_method {
 		WasmExecutionMethod::Compiled { instantiation_strategy } => {
 			sc_executor_wasmtime::create_runtime::<H>(
 				blob,
-				sc_executor_wasmtime::Config {
+				wasmtime_config(
+					heap_alloc_strategy,
+					instantiation_strategy,
 					allow_missing_func_imports,
-					cache_path: cache_path.map(ToOwned::to_owned),
-					semantics: sc_executor_wasmtime::Semantics {
-						heap_alloc_strategy,
-						instantiation_strategy,
-						deterministic_stack_limit: None,
-						canonicalize_nans: false,
-						parallel_compilation: true,
-						wasm_multi_value: false,
-						wasm_bulk_memory: false,
-						wasm_reference_types: false,
-						wasm_simd: false,
-					},
-				},
+					cache_path,
+				),
 			)
 			.map(|runtime| -> Box<dyn WasmModule> { Box::new(runtime) })
 		},
 	}
+}
+
+/// Like [`create_wasm_runtime_with_code`], but also provides the runtime compiled with support
+/// for execution timeouts. The latter is not compiled yet, see [`InterruptibleModule`].
+fn create_wasm_runtimes<H>(
+	wasm_method: WasmExecutionMethod,
+	heap_alloc_strategy: HeapAllocStrategy,
+	blob: RuntimeBlob,
+	allow_missing_func_imports: bool,
+	cache_path: Option<&Path>,
+) -> Result<(Box<dyn WasmModule>, InterruptibleModule), WasmError>
+where
+	H: HostFunctions,
+{
+	if let Some(program_blob) = blob.as_polkavm_blob() {
+		static POLKAVM_TIMEOUT_WARN: std::sync::Once = std::sync::Once::new();
+		POLKAVM_TIMEOUT_WARN.call_once(|| {
+			tracing::warn!(
+				target: "wasm-runtime",
+				"PolkaVM does not support execution timeouts; runtime calls with a timeout will \
+				 run uncapped",
+			);
+		});
+
+		// One compile, two handles: `InstancePre` clones via `Arc`.
+		let pre = sc_executor_polkavm::create_runtime::<H>(program_blob)?;
+		let module: Box<dyn WasmModule> = Box::new(pre.clone());
+		let interruptible_module =
+			InterruptibleModule::new(move || Ok(Box::new(pre) as Box<dyn WasmModule>));
+
+		return Ok((module, interruptible_module));
+	}
+
+	let interruptible_blob = blob.clone();
+	let runtime = create_wasm_runtime_with_code::<H>(
+		wasm_method,
+		heap_alloc_strategy,
+		blob,
+		allow_missing_func_imports,
+		cache_path,
+	)?;
+
+	let WasmExecutionMethod::Compiled { instantiation_strategy } = wasm_method;
+
+	// Reusing `cache_path` is safe: wasmtime keys on-disk artifacts on the full config,
+	// including the epoch-interruption flag.
+	let mut config = wasmtime_config(
+		heap_alloc_strategy,
+		instantiation_strategy,
+		allow_missing_func_imports,
+		cache_path,
+	);
+	config.semantics.epoch_interruption = true;
+
+	let interruptible_module = InterruptibleModule::new(move || {
+		let time = std::time::Instant::now();
+
+		let result = sc_executor_wasmtime::create_runtime::<H>(interruptible_blob, config)
+			.map(|runtime| -> Box<dyn WasmModule> { Box::new(runtime) });
+
+		match result {
+			Ok(_) => {
+				tracing::debug!(
+					target: "wasm-runtime",
+					"Prepared new interruptible runtime in {} ms.",
+					time.elapsed().as_millis(),
+				);
+			},
+			Err(ref err) => {
+				tracing::warn!(
+					target: "wasm-runtime",
+					error = ?err,
+					"Cannot create an interruptible runtime",
+				);
+			},
+		}
+
+		result
+	});
+
+	Ok((runtime, interruptible_module))
 }
 
 fn decode_version(mut version: &[u8]) -> Result<RuntimeVersion, WasmError> {
@@ -412,7 +642,7 @@ where
 	// runtime.
 	let mut version = read_embedded_version(&blob)?;
 
-	let runtime = create_wasm_runtime_with_code::<H>(
+	let (runtime, interruptible_module) = create_wasm_runtimes::<H>(
 		wasm_method,
 		heap_alloc_strategy,
 		blob,
@@ -443,10 +673,14 @@ where
 		}
 	}
 
+	// The runtime is usable, so compile its interruptible variant ahead of the first call with a
+	// timeout.
+	interruptible_module.compile_in_background();
+
 	let mut instances = Vec::with_capacity(max_instances);
 	instances.resize_with(max_instances, || Mutex::new(None));
 
-	Ok(VersionedRuntime { module: runtime, version, instances })
+	Ok(VersionedRuntime { module: runtime, interruptible_module, version, instances })
 }
 
 #[cfg(test)]

@@ -1,0 +1,28 @@
+title: Remove `Printable` trait
+doc:
+- audience: Runtime Dev
+  description: |-
+    Removes the `Printable` trait and `sp_runtime::print` together with the `frame_support::print`
+    and `frame_support::traits::Printable` re-exports. `Dispatchable::PostInfo` and
+    `DispatchErrorWithPostInfo` no longer require `Printable`. The remaining call sites now log
+    through `log`. Downstream code that used `print` or implemented `Printable` should switch to
+    `log` and drop the impls.
+crates:
+- name: sp-runtime
+  bump: major
+- name: frame-support
+  bump: major
+- name: sp-staking
+  bump: major
+- name: sp-npos-elections
+  bump: patch
+- name: pallet-democracy
+  bump: patch
+- name: pallet-im-online
+  bump: patch
+- name: pallet-session
+  bump: patch
+- name: pallet-staking
+  bump: patch
+- name: pallet-treasury
+  bump: patch

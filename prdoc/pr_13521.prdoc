@@ -1,0 +1,27 @@
+title: 'network-gossip: Don''t refresh known messages during garbage collection'
+doc:
+- audience:
+  - Node Dev
+  - Node Operator
+  description: |-
+    `ConsensusGossip::collect_garbage` trims every peer's `known_messages` against the global `known_messages` LRU.
+
+    It used `LruMap::get` for the lookup, which marks the entry as recently used.
+    Since the trim runs on every periodic maintenance (1.1s) and covers every hash any peer knows, the LRU stops tracking when messages were registered.
+
+    Eviction then depends on which hashes peers happen to know, not on age.
+
+    This PR switches the lookup to `peek`, which leaves the order untouched
+
+    Found while looking into #11540.
+
+    ### Testing
+
+      - `collect_garbage_does_not_refresh_known_messages`: fills the cache, runs garbage collection
+        with the oldest message known by a peer, then checks that this message is the one evicted
+        next. Fails without the fix.
+      - `message_broadcast_by_validator_is_stored_once`: covers the validator re-broadcast path.
+      - `cargo test -p sc-network-gossip`
+crates:
+- name: sc-network-gossip
+  bump: patch

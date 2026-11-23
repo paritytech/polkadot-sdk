@@ -290,6 +290,7 @@ enum PreValidationError {
 /// Pre-validate a candidate before PVF execution.
 ///
 /// Performs all checks that don't require running the PVF:
+/// - Persisted validation data matches the descriptor
 /// - Basic checks: PoV hash, code hash, PoV size
 /// - Backing-only: scheduling session matches runtime, relay parent valid in claimed session, claim
 ///   queue fetch
@@ -310,6 +311,11 @@ async fn pre_validate_candidate<Sender>(
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
+	// Ensure that the validation data matches the announced one.
+	if validation_data.hash() != candidate_receipt.descriptor.persisted_validation_data_hash() {
+		return Err(PreValidationError::Invalid(InvalidCandidate::PersistedValidationDataMismatch));
+	}
+
 	if let Err(e) = perform_basic_checks(
 		&candidate_receipt.descriptor,
 		validation_data.max_pov_size,
@@ -538,7 +544,7 @@ async fn run<Context>(
 		pvf_prepare_workers_hard_max_num,
 	}: Config,
 ) -> SubsystemResult<()> {
-	let (mut validation_host, task) = polkadot_node_core_pvf::start(
+	let (validation_host, task) = polkadot_node_core_pvf::start(
 		polkadot_node_core_pvf::Config::new(
 			artifacts_cache_path,
 			node_version,
@@ -554,6 +560,20 @@ async fn run<Context>(
 	.await?;
 	ctx.spawn_blocking("pvf-validation-host", task.boxed())?;
 
+	run_loop(ctx, keystore, metrics, validation_host).await
+}
+
+/// The main loop of the subsystem, generic over the validation backend so that tests can drive it.
+#[overseer::contextbounds(CandidateValidation, prefix = self::overseer)]
+async fn run_loop<Context, V>(
+	mut ctx: Context,
+	keystore: KeystorePtr,
+	metrics: Metrics,
+	mut validation_host: V,
+) -> SubsystemResult<()>
+where
+	V: ValidationBackend + Clone + Send + 'static,
+{
 	let mut tasks = FuturesUnordered::new();
 	let mut state = State::default();
 
@@ -632,7 +652,18 @@ async fn run<Context>(
 			futures::select! {
 				signal = ctx.recv_signal().fuse() => {
 					match signal {
-						Ok(OverseerSignal::ActiveLeaves(_)) => {},
+						// Apply leaves even at the task limit. The overseer delivers a request
+						// only after the leaves its sender has seen, and session params are
+						// fetched at `state.last_active_leaf`.
+						Ok(OverseerSignal::ActiveLeaves(update)) => {
+							handle_active_leaves_update(
+								ctx.sender(),
+								keystore.clone(),
+								&mut validation_host,
+								update,
+								&mut state,
+							).await
+						},
 						Ok(OverseerSignal::BlockFinalized(..)) => {},
 						Ok(OverseerSignal::Conclude) => return Ok(()),
 						Err(e) => return Err(SubsystemError::from(e)),

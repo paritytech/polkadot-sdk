@@ -1,0 +1,12 @@
+title: 'cumulus: wire resubmission of segments per core'
+doc:
+- audience: Node Dev
+  description: |
+    The slot-based collator now resubmits its resubmittable segment. For each core it hydrates the
+    resubmittable headers from local state (off the block-production hot path) and submits them,
+    oldest first, ahead of the freshly-built bundle.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: patch

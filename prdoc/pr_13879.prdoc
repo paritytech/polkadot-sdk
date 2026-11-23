@@ -1,0 +1,14 @@
+title: 'statement-store: keep the recovery replay when the filter changes during major sync'
+doc:
+- audience: Node Dev
+  description: |-
+    On the v2 DHT path a node in major sync drops every incoming statement, and afterwards it
+    repeats its affinity filter so that each peer sends everything again. If an RPC client
+    subscribed or unsubscribed during the sync, the filter differed, each peer sent only the
+    difference, and the statements dropped on the unchanged topics stayed missing. Now the node
+    sends the filter that it advertised last ahead of the changed one, and a peer that sees a
+    repeated filter sends everything for the filter that follows it. A newly connected peer
+    receives the filter of the last broadcast.
+crates:
+- name: sc-network-statement
+  bump: patch

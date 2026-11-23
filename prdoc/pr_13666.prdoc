@@ -1,0 +1,16 @@
+title: 'sc-tracing: keep all events when a state_traceBlock filter is empty'
+doc:
+  - audience:
+      - Node Dev
+      - Node Operator
+    description: |
+      The RPC documentation says that an empty filter does not remove events. But
+      `state_traceBlock` removed each event that did not have the filtered field, also
+      when the filter was empty. Because of this, traces did not show events such as
+      `ClearPrefix` and `StorageRoot`.
+
+      An empty key or method filter now keeps all events. Filters that are not empty
+      work as before. When the filters are omitted, the node still removes all events.
+crates:
+  - name: sc-tracing
+    bump: patch

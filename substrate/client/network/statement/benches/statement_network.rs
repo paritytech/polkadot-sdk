@@ -20,14 +20,10 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use futures::{stream, Stream, StreamExt};
 use sc_network::{
 	service::traits::{NotificationEvent, NotificationService},
-	utils::LruHashSet,
 	NetworkPeers,
 };
 use sc_network_statement::{
-	config::{
-		DEFAULT_STATEMENTS_PER_SECOND, MAX_KNOWN_STATEMENTS, MAX_PENDING_STATEMENTS,
-		STATEMENTS_BURST_COEFFICIENT,
-	},
+	config::{DEFAULT_STATEMENTS_PER_SECOND, MAX_PENDING_STATEMENTS, STATEMENTS_BURST_COEFFICIENT},
 	Peer, StatementHandler,
 };
 use sc_network_sync::{SyncEvent, SyncEventStream};
@@ -35,22 +31,19 @@ use sc_network_types::PeerId;
 use sc_statement_store::Store;
 use sp_core::Pair;
 use sp_statement_store::{Statement, StatementSource, StatementStore};
-use std::{
-	collections::HashMap,
-	num::{NonZeroU32, NonZeroUsize},
-	pin::Pin,
-	sync::Arc,
-};
+use std::{collections::HashMap, num::NonZeroU32, pin::Pin, sync::Arc};
 use substrate_test_runtime_client::{sc_executor::WasmExecutor, DefaultTestClientBuilderExt};
 
 const STATEMENT_DATA_SIZE: usize = 256;
 
 #[derive(Clone)]
-struct TestNetwork;
+struct TestNetwork {
+	local_peer: PeerId,
+}
 
 impl TestNetwork {
 	fn new() -> Self {
-		Self
+		Self { local_peer: PeerId::random() }
 	}
 }
 
@@ -134,6 +127,20 @@ impl sc_network::NetworkEventStream for TestNetwork {
 	}
 }
 
+impl sc_network::NetworkStateInfo for TestNetwork {
+	fn external_addresses(&self) -> Vec<sc_network::Multiaddr> {
+		Vec::new()
+	}
+
+	fn listen_addresses(&self) -> Vec<sc_network::Multiaddr> {
+		Vec::new()
+	}
+
+	fn local_peer_id(&self) -> PeerId {
+		self.local_peer
+	}
+}
+
 #[derive(Debug, Clone)]
 struct TestNotificationService;
 
@@ -181,6 +188,7 @@ fn create_signed_statement(id: usize, keypair: &sp_core::ed25519::Pair) -> State
 	let mut data = vec![0u8; STATEMENT_DATA_SIZE];
 	data[0..8].copy_from_slice(&id.to_le_bytes());
 	statement.set_plain_data(data);
+	statement.set_topic(0, [0xff; 32].into());
 
 	statement.sign_ed25519_private(keypair);
 	statement
@@ -228,7 +236,6 @@ fn build_handler(
 	peers.insert(
 		peer_id,
 		Peer::new_for_testing(
-			LruHashSet::new(NonZeroUsize::new(MAX_KNOWN_STATEMENTS).unwrap()),
 			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
 				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
 			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * STATEMENTS_BURST_COEFFICIENT)

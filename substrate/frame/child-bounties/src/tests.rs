@@ -26,7 +26,7 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
-		ConstU32, ConstU64, OnInitialize,
+		ConstU32, ConstU64, LockableCurrency, OnInitialize, WithdrawReasons,
 	},
 	weights::Weight,
 	PalletId,
@@ -529,6 +529,70 @@ fn award_claim_child_bounty() {
 
 		// Check the child-bounty count.
 		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 0);
+	});
+}
+
+#[test]
+fn claim_and_close_child_bounty_leave_locked_funds_behind() {
+	new_test_ext().execute_with(|| {
+		go_to_block(1);
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::make_free_balance_be(&account_id(4), 101); // Parent-bounty curator.
+		Balances::make_free_balance_be(&account_id(8), 101); // Child-bounty curator.
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(account_id(0)),
+			50,
+			b"12345".to_vec()
+		));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+		go_to_block(2);
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+
+		// The first child-bounty gets claimed and the second one gets closed.
+		for description in [b"12345-p1", b"12345-p2"] {
+			assert_ok!(ChildBounties::add_child_bounty(
+				RuntimeOrigin::signed(account_id(4)),
+				0,
+				10,
+				description.to_vec()
+			));
+		}
+		assert_ok!(ChildBounties::propose_curator(
+			RuntimeOrigin::signed(account_id(4)),
+			0,
+			0,
+			account_id(8),
+			2
+		));
+		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(account_id(8)), 0, 0));
+		assert_ok!(ChildBounties::award_child_bounty(
+			RuntimeOrigin::signed(account_id(8)),
+			0,
+			0,
+			account_id(7)
+		));
+
+		// Anyone can lock funds in the child-bounty accounts with a vested transfer.
+		for child_bounty_id in [0, 1] {
+			let account = ChildBounties::child_bounty_account_id(0, child_bounty_id);
+			assert_ok!(Balances::transfer_allow_death(
+				RuntimeOrigin::signed(account_id(0)),
+				account,
+				5
+			));
+			Balances::set_lock(*b"vesting ", &account, 5, WithdrawReasons::all());
+		}
+
+		go_to_block(9);
+		assert_ok!(ChildBounties::claim_child_bounty(RuntimeOrigin::signed(account_id(7)), 0, 0));
+		assert_ok!(ChildBounties::close_child_bounty(RuntimeOrigin::signed(account_id(4)), 0, 1));
+
+		assert_eq!(Balances::free_balance(account_id(8)), 101 + 2);
+		assert_eq!(Balances::free_balance(account_id(7)), 8);
+		assert_eq!(Balances::free_balance(Bounties::bounty_account_id(0)), 40);
+		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0, 0)), 5);
+		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0, 1)), 5);
 	});
 }
 

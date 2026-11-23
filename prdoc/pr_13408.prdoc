@@ -1,0 +1,11 @@
+title: 'pallet-bridge-parachains: preserve re-imported parachain heads'
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      Preserve a parachain head when ring-buffer pruning targets the same hash
+      that is being re-imported. This prevents the best-head pointer from
+      referencing missing head data after a repeated head wraps the buffer.
+      No storage migration is required.
+crates:
+  - name: pallet-bridge-parachains
+    bump: patch

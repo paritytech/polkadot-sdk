@@ -291,6 +291,7 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 	AssetHubWestend::force_xcm_version(origin_location.clone(), XCM_VERSION);
 
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
+	BridgeHubWestend::fund_accounts(vec![(BridgeHubWestendSender::get(), INITIAL_FUND)]);
 	AssetHubWestend::fund_accounts(vec![
 		(AssetHubWestendReceiver::get(), INITIAL_FUND),
 		(ethereum_sovereign.clone(), INITIAL_FUND),
@@ -312,7 +313,19 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 		));
 
 		// Construct SendToken message and sent to inbound queue
-		assert_ok!(send_inbound_message(make_send_native_eth_message()));
+		let fixture = make_send_native_eth_message();
+		let delivery_cost =
+			EthereumInboundQueue::calculate_delivery_cost(fixture.event.encode().len() as u32);
+		let relayer_balance_before =
+			<BridgeHubWestend as BridgeHubWestendPallet>::Balances::free_balance(
+				BridgeHubWestendSender::get(),
+			);
+		let sovereign_balance_before =
+			<BridgeHubWestend as BridgeHubWestendPallet>::Balances::free_balance(
+				assethub_sovereign.clone(),
+			);
+
+		assert_ok!(send_inbound_message(fixture));
 
 		// Check that the send token message was sent using xcm
 		assert_expected_events!(
@@ -321,6 +334,27 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
 			]
 		);
+
+		let fee_burned = BridgeHubWestend::events()
+			.iter()
+			.find_map(|event| match event {
+				RuntimeEvent::EthereumInboundQueue(
+					snowbridge_pallet_inbound_queue::Event::MessageReceived { fee_burned, .. },
+				) => Some(*fee_burned),
+				_ => None,
+			})
+			.expect("inbound message received");
+		let relayer_balance_after =
+			<BridgeHubWestend as BridgeHubWestendPallet>::Balances::free_balance(
+				BridgeHubWestendSender::get(),
+			);
+		let sovereign_balance_after =
+			<BridgeHubWestend as BridgeHubWestendPallet>::Balances::free_balance(
+				assethub_sovereign.clone(),
+			);
+
+		assert_eq!(relayer_balance_after, relayer_balance_before + delivery_cost);
+		assert_eq!(sovereign_balance_after, sovereign_balance_before - fee_burned - delivery_cost);
 	});
 
 	AssetHubWestend::execute_with(|| {
@@ -401,6 +435,149 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 				RuntimeEvent::EthereumOutboundQueue(snowbridge_pallet_outbound_queue::Event::MessageQueued {..}) => {},
 			]
 		);
+	});
+}
+
+#[test]
+fn send_eth_asset_from_ethereum_with_empty_asset_hub_sovereign_preserves_liveness() {
+	let ethereum_network: NetworkId = EthereumNetwork::get().into();
+	let origin_location: Location = (Parent, Parent, ethereum_network).into();
+	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
+	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
+
+	AssetHubWestend::force_default_xcm_version(Some(XCM_VERSION));
+	BridgeHubWestend::force_default_xcm_version(Some(XCM_VERSION));
+	AssetHubWestend::force_xcm_version(origin_location.clone(), XCM_VERSION);
+
+	BridgeHubWestend::fund_accounts(vec![(BridgeHubWestendSender::get(), INITIAL_FUND)]);
+	AssetHubWestend::fund_accounts(vec![
+		(AssetHubWestendReceiver::get(), INITIAL_FUND),
+		(snowbridge_sovereign(), INITIAL_FUND),
+	]);
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			sp_runtime::MultiAddress::Id(assethub_sovereign.clone()),
+			0,
+		));
+		assert_ok!(<BridgeHubWestend as Chain>::System::set_storage(
+			RuntimeOrigin::root(),
+			vec![(
+				EthereumGatewayAddress::key().to_vec(),
+				sp_core::H160(hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d")).encode(),
+			)],
+		));
+
+		let fixture = make_send_native_eth_message();
+		let relayer_balance_before =
+			<BridgeHubWestend as BridgeHubWestendPallet>::Balances::free_balance(
+				BridgeHubWestendSender::get(),
+			);
+
+		assert_ok!(send_inbound_message(fixture));
+
+		let fee_burned = BridgeHubWestend::events()
+			.iter()
+			.find_map(|event| match event {
+				RuntimeEvent::EthereumInboundQueue(
+					snowbridge_pallet_inbound_queue::Event::MessageReceived {
+						nonce,
+						fee_burned,
+						..
+					},
+				) if *nonce == 1 => Some(*fee_burned),
+				_ => None,
+			})
+			.expect("inbound message received");
+		let relayer_balance_after =
+			<BridgeHubWestend as BridgeHubWestendPallet>::Balances::free_balance(
+				BridgeHubWestendSender::get(),
+			);
+
+		assert_eq!(relayer_balance_after, relayer_balance_before - fee_burned);
+		assert_eq!(
+			<BridgeHubWestend as BridgeHubWestendPallet>::Balances::free_balance(
+				assethub_sovereign.clone()
+			),
+			0
+		);
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
+			]
+		);
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited {
+					asset_id,
+					who,
+					..
+				}) => {
+					asset_id: *asset_id == origin_location,
+					who: *who == AssetHubWestendReceiver::get().into(),
+				},
+			]
+		);
+	});
+}
+
+// If the relayer cannot front the teleported Asset Hub execution fee, the inbound message must be
+// rejected and the channel nonce must not advance, so that a funded relayer can resubmit the same
+// message and the channel is not stalled.
+#[test]
+fn send_eth_asset_from_ethereum_fails_when_relayer_cannot_front_fee() {
+	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
+	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
+
+	// Fund the Asset Hub sovereign so the only possible cause of failure is the relayer's
+	// shortfall.
+	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign, INITIAL_FUND)]);
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
+		type Runtime = <BridgeHubWestend as Chain>::Runtime;
+
+		// Set the Ethereum gateway so the envelope passes the gateway check.
+		assert_ok!(<BridgeHubWestend as Chain>::System::set_storage(
+			RuntimeOrigin::root(),
+			vec![(
+				EthereumGatewayAddress::key().to_vec(),
+				sp_core::H160(hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d")).encode(),
+			)],
+		));
+
+		// Drain the relayer so it cannot front the teleported fee.
+		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			sp_runtime::MultiAddress::Id(BridgeHubWestendSender::get()),
+			0,
+		));
+
+		let channel_id = snowbridge_core::ChannelId::from(hex!(
+			"c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539"
+		));
+		assert_eq!(snowbridge_pallet_inbound_queue::Nonce::<Runtime>::get(channel_id), 0);
+
+		let fixture = make_send_native_eth_message();
+
+		// Dispatch inside a storage layer to mimic the on-chain transactional revert.
+		let result = frame_support::storage::with_storage_layer(|| send_inbound_message(fixture));
+		assert_err!(result, sp_runtime::TokenError::FundsUnavailable);
+
+		// The nonce did not advance, so the channel is not stalled and a funded relayer can
+		// resubmit the same message.
+		assert_eq!(snowbridge_pallet_inbound_queue::Nonce::<Runtime>::get(channel_id), 0);
 	});
 }
 
