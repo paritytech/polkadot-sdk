@@ -23,10 +23,10 @@ use cumulus_primitives_core::{
 	bundle_provides,
 	relay_chain::{
 		BlockNumber as RNumber, Hash as RHash, Header as RelayChainHeader, MAX_HEAD_DATA_SIZE,
-		UMP_SEPARATOR,
 	},
-	ump_signal_tail, CumulusDigestItem, ParachainBlockData, PersistedValidationData,
-	SchedulingSignals, SignedSchedulingInfo, SpecMessagingSignals, VerifySchedulingSignature,
+	signals::{split_at_separator, ump_signal_tail},
+	CumulusDigestItem, ParachainBlockData, PersistedValidationData, SchedulingSignals,
+	SignedSchedulingInfo, SpecMessagingSignals, VerifySchedulingSignature,
 };
 use cumulus_primitives_spec_messaging::ProvideConsumptionRecord;
 use frame_support::{
@@ -316,27 +316,13 @@ where
 				new_validation_code =
 					new_validation_code.take().or(crate::NewValidationCode::<PSC>::get());
 
-				let mut found_separator = false;
-				crate::UpwardMessages::<PSC>::get()
-					.into_iter()
-					.filter_map(|m| {
-						// Filter out the `UMP_SEPARATOR` and the `UMPSignals`.
-						if m == UMP_SEPARATOR {
-							found_separator = true;
-							None
-						} else if found_separator {
-							upward_message_signals.push(m);
-							None
-						} else {
-							// No signal or separator
-							Some(m)
-						}
-					})
-					.for_each(|m| {
-						upward_messages.try_push(m).expect(
-							"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
-						)
-					});
+				let (messages, signals) = split_at_separator(crate::UpwardMessages::<PSC>::get());
+				upward_message_signals.extend(signals);
+				for message in messages {
+					upward_messages.try_push(message).expect(
+						"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
+					);
+				}
 
 				processed_downward_messages += crate::ProcessedDownwardMessages::<PSC>::get();
 				horizontal_messages

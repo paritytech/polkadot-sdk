@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The speculative-messaging part of a candidate's UMP signal tail.
+//! Upward message signals in a parachain candidate.
 //!
 //! Each block that touched a stream deposits its `StreamsRoot` as an
 //! SPMS header digest, and the bundle's last one is its `Provides` ([`bundle_provides`]).
@@ -31,6 +31,15 @@ use cumulus_primitives_spec_messaging::{
 };
 use polkadot_primitives::{RequiresSet, UMPSignal, UMP_SEPARATOR};
 use sp_runtime::Digest;
+
+/// Split upward messages at the first `UMP_SEPARATOR`. Drop later separators so they never
+/// count as signals.
+pub fn split_at_separator(messages: Vec<Vec<u8>>) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
+	let mut iter = messages.into_iter();
+	let messages = iter.by_ref().take_while(|m| !m.is_empty()).collect();
+	let signals = iter.filter(|m| !m.is_empty()).collect();
+	(messages, signals)
+}
 
 /// Why the speculative-messaging part of a candidate's tail cannot be built.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -149,6 +158,27 @@ mod tests {
 	};
 	use polkadot_primitives::{ClaimQueueOffset, CoreSelector, Hash as RHash, Id as ParaId};
 	use sp_runtime::DigestItem;
+
+	#[test]
+	fn split_at_separator_drops_later_separators() {
+		let (a, b, c) = (vec![1u8], vec![2u8], vec![3u8]);
+		// No separator: everything is a message.
+		assert_eq!(
+			split_at_separator(vec![a.clone(), b.clone()]),
+			(vec![a.clone(), b.clone()], vec![])
+		);
+		// Messages before the first separator, signals after it.
+		assert_eq!(
+			split_at_separator(vec![a.clone(), vec![], b.clone(), c.clone()]),
+			(vec![a.clone()], vec![b.clone(), c.clone()]),
+		);
+		assert_eq!(
+			split_at_separator(vec![a.clone(), vec![], b.clone(), vec![], vec![], c.clone()]),
+			(vec![a], vec![b, c]),
+		);
+		// A separator with nothing after it yields no signals.
+		assert_eq!(split_at_separator(vec![vec![]]), (vec![], vec![]));
+	}
 
 	fn root(byte: u8) -> StreamsRoot {
 		StreamsRoot(RHash::repeat_byte(byte))

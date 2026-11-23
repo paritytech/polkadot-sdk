@@ -378,7 +378,7 @@ mod tests {
 	#[test]
 	fn an_override_keeps_the_bundles_provides() {
 		// A resubmission replaces only the scheduling signals; `Provides` comes from the digests.
-		use crate::spec_messaging::{ump_signal_tail, SpecMessagingSignals};
+		use crate::signals::{ump_signal_tail, SpecMessagingSignals};
 		let root = StreamsRoot(Hash::repeat_byte(4));
 		let raw = vec![UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode()];
 		let signed = signed_with(CoreSelector(1), 1, peer(0xCC));
