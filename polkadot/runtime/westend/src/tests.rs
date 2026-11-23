@@ -422,3 +422,79 @@ mod drain_legacy_treasury_migration {
 		});
 	}
 }
+
+/// Each HRMP request a non-system parachain makes for itself is executed without payment, as its
+/// router sends it: with a `SetTopic` appended. Nothing else is.
+#[test]
+fn hrmp_requests_of_a_para_are_executed_without_payment() {
+	use polkadot_primitives::HrmpChannelId;
+	use xcm::latest::prelude::*;
+	use xcm_executor::traits::{Properties, ShouldExecute, WeightBounds};
+
+	type Weigher = <xcm_config::XcmConfig as xcm_executor::Config>::Weigher;
+
+	let is_unpaid = |para: u32, call: RuntimeCall| {
+		let mut message = Xcm::<RuntimeCall>(vec![
+			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+			Transact {
+				origin_kind: OriginKind::Native,
+				fallback_max_weight: None,
+				call: call.encode().into(),
+			},
+			SetTopic([0; 32]),
+		]);
+		let weight = Weigher::weight(&mut message, Weight::MAX).expect("message is weighed");
+		let mut properties = Properties { weight_credit: Weight::zero(), message_id: None };
+		xcm_config::Barrier::should_execute(
+			&Location::new(0, [Parachain(para)]),
+			message.inner_mut(),
+			weight,
+			&mut properties,
+		)
+		.is_ok()
+	};
+
+	let para = ParaId::from(2000);
+	let other = ParaId::from(2001);
+	let channel_id = HrmpChannelId { sender: para, recipient: other };
+	let requests = [
+		parachains_hrmp::Call::<Runtime>::hrmp_init_open_channel {
+			recipient: other,
+			proposed_max_capacity: 8,
+			proposed_max_message_size: 1024,
+		},
+		parachains_hrmp::Call::hrmp_accept_open_channel { sender: other },
+		parachains_hrmp::Call::hrmp_close_channel { channel_id: channel_id.clone() },
+		// The heaviest cancel that `MaxUnpaidParaRequestWeight` is computed for.
+		parachains_hrmp::Call::hrmp_cancel_open_request { channel_id, open_requests: 10_000 },
+		parachains_hrmp::Call::poke_channel_deposits { sender: para, recipient: other },
+		parachains_hrmp::Call::establish_channel_with_system { target_system_chain: 1000.into() },
+	];
+	let max_per_window = <Runtime as parachains_unpaid_transact::Config>::MaxPerWindow::get();
+	assert!(requests.len() as u32 <= max_per_window);
+
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+
+		// Another call is not let through, and is not counted.
+		let force_open = parachains_hrmp::Call::<Runtime>::force_open_hrmp_channel {
+			sender: para,
+			recipient: other,
+			max_capacity: 8,
+			max_message_size: 1024,
+		};
+		assert!(!is_unpaid(2000, force_open.into()));
+		assert!(!is_unpaid(2000, frame_system::Call::<Runtime>::remark { remark: vec![] }.into()));
+		assert_eq!(parachains_unpaid_transact::Windows::<Runtime>::iter().count(), 0);
+
+		for request in requests.clone() {
+			assert!(is_unpaid(2000, request.into()));
+		}
+
+		// As many as `MaxPerWindow` in a window, and no more.
+		for _ in requests.len() as u32..max_per_window {
+			assert!(is_unpaid(2000, requests[0].clone().into()));
+		}
+		assert!(!is_unpaid(2000, requests[0].clone().into()));
+	});
+}
