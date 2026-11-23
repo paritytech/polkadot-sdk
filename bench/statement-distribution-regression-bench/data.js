@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795446130475,
+  "lastUpdate": 1795448908522,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f2bc410c455ea0a82162d92ce4dcc41ae644c143",
-          "message": "ci: new ci-unified with updated forklift and resolc (#12019)\n\ncc https://github.com/paritytech/devops/issues/5285",
-          "timestamp": "2026-05-08T12:01:00Z",
-          "tree_id": "d8731de162658dcfd33d371c1d0d6ac3aa6a182d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f2bc410c455ea0a82162d92ce4dcc41ae644c143"
-        },
-        "date": 1778246779598,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.082,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08823076175199995,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038816118694000014,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.09039325893999989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6a82e3088227a9ad49d04aeb41496d101281a4e7",
+          "message": "frame-support: Allow `cfg`-exclusive pallets to share an index (#13935)\n\nLeave `cfg` evaluation to rustc instead of the runtime macros.\n\nIndex conflicts are reported with `compile_error!` gated on both\npallets' `cfg`s, so only conflicts in the actual build are rejected.\n\n`AllPallets*` are declared per combination of the pallets' `cfg`\nconditions, so any `cfg` predicate is supported, not just `feature` and\n`test`.\n\nPallet `#[cfg]`s are stored as `syn::Attribute` and `cfg-expr` is\ndropped.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-23T13:24:20Z",
+          "tree_id": "b7d76e7901632a3ac73788337a839002e70bda5c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6a82e3088227a9ad49d04aeb41496d101281a4e7"
+        },
+        "date": 1795448870656,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.16199999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08759631637799992,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03874599313399999,
             "unit": "seconds"
           }
         ]
