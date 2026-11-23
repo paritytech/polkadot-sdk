@@ -11,9 +11,10 @@ doc:
 
     Each count is first clamped to `MaxBlocksPerEntry`. When a report asks for more than what is
     left of the limit, every entry is cut by the same ratio, rounded down. Units that are not
-    credited are dropped and reported in the new `UnitsOverLimit` event. `BlocksCredited` is now
-    emitted only when points reach staking and counts the credited blocks. A report that arrives
-    without an active era now emits `BlocksIgnored`.
+    credited are dropped and reported in the new `UnitsOverLimit` event. `BlocksCredited` and
+    `BlocksIgnored` are renamed to `UnitsCredited` and `UnitsIgnored` and gain a `service` field.
+    `UnitsCredited` is emitted only when points reach staking and counts the credited units. A
+    report that arrives without an active era now emits `UnitsIgnored`.
 
     Asset Hub Westend sets `MaxBlocksPerEntry` to the most blocks a system chain can author in
     one expected era at its block processing velocity, `DefaultUnitsPerEraLimit` to twice that and

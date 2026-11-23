@@ -188,12 +188,12 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Validators earn `points` era points for each unit of `service` on `source`.
 		PointsPerServiceSet { source: T::Source, service: ServiceKind, points: u32 },
-		/// Era points for `blocks` blocks authored on `source` were handed to
+		/// Era points for `units` units of `service` on `source` were handed to
 		/// [`Config::RewardPoints`].
-		BlocksCredited { source: T::Source, blocks: u32 },
-		/// `blocks` blocks authored on `source` were not credited, because `source` earns no
-		/// points or no era is active.
-		BlocksIgnored { source: T::Source, blocks: u32 },
+		UnitsCredited { source: T::Source, service: ServiceKind, units: u32 },
+		/// `units` units of `service` on `source` were not credited, because `source` earns no
+		/// points for `service` or no era is active.
+		UnitsIgnored { source: T::Source, service: ServiceKind, units: u32 },
 		/// `source` is credited at most `limit` units of `service` per era.
 		UnitsPerEraLimitSet { source: T::Source, service: ServiceKind, limit: u32 },
 		/// `units` units of `service` on `source` were not credited in `era`, because they exceed
@@ -322,9 +322,9 @@ pub mod pallet {
 		/// count is cut by the same ratio, rounded down. The outcome is one of:
 		/// - nothing is credited when `blocks` is empty, with no event.
 		/// - nothing is credited when `source` earns no points or no era is active, with
-		///   [`Event::BlocksIgnored`]. The limit of `source` is not used.
+		///   [`Event::UnitsIgnored`]. The limit of `source` is not used.
 		/// - otherwise, entries credited at least one block are handed to [`Config::RewardPoints`]
-		///   with [`Event::BlocksCredited`], and blocks not credited are reported in
+		///   with [`Event::UnitsCredited`], and blocks not credited are reported in
 		///   [`Event::UnitsOverLimit`].
 		///
 		/// Returns the number of entries handed to [`Config::RewardPoints`].
@@ -348,9 +348,10 @@ pub mod pallet {
 
 			let Some((era, points_per_unit)) = Self::era_and_points_per_unit(source, service)
 			else {
-				Self::deposit_event(Event::BlocksIgnored {
+				Self::deposit_event(Event::UnitsIgnored {
 					source,
-					blocks: requested.saturated_into(),
+					service,
+					units: requested.saturated_into(),
 				});
 				return 0;
 			};
@@ -369,7 +370,7 @@ pub mod pallet {
 			let entries = points.len() as u32;
 			if !points.is_empty() {
 				T::RewardPoints::reward(service, points);
-				Self::deposit_event(Event::BlocksCredited { source, blocks: credited });
+				Self::deposit_event(Event::UnitsCredited { source, service, units: credited });
 			}
 			let over = requested.saturating_sub(credited.into());
 			if over > 0 {

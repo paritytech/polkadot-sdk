@@ -4008,7 +4008,11 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 			.map(|r| r.event)
 			.collect::<Vec<_>>();
 		assert!(events.contains(&RuntimeEvent::StakingPointsConverter(
-			pallet_staking_async_points_converter::Event::BlocksCredited { source: own, blocks: 3 }
+			pallet_staking_async_points_converter::Event::UnitsCredited {
+				source: own,
+				service: sp_staking::ServiceKind::Collation,
+				units: 3
+			}
 		)));
 		assert!(events.contains(&RuntimeEvent::Staking(
 			pallet_staking_async::Event::ServicePointsCredited {
@@ -4064,9 +4068,10 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 					dropped: 0
 				}),
 				RuntimeEvent::StakingPointsConverter(
-					pallet_staking_async_points_converter::Event::BlocksCredited {
+					pallet_staking_async_points_converter::Event::UnitsCredited {
 						source: own,
-						blocks: 1
+						service: sp_staking::ServiceKind::Collation,
+						units: 1
 					}
 				),
 				RuntimeEvent::StakingPointsConverter(
