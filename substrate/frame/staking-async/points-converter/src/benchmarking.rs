@@ -65,8 +65,10 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// A report of `n` entries from a source with points in an active era but a limit of zero,
-	/// so that every entry is cut and [`Config::RewardPoints`] is not measured here.
+	/// The converter's own cost of a report of `n` entries. The source earns points and an era is
+	/// active, so the report reaches the limit check. The limit is zero, so every entry is cut and
+	/// nothing reaches [`Config::RewardPoints`]. [`Pallet::report_authored_blocks_weight`] adds
+	/// the `RewardPoints` weight of the credited entries, so measuring it here charges it twice.
 	#[benchmark]
 	fn report_authored_blocks(n: Linear<1, 1_000>) -> Result<(), BenchmarkError> {
 		let origin =

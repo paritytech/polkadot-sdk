@@ -42,7 +42,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `StakingPointsConverter::PointsPerService` (`max_values`: None, `max_size`: Some(25),
 	/// added: 2500, mode: `MaxEncodedLen`)
 	fn set_points_per_service() -> Weight {
-		Weight::from_parts(3_948_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
+		Weight::from_parts(7_990_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `StakingPointsConverter::PointsPerService` (r:1 w:0)
 	/// Proof: `StakingPointsConverter::PointsPerService` (`max_values`: None, `max_size`: Some(25),
@@ -58,8 +58,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Some(25), added: 2500, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 1000]`.
 	fn report_authored_blocks(n: u32) -> Weight {
-		Weight::from_parts(15_000_000, 3_494)
-			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(n.into()))
+		Weight::from_parts(30_394_340, 3_494)
+			.saturating_add(Weight::from_parts(19_617, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -67,7 +67,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `StakingPointsConverter::UnitsPerEraLimit` (`max_values`: None, `max_size`:
 	/// Some(25), added: 2500, mode: `MaxEncodedLen`)
 	fn set_units_per_era_limit() -> Weight {
-		Weight::from_parts(3_948_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
+		Weight::from_parts(7_930_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -77,7 +77,7 @@ impl WeightInfo for () {
 	/// Proof: `StakingPointsConverter::PointsPerService` (`max_values`: None, `max_size`: Some(25),
 	/// added: 2500, mode: `MaxEncodedLen`)
 	fn set_points_per_service() -> Weight {
-		Weight::from_parts(3_948_000, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
+		Weight::from_parts(7_990_000, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `StakingPointsConverter::PointsPerService` (r:1 w:0)
 	/// Proof: `StakingPointsConverter::PointsPerService` (`max_values`: None, `max_size`: Some(25),
@@ -93,8 +93,8 @@ impl WeightInfo for () {
 	/// Some(25), added: 2500, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 1000]`.
 	fn report_authored_blocks(n: u32) -> Weight {
-		Weight::from_parts(15_000_000, 3_494)
-			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(n.into()))
+		Weight::from_parts(30_394_340, 3_494)
+			.saturating_add(Weight::from_parts(19_617, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
@@ -102,6 +102,6 @@ impl WeightInfo for () {
 	/// Proof: `StakingPointsConverter::UnitsPerEraLimit` (`max_values`: None, `max_size`:
 	/// Some(25), added: 2500, mode: `MaxEncodedLen`)
 	fn set_units_per_era_limit() -> Weight {
-		Weight::from_parts(3_948_000, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
+		Weight::from_parts(7_930_000, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
