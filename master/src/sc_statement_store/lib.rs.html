@@ -183,8 +183,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#33 id=33 data-nosnippet>33</a>//! * There may not be more than `MAX_TOTAL_STATEMENTS` total statements with `MAX_TOTAL_SIZE` size.
 <a href=#34 id=34 data-nosnippet>34</a>//!   To satisfy this, statements are removed from the store starting with the lowest
 <a href=#35 id=35 data-nosnippet>35</a>//!   `global_priority` until a constraint is satisfied.
-<a href=#36 id=36 data-nosnippet>36</a>//! * On the v2 DHT path, the statements kept for DHT affinity and the transient ones each have
-<a href=#37 id=37 data-nosnippet>37</a>//!   their own size limit. Statements kept only for explicit affinity have no limit of their own.
+<a href=#36 id=36 data-nosnippet>36</a>//! * On the DHT path, the statements kept for DHT affinity and the transient ones each have their
+<a href=#37 id=37 data-nosnippet>37</a>//!   own size limit. Statements kept only for explicit affinity have no limit of their own.
 <a href=#38 id=38 data-nosnippet>38</a>//!
 <a href=#39 id=39 data-nosnippet>39</a>//! When a new statement is inserted that would not satisfy constraints in the first place, no
 <a href=#40 id=40 data-nosnippet>40</a>//! statements are deleted and a `Rejected` result is returned.
@@ -732,17 +732,17 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#582 id=582 data-nosnippet>582</a><span class="doccomment">/// Default maximum statements per second per peer before rate limiting kicks in.
 <a href=#583 id=583 data-nosnippet>583</a></span><span class="kw">pub use </span>sc_network_statement::config::DEFAULT_STATEMENTS_PER_SECOND <span class="kw">as </span>DEFAULT_RATE_LIMIT;
 <a href=#584 id=584 data-nosnippet>584</a>
-<a href=#585 id=585 data-nosnippet>585</a><span class="doccomment">/// Default replication factor (K) for v2 DHT-affinity statement routing.
+<a href=#585 id=585 data-nosnippet>585</a><span class="doccomment">/// Default replication factor (K) for DHT-affinity statement routing.
 <a href=#586 id=586 data-nosnippet>586</a></span><span class="kw">pub use </span>sc_network_statement::config::DEFAULT_REPLICATION_FACTOR;
 <a href=#587 id=587 data-nosnippet>587</a>
-<a href=#588 id=588 data-nosnippet>588</a><span class="doccomment">/// Default inbound slots for full peers on the v2 DHT statement path.
+<a href=#588 id=588 data-nosnippet>588</a><span class="doccomment">/// Default inbound slots for full peers on the DHT statement path.
 <a href=#589 id=589 data-nosnippet>589</a></span><span class="kw">pub use </span>sc_network_statement::config::DEFAULT_IN_PEERS;
 <a href=#590 id=590 data-nosnippet>590</a>
-<a href=#591 id=591 data-nosnippet>591</a><span class="doccomment">/// Default gossip target for v2 DHT-affinity statement routing.
+<a href=#591 id=591 data-nosnippet>591</a><span class="doccomment">/// Default gossip target for DHT-affinity statement routing.
 <a href=#592 id=592 data-nosnippet>592</a></span><span class="kw">pub use </span>sc_network_statement::config::DEFAULT_GOSSIP_TARGET;
 <a href=#593 id=593 data-nosnippet>593</a>
-<a href=#594 id=594 data-nosnippet>594</a><span class="doccomment">/// Parameters of the v2 DHT statement path.
-<a href=#595 id=595 data-nosnippet>595</a></span><span class="kw">pub use </span>sc_network_statement::{AffinityTopicsFile, V2DhtConfig};
+<a href=#594 id=594 data-nosnippet>594</a><span class="doccomment">/// Parameters of the DHT statement path.
+<a href=#595 id=595 data-nosnippet>595</a></span><span class="kw">pub use </span>sc_network_statement::{AffinityTopicsFile, DhtConfig};
 <a href=#596 id=596 data-nosnippet>596</a>
 <a href=#597 id=597 data-nosnippet>597</a><span class="doccomment">/// Default and lowest accepted false-positive rate of the advertised topic-affinity bloom
 <a href=#598 id=598 data-nosnippet>598</a>/// filter.
@@ -763,8 +763,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#613 id=613 data-nosnippet>613</a>	</span><span class="kw">pub </span>network_workers: usize,
 <a href=#614 id=614 data-nosnippet>614</a>	<span class="doccomment">/// Maximum statements per second per peer before rate limiting kicks in.
 <a href=#615 id=615 data-nosnippet>615</a>	</span><span class="kw">pub </span>rate_limit: u32,
-<a href=#616 id=616 data-nosnippet>616</a>	<span class="doccomment">/// Parameters of the v2 DHT statement path, `None` when the legacy flood path is in use.
-<a href=#617 id=617 data-nosnippet>617</a>	</span><span class="kw">pub </span>v2dht: <span class="prelude-ty">Option</span>&lt;V2DhtConfig&gt;,
+<a href=#616 id=616 data-nosnippet>616</a>	<span class="doccomment">/// Parameters of the DHT statement path, `None` when the legacy flood path is in use.
+<a href=#617 id=617 data-nosnippet>617</a>	</span><span class="kw">pub </span>dht: <span class="prelude-ty">Option</span>&lt;DhtConfig&gt;,
 <a href=#618 id=618 data-nosnippet>618</a>}
 <a href=#619 id=619 data-nosnippet>619</a>
 <a href=#620 id=620 data-nosnippet>620</a><span class="kw">impl </span>Config {
@@ -781,7 +781,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#631 id=631 data-nosnippet>631</a>		<span class="kw">if </span><span class="self">self</span>.network_workers == <span class="number">0 </span>{
 <a href=#632 id=632 data-nosnippet>632</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::InvalidConfig(<span class="string">"network_workers must be greater than zero"</span>.into()));
 <a href=#633 id=633 data-nosnippet>633</a>		}
-<a href=#634 id=634 data-nosnippet>634</a>		<span class="kw">if </span><span class="self">self</span>.v2dht.as_ref().is_some_and(|cfg| {
+<a href=#634 id=634 data-nosnippet>634</a>		<span class="kw">if </span><span class="self">self</span>.dht.as_ref().is_some_and(|cfg| {
 <a href=#635 id=635 data-nosnippet>635</a>			!(cfg.bloom_false_pos_rate &gt;= DEFAULT_BLOOM_FALSE_POS_RATE &amp;&amp;
 <a href=#636 id=636 data-nosnippet>636</a>				cfg.bloom_false_pos_rate &lt; <span class="number">1.0</span>)
 <a href=#637 id=637 data-nosnippet>637</a>		}) {
@@ -806,7 +806,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#656 id=656 data-nosnippet>656</a>	/// the limit.
 <a href=#657 id=657 data-nosnippet>657</a>	</span><span class="kw">fn </span>track_max_sizes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [<span class="prelude-ty">Option</span>&lt;usize&gt;; RetentionTrack::COUNT] {
 <a href=#658 id=658 data-nosnippet>658</a>		<span class="kw">let </span><span class="kw-2">mut </span>max_sizes = [<span class="prelude-val">None</span>; RetentionTrack::COUNT];
-<a href=#659 id=659 data-nosnippet>659</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(cfg) = <span class="kw-2">&amp;</span><span class="self">self</span>.v2dht {
+<a href=#659 id=659 data-nosnippet>659</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(cfg) = <span class="kw-2">&amp;</span><span class="self">self</span>.dht {
 <a href=#660 id=660 data-nosnippet>660</a>			max_sizes[RetentionTrack::Transient <span class="kw">as </span>usize] = cfg.transient_max_size;
 <a href=#661 id=661 data-nosnippet>661</a>			max_sizes[RetentionTrack::Persistent <span class="kw">as </span>usize] = cfg.dht_affinity_max_size;
 <a href=#662 id=662 data-nosnippet>662</a>		}
@@ -839,7 +839,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#689 id=689 data-nosnippet>689</a>			purge_after_sec: DEFAULT_PURGE_AFTER_SEC,
 <a href=#690 id=690 data-nosnippet>690</a>			network_workers: DEFAULT_NETWORK_WORKERS,
 <a href=#691 id=691 data-nosnippet>691</a>			rate_limit: DEFAULT_RATE_LIMIT,
-<a href=#692 id=692 data-nosnippet>692</a>			v2dht: <span class="prelude-val">None</span>,
+<a href=#692 id=692 data-nosnippet>692</a>			dht: <span class="prelude-val">None</span>,
 <a href=#693 id=693 data-nosnippet>693</a>		}
 <a href=#694 id=694 data-nosnippet>694</a>	}
 <a href=#695 id=695 data-nosnippet>695</a>}
@@ -4160,9 +4160,9 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#4010 id=4010 data-nosnippet>4010</a></span><span class="kw">mod </span>tests {
 <a href=#4011 id=4011 data-nosnippet>4011</a>
 <a href=#4012 id=4012 data-nosnippet>4012</a>	<span class="kw">use crate</span>::{
-<a href=#4013 id=4013 data-nosnippet>4013</a>		col, evicted_index_key, parse_time_index_key, AllowanceBlock, Config, Error,
+<a href=#4013 id=4013 data-nosnippet>4013</a>		col, evicted_index_key, parse_time_index_key, AllowanceBlock, Config, DhtConfig, Error,
 <a href=#4014 id=4014 data-nosnippet>4014</a>		PrometheusMetrics, PrometheusRegistry, QueryIndex, Resubmission, RetentionReasonMask,
-<a href=#4015 id=4015 data-nosnippet>4015</a>		RetentionTrack, Store, StoreTotals, V2DhtConfig, INDEX_EMPTY_VALUE, KEY_VERSION,
+<a href=#4015 id=4015 data-nosnippet>4015</a>		RetentionTrack, Store, StoreTotals, INDEX_EMPTY_VALUE, KEY_VERSION,
 <a href=#4016 id=4016 data-nosnippet>4016</a>	};
 <a href=#4017 id=4017 data-nosnippet>4017</a>	<span class="kw">use </span>sc_keystore::Keystore;
 <a href=#4018 id=4018 data-nosnippet>4018</a>	<span class="kw">use </span>sp_core::{Decode, Encode, Pair};
@@ -5511,7 +5511,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#5361 id=5361 data-nosnippet>5361</a>
 <a href=#5362 id=5362 data-nosnippet>5362</a>	<span class="kw">fn </span>transient_max_size(max_size: usize) -&gt; Config {
 <a href=#5363 id=5363 data-nosnippet>5363</a>		Config {
-<a href=#5364 id=5364 data-nosnippet>5364</a>			v2dht: <span class="prelude-val">Some</span>(V2DhtConfig { transient_max_size: <span class="prelude-val">Some</span>(max_size), ..Default::default() }),
+<a href=#5364 id=5364 data-nosnippet>5364</a>			dht: <span class="prelude-val">Some</span>(DhtConfig { transient_max_size: <span class="prelude-val">Some</span>(max_size), ..Default::default() }),
 <a href=#5365 id=5365 data-nosnippet>5365</a>			..Default::default()
 <a href=#5366 id=5366 data-nosnippet>5366</a>		}
 <a href=#5367 id=5367 data-nosnippet>5367</a>	}
@@ -5562,7 +5562,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#5412 id=5412 data-nosnippet>5412</a>	</span><span class="kw">fn </span>explicit_only_statements_take_the_room_the_limited_tracks_leave() {
 <a href=#5413 id=5413 data-nosnippet>5413</a>		<span class="kw">let </span>(store, _temp) = test_store_with_config(Config {
 <a href=#5414 id=5414 data-nosnippet>5414</a>			max_total_size: <span class="number">300</span>,
-<a href=#5415 id=5415 data-nosnippet>5415</a>			v2dht: <span class="prelude-val">Some</span>(V2DhtConfig {
+<a href=#5415 id=5415 data-nosnippet>5415</a>			dht: <span class="prelude-val">Some</span>(DhtConfig {
 <a href=#5416 id=5416 data-nosnippet>5416</a>				dht_affinity_max_size: <span class="prelude-val">Some</span>(<span class="number">100</span>),
 <a href=#5417 id=5417 data-nosnippet>5417</a>				transient_max_size: <span class="prelude-val">Some</span>(<span class="number">100</span>),
 <a href=#5418 id=5418 data-nosnippet>5418</a>				..Default::default()

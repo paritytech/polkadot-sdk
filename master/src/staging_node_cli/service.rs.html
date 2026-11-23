@@ -598,7 +598,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#448 id=448 data-nosnippet>448</a>
 <a href=#449 id=449 data-nosnippet>449</a>	<span class="kw">let </span>statement_network_workers = statement_store_config.network_workers;
 <a href=#450 id=450 data-nosnippet>450</a>	<span class="kw">let </span>statement_rate_limit = statement_store_config.rate_limit;
-<a href=#451 id=451 data-nosnippet>451</a>	<span class="kw">let </span>statement_v2dht_config = statement_store_config.v2dht.clone();
+<a href=#451 id=451 data-nosnippet>451</a>	<span class="kw">let </span>statement_dht_config = statement_store_config.dht.clone();
 <a href=#452 id=452 data-nosnippet>452</a>
 <a href=#453 id=453 data-nosnippet>453</a>	<span class="kw">let </span>sc_service::PartialComponents {
 <a href=#454 id=454 data-nosnippet>454</a>		client,
@@ -665,7 +665,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#515 id=515 data-nosnippet>515</a>			metrics.clone(),
 <a href=#516 id=516 data-nosnippet>516</a>			Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
 <a href=#517 id=517 data-nosnippet>517</a>			<span class="kw-2">&amp;</span>net_config.network_config,
-<a href=#518 id=518 data-nosnippet>518</a>			statement_v2dht_config.as_ref(),
+<a href=#518 id=518 data-nosnippet>518</a>			statement_dht_config.as_ref(),
 <a href=#519 id=519 data-nosnippet>519</a>		);
 <a href=#520 id=520 data-nosnippet>520</a>	net_config.add_notification_protocol(statement_notification_config);
 <a href=#521 id=521 data-nosnippet>521</a>
@@ -957,9 +957,9 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#807 id=807 data-nosnippet>807</a>		statement_protocol_executor,
 <a href=#808 id=808 data-nosnippet>808</a>		statement_network_workers,
 <a href=#809 id=809 data-nosnippet>809</a>		statement_rate_limit,
-<a href=#810 id=810 data-nosnippet>810</a>		statement_v2dht_config,
+<a href=#810 id=810 data-nosnippet>810</a>		statement_dht_config,
 <a href=#811 id=811 data-nosnippet>811</a>	)<span class="question-mark">?</span>;
-<a href=#812 id=812 data-nosnippet>812</a>	<span class="kw">if </span>sc_network_statement::v2dht_enabled() {
+<a href=#812 id=812 data-nosnippet>812</a>	<span class="kw">if </span>sc_network_statement::dht_enabled() {
 <a href=#813 id=813 data-nosnippet>813</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(resolver) = statement_handler.retention_resolver() {
 <a href=#814 id=814 data-nosnippet>814</a>			statement_store.set_retention_resolver(resolver);
 <a href=#815 id=815 data-nosnippet>815</a>		}
@@ -1014,7 +1014,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#864 id=864 data-nosnippet>864</a>		purge_after_sec: cli.statement_store_purge_after_sec,
 <a href=#865 id=865 data-nosnippet>865</a>		network_workers: cli.statement_network_workers,
 <a href=#866 id=866 data-nosnippet>866</a>		rate_limit: cli.statement_rate_limit,
-<a href=#867 id=867 data-nosnippet>867</a>		v2dht: sc_network_statement::v2dht_enabled().then(|| sc_statement_store::V2DhtConfig {
+<a href=#867 id=867 data-nosnippet>867</a>		dht: sc_network_statement::dht_enabled().then(|| sc_statement_store::DhtConfig {
 <a href=#868 id=868 data-nosnippet>868</a>			affinity_topics: cli.statement_affinity_topics.clone(),
 <a href=#869 id=869 data-nosnippet>869</a>			affinity_topics_file: cli.statement_affinity_topics_file.clone(),
 <a href=#870 id=870 data-nosnippet>870</a>			bloom_false_pos_rate: cli.statement_bloom_false_positive_rate,

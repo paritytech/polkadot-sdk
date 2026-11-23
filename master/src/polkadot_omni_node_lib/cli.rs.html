@@ -354,7 +354,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#204 id=204 data-nosnippet>204</a>	///
 <a href=#205 id=205 data-nosnippet>205</a>	/// Only relevant when `--enable-statement-store` is used.
 <a href=#206 id=206 data-nosnippet>206</a>	</span><span class="attr">#[arg(long, hide = <span class="bool-val">true</span>)]
-<a href=#207 id=207 data-nosnippet>207</a>	</span><span class="kw">pub </span>statement_v2_dht: bool,
+<a href=#207 id=207 data-nosnippet>207</a>	</span><span class="kw">pub </span>statement_dht: bool,
 <a href=#208 id=208 data-nosnippet>208</a>
 <a href=#209 id=209 data-nosnippet>209</a>	<span class="doccomment">/// Number of concurrent workers for statement validation from the network.
 <a href=#210 id=210 data-nosnippet>210</a>	///
@@ -403,7 +403,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#253 id=253 data-nosnippet>253</a>	///
 <a href=#254 id=254 data-nosnippet>254</a>	/// Only relevant when `--enable-statement-store` is used.
 <a href=#255 id=255 data-nosnippet>255</a>	///
-<a href=#256 id=256 data-nosnippet>256</a>	/// Hidden: takes effect only with `--statement-v2-dht`.
+<a href=#256 id=256 data-nosnippet>256</a>	/// Hidden: takes effect only with `--statement-dht`.
 <a href=#257 id=257 data-nosnippet>257</a>	</span><span class="attr">#[arg(long = <span class="string">"statement-affinity-topic"</span>, value_name = <span class="string">"TOPIC"</span>, hide = <span class="bool-val">true</span>)]
 <a href=#258 id=258 data-nosnippet>258</a>	</span><span class="kw">pub </span>statement_affinity_topics: Vec&lt;sc_statement_store::Topic&gt;,
 <a href=#259 id=259 data-nosnippet>259</a>
@@ -412,7 +412,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#262 id=262 data-nosnippet>262</a>	///
 <a href=#263 id=263 data-nosnippet>263</a>	/// Only relevant when `--enable-statement-store` is used.
 <a href=#264 id=264 data-nosnippet>264</a>	///
-<a href=#265 id=265 data-nosnippet>265</a>	/// Hidden: takes effect only with `--statement-v2-dht`.
+<a href=#265 id=265 data-nosnippet>265</a>	/// Hidden: takes effect only with `--statement-dht`.
 <a href=#266 id=266 data-nosnippet>266</a>	</span><span class="attr">#[arg(long = <span class="string">"statement-affinity-topics-file"</span>, value_name = <span class="string">"PATH"</span>, hide = <span class="bool-val">true</span>)]
 <a href=#267 id=267 data-nosnippet>267</a>	</span><span class="kw">pub </span>statement_affinity_topics_file: <span class="prelude-ty">Option</span>&lt;sc_statement_store::AffinityTopicsFile&gt;,
 <a href=#268 id=268 data-nosnippet>268</a>
@@ -420,7 +420,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#270 id=270 data-nosnippet>270</a>	///
 <a href=#271 id=271 data-nosnippet>271</a>	/// Only relevant when `--enable-statement-store` is used.
 <a href=#272 id=272 data-nosnippet>272</a>	///
-<a href=#273 id=273 data-nosnippet>273</a>	/// Hidden: takes effect only with `--statement-v2-dht`.
+<a href=#273 id=273 data-nosnippet>273</a>	/// Hidden: takes effect only with `--statement-dht`.
 <a href=#274 id=274 data-nosnippet>274</a>	</span><span class="attr">#[arg(
 <a href=#275 id=275 data-nosnippet>275</a>		long,
 <a href=#276 id=276 data-nosnippet>276</a>		value_name = <span class="string">"K"</span>,
@@ -434,7 +434,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#284 id=284 data-nosnippet>284</a>	///
 <a href=#285 id=285 data-nosnippet>285</a>	/// Only relevant when `--enable-statement-store` is used.
 <a href=#286 id=286 data-nosnippet>286</a>	///
-<a href=#287 id=287 data-nosnippet>287</a>	/// Hidden: takes effect only with `--statement-v2-dht`.
+<a href=#287 id=287 data-nosnippet>287</a>	/// Hidden: takes effect only with `--statement-dht`.
 <a href=#288 id=288 data-nosnippet>288</a>	</span><span class="attr">#[arg(
 <a href=#289 id=289 data-nosnippet>289</a>		long,
 <a href=#290 id=290 data-nosnippet>290</a>		value_name = <span class="string">"COUNT"</span>,
@@ -447,7 +447,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#297 id=297 data-nosnippet>297</a>	///
 <a href=#298 id=298 data-nosnippet>298</a>	/// Only relevant when `--enable-statement-store` is used.
 <a href=#299 id=299 data-nosnippet>299</a>	///
-<a href=#300 id=300 data-nosnippet>300</a>	/// Hidden: takes effect only with `--statement-v2-dht`.
+<a href=#300 id=300 data-nosnippet>300</a>	/// Hidden: takes effect only with `--statement-dht`.
 <a href=#301 id=301 data-nosnippet>301</a>	</span><span class="attr">#[arg(
 <a href=#302 id=302 data-nosnippet>302</a>		long,
 <a href=#303 id=303 data-nosnippet>303</a>		value_name = <span class="string">"N"</span>,
@@ -460,7 +460,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#310 id=310 data-nosnippet>310</a>	///
 <a href=#311 id=311 data-nosnippet>311</a>	/// Only relevant when `--enable-statement-store` is used.
 <a href=#312 id=312 data-nosnippet>312</a>	///
-<a href=#313 id=313 data-nosnippet>313</a>	/// Hidden: takes effect only with `--statement-v2-dht`.
+<a href=#313 id=313 data-nosnippet>313</a>	/// Hidden: takes effect only with `--statement-dht`.
 <a href=#314 id=314 data-nosnippet>314</a>	</span><span class="attr">#[arg(
 <a href=#315 id=315 data-nosnippet>315</a>		long,
 <a href=#316 id=316 data-nosnippet>316</a>		value_name = <span class="string">"RATE"</span>,
@@ -474,7 +474,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#324 id=324 data-nosnippet>324</a>	///
 <a href=#325 id=325 data-nosnippet>325</a>	/// Only relevant when `--enable-statement-store` is used.
 <a href=#326 id=326 data-nosnippet>326</a>	///
-<a href=#327 id=327 data-nosnippet>327</a>	/// Hidden: takes effect only with `--statement-v2-dht`.
+<a href=#327 id=327 data-nosnippet>327</a>	/// Hidden: takes effect only with `--statement-dht`.
 <a href=#328 id=328 data-nosnippet>328</a>	</span><span class="attr">#[arg(long, value_name = <span class="string">"SEED"</span>, hide = <span class="bool-val">true</span>)]
 <a href=#329 id=329 data-nosnippet>329</a>	</span><span class="kw">pub </span>statement_bloom_seed: <span class="prelude-ty">Option</span>&lt;u128&gt;,
 <a href=#330 id=330 data-nosnippet>330</a>
@@ -483,7 +483,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#333 id=333 data-nosnippet>333</a>	///
 <a href=#334 id=334 data-nosnippet>334</a>	/// Only relevant when `--enable-statement-store` is used.
 <a href=#335 id=335 data-nosnippet>335</a>	///
-<a href=#336 id=336 data-nosnippet>336</a>	/// Hidden: takes effect only with `--statement-v2-dht`.
+<a href=#336 id=336 data-nosnippet>336</a>	/// Hidden: takes effect only with `--statement-dht`.
 <a href=#337 id=337 data-nosnippet>337</a>	</span><span class="attr">#[arg(long, value_name = <span class="string">"BYTES"</span>, hide = <span class="bool-val">true</span>)]
 <a href=#338 id=338 data-nosnippet>338</a>	</span><span class="kw">pub </span>statement_store_max_dht_affinity_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 <a href=#339 id=339 data-nosnippet>339</a>
@@ -492,7 +492,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#342 id=342 data-nosnippet>342</a>	///
 <a href=#343 id=343 data-nosnippet>343</a>	/// Only relevant when `--enable-statement-store` is used.
 <a href=#344 id=344 data-nosnippet>344</a>	///
-<a href=#345 id=345 data-nosnippet>345</a>	/// Hidden: takes effect only with `--statement-v2-dht`.
+<a href=#345 id=345 data-nosnippet>345</a>	/// Hidden: takes effect only with `--statement-dht`.
 <a href=#346 id=346 data-nosnippet>346</a>	</span><span class="attr">#[arg(long, value_name = <span class="string">"BYTES"</span>, hide = <span class="bool-val">true</span>)]
 <a href=#347 id=347 data-nosnippet>347</a>	</span><span class="kw">pub </span>statement_store_max_transient_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 <a href=#348 id=348 data-nosnippet>348</a>
@@ -552,8 +552,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#402 id=402 data-nosnippet>402</a>					purge_after_sec: <span class="self">self</span>.statement_store_purge_after_sec,
 <a href=#403 id=403 data-nosnippet>403</a>					network_workers: <span class="self">self</span>.statement_network_workers,
 <a href=#404 id=404 data-nosnippet>404</a>					rate_limit: <span class="self">self</span>.statement_rate_limit,
-<a href=#405 id=405 data-nosnippet>405</a>					v2dht: sc_network_statement::v2dht_enabled().then(|| {
-<a href=#406 id=406 data-nosnippet>406</a>						sc_statement_store::V2DhtConfig {
+<a href=#405 id=405 data-nosnippet>405</a>					dht: sc_network_statement::dht_enabled().then(|| {
+<a href=#406 id=406 data-nosnippet>406</a>						sc_statement_store::DhtConfig {
 <a href=#407 id=407 data-nosnippet>407</a>							affinity_topics: <span class="self">self</span>.statement_affinity_topics.clone(),
 <a href=#408 id=408 data-nosnippet>408</a>							affinity_topics_file: <span class="self">self</span>.statement_affinity_topics_file.clone(),
 <a href=#409 id=409 data-nosnippet>409</a>							bloom_false_pos_rate: <span class="self">self</span>.statement_bloom_false_positive_rate,

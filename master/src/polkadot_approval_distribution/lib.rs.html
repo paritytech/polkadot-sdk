@@ -2535,13 +2535,13 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#2385 id=2385 data-nosnippet>2385</a>			<span class="kw">let </span>candidate_bitfield_bits = candidate_bitfield.len();
 <a href=#2386 id=2386 data-nosnippet>2386</a>
 <a href=#2387 id=2387 data-nosnippet>2387</a>			<span class="comment">// Our bitfield has `Lsb0`.
-<a href=#2388 id=2388 data-nosnippet>2388</a>			</span><span class="kw">let </span>msb = candidate_bitfield_bits - <span class="number">1</span>;
+<a href=#2388 id=2388 data-nosnippet>2388</a>			</span><span class="kw">let </span>msb = candidate_bitfield_bits.checked_sub(<span class="number">1</span>);
 <a href=#2389 id=2389 data-nosnippet>2389</a>
 <a href=#2390 id=2390 data-nosnippet>2390</a>			<span class="comment">// Ensure bitfields length under hard limit.
 <a href=#2391 id=2391 data-nosnippet>2391</a>			</span><span class="kw">if </span>cert_bitfield_bits &gt; MAX_BITFIELD_SIZE
 <a href=#2392 id=2392 data-nosnippet>2392</a>				|| candidate_bitfield_bits &gt; MAX_BITFIELD_SIZE
 <a href=#2393 id=2393 data-nosnippet>2393</a>				<span class="comment">// Ensure minimum bitfield size - MSB needs to be one.
-<a href=#2394 id=2394 data-nosnippet>2394</a>				</span>|| !candidate_bitfield.bit_at(msb.as_bit_index())
+<a href=#2394 id=2394 data-nosnippet>2394</a>				</span>|| !msb.is_some_and(|msb| candidate_bitfield.bit_at(msb.as_bit_index()))
 <a href=#2395 id=2395 data-nosnippet>2395</a>			{
 <a href=#2396 id=2396 data-nosnippet>2396</a>				<span class="comment">// Punish the peer for the invalid message.
 <a href=#2397 id=2397 data-nosnippet>2397</a>				</span>modify_reputation(<span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)

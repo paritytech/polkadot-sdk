@@ -232,7 +232,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#82 id=82 data-nosnippet>82</a><span class="doccomment">/// Parse command line arguments into service configuration.
 <a href=#83 id=83 data-nosnippet>83</a></span><span class="kw">pub fn </span>run() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 <a href=#84 id=84 data-nosnippet>84</a>	<span class="kw">let </span>cli = Cli::from_args();
-<a href=#85 id=85 data-nosnippet>85</a>	sc_network_statement::set_v2dht_enabled(cli.statement_v2_dht);
+<a href=#85 id=85 data-nosnippet>85</a>	sc_network_statement::set_dht_enabled(cli.statement_dht);
 <a href=#86 id=86 data-nosnippet>86</a>
 <a href=#87 id=87 data-nosnippet>87</a>	<span class="kw">match </span><span class="kw-2">&amp;</span>cli.subcommand {
 <a href=#88 id=88 data-nosnippet>88</a>		<span class="prelude-val">None </span>=&gt; {

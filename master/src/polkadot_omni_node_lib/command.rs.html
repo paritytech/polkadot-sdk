@@ -293,7 +293,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#143 id=143 data-nosnippet>143</a>	</span><span class="kw">let </span><span class="kw-2">mut </span>cli =
 <a href=#144 id=144 data-nosnippet>144</a>		Cli::&lt;CliConfig&gt;::from_arg_matches(<span class="kw-2">&amp;</span>matches).map_err(|e| sc_cli::Error::Cli(e.into()))<span class="question-mark">?</span>;
 <a href=#145 id=145 data-nosnippet>145</a>	cli.chain_spec_loader = <span class="prelude-val">Some</span>(cmd_config.chain_spec_loader);
-<a href=#146 id=146 data-nosnippet>146</a>	sc_network_statement::set_v2dht_enabled(cli.statement_v2_dht);
+<a href=#146 id=146 data-nosnippet>146</a>	sc_network_statement::set_dht_enabled(cli.statement_dht);
 <a href=#147 id=147 data-nosnippet>147</a>
 <a href=#148 id=148 data-nosnippet>148</a>	<span class="kw">match </span><span class="kw-2">&amp;</span>cli.subcommand {
 <a href=#149 id=149 data-nosnippet>149</a>		<span class="prelude-val">Some</span>(Subcommand::CheckBlock(cmd)) =&gt; {

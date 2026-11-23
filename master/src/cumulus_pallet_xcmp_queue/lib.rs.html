@@ -1432,202 +1432,206 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1282 id=1282 data-nosnippet>1282</a>				</span><span class="kw">if </span>flags.should_send_concatenated_opaque_versioned_xcm_notification() {
 <a href=#1283 id=1283 data-nosnippet>1283</a>					<span class="kw">match </span>WeakBoundedVec::try_from(XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm.encode()) {
 <a href=#1284 id=1284 data-nosnippet>1284</a>						<span class="prelude-val">Ok</span>(page) =&gt; {
-<a href=#1285 id=1285 data-nosnippet>1285</a>							flags.notice_concatenated_opaque_versioned_xcm_notification_sent();
-<a href=#1286 id=1286 data-nosnippet>1286</a>							<span class="kw">break </span><span class="lifetime">'page_fetch </span>page;
-<a href=#1287 id=1287 data-nosnippet>1287</a>						}
-<a href=#1288 id=1288 data-nosnippet>1288</a>						<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-<a href=#1289 id=1289 data-nosnippet>1289</a>							<span class="macro">defensive!</span>(<span class="string">"XcmpMessageFormat should fit into a single page"</span>);
-<a href=#1290 id=1290 data-nosnippet>1290</a>							<span class="kw">return </span><span class="bool-val">true</span>;
+<a href=#1285 id=1285 data-nosnippet>1285</a>							<span class="comment">// A free message slot does not imply sufficient byte capacity.
+<a href=#1286 id=1286 data-nosnippet>1286</a>							</span><span class="kw">if </span>page.len() &gt; max_size_now {
+<a href=#1287 id=1287 data-nosnippet>1287</a>								<span class="kw">return </span><span class="bool-val">true</span>;
+<a href=#1288 id=1288 data-nosnippet>1288</a>							}
+<a href=#1289 id=1289 data-nosnippet>1289</a>							flags.notice_concatenated_opaque_versioned_xcm_notification_sent();
+<a href=#1290 id=1290 data-nosnippet>1290</a>							<span class="kw">break </span><span class="lifetime">'page_fetch </span>page;
 <a href=#1291 id=1291 data-nosnippet>1291</a>						}
-<a href=#1292 id=1292 data-nosnippet>1292</a>					};
-<a href=#1293 id=1293 data-nosnippet>1293</a>				}
-<a href=#1294 id=1294 data-nosnippet>1294</a>
-<a href=#1295 id=1295 data-nosnippet>1295</a>				<span class="kw">return </span><span class="bool-val">true</span>;
-<a href=#1296 id=1296 data-nosnippet>1296</a>			};
-<a href=#1297 id=1297 data-nosnippet>1297</a>
-<a href=#1298 id=1298 data-nosnippet>1298</a>			<span class="kw">if </span>first_index == last_index {
-<a href=#1299 id=1299 data-nosnippet>1299</a>				<span class="kw-2">*</span>first_index = <span class="number">0</span>;
-<a href=#1300 id=1300 data-nosnippet>1300</a>				<span class="kw-2">*</span>last_index = <span class="number">0</span>;
-<a href=#1301 id=1301 data-nosnippet>1301</a>				<span class="kw-2">*</span>queued_bytes = <span class="number">0</span>;
-<a href=#1302 id=1302 data-nosnippet>1302</a>			}
-<a href=#1303 id=1303 data-nosnippet>1303</a>
-<a href=#1304 id=1304 data-nosnippet>1304</a>			<span class="kw">if </span>page.len() &gt; max_size_ever {
-<a href=#1305 id=1305 data-nosnippet>1305</a>				<span class="comment">// TODO: #274 This means that the channel's max message size has changed since
-<a href=#1306 id=1306 data-nosnippet>1306</a>				//   the message was sent. We should parse it and split into smaller messages but
-<a href=#1307 id=1307 data-nosnippet>1307</a>				//   since it's so unlikely then for now we just drop it.
-<a href=#1308 id=1308 data-nosnippet>1308</a>				</span><span class="macro">defensive!</span>(<span class="string">"WARNING: oversize message in queue - dropping"</span>);
-<a href=#1309 id=1309 data-nosnippet>1309</a>			} <span class="kw">else </span>{
-<a href=#1310 id=1310 data-nosnippet>1310</a>				result.push((<span class="kw-2">*</span>para_id, page.into_inner()));
-<a href=#1311 id=1311 data-nosnippet>1311</a>			}
-<a href=#1312 id=1312 data-nosnippet>1312</a>
-<a href=#1313 id=1313 data-nosnippet>1313</a>			<span class="kw">let </span>max_total_size = <span class="kw">match </span>T::ChannelInfo::get_channel_info(<span class="kw-2">*</span>para_id) {
-<a href=#1314 id=1314 data-nosnippet>1314</a>				<span class="prelude-val">Some</span>(channel_info) =&gt; channel_info.max_total_size,
-<a href=#1315 id=1315 data-nosnippet>1315</a>				<span class="prelude-val">None </span>=&gt; {
-<a href=#1316 id=1316 data-nosnippet>1316</a>					<span class="macro">tracing::warn!</span>(target: LOG_TARGET, <span class="string">"calling `get_channel_info` with no RelevantMessagingState?!"</span>);
-<a href=#1317 id=1317 data-nosnippet>1317</a>					<span class="comment">// We use this as a fallback in case the messaging state is not present
-<a href=#1318 id=1318 data-nosnippet>1318</a>					</span>MAX_POSSIBLE_ALLOCATION
-<a href=#1319 id=1319 data-nosnippet>1319</a>				}
-<a href=#1320 id=1320 data-nosnippet>1320</a>			};
-<a href=#1321 id=1321 data-nosnippet>1321</a>			<span class="kw">let </span>threshold = max_total_size.saturating_div(delivery_fee_constants::THRESHOLD_FACTOR);
-<a href=#1322 id=1322 data-nosnippet>1322</a>			<span class="kw">if </span><span class="kw-2">*</span>queued_bytes &lt;= threshold {
-<a href=#1323 id=1323 data-nosnippet>1323</a>				<span class="self">Self</span>::decrease_fee_factor(<span class="kw-2">*</span>para_id);
-<a href=#1324 id=1324 data-nosnippet>1324</a>			}
-<a href=#1325 id=1325 data-nosnippet>1325</a>
-<a href=#1326 id=1326 data-nosnippet>1326</a>			<span class="bool-val">true
-<a href=#1327 id=1327 data-nosnippet>1327</a>		</span>});
-<a href=#1328 id=1328 data-nosnippet>1328</a>		<span class="macro">debug_assert!</span>(!statuses.iter().any(|s| s.signals_exist), <span class="string">"Signals should be handled"</span>);
-<a href=#1329 id=1329 data-nosnippet>1329</a>		<span class="kw">let </span><span class="kw-2">mut </span>statuses = BoundedVec::defensive_truncate_from(statuses);
-<a href=#1330 id=1330 data-nosnippet>1330</a>
-<a href=#1331 id=1331 data-nosnippet>1331</a>		<span class="comment">// Sort the outbound messages by ascending recipient para id to satisfy the acceptance
-<a href=#1332 id=1332 data-nosnippet>1332</a>		// criteria requirement.
-<a href=#1333 id=1333 data-nosnippet>1333</a>		</span>result.sort_by_key(|(recipient, _msg)| <span class="kw-2">*</span>recipient);
+<a href=#1292 id=1292 data-nosnippet>1292</a>						<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+<a href=#1293 id=1293 data-nosnippet>1293</a>							<span class="macro">defensive!</span>(<span class="string">"XcmpMessageFormat should fit into a single page"</span>);
+<a href=#1294 id=1294 data-nosnippet>1294</a>							<span class="kw">return </span><span class="bool-val">true</span>;
+<a href=#1295 id=1295 data-nosnippet>1295</a>						}
+<a href=#1296 id=1296 data-nosnippet>1296</a>					};
+<a href=#1297 id=1297 data-nosnippet>1297</a>				}
+<a href=#1298 id=1298 data-nosnippet>1298</a>
+<a href=#1299 id=1299 data-nosnippet>1299</a>				<span class="kw">return </span><span class="bool-val">true</span>;
+<a href=#1300 id=1300 data-nosnippet>1300</a>			};
+<a href=#1301 id=1301 data-nosnippet>1301</a>
+<a href=#1302 id=1302 data-nosnippet>1302</a>			<span class="kw">if </span>first_index == last_index {
+<a href=#1303 id=1303 data-nosnippet>1303</a>				<span class="kw-2">*</span>first_index = <span class="number">0</span>;
+<a href=#1304 id=1304 data-nosnippet>1304</a>				<span class="kw-2">*</span>last_index = <span class="number">0</span>;
+<a href=#1305 id=1305 data-nosnippet>1305</a>				<span class="kw-2">*</span>queued_bytes = <span class="number">0</span>;
+<a href=#1306 id=1306 data-nosnippet>1306</a>			}
+<a href=#1307 id=1307 data-nosnippet>1307</a>
+<a href=#1308 id=1308 data-nosnippet>1308</a>			<span class="kw">if </span>page.len() &gt; max_size_ever {
+<a href=#1309 id=1309 data-nosnippet>1309</a>				<span class="comment">// TODO: #274 This means that the channel's max message size has changed since
+<a href=#1310 id=1310 data-nosnippet>1310</a>				//   the message was sent. We should parse it and split into smaller messages but
+<a href=#1311 id=1311 data-nosnippet>1311</a>				//   since it's so unlikely then for now we just drop it.
+<a href=#1312 id=1312 data-nosnippet>1312</a>				</span><span class="macro">defensive!</span>(<span class="string">"WARNING: oversize message in queue - dropping"</span>);
+<a href=#1313 id=1313 data-nosnippet>1313</a>			} <span class="kw">else </span>{
+<a href=#1314 id=1314 data-nosnippet>1314</a>				result.push((<span class="kw-2">*</span>para_id, page.into_inner()));
+<a href=#1315 id=1315 data-nosnippet>1315</a>			}
+<a href=#1316 id=1316 data-nosnippet>1316</a>
+<a href=#1317 id=1317 data-nosnippet>1317</a>			<span class="kw">let </span>max_total_size = <span class="kw">match </span>T::ChannelInfo::get_channel_info(<span class="kw-2">*</span>para_id) {
+<a href=#1318 id=1318 data-nosnippet>1318</a>				<span class="prelude-val">Some</span>(channel_info) =&gt; channel_info.max_total_size,
+<a href=#1319 id=1319 data-nosnippet>1319</a>				<span class="prelude-val">None </span>=&gt; {
+<a href=#1320 id=1320 data-nosnippet>1320</a>					<span class="macro">tracing::warn!</span>(target: LOG_TARGET, <span class="string">"calling `get_channel_info` with no RelevantMessagingState?!"</span>);
+<a href=#1321 id=1321 data-nosnippet>1321</a>					<span class="comment">// We use this as a fallback in case the messaging state is not present
+<a href=#1322 id=1322 data-nosnippet>1322</a>					</span>MAX_POSSIBLE_ALLOCATION
+<a href=#1323 id=1323 data-nosnippet>1323</a>				}
+<a href=#1324 id=1324 data-nosnippet>1324</a>			};
+<a href=#1325 id=1325 data-nosnippet>1325</a>			<span class="kw">let </span>threshold = max_total_size.saturating_div(delivery_fee_constants::THRESHOLD_FACTOR);
+<a href=#1326 id=1326 data-nosnippet>1326</a>			<span class="kw">if </span><span class="kw-2">*</span>queued_bytes &lt;= threshold {
+<a href=#1327 id=1327 data-nosnippet>1327</a>				<span class="self">Self</span>::decrease_fee_factor(<span class="kw-2">*</span>para_id);
+<a href=#1328 id=1328 data-nosnippet>1328</a>			}
+<a href=#1329 id=1329 data-nosnippet>1329</a>
+<a href=#1330 id=1330 data-nosnippet>1330</a>			<span class="bool-val">true
+<a href=#1331 id=1331 data-nosnippet>1331</a>		</span>});
+<a href=#1332 id=1332 data-nosnippet>1332</a>		<span class="macro">debug_assert!</span>(!statuses.iter().any(|s| s.signals_exist), <span class="string">"Signals should be handled"</span>);
+<a href=#1333 id=1333 data-nosnippet>1333</a>		<span class="kw">let </span><span class="kw-2">mut </span>statuses = BoundedVec::defensive_truncate_from(statuses);
 <a href=#1334 id=1334 data-nosnippet>1334</a>
-<a href=#1335 id=1335 data-nosnippet>1335</a>		<span class="comment">// old_status_len must be &gt;= status.len() since we never add anything to status.
-<a href=#1336 id=1336 data-nosnippet>1336</a>		</span><span class="kw">let </span>pruned = old_statuses_len - statuses.len();
-<a href=#1337 id=1337 data-nosnippet>1337</a>		<span class="comment">// Because it may so happen that we only gave attention to some channels it's important
-<a href=#1338 id=1338 data-nosnippet>1338</a>		// to change the order. Otherwise, the next `on_finalize` we will again give attention
-<a href=#1339 id=1339 data-nosnippet>1339</a>		// only to those channels that happen to be in the beginning, until they are emptied.
-<a href=#1340 id=1340 data-nosnippet>1340</a>		// This leads to "starvation" of the channels near to the end.
-<a href=#1341 id=1341 data-nosnippet>1341</a>		</span><span class="kw">let _ </span>= statuses.try_rotate_left(result.len().saturating_sub(pruned)).defensive_proof(
-<a href=#1342 id=1342 data-nosnippet>1342</a>			<span class="string">"Could not store HRMP channels config. Some HRMP channels may be broken."</span>,
-<a href=#1343 id=1343 data-nosnippet>1343</a>		);
-<a href=#1344 id=1344 data-nosnippet>1344</a>
-<a href=#1345 id=1345 data-nosnippet>1345</a>		&lt;OutboundXcmpStatus&lt;T&gt;&gt;::put(statuses);
-<a href=#1346 id=1346 data-nosnippet>1346</a>
-<a href=#1347 id=1347 data-nosnippet>1347</a>		result
-<a href=#1348 id=1348 data-nosnippet>1348</a>	}
-<a href=#1349 id=1349 data-nosnippet>1349</a>}
+<a href=#1335 id=1335 data-nosnippet>1335</a>		<span class="comment">// Sort the outbound messages by ascending recipient para id to satisfy the acceptance
+<a href=#1336 id=1336 data-nosnippet>1336</a>		// criteria requirement.
+<a href=#1337 id=1337 data-nosnippet>1337</a>		</span>result.sort_by_key(|(recipient, _msg)| <span class="kw-2">*</span>recipient);
+<a href=#1338 id=1338 data-nosnippet>1338</a>
+<a href=#1339 id=1339 data-nosnippet>1339</a>		<span class="comment">// old_status_len must be &gt;= status.len() since we never add anything to status.
+<a href=#1340 id=1340 data-nosnippet>1340</a>		</span><span class="kw">let </span>pruned = old_statuses_len - statuses.len();
+<a href=#1341 id=1341 data-nosnippet>1341</a>		<span class="comment">// Because it may so happen that we only gave attention to some channels it's important
+<a href=#1342 id=1342 data-nosnippet>1342</a>		// to change the order. Otherwise, the next `on_finalize` we will again give attention
+<a href=#1343 id=1343 data-nosnippet>1343</a>		// only to those channels that happen to be in the beginning, until they are emptied.
+<a href=#1344 id=1344 data-nosnippet>1344</a>		// This leads to "starvation" of the channels near to the end.
+<a href=#1345 id=1345 data-nosnippet>1345</a>		</span><span class="kw">let _ </span>= statuses.try_rotate_left(result.len().saturating_sub(pruned)).defensive_proof(
+<a href=#1346 id=1346 data-nosnippet>1346</a>			<span class="string">"Could not store HRMP channels config. Some HRMP channels may be broken."</span>,
+<a href=#1347 id=1347 data-nosnippet>1347</a>		);
+<a href=#1348 id=1348 data-nosnippet>1348</a>
+<a href=#1349 id=1349 data-nosnippet>1349</a>		&lt;OutboundXcmpStatus&lt;T&gt;&gt;::put(statuses);
 <a href=#1350 id=1350 data-nosnippet>1350</a>
-<a href=#1351 id=1351 data-nosnippet>1351</a><span class="doccomment">/// Xcm sender for sending to a sibling parachain.
-<a href=#1352 id=1352 data-nosnippet>1352</a></span><span class="kw">impl</span>&lt;T: Config&gt; SendXcm <span class="kw">for </span>Pallet&lt;T&gt; {
-<a href=#1353 id=1353 data-nosnippet>1353</a>	<span class="kw">type </span>Ticket = (ParaId, VersionedXcm&lt;()&gt;);
+<a href=#1351 id=1351 data-nosnippet>1351</a>		result
+<a href=#1352 id=1352 data-nosnippet>1352</a>	}
+<a href=#1353 id=1353 data-nosnippet>1353</a>}
 <a href=#1354 id=1354 data-nosnippet>1354</a>
-<a href=#1355 id=1355 data-nosnippet>1355</a>	<span class="kw">fn </span>validate(
-<a href=#1356 id=1356 data-nosnippet>1356</a>		dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;,
-<a href=#1357 id=1357 data-nosnippet>1357</a>		msg: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
-<a href=#1358 id=1358 data-nosnippet>1358</a>	) -&gt; SendResult&lt;(ParaId, VersionedXcm&lt;()&gt;)&gt; {
-<a href=#1359 id=1359 data-nosnippet>1359</a>		<span class="kw">let </span>d = dest.take().ok_or(SendError::MissingArgument)<span class="question-mark">?</span>;
-<a href=#1360 id=1360 data-nosnippet>1360</a>
-<a href=#1361 id=1361 data-nosnippet>1361</a>		<span class="kw">match </span>d.unpack() {
-<a href=#1362 id=1362 data-nosnippet>1362</a>			<span class="comment">// An HRMP message for a sibling parachain.
-<a href=#1363 id=1363 data-nosnippet>1363</a>			</span>(<span class="number">1</span>, [Parachain(id)]) =&gt; {
-<a href=#1364 id=1364 data-nosnippet>1364</a>				<span class="kw">let </span>xcm = msg.take().ok_or(SendError::MissingArgument)<span class="question-mark">?</span>;
-<a href=#1365 id=1365 data-nosnippet>1365</a>				<span class="kw">let </span>id = ParaId::from(<span class="kw-2">*</span>id);
-<a href=#1366 id=1366 data-nosnippet>1366</a>				<span class="kw">let </span>price = T::PriceForSiblingDelivery::price_for_delivery(id, <span class="kw-2">&amp;</span>xcm);
-<a href=#1367 id=1367 data-nosnippet>1367</a>				<span class="kw">let </span>versioned_xcm = T::VersionWrapper::wrap_version(<span class="kw-2">&amp;</span>d, xcm)
-<a href=#1368 id=1368 data-nosnippet>1368</a>					.map_err(|()| SendError::DestinationUnsupported)<span class="question-mark">?</span>;
-<a href=#1369 id=1369 data-nosnippet>1369</a>				versioned_xcm
-<a href=#1370 id=1370 data-nosnippet>1370</a>					.check_is_decodable()
-<a href=#1371 id=1371 data-nosnippet>1371</a>					.map_err(|()| SendError::ExceedsMaxMessageSize)<span class="question-mark">?</span>;
-<a href=#1372 id=1372 data-nosnippet>1372</a>
-<a href=#1373 id=1373 data-nosnippet>1373</a>				<span class="prelude-val">Ok</span>(((id, versioned_xcm), price))
-<a href=#1374 id=1374 data-nosnippet>1374</a>			},
-<a href=#1375 id=1375 data-nosnippet>1375</a>			<span class="kw">_ </span>=&gt; {
-<a href=#1376 id=1376 data-nosnippet>1376</a>				<span class="comment">// Anything else is unhandled. This includes a message that is not meant for us.
-<a href=#1377 id=1377 data-nosnippet>1377</a>				// We need to make sure that dest/msg is not consumed here.
-<a href=#1378 id=1378 data-nosnippet>1378</a>				</span><span class="kw-2">*</span>dest = <span class="prelude-val">Some</span>(d);
-<a href=#1379 id=1379 data-nosnippet>1379</a>				<span class="prelude-val">Err</span>(SendError::NotApplicable)
-<a href=#1380 id=1380 data-nosnippet>1380</a>			},
-<a href=#1381 id=1381 data-nosnippet>1381</a>		}
-<a href=#1382 id=1382 data-nosnippet>1382</a>	}
-<a href=#1383 id=1383 data-nosnippet>1383</a>
-<a href=#1384 id=1384 data-nosnippet>1384</a>	<span class="kw">fn </span>deliver((recipient, xcm): (ParaId, VersionedXcm&lt;()&gt;)) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, SendError&gt; {
-<a href=#1385 id=1385 data-nosnippet>1385</a>		<span class="kw">let </span>hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-<a href=#1386 id=1386 data-nosnippet>1386</a>
-<a href=#1387 id=1387 data-nosnippet>1387</a>		<span class="kw">let </span><span class="kw-2">mut </span>encoding = XcmEncoding::Simple;
-<a href=#1388 id=1388 data-nosnippet>1388</a>		<span class="kw">let </span><span class="kw-2">mut </span>all_channels = &lt;OutboundXcmpStatus&lt;T&gt;&gt;::get();
-<a href=#1389 id=1389 data-nosnippet>1389</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(channel_details) = <span class="self">Self</span>::try_get_outbound_channel(<span class="kw-2">&amp;mut </span>all_channels, recipient)
-<a href=#1390 id=1390 data-nosnippet>1390</a>		{
-<a href=#1391 id=1391 data-nosnippet>1391</a>			<span class="kw">if </span>channel_details.flags.has_concatenated_opaque_versioned_xcm_support() {
-<a href=#1392 id=1392 data-nosnippet>1392</a>				encoding = XcmEncoding::Double;
-<a href=#1393 id=1393 data-nosnippet>1393</a>			}
-<a href=#1394 id=1394 data-nosnippet>1394</a>		}
-<a href=#1395 id=1395 data-nosnippet>1395</a>
-<a href=#1396 id=1396 data-nosnippet>1396</a>		<span class="kw">let </span>result = <span class="kw">match </span>encoding {
-<a href=#1397 id=1397 data-nosnippet>1397</a>			XcmEncoding::Simple =&gt; {
-<a href=#1398 id=1398 data-nosnippet>1398</a>				<span class="self">Self</span>::send_fragment(recipient, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm)
-<a href=#1399 id=1399 data-nosnippet>1399</a>			},
-<a href=#1400 id=1400 data-nosnippet>1400</a>			XcmEncoding::Double =&gt; <span class="self">Self</span>::send_fragment(
-<a href=#1401 id=1401 data-nosnippet>1401</a>				recipient,
-<a href=#1402 id=1402 data-nosnippet>1402</a>				XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm,
-<a href=#1403 id=1403 data-nosnippet>1403</a>				xcm.encode(),
-<a href=#1404 id=1404 data-nosnippet>1404</a>			),
-<a href=#1405 id=1405 data-nosnippet>1405</a>		};
-<a href=#1406 id=1406 data-nosnippet>1406</a>		<span class="kw">match </span>result {
-<a href=#1407 id=1407 data-nosnippet>1407</a>			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
-<a href=#1408 id=1408 data-nosnippet>1408</a>				<span class="self">Self</span>::deposit_event(Event::XcmpMessageSent { message_hash: hash });
-<a href=#1409 id=1409 data-nosnippet>1409</a>				<span class="prelude-val">Ok</span>(hash)
-<a href=#1410 id=1410 data-nosnippet>1410</a>			},
-<a href=#1411 id=1411 data-nosnippet>1411</a>			<span class="prelude-val">Err</span>(e) =&gt; {
-<a href=#1412 id=1412 data-nosnippet>1412</a>				<span class="macro">tracing::error!</span>(target: LOG_TARGET, error=<span class="question-mark">?</span>e, <span class="string">"Deliver error"</span>);
-<a href=#1413 id=1413 data-nosnippet>1413</a>				<span class="prelude-val">Err</span>(SendError::Transport(e.into()))
+<a href=#1355 id=1355 data-nosnippet>1355</a><span class="doccomment">/// Xcm sender for sending to a sibling parachain.
+<a href=#1356 id=1356 data-nosnippet>1356</a></span><span class="kw">impl</span>&lt;T: Config&gt; SendXcm <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#1357 id=1357 data-nosnippet>1357</a>	<span class="kw">type </span>Ticket = (ParaId, VersionedXcm&lt;()&gt;);
+<a href=#1358 id=1358 data-nosnippet>1358</a>
+<a href=#1359 id=1359 data-nosnippet>1359</a>	<span class="kw">fn </span>validate(
+<a href=#1360 id=1360 data-nosnippet>1360</a>		dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;,
+<a href=#1361 id=1361 data-nosnippet>1361</a>		msg: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
+<a href=#1362 id=1362 data-nosnippet>1362</a>	) -&gt; SendResult&lt;(ParaId, VersionedXcm&lt;()&gt;)&gt; {
+<a href=#1363 id=1363 data-nosnippet>1363</a>		<span class="kw">let </span>d = dest.take().ok_or(SendError::MissingArgument)<span class="question-mark">?</span>;
+<a href=#1364 id=1364 data-nosnippet>1364</a>
+<a href=#1365 id=1365 data-nosnippet>1365</a>		<span class="kw">match </span>d.unpack() {
+<a href=#1366 id=1366 data-nosnippet>1366</a>			<span class="comment">// An HRMP message for a sibling parachain.
+<a href=#1367 id=1367 data-nosnippet>1367</a>			</span>(<span class="number">1</span>, [Parachain(id)]) =&gt; {
+<a href=#1368 id=1368 data-nosnippet>1368</a>				<span class="kw">let </span>xcm = msg.take().ok_or(SendError::MissingArgument)<span class="question-mark">?</span>;
+<a href=#1369 id=1369 data-nosnippet>1369</a>				<span class="kw">let </span>id = ParaId::from(<span class="kw-2">*</span>id);
+<a href=#1370 id=1370 data-nosnippet>1370</a>				<span class="kw">let </span>price = T::PriceForSiblingDelivery::price_for_delivery(id, <span class="kw-2">&amp;</span>xcm);
+<a href=#1371 id=1371 data-nosnippet>1371</a>				<span class="kw">let </span>versioned_xcm = T::VersionWrapper::wrap_version(<span class="kw-2">&amp;</span>d, xcm)
+<a href=#1372 id=1372 data-nosnippet>1372</a>					.map_err(|()| SendError::DestinationUnsupported)<span class="question-mark">?</span>;
+<a href=#1373 id=1373 data-nosnippet>1373</a>				versioned_xcm
+<a href=#1374 id=1374 data-nosnippet>1374</a>					.check_is_decodable()
+<a href=#1375 id=1375 data-nosnippet>1375</a>					.map_err(|()| SendError::ExceedsMaxMessageSize)<span class="question-mark">?</span>;
+<a href=#1376 id=1376 data-nosnippet>1376</a>
+<a href=#1377 id=1377 data-nosnippet>1377</a>				<span class="prelude-val">Ok</span>(((id, versioned_xcm), price))
+<a href=#1378 id=1378 data-nosnippet>1378</a>			},
+<a href=#1379 id=1379 data-nosnippet>1379</a>			<span class="kw">_ </span>=&gt; {
+<a href=#1380 id=1380 data-nosnippet>1380</a>				<span class="comment">// Anything else is unhandled. This includes a message that is not meant for us.
+<a href=#1381 id=1381 data-nosnippet>1381</a>				// We need to make sure that dest/msg is not consumed here.
+<a href=#1382 id=1382 data-nosnippet>1382</a>				</span><span class="kw-2">*</span>dest = <span class="prelude-val">Some</span>(d);
+<a href=#1383 id=1383 data-nosnippet>1383</a>				<span class="prelude-val">Err</span>(SendError::NotApplicable)
+<a href=#1384 id=1384 data-nosnippet>1384</a>			},
+<a href=#1385 id=1385 data-nosnippet>1385</a>		}
+<a href=#1386 id=1386 data-nosnippet>1386</a>	}
+<a href=#1387 id=1387 data-nosnippet>1387</a>
+<a href=#1388 id=1388 data-nosnippet>1388</a>	<span class="kw">fn </span>deliver((recipient, xcm): (ParaId, VersionedXcm&lt;()&gt;)) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, SendError&gt; {
+<a href=#1389 id=1389 data-nosnippet>1389</a>		<span class="kw">let </span>hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+<a href=#1390 id=1390 data-nosnippet>1390</a>
+<a href=#1391 id=1391 data-nosnippet>1391</a>		<span class="kw">let </span><span class="kw-2">mut </span>encoding = XcmEncoding::Simple;
+<a href=#1392 id=1392 data-nosnippet>1392</a>		<span class="kw">let </span><span class="kw-2">mut </span>all_channels = &lt;OutboundXcmpStatus&lt;T&gt;&gt;::get();
+<a href=#1393 id=1393 data-nosnippet>1393</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(channel_details) = <span class="self">Self</span>::try_get_outbound_channel(<span class="kw-2">&amp;mut </span>all_channels, recipient)
+<a href=#1394 id=1394 data-nosnippet>1394</a>		{
+<a href=#1395 id=1395 data-nosnippet>1395</a>			<span class="kw">if </span>channel_details.flags.has_concatenated_opaque_versioned_xcm_support() {
+<a href=#1396 id=1396 data-nosnippet>1396</a>				encoding = XcmEncoding::Double;
+<a href=#1397 id=1397 data-nosnippet>1397</a>			}
+<a href=#1398 id=1398 data-nosnippet>1398</a>		}
+<a href=#1399 id=1399 data-nosnippet>1399</a>
+<a href=#1400 id=1400 data-nosnippet>1400</a>		<span class="kw">let </span>result = <span class="kw">match </span>encoding {
+<a href=#1401 id=1401 data-nosnippet>1401</a>			XcmEncoding::Simple =&gt; {
+<a href=#1402 id=1402 data-nosnippet>1402</a>				<span class="self">Self</span>::send_fragment(recipient, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm)
+<a href=#1403 id=1403 data-nosnippet>1403</a>			},
+<a href=#1404 id=1404 data-nosnippet>1404</a>			XcmEncoding::Double =&gt; <span class="self">Self</span>::send_fragment(
+<a href=#1405 id=1405 data-nosnippet>1405</a>				recipient,
+<a href=#1406 id=1406 data-nosnippet>1406</a>				XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm,
+<a href=#1407 id=1407 data-nosnippet>1407</a>				xcm.encode(),
+<a href=#1408 id=1408 data-nosnippet>1408</a>			),
+<a href=#1409 id=1409 data-nosnippet>1409</a>		};
+<a href=#1410 id=1410 data-nosnippet>1410</a>		<span class="kw">match </span>result {
+<a href=#1411 id=1411 data-nosnippet>1411</a>			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
+<a href=#1412 id=1412 data-nosnippet>1412</a>				<span class="self">Self</span>::deposit_event(Event::XcmpMessageSent { message_hash: hash });
+<a href=#1413 id=1413 data-nosnippet>1413</a>				<span class="prelude-val">Ok</span>(hash)
 <a href=#1414 id=1414 data-nosnippet>1414</a>			},
-<a href=#1415 id=1415 data-nosnippet>1415</a>		}
-<a href=#1416 id=1416 data-nosnippet>1416</a>	}
-<a href=#1417 id=1417 data-nosnippet>1417</a>}
-<a href=#1418 id=1418 data-nosnippet>1418</a>
-<a href=#1419 id=1419 data-nosnippet>1419</a><span class="kw">impl</span>&lt;T: Config&gt; InspectMessageQueues <span class="kw">for </span>Pallet&lt;T&gt; {
-<a href=#1420 id=1420 data-nosnippet>1420</a>	<span class="kw">fn </span>clear_messages() {
-<a href=#1421 id=1421 data-nosnippet>1421</a>		<span class="comment">// Best effort.
-<a href=#1422 id=1422 data-nosnippet>1422</a>		</span><span class="kw">let _ </span>= OutboundXcmpMessages::&lt;T&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
-<a href=#1423 id=1423 data-nosnippet>1423</a>		OutboundXcmpStatus::&lt;T&gt;::mutate(|details_vec| {
-<a href=#1424 id=1424 data-nosnippet>1424</a>			<span class="kw">for </span>details <span class="kw">in </span>details_vec {
-<a href=#1425 id=1425 data-nosnippet>1425</a>				details.first_index = <span class="number">0</span>;
-<a href=#1426 id=1426 data-nosnippet>1426</a>				details.last_index = <span class="number">0</span>;
-<a href=#1427 id=1427 data-nosnippet>1427</a>				details.queued_bytes = <span class="number">0</span>;
-<a href=#1428 id=1428 data-nosnippet>1428</a>			}
-<a href=#1429 id=1429 data-nosnippet>1429</a>		});
-<a href=#1430 id=1430 data-nosnippet>1430</a>	}
-<a href=#1431 id=1431 data-nosnippet>1431</a>
-<a href=#1432 id=1432 data-nosnippet>1432</a>	<span class="kw">fn </span>get_messages() -&gt; Vec&lt;(VersionedLocation, Vec&lt;VersionedXcm&lt;()&gt;&gt;)&gt; {
-<a href=#1433 id=1433 data-nosnippet>1433</a>		<span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
-<a href=#1434 id=1434 data-nosnippet>1434</a>
-<a href=#1435 id=1435 data-nosnippet>1435</a>		OutboundXcmpMessages::&lt;T&gt;::iter()
-<a href=#1436 id=1436 data-nosnippet>1436</a>			.map(|(para_id, <span class="kw">_</span>, messages)| {
-<a href=#1437 id=1437 data-nosnippet>1437</a>				<span class="kw">let </span>data = <span class="kw-2">&amp;mut &amp;</span>messages[..];
+<a href=#1415 id=1415 data-nosnippet>1415</a>			<span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#1416 id=1416 data-nosnippet>1416</a>				<span class="macro">tracing::error!</span>(target: LOG_TARGET, error=<span class="question-mark">?</span>e, <span class="string">"Deliver error"</span>);
+<a href=#1417 id=1417 data-nosnippet>1417</a>				<span class="prelude-val">Err</span>(SendError::Transport(e.into()))
+<a href=#1418 id=1418 data-nosnippet>1418</a>			},
+<a href=#1419 id=1419 data-nosnippet>1419</a>		}
+<a href=#1420 id=1420 data-nosnippet>1420</a>	}
+<a href=#1421 id=1421 data-nosnippet>1421</a>}
+<a href=#1422 id=1422 data-nosnippet>1422</a>
+<a href=#1423 id=1423 data-nosnippet>1423</a><span class="kw">impl</span>&lt;T: Config&gt; InspectMessageQueues <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#1424 id=1424 data-nosnippet>1424</a>	<span class="kw">fn </span>clear_messages() {
+<a href=#1425 id=1425 data-nosnippet>1425</a>		<span class="comment">// Best effort.
+<a href=#1426 id=1426 data-nosnippet>1426</a>		</span><span class="kw">let _ </span>= OutboundXcmpMessages::&lt;T&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
+<a href=#1427 id=1427 data-nosnippet>1427</a>		OutboundXcmpStatus::&lt;T&gt;::mutate(|details_vec| {
+<a href=#1428 id=1428 data-nosnippet>1428</a>			<span class="kw">for </span>details <span class="kw">in </span>details_vec {
+<a href=#1429 id=1429 data-nosnippet>1429</a>				details.first_index = <span class="number">0</span>;
+<a href=#1430 id=1430 data-nosnippet>1430</a>				details.last_index = <span class="number">0</span>;
+<a href=#1431 id=1431 data-nosnippet>1431</a>				details.queued_bytes = <span class="number">0</span>;
+<a href=#1432 id=1432 data-nosnippet>1432</a>			}
+<a href=#1433 id=1433 data-nosnippet>1433</a>		});
+<a href=#1434 id=1434 data-nosnippet>1434</a>	}
+<a href=#1435 id=1435 data-nosnippet>1435</a>
+<a href=#1436 id=1436 data-nosnippet>1436</a>	<span class="kw">fn </span>get_messages() -&gt; Vec&lt;(VersionedLocation, Vec&lt;VersionedXcm&lt;()&gt;&gt;)&gt; {
+<a href=#1437 id=1437 data-nosnippet>1437</a>		<span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 <a href=#1438 id=1438 data-nosnippet>1438</a>
-<a href=#1439 id=1439 data-nosnippet>1439</a>				<span class="kw">let </span>decoded_format = XcmpMessageFormat::decode(data).unwrap();
-<a href=#1440 id=1440 data-nosnippet>1440</a>				<span class="kw">let </span><span class="kw-2">mut </span>decoded_messages = Vec::new();
-<a href=#1441 id=1441 data-nosnippet>1441</a>				<span class="kw">while </span>!data.is_empty() {
-<a href=#1442 id=1442 data-nosnippet>1442</a>					<span class="kw">let </span>message_bytes = <span class="kw">match </span>decoded_format {
-<a href=#1443 id=1443 data-nosnippet>1443</a>						XcmpMessageFormat::ConcatenatedVersionedXcm =&gt; {
-<a href=#1444 id=1444 data-nosnippet>1444</a>							<span class="self">Self</span>::take_first_concatenated_xcm(data, <span class="kw-2">&amp;mut </span>WeightMeter::new())
-<a href=#1445 id=1445 data-nosnippet>1445</a>						},
-<a href=#1446 id=1446 data-nosnippet>1446</a>						XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm =&gt; {
-<a href=#1447 id=1447 data-nosnippet>1447</a>							<span class="self">Self</span>::take_first_concatenated_opaque_xcm(data)
-<a href=#1448 id=1448 data-nosnippet>1448</a>						},
-<a href=#1449 id=1449 data-nosnippet>1449</a>						unexpected_format =&gt; {
-<a href=#1450 id=1450 data-nosnippet>1450</a>							<span class="macro">panic!</span>(<span class="string">"Unexpected XCMP format: {unexpected_format:?}!"</span>)
-<a href=#1451 id=1451 data-nosnippet>1451</a>						},
-<a href=#1452 id=1452 data-nosnippet>1452</a>					}
-<a href=#1453 id=1453 data-nosnippet>1453</a>					.unwrap();
-<a href=#1454 id=1454 data-nosnippet>1454</a>					<span class="kw">let </span>decoded_message = VersionedXcm::&lt;()&gt;::decode_all_with_mem_and_depth_limit(
-<a href=#1455 id=1455 data-nosnippet>1455</a>						<span class="kw-2">&amp;mut &amp;</span>message_bytes[..],
-<a href=#1456 id=1456 data-nosnippet>1456</a>					)
+<a href=#1439 id=1439 data-nosnippet>1439</a>		OutboundXcmpMessages::&lt;T&gt;::iter()
+<a href=#1440 id=1440 data-nosnippet>1440</a>			.map(|(para_id, <span class="kw">_</span>, messages)| {
+<a href=#1441 id=1441 data-nosnippet>1441</a>				<span class="kw">let </span>data = <span class="kw-2">&amp;mut &amp;</span>messages[..];
+<a href=#1442 id=1442 data-nosnippet>1442</a>
+<a href=#1443 id=1443 data-nosnippet>1443</a>				<span class="kw">let </span>decoded_format = XcmpMessageFormat::decode(data).unwrap();
+<a href=#1444 id=1444 data-nosnippet>1444</a>				<span class="kw">let </span><span class="kw-2">mut </span>decoded_messages = Vec::new();
+<a href=#1445 id=1445 data-nosnippet>1445</a>				<span class="kw">while </span>!data.is_empty() {
+<a href=#1446 id=1446 data-nosnippet>1446</a>					<span class="kw">let </span>message_bytes = <span class="kw">match </span>decoded_format {
+<a href=#1447 id=1447 data-nosnippet>1447</a>						XcmpMessageFormat::ConcatenatedVersionedXcm =&gt; {
+<a href=#1448 id=1448 data-nosnippet>1448</a>							<span class="self">Self</span>::take_first_concatenated_xcm(data, <span class="kw-2">&amp;mut </span>WeightMeter::new())
+<a href=#1449 id=1449 data-nosnippet>1449</a>						},
+<a href=#1450 id=1450 data-nosnippet>1450</a>						XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm =&gt; {
+<a href=#1451 id=1451 data-nosnippet>1451</a>							<span class="self">Self</span>::take_first_concatenated_opaque_xcm(data)
+<a href=#1452 id=1452 data-nosnippet>1452</a>						},
+<a href=#1453 id=1453 data-nosnippet>1453</a>						unexpected_format =&gt; {
+<a href=#1454 id=1454 data-nosnippet>1454</a>							<span class="macro">panic!</span>(<span class="string">"Unexpected XCMP format: {unexpected_format:?}!"</span>)
+<a href=#1455 id=1455 data-nosnippet>1455</a>						},
+<a href=#1456 id=1456 data-nosnippet>1456</a>					}
 <a href=#1457 id=1457 data-nosnippet>1457</a>					.unwrap();
-<a href=#1458 id=1458 data-nosnippet>1458</a>					decoded_messages.push(decoded_message);
-<a href=#1459 id=1459 data-nosnippet>1459</a>				}
-<a href=#1460 id=1460 data-nosnippet>1460</a>
-<a href=#1461 id=1461 data-nosnippet>1461</a>				(
-<a href=#1462 id=1462 data-nosnippet>1462</a>					VersionedLocation::from(Location::new(<span class="number">1</span>, Parachain(para_id.into()))),
-<a href=#1463 id=1463 data-nosnippet>1463</a>					decoded_messages,
-<a href=#1464 id=1464 data-nosnippet>1464</a>				)
-<a href=#1465 id=1465 data-nosnippet>1465</a>			})
-<a href=#1466 id=1466 data-nosnippet>1466</a>			.collect()
-<a href=#1467 id=1467 data-nosnippet>1467</a>	}
-<a href=#1468 id=1468 data-nosnippet>1468</a>}
-<a href=#1469 id=1469 data-nosnippet>1469</a>
-<a href=#1470 id=1470 data-nosnippet>1470</a><span class="kw">impl</span>&lt;T: Config&gt; FeeTracker <span class="kw">for </span>Pallet&lt;T&gt; {
-<a href=#1471 id=1471 data-nosnippet>1471</a>	<span class="kw">type </span>Id = ParaId;
-<a href=#1472 id=1472 data-nosnippet>1472</a>
-<a href=#1473 id=1473 data-nosnippet>1473</a>	<span class="kw">fn </span>get_fee_factor(id: <span class="self">Self</span>::Id) -&gt; FixedU128 {
-<a href=#1474 id=1474 data-nosnippet>1474</a>		&lt;DeliveryFeeFactor&lt;T&gt;&gt;::get(id)
-<a href=#1475 id=1475 data-nosnippet>1475</a>	}
+<a href=#1458 id=1458 data-nosnippet>1458</a>					<span class="kw">let </span>decoded_message = VersionedXcm::&lt;()&gt;::decode_all_with_mem_and_depth_limit(
+<a href=#1459 id=1459 data-nosnippet>1459</a>						<span class="kw-2">&amp;mut &amp;</span>message_bytes[..],
+<a href=#1460 id=1460 data-nosnippet>1460</a>					)
+<a href=#1461 id=1461 data-nosnippet>1461</a>					.unwrap();
+<a href=#1462 id=1462 data-nosnippet>1462</a>					decoded_messages.push(decoded_message);
+<a href=#1463 id=1463 data-nosnippet>1463</a>				}
+<a href=#1464 id=1464 data-nosnippet>1464</a>
+<a href=#1465 id=1465 data-nosnippet>1465</a>				(
+<a href=#1466 id=1466 data-nosnippet>1466</a>					VersionedLocation::from(Location::new(<span class="number">1</span>, Parachain(para_id.into()))),
+<a href=#1467 id=1467 data-nosnippet>1467</a>					decoded_messages,
+<a href=#1468 id=1468 data-nosnippet>1468</a>				)
+<a href=#1469 id=1469 data-nosnippet>1469</a>			})
+<a href=#1470 id=1470 data-nosnippet>1470</a>			.collect()
+<a href=#1471 id=1471 data-nosnippet>1471</a>	}
+<a href=#1472 id=1472 data-nosnippet>1472</a>}
+<a href=#1473 id=1473 data-nosnippet>1473</a>
+<a href=#1474 id=1474 data-nosnippet>1474</a><span class="kw">impl</span>&lt;T: Config&gt; FeeTracker <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#1475 id=1475 data-nosnippet>1475</a>	<span class="kw">type </span>Id = ParaId;
 <a href=#1476 id=1476 data-nosnippet>1476</a>
-<a href=#1477 id=1477 data-nosnippet>1477</a>	<span class="kw">fn </span>set_fee_factor(id: <span class="self">Self</span>::Id, val: FixedU128) {
-<a href=#1478 id=1478 data-nosnippet>1478</a>		&lt;DeliveryFeeFactor&lt;T&gt;&gt;::set(id, val);
+<a href=#1477 id=1477 data-nosnippet>1477</a>	<span class="kw">fn </span>get_fee_factor(id: <span class="self">Self</span>::Id) -&gt; FixedU128 {
+<a href=#1478 id=1478 data-nosnippet>1478</a>		&lt;DeliveryFeeFactor&lt;T&gt;&gt;::get(id)
 <a href=#1479 id=1479 data-nosnippet>1479</a>	}
-<a href=#1480 id=1480 data-nosnippet>1480</a>}
+<a href=#1480 id=1480 data-nosnippet>1480</a>
+<a href=#1481 id=1481 data-nosnippet>1481</a>	<span class="kw">fn </span>set_fee_factor(id: <span class="self">Self</span>::Id, val: FixedU128) {
+<a href=#1482 id=1482 data-nosnippet>1482</a>		&lt;DeliveryFeeFactor&lt;T&gt;&gt;::set(id, val);
+<a href=#1483 id=1483 data-nosnippet>1483</a>	}
+<a href=#1484 id=1484 data-nosnippet>1484</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

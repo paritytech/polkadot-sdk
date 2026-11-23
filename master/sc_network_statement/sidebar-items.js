@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["set_v2dht_enabled","v2dht_enabled"],"mod":["config"],"struct":["DhtAffinity","Peer","PeersTopology","PeersTopologyConfig","RetentionReasonMask","StatementHandler","StatementHandlerPrototype"],"type":["StatementImportFuture","Statements"]};
+window.SIDEBAR_ITEMS = {"fn":["dht_enabled","set_dht_enabled"],"mod":["config"],"struct":["DhtAffinity","Peer","PeersTopology","PeersTopologyConfig","RetentionReasonMask","StatementHandler","StatementHandlerPrototype"],"type":["StatementImportFuture","Statements"]};

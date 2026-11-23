@@ -175,11 +175,11 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#25 id=25 data-nosnippet>25</a>	time,
 <a href=#26 id=26 data-nosnippet>26</a>};
 <a href=#27 id=27 data-nosnippet>27</a>
-<a href=#28 id=28 data-nosnippet>28</a><span class="doccomment">/// Default inbound slots for full peers on the statement protocol with the v2 DHT path on. Light
+<a href=#28 id=28 data-nosnippet>28</a><span class="doccomment">/// Default inbound slots for full peers on the statement protocol with the DHT path on. Light
 <a href=#29 id=29 data-nosnippet>29</a>/// peers get the node's `--in-peers-light` on top.
 <a href=#30 id=30 data-nosnippet>30</a></span><span class="kw">pub const </span>DEFAULT_IN_PEERS: u32 = <span class="number">50</span>;
 <a href=#31 id=31 data-nosnippet>31</a>
-<a href=#32 id=32 data-nosnippet>32</a><span class="doccomment">/// Default outbound slots on the statement protocol with the v2 DHT path on. Peer steering dials
+<a href=#32 id=32 data-nosnippet>32</a><span class="doccomment">/// Default outbound slots on the statement protocol with the DHT path on. Peer steering dials
 <a href=#33 id=33 data-nosnippet>33</a>/// its peers through the reserved set, so the protocol controller dials none of its own.
 <a href=#34 id=34 data-nosnippet>34</a></span><span class="kw">pub const </span>DEFAULT_OUT_PEERS: u32 = <span class="number">0</span>;
 <a href=#35 id=35 data-nosnippet>35</a>
@@ -234,17 +234,17 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#84 id=84 data-nosnippet>84</a>/// peers enforce at decode, with no practical gain in routing precision.
 <a href=#85 id=85 data-nosnippet>85</a></span><span class="kw">pub const </span>DEFAULT_BLOOM_FALSE_POS_RATE: f64 = <span class="number">0.001</span>;
 <a href=#86 id=86 data-nosnippet>86</a>
-<a href=#87 id=87 data-nosnippet>87</a><span class="doccomment">/// Default replication factor (K) for v2 DHT-affinity routing: number of statement-protocol peers
+<a href=#87 id=87 data-nosnippet>87</a><span class="doccomment">/// Default replication factor (K) for DHT-affinity routing: number of statement-protocol peers
 <a href=#88 id=88 data-nosnippet>88</a>/// responsible for storing a given topic.
 <a href=#89 id=89 data-nosnippet>89</a></span><span class="kw">pub const </span>DEFAULT_REPLICATION_FACTOR: NonZeroUsize = NonZeroUsize::new(<span class="number">20</span>).expect(<span class="string">"20 is non-zero"</span>);
 <a href=#90 id=90 data-nosnippet>90</a>
-<a href=#91 id=91 data-nosnippet>91</a><span class="doccomment">/// Default gossip target for v2 DHT-affinity routing: maximum number of connected non-replica
+<a href=#91 id=91 data-nosnippet>91</a><span class="doccomment">/// Default gossip target for DHT-affinity routing: maximum number of connected non-replica
 <a href=#92 id=92 data-nosnippet>92</a>/// peers a statement is routed to for a given topic, on top of the topic's connected replicas.
 <a href=#93 id=93 data-nosnippet>93</a></span><span class="kw">pub const </span>DEFAULT_GOSSIP_TARGET: NonZeroUsize = NonZeroUsize::new(<span class="number">3</span>).expect(<span class="string">"3 is non-zero"</span>);
 <a href=#94 id=94 data-nosnippet>94</a>
-<a href=#95 id=95 data-nosnippet>95</a><span class="doccomment">/// Parameters of the v2 DHT statement path.
+<a href=#95 id=95 data-nosnippet>95</a><span class="doccomment">/// Parameters of the DHT statement path.
 <a href=#96 id=96 data-nosnippet>96</a></span><span class="attr">#[derive(Clone, Debug)]
-<a href=#97 id=97 data-nosnippet>97</a></span><span class="kw">pub struct </span>V2DhtConfig {
+<a href=#97 id=97 data-nosnippet>97</a></span><span class="kw">pub struct </span>DhtConfig {
 <a href=#98 id=98 data-nosnippet>98</a>	<span class="doccomment">/// Topics the node stores in full, regardless of DHT affinity.
 <a href=#99 id=99 data-nosnippet>99</a>	</span><span class="kw">pub </span>affinity_topics: Vec&lt;Topic&gt;,
 <a href=#100 id=100 data-nosnippet>100</a>	<span class="doccomment">/// Topics from a file, added to [`Self::affinity_topics`].
@@ -268,7 +268,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#118 id=118 data-nosnippet>118</a>	</span><span class="kw">pub </span>in_peers: u32,
 <a href=#119 id=119 data-nosnippet>119</a>}
 <a href=#120 id=120 data-nosnippet>120</a>
-<a href=#121 id=121 data-nosnippet>121</a><span class="kw">impl </span>Default <span class="kw">for </span>V2DhtConfig {
+<a href=#121 id=121 data-nosnippet>121</a><span class="kw">impl </span>Default <span class="kw">for </span>DhtConfig {
 <a href=#122 id=122 data-nosnippet>122</a>	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 <a href=#123 id=123 data-nosnippet>123</a>		<span class="self">Self </span>{
 <a href=#124 id=124 data-nosnippet>124</a>			affinity_topics: Vec::new(),
