@@ -1,7 +1,11 @@
-title: 'pallet-revive: reuse decoded call in dry run and bound call decoding'
+title: 'pallet-revive: align eth tx decoding and reuse decoded call in dry runs'
 doc:
 - audience: Runtime Dev
   description: 'Small consistency and performance change: Align the decoding of substrate
     calls via Eth TX with the decoding of `generic::UncheckedExtrinsic`. Also reuse
     the decoded call in the dry run.'
-crates: []
+crates:
+- name: sp-runtime
+  bump: minor
+- name: pallet-revive
+  bump: patch
