@@ -32,7 +32,6 @@ use derive_where::derive_where;
 use frame_support::dispatch::GetDispatchInfo;
 use scale_info::TypeInfo;
 
-pub mod v3;
 pub mod v4;
 pub mod v5;
 
@@ -101,8 +100,6 @@ pub trait TryAs<T> {
 // NOTE: converting a v4 type into a versioned type will make it v5.
 macro_rules! versioned_type {
 	($(#[$attr:meta])* pub enum $n:ident {
-		$(#[$index3:meta])+
-		V3($v3:ty),
 		$(#[$index4:meta])+
 		V4($v4:ty),
 		$(#[$index5:meta])+
@@ -114,8 +111,6 @@ macro_rules! versioned_type {
 		#[scale_info(replace_segment("staging_xcm", "xcm"))]
 		$(#[$attr])*
 		pub enum $n {
-			$(#[$index3])*
-			V3($v3),
 			$(#[$index4])*
 			V4($v4),
 			$(#[$index5])*
@@ -124,14 +119,6 @@ macro_rules! versioned_type {
 		impl $n {
 			pub fn try_as<T>(&self) -> Result<&T, ()> where Self: TryAs<T> {
 				<Self as TryAs<T>>::try_as(&self)
-			}
-		}
-		impl TryAs<$v3> for $n {
-			fn try_as(&self) -> Result<&$v3, ()> {
-				match &self {
-					Self::V3(ref x) => Ok(x),
-					_ => Err(()),
-				}
 			}
 		}
 		impl TryAs<$v4> for $n {
@@ -157,7 +144,6 @@ macro_rules! versioned_type {
 					Ok(self)
 				} else {
 					Ok(match n {
-						3 => Self::V3(self.try_into()?),
 						4 => Self::V4(self.try_into()?),
 						5 => Self::V5(self.try_into()?),
 						_ => return Err(()),
@@ -165,28 +151,9 @@ macro_rules! versioned_type {
 				}
 			}
 		}
-		impl From<$v3> for $n {
-			fn from(x: $v3) -> Self {
-				$n::V3(x.into())
-			}
-		}
 		impl<T: Into<$v5>> From<T> for $n {
 			fn from(x: T) -> Self {
 				$n::V5(x.into())
-			}
-		}
-		impl TryFrom<$n> for $v3 {
-			type Error = ();
-			fn try_from(x: $n) -> Result<Self, ()> {
-				use $n::*;
-				match x {
-					V3(x) => Ok(x),
-					V4(x) => x.try_into().map_err(|_| ()),
-					V5(x) => {
-						let v4: $v4 = x.try_into().map_err(|_| ())?;
-						v4.try_into().map_err(|_| ())
-					}
-				}
 			}
 		}
 		impl TryFrom<$n> for $v4 {
@@ -194,7 +161,6 @@ macro_rules! versioned_type {
 			fn try_from(x: $n) -> Result<Self, ()> {
 				use $n::*;
 				match x {
-					V3(x) => x.try_into().map_err(|_| ()),
 					V4(x) => Ok(x),
 					V5(x) => x.try_into().map_err(|_| ()),
 				}
@@ -205,10 +171,6 @@ macro_rules! versioned_type {
 			fn try_from(x: $n) -> Result<Self, ()> {
 				use $n::*;
 				match x {
-					V3(x) => {
-						let v4: $v4 = x.try_into().map_err(|_| ())?;
-						v4.try_into().map_err(|_| ())
-					},
 					V4(x) => x.try_into().map_err(|_| ()),
 					V5(x) => Ok(x),
 				}
@@ -216,14 +178,14 @@ macro_rules! versioned_type {
 		}
 		impl MaxEncodedLen for $n {
 			fn max_encoded_len() -> usize {
-				<$v3>::max_encoded_len()
+				core::cmp::max(<$v4>::max_encoded_len(), <$v5>::max_encoded_len())
+					.saturating_add(1)
 			}
 		}
 		impl IdentifyVersion for $n {
 			fn identify_version(&self) -> Version {
 				use $n::*;
 				match self {
-					V3(_) => v3::VERSION,
 					V4(_) => v4::VERSION,
 					V5(_) => v5::VERSION,
 				}
@@ -235,8 +197,6 @@ macro_rules! versioned_type {
 versioned_type! {
 	/// A single version's `AssetId` value, together with its version code.
 	pub enum VersionedAssetId {
-		#[codec(index = 3)]
-		V3(v3::AssetId),
 		#[codec(index = 4)]
 		V4(v4::AssetId),
 		#[codec(index = 5)]
@@ -247,8 +207,6 @@ versioned_type! {
 versioned_type! {
 	/// A single version's `Response` value, together with its version code.
 	pub enum VersionedResponse {
-		#[codec(index = 3)]
-		V3(v3::Response),
 		#[codec(index = 4)]
 		V4(v4::Response),
 		#[codec(index = 5)]
@@ -259,8 +217,6 @@ versioned_type! {
 versioned_type! {
 	/// A single `NetworkId` value, together with its version code.
 	pub enum VersionedNetworkId {
-		#[codec(index = 3)]
-		V3(v3::NetworkId),
 		#[codec(index = 4)]
 		V4(v4::NetworkId),
 		#[codec(index = 5)]
@@ -271,8 +227,6 @@ versioned_type! {
 versioned_type! {
 	/// A single `Junction` value, together with its version code.
 	pub enum VersionedJunction {
-		#[codec(index = 3)]
-		V3(v3::Junction),
 		#[codec(index = 4)]
 		V4(v4::Junction),
 		#[codec(index = 5)]
@@ -284,8 +238,6 @@ versioned_type! {
 	/// A single `Location` value, together with its version code.
 	#[derive(Ord, PartialOrd)]
 	pub enum VersionedLocation {
-		#[codec(index = 3)]
-		V3(v3::MultiLocation),
 		#[codec(index = 4)]
 		V4(v4::Location),
 		#[codec(index = 5)]
@@ -296,8 +248,6 @@ versioned_type! {
 versioned_type! {
 	/// A single `InteriorLocation` value, together with its version code.
 	pub enum VersionedInteriorLocation {
-		#[codec(index = 3)]
-		V3(v3::InteriorMultiLocation),
 		#[codec(index = 4)]
 		V4(v4::InteriorLocation),
 		#[codec(index = 5)]
@@ -308,8 +258,6 @@ versioned_type! {
 versioned_type! {
 	/// A single `Asset` value, together with its version code.
 	pub enum VersionedAsset {
-		#[codec(index = 3)]
-		V3(v3::MultiAsset),
 		#[codec(index = 4)]
 		V4(v4::Asset),
 		#[codec(index = 5)]
@@ -320,8 +268,6 @@ versioned_type! {
 versioned_type! {
 	/// A single `MultiAssets` value, together with its version code.
 	pub enum VersionedAssets {
-		#[codec(index = 3)]
-		V3(v3::MultiAssets),
 		#[codec(index = 4)]
 		V4(v4::Assets),
 		#[codec(index = 5)]
@@ -333,7 +279,6 @@ impl VersionedAssets {
 	/// The number of assets in the collection, regardless of XCM version.
 	pub fn len(&self) -> usize {
 		match self {
-			Self::V3(assets) => assets.len(),
 			Self::V4(assets) => assets.len(),
 			Self::V5(assets) => assets.len(),
 		}
@@ -354,8 +299,6 @@ impl VersionedAssets {
 #[scale_info(bounds(), skip_type_params(RuntimeCall))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum VersionedXcm<RuntimeCall> {
-	#[codec(index = 3)]
-	V3(v3::Xcm<RuntimeCall>),
 	#[codec(index = 4)]
 	V4(v4::Xcm<RuntimeCall>),
 	#[codec(index = 5)]
@@ -365,7 +308,6 @@ pub enum VersionedXcm<RuntimeCall> {
 impl<C: Decode + GetDispatchInfo> IntoVersion for VersionedXcm<C> {
 	fn into_version(self, n: Version) -> Result<Self, ()> {
 		Ok(match n {
-			3 => Self::V3(self.try_into()?),
 			4 => Self::V4(self.try_into()?),
 			5 => Self::V5(self.try_into()?),
 			_ => return Err(()),
@@ -376,7 +318,6 @@ impl<C: Decode + GetDispatchInfo> IntoVersion for VersionedXcm<C> {
 impl<C> IdentifyVersion for VersionedXcm<C> {
 	fn identify_version(&self) -> Version {
 		match self {
-			Self::V3(_) => v3::VERSION,
 			Self::V4(_) => v4::VERSION,
 			Self::V5(_) => v5::VERSION,
 		}
@@ -426,12 +367,6 @@ impl<C: Decode> VersionedXcm<C> {
 	}
 }
 
-impl<RuntimeCall> From<v3::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
-	fn from(x: v3::Xcm<RuntimeCall>) -> Self {
-		VersionedXcm::V3(x)
-	}
-}
-
 impl<RuntimeCall> From<v4::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
 	fn from(x: v4::Xcm<RuntimeCall>) -> Self {
 		VersionedXcm::V4(x)
@@ -444,27 +379,11 @@ impl<RuntimeCall> From<v5::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
 	}
 }
 
-impl<Call: Decode + GetDispatchInfo> TryFrom<VersionedXcm<Call>> for v3::Xcm<Call> {
-	type Error = ();
-	fn try_from(x: VersionedXcm<Call>) -> Result<Self, ()> {
-		use VersionedXcm::*;
-		match x {
-			V3(x) => Ok(x),
-			V4(x) => x.try_into(),
-			V5(x) => {
-				let v4: v4::Xcm<Call> = x.try_into()?;
-				v4.try_into()
-			},
-		}
-	}
-}
-
 impl<Call: Decode + GetDispatchInfo> TryFrom<VersionedXcm<Call>> for v4::Xcm<Call> {
 	type Error = ();
 	fn try_from(x: VersionedXcm<Call>) -> Result<Self, ()> {
 		use VersionedXcm::*;
 		match x {
-			V3(x) => x.try_into(),
 			V4(x) => Ok(x),
 			V5(x) => x.try_into(),
 		}
@@ -476,10 +395,6 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<VersionedXcm<Call>> for v5::Xcm<Cal
 	fn try_from(x: VersionedXcm<Call>) -> Result<Self, ()> {
 		use VersionedXcm::*;
 		match x {
-			V3(x) => {
-				let v4: v4::Xcm<Call> = x.try_into()?;
-				v4.try_into()
-			},
 			V4(x) => x.try_into(),
 			V5(x) => Ok(x),
 		}
@@ -515,23 +430,6 @@ impl WrapVersion for () {
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
 		Ok(xcm.into())
-	}
-}
-
-/// `WrapVersion` implementation which attempts to always convert the XCM to version 3 before
-/// wrapping it.
-pub struct AlwaysV3;
-impl WrapVersion for AlwaysV3 {
-	fn wrap_version<Call: Decode + GetDispatchInfo>(
-		_: &latest::Location,
-		xcm: impl Into<VersionedXcm<Call>>,
-	) -> Result<VersionedXcm<Call>, ()> {
-		Ok(VersionedXcm::<Call>::V3(xcm.into().try_into()?))
-	}
-}
-impl GetVersion for AlwaysV3 {
-	fn get_version_for(_dest: &latest::Location) -> Option<Version> {
-		Some(v3::VERSION)
 	}
 }
 
@@ -579,23 +477,17 @@ pub type AlwaysLts = AlwaysV4;
 
 pub mod prelude {
 	pub use super::{
-		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV3, AlwaysV4, AlwaysV5, GetVersion,
+		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV4, AlwaysV5, GetVersion,
 		IdentifyVersion, IntoVersion, Unsupported, Version as XcmVersion, VersionedAsset,
 		VersionedAssetId, VersionedAssets, VersionedInteriorLocation, VersionedLocation,
 		VersionedResponse, VersionedXcm, WrapVersion,
 	};
 
 	/// The minimal supported XCM version
-	pub const MIN_XCM_VERSION: XcmVersion = 3;
+	pub const MIN_XCM_VERSION: XcmVersion = 4;
 }
 
 pub mod opaque {
-	pub mod v3 {
-		// Everything from v3
-		pub use crate::v3::*;
-		// Then override with the opaque types in v3
-		pub use crate::v3::opaque::{Instruction, Xcm};
-	}
 	pub mod v4 {
 		// Everything from v4
 		pub use crate::v4::*;
@@ -603,7 +495,7 @@ pub mod opaque {
 		pub use crate::v4::opaque::{Instruction, Xcm};
 	}
 	pub mod v5 {
-		// Everything from v4
+		// Everything from v5
 		pub use crate::v5::*;
 		// Then override with the opaque types in v5
 		pub use crate::v5::opaque::{Instruction, Xcm};

@@ -40,7 +40,9 @@ use sp_runtime::{
 	traits::{Block as BlockT, MaybeEquivalence, StaticLookup, Zero},
 	DispatchError, SaturatedConversion, Saturating,
 };
-use xcm::{latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedXcm};
+use xcm::{
+	latest::prelude::*, prelude::MIN_XCM_VERSION, VersionedAssetId, VersionedAssets, VersionedXcm,
+};
 use xcm_executor::{
 	traits::{ConvertLocation, TransferType},
 	XcmExecutor,
@@ -1498,7 +1500,7 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 		.with_collators(collator_session_keys.collators())
 		.with_session_keys(collator_session_keys.session_keys())
 		.with_tracing()
-		.with_safe_xcm_version(3)
+		.with_safe_xcm_version(MIN_XCM_VERSION)
 		.with_para_id(runtime_para_id.into())
 		.build()
 		.execute_with(|| {
