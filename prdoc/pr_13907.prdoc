@@ -5,6 +5,7 @@ doc:
     Emits `UMPSignal::Provides` from SPMS header digests and synthesizes `UMPSignal::Requires` in `validate_block` via `Config::ConsumptionRecordSource` and `ParachainBlockData::V3`.
     Every `cumulus_pallet_parachain_system::Config` must set `ConsumptionRecordSource`. Use `()` to disable V3 PoVs.
     Upgrade parachain nodes to support V3 PoV recovery before enabling the format.
+    Before the parachain emits either signal, deploy validator nodes that decode `Provides` and `Requires` and the relay runtime that checks `Requires` (#13906), then collators that append `Provides` and supply lifts in V3 PoVs.
 crates:
 - name: cumulus-primitives-core
   bump: major
