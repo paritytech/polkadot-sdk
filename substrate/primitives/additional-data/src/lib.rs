@@ -51,8 +51,9 @@ pub fn hash_value(value: &[u8]) -> [u8; 32] {
 ///
 /// Pass them in map key order, so build and import produce the same digest.
 pub fn hash_commitments(commitments: impl IntoIterator<Item = [u8; 32]>) -> Option<[u8; 32]> {
-	let commitments: Vec<[u8; 32]> = commitments.into_iter().collect();
-	(!commitments.is_empty()).then(|| blake2_256(&commitments.encode()))
+	let mut encoded = Vec::new();
+	commitments.into_iter().for_each(|c| c.encode_to(&mut encoded));
+	(!encoded.is_empty()).then(|| blake2_256(&encoded))
 }
 
 /// The digest value of a carried map, equal to what [`AdditionalDataExt::finalize`] produced when
@@ -140,10 +141,10 @@ mod tests {
 	}
 
 	#[test]
-	fn hash_commitments_hashes_the_encoded_list() {
+	fn hash_commitments_hashes_the_concatenation() {
 		let a = hash_value(b"a");
 		let b = hash_value(b"b");
-		assert_eq!(hash_commitments([a, b]), Some(blake2_256(&vec![a, b].encode())));
+		assert_eq!(hash_commitments([a, b]), Some(blake2_256(&[a, b].concat())));
 		assert_eq!(hash_commitments([a, b]), hash_commitments([a, b]));
 		assert_ne!(hash_commitments([a, b]), hash_commitments([b, a]));
 		assert_ne!(hash_commitments([a]), hash_commitments([a, a]));
