@@ -1908,7 +1908,7 @@ fn empty_response_to_regular_block_request_gets_mild_penalty() {
 	let request = get_block_request(&mut sync, FromBlock::Hash(best_block.hash()), 4, &peer_id1);
 	let empty_response = BlockResponse::<Block> { id: 0, blocks: Vec::new() };
 	assert_eq!(
-		sync.on_block_data(&peer_id1, Some(request), empty_response),
+		sync.on_block_data(&peer_id1, Some(request.clone()), empty_response),
 		Err(BadPeer(peer_id1, rep::NO_BLOCKS_IN_RANGE)),
 	);
 
@@ -1919,7 +1919,10 @@ fn empty_response_to_regular_block_request_gets_mild_penalty() {
 	sync.add_peer(peer_id2, best_block.hash(), *best_block.header().number());
 	sync.peers.get_mut(&peer_id2).unwrap().state = PeerSyncState::Available;
 	sync.peers.get_mut(&peer_id2).unwrap().common_number = 0;
-	get_block_request(&mut sync, FromBlock::Hash(best_block.hash()), 4, &peer_id2);
+	assert_eq!(
+		request,
+		get_block_request(&mut sync, FromBlock::Hash(best_block.hash()), 4, &peer_id2),
+	);
 }
 
 #[test]
@@ -1996,15 +1999,16 @@ fn empty_response_to_header_only_gap_request_gets_mild_penalty() {
 
 	let empty_response = BlockResponse::<Block> { id: 0, blocks: Vec::new() };
 	assert_eq!(
-		sync.on_block_data(&peer_id1, Some(request), empty_response),
+		sync.on_block_data(&peer_id1, Some(request.clone()), empty_response),
 		Err(BadPeer(peer_id1, rep::NO_BLOCKS_IN_RANGE)),
 	);
 
-	// Peer removal frees the in-flight gap range for the next peer.
+	// Peer removal frees the in-flight gap range, so the identical header-only request goes
+	// out to the next peer.
 	sync.remove_peer(&peer_id1);
 	let peer_id2 = PeerId::random();
 	sync.add_peer(peer_id2, blocks[9].hash(), 10);
-	get_block_request(&mut sync, FromBlock::Number(8), 2, &peer_id2);
+	assert_eq!(request, get_block_request(&mut sync, FromBlock::Number(8), 2, &peer_id2));
 }
 
 #[test]
