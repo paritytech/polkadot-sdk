@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795389075031,
+  "lastUpdate": 1795394365314,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d803f1b216332a65c20ea78573078a12d88b4eeb",
-          "message": "omni-bencher: expose BLS host functions (#12035)\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2026-05-11T08:36:39Z",
-          "tree_id": "6d7ff3bcb96c5391f8c5fab70565ce350f58aa7e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d803f1b216332a65c20ea78573078a12d88b4eeb"
-        },
-        "date": 1778493514339,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.922639266133334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1397458430666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.092446151400003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "54c21d97b0b77c95919363c76a93183bbe51dab4",
+          "message": "Use `OnChainContext` for `check_inherents` (#13840)\n\nWhen calling `check_inherents`, we need to use the `OnChainContext`.\nThis is required because the extrinsics of the block to check could\nalready have been build by the new runtime. In this case, we need to\nalso use the new runtime to properly check them.",
+          "timestamp": "2026-11-22T23:02:56Z",
+          "tree_id": "c7d5acce0b2ba8b76605b48b24437e940c0a55b7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/54c21d97b0b77c95919363c76a93183bbe51dab4"
+        },
+        "date": 1795394323080,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12981212863333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.077118017833332,
             "unit": "seconds"
           }
         ]
