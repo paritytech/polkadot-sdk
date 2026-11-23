@@ -5,7 +5,7 @@ doc:
     to emit arbitrary contract logs. However, off-chain tooling may assume a log at
     address X is to be treated as emitted by code at address X. This is not something
     which is generally guaranteed by the runtime; runtime code can already deposit
-    the same event through frame-system anyway. But what we can do is a to inform
+    the same event through frame-system anyway. But we can inform
     future consumers that there may consumers having this assumption.
 crates:
 - name: pallet-revive
