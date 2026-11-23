@@ -150,7 +150,8 @@ impl PeersTopology {
 	}
 
 	/// Drop `peer` from the DHT index and the connected set: it speaks the protocol without the
-	/// DHT path. Identify keeps it out until the substream closes.
+	/// DHT path. It returns only when identify lists the main protocol or a `statement/3`
+	/// substream opens.
 	pub fn on_peer_without_dht(&mut self, peer: PeerId) {
 		let Some(info) = self.discovered.get_mut(&peer) else { return };
 		let key = info.key;
@@ -172,22 +173,16 @@ impl PeersTopology {
 		was_indexed
 	}
 
-	/// Record that the statement notification substream closed. A peer without the DHT path
-	/// returns to the DHT index, as it may restart with the path on. Returns whether the DHT
-	/// index changed.
-	pub fn on_substream_closed(&mut self, peer: PeerId) -> bool {
-		let Some(info) = self.discovered.get_mut(&peer) else { return false };
+	/// Record that the statement notification substream closed. The mark of a peer without the
+	/// DHT path ends with the substream, and identify decides whether the peer joins the DHT
+	/// index.
+	pub fn on_substream_closed(&mut self, peer: PeerId) {
+		let Some(info) = self.discovered.get_mut(&peer) else { return };
 		let key = info.key;
 		info.connected = false;
 		info.last_seen = Instant::now();
-		self.connected.remove(key, &peer);
-		if !info.without_dht {
-			return false;
-		}
 		info.without_dht = false;
-		info.supports_protocol = true;
-		self.discovered_index.insert(key, peer);
-		true
+		self.connected.remove(key, &peer);
 	}
 
 	/// Whether `peer` speaks the protocol without the DHT path. The mark lasts while its substream
@@ -614,8 +609,11 @@ mod tests {
 		topology.on_peer_identified(peer, true);
 		assert_eq!(topology.dht_eligible_peers_count(), 0);
 
-		assert!(topology.on_substream_closed(peer));
+		topology.on_substream_closed(peer);
 		assert!(!topology.is_connected(&peer));
+		assert_eq!(topology.dht_eligible_peers_count(), 0);
+
+		topology.on_peer_identified(peer, true);
 		assert_eq!(topology.dht_eligible_peers_count(), 1);
 		assert!(topology.evict(Instant::now() + PEER_STALENESS_TTL));
 	}
@@ -642,7 +640,7 @@ mod tests {
 		assert!(topology.on_light_peer(peer));
 		assert_eq!(topology.dht_eligible_peers_count(), 0);
 
-		assert!(!topology.on_substream_closed(peer));
+		topology.on_substream_closed(peer);
 		topology.on_peer_identified(peer, true);
 		assert_eq!(topology.dht_eligible_peers_count(), 0);
 

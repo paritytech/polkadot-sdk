@@ -40,4 +40,15 @@ fn main() {
 			.enable_feature("disable-logging")
 			.build();
 	}
+
+	#[cfg(feature = "std")]
+	{
+		substrate_wasm_builder::WasmBuilder::new()
+			.with_current_project()
+			.export_heap_base()
+			.import_memory()
+			.set_file_name("wasm_binary_without_inherent_upgrade_pallet.rs")
+			.append_to_rust_flags("--cfg without_inherent_upgrade_pallet")
+			.build();
+	}
 }

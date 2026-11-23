@@ -45,8 +45,9 @@ Remove this section when the feature stabilizes and the gate is removed.
 
 `v2dht_enabled()` in `lib.rs` is off by default. A node binary turns it on with `set_v2dht_enabled`
 when its CLI sees `--statement-v2-dht`. A default-configured node never takes the v2 path, and a
-node with the path on serves peers without it like v1 peers. Two invariants hold while the gate
-exists:
+node with the path on serves peers without it like v1 peers. The negotiated protocol tells the two
+apart: a node with the path on prefers `statement/3`, so a full peer that falls back to
+`statement/2` or `statement/1` runs without it. Two invariants hold while the gate exists:
 
 - Keep the v1 path working: with the gate off, behavior must match a node without the v2 code.
 - Put every v2 call site behind `v2dht_enabled()`; never let the v2 path leak into v1 handling.
