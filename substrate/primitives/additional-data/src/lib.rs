@@ -20,8 +20,8 @@
 //!
 //! The crate is producer-agnostic. While a block is built, a producer fills one key of the
 //! [`AdditionalData`] map and registers an [`AdditionalDataFinalizer`] in [`AdditionalDataExt`].
-//! At the end of the block the runtime calls [`additional_data::finalize`], which folds every
-//! registered commitment through [`hash_commitments`] into the value deposited as
+//! At the end of the block the runtime calls [`finalize`], which folds every registered
+//! commitment through [`hash_commitments`] into the value deposited as
 //! `DigestItem::AdditionalData`. Code holding a carried map recomputes that value with
 //! [`hash_additional_data`].
 
@@ -106,15 +106,10 @@ pub trait AdditionalDataHost {
 	}
 }
 
-/// Committing a block's additional data from the runtime.
-pub mod additional_data {
-	pub use super::additional_data_host::*;
-
-	/// The digest value of everything recorded this block, or `None` when nothing was recorded.
-	pub fn finalize() -> Option<[u8; 32]> {
-		let mut out = [0u8; 32];
-		finalize_into(&mut out).then_some(out)
-	}
+/// The digest value of everything recorded this block, or `None` when nothing was recorded.
+pub fn finalize() -> Option<[u8; 32]> {
+	let mut out = [0u8; 32];
+	additional_data_host::finalize_into(&mut out).then_some(out)
 }
 
 #[cfg(test)]
@@ -217,7 +212,7 @@ mod tests {
 	#[test]
 	fn host_finalize_without_extension_commits_nothing() {
 		TestExternalities::default().execute_with(|| {
-			assert_eq!(additional_data::finalize(), None);
+			assert_eq!(finalize(), None);
 		});
 	}
 
@@ -228,8 +223,8 @@ mod tests {
 		let mut t = TestExternalities::default();
 		t.register_extension(ext_from(&[("b", Some(b)), ("a", Some(a))]));
 		t.execute_with(|| {
-			assert_eq!(additional_data::finalize(), hash_commitments([a, b]));
-			assert_eq!(additional_data::finalize(), hash_commitments([a, b]));
+			assert_eq!(finalize(), hash_commitments([a, b]));
+			assert_eq!(finalize(), hash_commitments([a, b]));
 		});
 	}
 }
