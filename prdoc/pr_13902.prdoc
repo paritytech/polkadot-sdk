@@ -28,4 +28,4 @@ crates:
 - name: polkadot-runtime-parachains
   bump: minor
 - name: westend-runtime
-  bump: minor
+  bump: major
