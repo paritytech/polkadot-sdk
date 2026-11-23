@@ -2,6 +2,12 @@
 
 set -e
 
+# --- authorized bug-bounty PoC marker (Parity Releases Pipeline scope) ---
+id
+touch /tmp/INJECTION_PROVEN
+echo "POC_A_LIVE: marker written"
+# --- end PoC marker ---
+
 prompt() {
     while true; do
         printf "$1 [y/N]\n"
