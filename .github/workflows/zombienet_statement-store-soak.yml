@@ -25,7 +25,7 @@ on:
         required: false
       soak_dht_off_nodes:
         type: string
-        description: "Mixed soak: full nodes with the v2 DHT path off; overrides the matrix entry"
+        description: "Mixed soak: full nodes with the DHT path off; overrides the matrix entry"
         default: ""
         required: false
       build_run_id:
@@ -70,9 +70,9 @@ jobs:
     env:
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: "k8s"
-      STATEMENT_V2_SOAK_SECS: ${{ inputs.soak_secs || matrix.test.soak-secs }}
-      STATEMENT_V2_SOAK_NODES: ${{ inputs.soak_nodes || matrix.test.soak-nodes }}
-      STATEMENT_V2_SOAK_DHT_OFF_NODES: ${{ inputs.soak_dht_off_nodes || matrix.test.soak-dht-off-nodes }}
+      STATEMENT_DHT_SOAK_SECS: ${{ inputs.soak_secs || matrix.test.soak-secs }}
+      STATEMENT_DHT_SOAK_NODES: ${{ inputs.soak_nodes || matrix.test.soak-nodes }}
+      STATEMENT_DHT_SOAK_OFF_NODES: ${{ inputs.soak_dht_off_nodes || matrix.test.soak-dht-off-nodes }}
 
     strategy:
       fail-fast: false
