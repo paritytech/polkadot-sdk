@@ -1,19 +1,16 @@
-title: 'sp-additional-data: primitive crate and `DigestItem::AdditionalData`'
+title: 'sp-additional-data: primitives for per-block additional data'
 doc:
 - audience: [Node Dev, Runtime Dev]
   description: |-
     Adds `sp-additional-data`, the producer-agnostic primitives for per-block additional data: the
     `AdditionalData` map and its commitment functions, the `AdditionalDataFinalizer` registry held
-    in the `AdditionalDataExt` externalities extension, the `CreateAdditionalDataExtensions`
-    replay factory, and the `finalize_into` host function. Adds `DigestItem::AdditionalData`,
-    discriminant 3, which carries the 32-byte commitment in the header.
+    in the `AdditionalDataExt` externalities extension, the `finalize_into` host function, and the
+    header commitment, carried as a `DigestItem::Consensus` log under the `addt` engine id.
 
-    Nothing registers the host function or deposits the digest yet, so existing chains are
-    unaffected. Nodes without this change cannot decode a header that carries the new digest item.
+    Nothing registers the host function or deposits the log yet, so existing chains are
+    unaffected.
 crates:
 - name: sp-additional-data
   bump: patch
-- name: sp-runtime
-  bump: major
 - name: polkadot-sdk
   bump: minor

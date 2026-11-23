@@ -106,11 +106,6 @@ pub enum DigestItem {
 	/// 1. Runtime code blob is changed or
 	/// 2. `heap_pages` value is changed.
 	RuntimeEnvironmentUpdated,
-
-	/// Commitment to the block's additional data. At most one per header.
-	///
-	/// Nodes without this variant fail to decode a header that carries it.
-	AdditionalData([u8; 32]),
 }
 
 #[cfg(feature = "serde")]
@@ -168,11 +163,6 @@ impl TypeInfo for DigestItem {
 				})
 				.variant("RuntimeEnvironmentUpdated", |v| {
 					v.index(DigestItemType::RuntimeEnvironmentUpdated as u8).fields(Fields::unit())
-				})
-				.variant("AdditionalData", |v| {
-					v.index(DigestItemType::AdditionalData as u8).fields(
-						Fields::unnamed().field(|f| f.ty::<[u8; 32]>().type_name("[u8; 32]")),
-					)
 				}),
 		)
 	}
@@ -200,8 +190,6 @@ pub enum DigestItemRef<'a> {
 	Other(&'a [u8]),
 	/// Runtime code or heap pages updated.
 	RuntimeEnvironmentUpdated,
-	/// Commitment to the block's additional data.
-	AdditionalData(&'a [u8; 32]),
 }
 
 /// Type of the digest item. Used to gain explicit control over `DigestItem` encoding
@@ -212,8 +200,6 @@ pub enum DigestItemRef<'a> {
 #[derive(Encode, Decode)]
 pub enum DigestItemType {
 	Other = 0,
-	/// Indices 1, 2 and 7 were retired with the changes trie; 3 is the lowest free slot.
-	AdditionalData = 3,
 	Consensus = 4,
 	Seal = 5,
 	PreRuntime = 6,
@@ -243,7 +229,6 @@ impl DigestItem {
 			Self::Seal(ref v, ref s) => DigestItemRef::Seal(v, s),
 			Self::Other(ref v) => DigestItemRef::Other(v),
 			Self::RuntimeEnvironmentUpdated => DigestItemRef::RuntimeEnvironmentUpdated,
-			Self::AdditionalData(ref v) => DigestItemRef::AdditionalData(v),
 		}
 	}
 
@@ -265,11 +250,6 @@ impl DigestItem {
 	/// Returns Some if `self` is a `DigestItem::Other`.
 	pub fn as_other(&self) -> Option<&[u8]> {
 		self.dref().as_other()
-	}
-
-	/// Returns `Some` if this entry is the `AdditionalData` entry.
-	pub fn as_additional_data(&self) -> Option<&[u8; 32]> {
-		self.dref().as_additional_data()
 	}
 
 	/// Returns the opaque data contained in the item if `Some` if this entry has the id given.
@@ -333,7 +313,6 @@ impl Decode for DigestItem {
 			},
 			DigestItemType::Other => Ok(Self::Other(Decode::decode(input)?)),
 			DigestItemType::RuntimeEnvironmentUpdated => Ok(Self::RuntimeEnvironmentUpdated),
-			DigestItemType::AdditionalData => Ok(Self::AdditionalData(Decode::decode(input)?)),
 		}
 	}
 }
@@ -367,14 +346,6 @@ impl<'a> DigestItemRef<'a> {
 	pub fn as_other(&self) -> Option<&'a [u8]> {
 		match *self {
 			Self::Other(data) => Some(data),
-			_ => None,
-		}
-	}
-
-	/// Cast this digest item into `AdditionalData`.
-	pub fn as_additional_data(&self) -> Option<&'a [u8; 32]> {
-		match *self {
-			Self::AdditionalData(data) => Some(data),
 			_ => None,
 		}
 	}
@@ -439,7 +410,6 @@ impl<'a> Encode for DigestItemRef<'a> {
 			Self::PreRuntime(val, data) => (DigestItemType::PreRuntime, val, data).encode(),
 			Self::Other(val) => (DigestItemType::Other, val).encode(),
 			Self::RuntimeEnvironmentUpdated => DigestItemType::RuntimeEnvironmentUpdated.encode(),
-			Self::AdditionalData(val) => (DigestItemType::AdditionalData, val).encode(),
 		}
 	}
 }
@@ -487,9 +457,6 @@ mod tests {
 				DigestItemType::RuntimeEnvironmentUpdated => {
 					("RuntimeEnvironmentUpdated", DigestItem::RuntimeEnvironmentUpdated)
 				},
-				DigestItemType::AdditionalData => {
-					("AdditionalData", DigestItem::AdditionalData([0u8; 32]))
-				},
 			};
 			let encoded = digest_item.encode();
 			let variant = variants
@@ -505,32 +472,5 @@ mod tests {
 		check(DigestItemType::Seal);
 		check(DigestItemType::PreRuntime);
 		check(DigestItemType::RuntimeEnvironmentUpdated);
-		check(DigestItemType::AdditionalData);
-	}
-
-	#[test]
-	fn additional_data_digest_item_roundtrips() {
-		let item = DigestItem::AdditionalData([7u8; 32]);
-		let encoded = item.encode();
-		let decoded: DigestItem = Decode::decode(&mut &encoded[..]).unwrap();
-		assert_eq!(item, decoded);
-		assert_eq!(item.as_additional_data(), Some(&[7u8; 32]));
-	}
-
-	#[test]
-	fn additional_data_serde_roundtrips() {
-		let item = DigestItem::AdditionalData([42u8; 32]);
-		let json = serde_json::to_string(&item).unwrap();
-		let decoded: DigestItem = serde_json::from_str(&json).unwrap();
-		assert_eq!(item, decoded);
-	}
-
-	#[test]
-	fn unknown_digest_item_discriminant_fails_to_decode() {
-		let raw = [1u8];
-		assert!(
-			DigestItem::decode(&mut &raw[..]).is_err(),
-			"un-upgraded node must fail to decode a header with an unknown digest discriminant"
-		);
 	}
 }

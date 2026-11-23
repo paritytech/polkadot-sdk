@@ -19,6 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true }
 sp-crypto-hashing = { workspace = true }
 sp-externalities = { workspace = true }
+sp-runtime = { workspace = true }
 sp-runtime-interface = { workspace = true }
 
 [dev-dependencies]
@@ -31,4 +32,5 @@ std = [
 	"sp-crypto-hashing/std",
 	"sp-externalities/std",
 	"sp-runtime-interface/std",
+	"sp-runtime/std",
 ]

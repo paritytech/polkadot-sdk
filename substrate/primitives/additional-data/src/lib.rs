@@ -21,9 +21,9 @@
 //! The crate is producer-agnostic. While a block is built, a producer fills one key of the
 //! [`AdditionalData`] map and registers an [`AdditionalDataFinalizer`] in [`AdditionalDataExt`].
 //! At the end of the block the runtime calls [`finalize`], which folds every registered
-//! commitment through [`hash_commitments`] into the value deposited as
-//! `DigestItem::AdditionalData`. Code holding a carried map recomputes that value with
-//! [`hash_additional_data`].
+//! commitment through [`hash_commitments`] into the value deposited as a consensus log under
+//! [`ADDITIONAL_DATA_ENGINE_ID`]. Code holding a carried map recomputes that value with
+//! [`hash_additional_data`] and reads the header's value with [`commitment`].
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -32,6 +32,7 @@ extern crate alloc;
 use alloc::{collections::btree_map::BTreeMap, string::String, vec::Vec};
 use codec::Encode;
 use sp_crypto_hashing::blake2_256;
+use sp_runtime::{ConsensusEngineId, Digest, DigestItem};
 use sp_runtime_interface::{pass_by::PassPointerAndWrite, runtime_interface};
 
 #[cfg(feature = "std")]
@@ -39,6 +40,9 @@ pub use node::*;
 
 /// A block's additional data, keyed by producer.
 pub type AdditionalData = BTreeMap<String, Vec<u8>>;
+
+/// Engine id of the consensus log that carries the commitment.
+pub const ADDITIONAL_DATA_ENGINE_ID: ConsensusEngineId = *b"addt";
 
 /// The commitment to one producer's value: blake2-256 of its bytes.
 pub fn hash_value(value: &[u8]) -> [u8; 32] {
@@ -58,6 +62,33 @@ pub fn hash_commitments(commitments: impl IntoIterator<Item = [u8; 32]>) -> Opti
 /// the block was built.
 pub fn hash_additional_data(data: &AdditionalData) -> Option<[u8; 32]> {
 	hash_commitments(data.values().map(|value| hash_value(value)))
+}
+
+/// The digest item that carries `commitment`.
+pub fn digest_item(commitment: [u8; 32]) -> DigestItem {
+	DigestItem::Consensus(ADDITIONAL_DATA_ENGINE_ID, commitment.encode())
+}
+
+/// Why a digest does not carry a usable commitment.
+#[derive(Debug, PartialEq, Eq)]
+pub enum CommitmentError {
+	/// More than one log under [`ADDITIONAL_DATA_ENGINE_ID`].
+	Duplicate,
+	/// The log is not 32 bytes.
+	Malformed,
+}
+
+/// The commitment in `digest`, or `None` when it carries none.
+pub fn commitment(digest: &Digest) -> Result<Option<[u8; 32]>, CommitmentError> {
+	let mut logs = digest.logs().iter().filter_map(|log| match log {
+		DigestItem::Consensus(id, bytes) if *id == ADDITIONAL_DATA_ENGINE_ID => Some(bytes),
+		_ => None,
+	});
+	let Some(bytes) = logs.next() else { return Ok(None) };
+	if logs.next().is_some() {
+		return Err(CommitmentError::Duplicate);
+	}
+	bytes.as_slice().try_into().map(Some).map_err(|_| CommitmentError::Malformed)
 }
 
 /// Host side of committing a block's additional data.
@@ -214,6 +245,24 @@ mod tests {
 		let mut corrupted = data.clone();
 		corrupted.insert("x".to_string(), b"xy".to_vec());
 		assert_ne!(hash_additional_data(&corrupted), built.finalize());
+	}
+
+	#[test]
+	fn commitment_is_read_back_from_the_digest() {
+		let hash = [7u8; 32];
+		let digest = Digest { logs: vec![DigestItem::Other(vec![1]), digest_item(hash)] };
+		assert_eq!(commitment(&digest), Ok(Some(hash)));
+		assert_eq!(commitment(&Digest::default()), Ok(None));
+	}
+
+	#[test]
+	fn duplicate_or_malformed_commitments_are_rejected() {
+		let hash = [7u8; 32];
+		let twice = Digest { logs: vec![digest_item(hash), digest_item(hash)] };
+		assert_eq!(commitment(&twice), Err(CommitmentError::Duplicate));
+		let short =
+			Digest { logs: vec![DigestItem::Consensus(ADDITIONAL_DATA_ENGINE_ID, vec![1, 2])] };
+		assert_eq!(commitment(&short), Err(CommitmentError::Malformed));
 	}
 
 	#[test]
