@@ -24,8 +24,8 @@ crates:
 - name: sp-staking
   bump: major
 - name: pallet-staking-async
-  bump: patch
+  bump: minor
 - name: pallet-staking-async-points-converter
   bump: major
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: minor
