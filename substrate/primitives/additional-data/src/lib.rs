@@ -37,7 +37,7 @@ use sp_runtime_interface::{pass_by::PassPointerAndWrite, runtime_interface};
 #[cfg(feature = "std")]
 use alloc::boxed::Box;
 #[cfg(feature = "std")]
-use sp_externalities::{Extension, ExternalitiesExt};
+use sp_externalities::ExternalitiesExt;
 
 /// A block's additional data, keyed by producer.
 pub type AdditionalData = BTreeMap<String, Vec<u8>>;
@@ -87,22 +87,6 @@ impl AdditionalDataExt {
 	/// recorded.
 	pub fn finalize(&self) -> Option<[u8; 32]> {
 		hash_commitments(self.0.values().filter_map(|finalizer| finalizer.finalize()))
-	}
-}
-
-/// Builds the extensions that answer a carried map when a block is re-executed.
-///
-/// `None` means the carried data cannot be turned into extensions and the block is rejected.
-#[cfg(feature = "std")]
-#[derive(Clone)]
-pub struct CreateAdditionalDataExtensions(
-	pub Arc<dyn Fn(&AdditionalData) -> Option<Vec<Box<dyn Extension>>> + Send + Sync>,
-);
-
-#[cfg(feature = "std")]
-impl core::fmt::Debug for CreateAdditionalDataExtensions {
-	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		f.write_str("CreateAdditionalDataExtensions")
 	}
 }
 
