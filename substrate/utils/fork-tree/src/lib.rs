@@ -1772,7 +1772,7 @@ mod test {
 		children: Vec<DerivedNode>,
 	}
 
-	fn derived_node(hash: u8, children: Vec<DerivedNode>) -> DerivedNode {
+	fn node(hash: u8, children: Vec<DerivedNode>) -> DerivedNode {
 		DerivedNode { hash, number: hash as u32 * 10, data: hash as u64 * 11, children }
 	}
 
@@ -1783,7 +1783,6 @@ mod test {
 		// 1---+---3
 		//
 		// 5
-		let node = derived_node;
 		let derived = DerivedTree {
 			roots: vec![
 				node(1, vec![node(2, vec![node(4, vec![])]), node(3, vec![])]),
