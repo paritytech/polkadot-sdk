@@ -4054,16 +4054,33 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 		let events = report();
 		// THEN only 1 more block is credited and the other 2 are over the limit
 		assert_eq!(pallet_staking_async::ErasRewardPoints::<Runtime>::get(1).total, 20);
-		assert!(events.contains(&RuntimeEvent::StakingPointsConverter(
-			pallet_staking_async_points_converter::Event::BlocksCredited { source: own, blocks: 1 }
-		)));
-		assert!(events.contains(&RuntimeEvent::StakingPointsConverter(
-			pallet_staking_async_points_converter::Event::BlocksOverCap {
-				source: own,
-				era: 1,
-				blocks: 2
-			}
-		)));
+		assert_eq!(
+			events,
+			vec![
+				RuntimeEvent::Staking(pallet_staking_async::Event::ServicePointsCredited {
+					service: sp_staking::ServiceKind::Collation,
+					era: 1,
+					credited: 1,
+					dropped: 0
+				}),
+				RuntimeEvent::StakingPointsConverter(
+					pallet_staking_async_points_converter::Event::BlocksCredited {
+						source: own,
+						blocks: 1
+					}
+				),
+				RuntimeEvent::StakingPointsConverter(
+					pallet_staking_async_points_converter::Event::BlocksOverCap {
+						source: own,
+						era: 1,
+						blocks: 2
+					}
+				),
+				RuntimeEvent::ValidatorCollators(
+					pallet_validator_collators::Event::BlocksReported { authors: 1, reported: 1 }
+				),
+			]
+		);
 
 		// GIVEN era 2 is active with Alice exposed, and Alice authored 2 blocks
 		pallet_staking_async::ActiveEra::<Runtime>::put(pallet_staking_async::ActiveEraInfo {
