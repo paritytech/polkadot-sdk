@@ -1,0 +1,30 @@
+title: 'points-converter: limit the blocks a reporting chain can credit per era'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-staking-async-points-converter` now credits at most `UnitsPerEraLimit` units of a
+    service per era to each reporting chain. Governance sets the limit per chain and service with
+    the new `set_units_per_era_limit` call, from `PointsOrigin`. Without a stored value the new
+    config item `DefaultUnitsPerEraLimit` applies, and `MaxUnitsPerEraLimit` bounds what governance
+    can set. A limit of zero stops crediting for that chain and service. `CreditedUnits` holds what
+    a chain was credited in the active era.
+
+    Each count is first clamped to `MaxBlocksPerEntry`. When a report asks for more than what is
+    left of the limit, every entry is cut by the same ratio, rounded down. Blocks that are not
+    credited are dropped and reported in the new `BlocksOverCap` event. `BlocksCredited` is now
+    emitted only when points reach staking and counts the credited blocks. A report that arrives
+    without an active era now emits `BlocksIgnored`.
+
+    Asset Hub Westend sets `MaxBlocksPerEntry` to the blocks of one expected era with 2s blocks,
+    `DefaultUnitsPerEraLimit` to twice that and `MaxUnitsPerEraLimit` to four times the default.
+    No migration is needed: the new storage items are empty on a running chain and their defaults
+    apply.
+crates:
+- name: sp-staking
+  bump: major
+- name: pallet-staking-async
+  bump: patch
+- name: pallet-staking-async-points-converter
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
