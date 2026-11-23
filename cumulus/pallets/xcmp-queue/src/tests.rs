@@ -1086,6 +1086,144 @@ fn xcmp_queue_send_too_big_xcm_fails() {
 	});
 }
 
+fn open_opaque_notification_test_channel(peer: ParaId, free_bytes: u32, msg_count: u32) {
+	ParachainSystem::open_custom_outbound_hrmp_channel_for_benchmarks_or_tests(
+		peer,
+		cumulus_primitives_core::AbridgedHrmpChannel {
+			max_capacity: 8,
+			max_total_size: 32,
+			max_message_size: 32,
+			msg_count,
+			total_size: 32 - free_bytes,
+			mqc_head: None,
+		},
+	);
+}
+
+const OPAQUE_NOTIFICATION_SENT: OutboundChannelFlags =
+	OutboundChannelFlags::CONCATENATED_OPAQUE_VERSIONED_XCM_NOTIFICATION_SENT;
+
+#[test]
+fn opaque_notification_waits_without_byte_capacity() {
+	new_test_ext().execute_with(|| {
+		let peer = ParaId::from(1000);
+		// A free message slot does not make a byte-full channel usable.
+		open_opaque_notification_test_channel(peer, 0, 1);
+		let status = <Test as Config>::ChannelInfo::get_channel_status(peer);
+		assert!(matches!(status, ChannelStatus::Ready(0, 32)));
+		assert_ok!(OutboundXcmpStatus::<Test>::try_append(OutboundChannelDetails::new(peer)));
+
+		let output = XcmpQueue::take_outbound_messages(1, &[]);
+		let flags = get_outbound_status(peer).expect("open channel remains").flags;
+		let sent = flags.contains(OPAQUE_NOTIFICATION_SENT);
+		assert!(output.is_empty(), "byte-full channel exported {output:?}, SENT = {sent}");
+		assert!(!sent);
+		assert!(flags.should_send_concatenated_opaque_versioned_xcm_notification());
+
+		open_opaque_notification_test_channel(peer, 32, 0);
+		assert_eq!(
+			XcmpQueue::take_outbound_messages(1, &[]),
+			vec![(peer, ConcatenatedOpaqueVersionedXcm.encode())],
+		);
+		let flags = get_outbound_status(peer).expect("open channel remains").flags;
+		assert!(flags.contains(OPAQUE_NOTIFICATION_SENT));
+		assert!(XcmpQueue::take_outbound_messages(1, &[]).is_empty());
+	});
+}
+
+#[test]
+fn opaque_notification_sends_on_exact_fit_only_once() {
+	new_test_ext().execute_with(|| {
+		let peer = ParaId::from(1000);
+		let notification = ConcatenatedOpaqueVersionedXcm.encode();
+		let exact_fit = notification.len();
+		// Unlike queued pages, the notification does not need spare bytes after export.
+		open_opaque_notification_test_channel(peer, exact_fit as u32, 1);
+		let status = <Test as Config>::ChannelInfo::get_channel_status(peer);
+		assert!(matches!(status, ChannelStatus::Ready(now, 32) if now == exact_fit));
+		assert_ok!(OutboundXcmpStatus::<Test>::try_append(OutboundChannelDetails::new(peer)));
+
+		assert_eq!(XcmpQueue::take_outbound_messages(1, &[]), vec![(peer, notification)]);
+		let flags = get_outbound_status(peer).expect("open channel remains").flags;
+		assert!(flags.contains(OPAQUE_NOTIFICATION_SENT));
+		assert!(!flags.should_send_concatenated_opaque_versioned_xcm_notification());
+
+		open_opaque_notification_test_channel(peer, 32, 0);
+		assert!(XcmpQueue::take_outbound_messages(1, &[]).is_empty());
+		let flags = get_outbound_status(peer).expect("open channel remains").flags;
+		assert!(flags.contains(OPAQUE_NOTIFICATION_SENT));
+		assert!(XcmpQueue::take_outbound_messages(1, &[]).is_empty());
+	});
+}
+
+#[test]
+fn opaque_notification_waits_when_message_slots_are_full() {
+	new_test_ext().execute_with(|| {
+		let peer = ParaId::from(1000);
+		// Spare bytes do not help when all message slots are occupied.
+		open_opaque_notification_test_channel(peer, 24, 8);
+		let status = <Test as Config>::ChannelInfo::get_channel_status(peer);
+		assert!(matches!(status, ChannelStatus::Full));
+		assert_ok!(OutboundXcmpStatus::<Test>::try_append(OutboundChannelDetails::new(peer)));
+
+		assert!(XcmpQueue::take_outbound_messages(1, &[]).is_empty());
+		let flags = get_outbound_status(peer).expect("open channel remains").flags;
+		assert!(!flags.contains(OPAQUE_NOTIFICATION_SENT));
+		assert!(flags.should_send_concatenated_opaque_versioned_xcm_notification());
+
+		open_opaque_notification_test_channel(peer, 32, 0);
+		assert_eq!(
+			XcmpQueue::take_outbound_messages(1, &[]),
+			vec![(peer, ConcatenatedOpaqueVersionedXcm.encode())],
+		);
+		let flags = get_outbound_status(peer).expect("open channel remains").flags;
+		assert!(flags.contains(OPAQUE_NOTIFICATION_SENT));
+		assert!(XcmpQueue::take_outbound_messages(1, &[]).is_empty());
+	});
+}
+
+#[test]
+fn opaque_notification_waits_when_queued_page_does_not_fit() {
+	new_test_ext().execute_with(|| {
+		let peer = ParaId::from(1000);
+		// Byte-full with free message slots: Ready(0, 32).
+		open_opaque_notification_test_channel(peer, 0, 1);
+
+		let page = generate_mock_xcm_page(0, 1, XcmEncoding::Simple);
+		let stored_page =
+			WeakBoundedVec::<_, <Test as Config>::MaxPageSize>::try_from(page.clone())
+				.expect("test page fits the storage bound");
+		OutboundXcmpMessages::<Test>::insert(peer, 0, stored_page);
+		OutboundXcmpStatus::<Test>::mutate(|statuses| {
+			let mut details = OutboundChannelDetails::new(peer);
+			details.last_index = 1;
+			details.queued_bytes = page.len() as u32;
+			statuses.try_push(details).expect("one channel fits");
+		});
+		let sent = OutboundChannelFlags::CONCATENATED_OPAQUE_VERSIONED_XCM_NOTIFICATION_SENT;
+
+		let output = XcmpQueue::take_outbound_messages(1, &[]);
+		assert!(output.is_empty(), "byte-full channel exported {output:?}");
+		let after = get_outbound_status(peer).expect("open channel remains");
+		assert!(!after.flags.contains(sent));
+		assert_eq!((after.first_index, after.last_index), (0, 1));
+		assert_eq!(after.queued_bytes, page.len() as u32);
+		assert_eq!(&OutboundXcmpMessages::<Test>::get(peer, 0)[..], page.as_slice());
+
+		// With capacity restored, the queued page must go first.
+		open_opaque_notification_test_channel(peer, 32, 0);
+		assert_eq!(XcmpQueue::take_outbound_messages(1, &[]), vec![(peer, page)]);
+		let after = get_outbound_status(peer).expect("open channel remains");
+		assert!(!after.flags.contains(sent));
+
+		assert_eq!(
+			XcmpQueue::take_outbound_messages(1, &[]),
+			vec![(peer, ConcatenatedOpaqueVersionedXcm.encode())],
+		);
+		assert!(XcmpQueue::take_outbound_messages(1, &[]).is_empty());
+	});
+}
+
 #[test]
 fn concatenated_opaque_version_xcm_negotiation_works() {
 	new_test_ext().execute_with(|| {
