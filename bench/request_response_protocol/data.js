@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795430435554,
+  "lastUpdate": 1795440486939,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -149687,6 +149687,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2840273660,
             "range": "± 57333030",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cfbe4ef1c1c32e0e4cdf22249e1071c495add15a",
+          "message": "statement-store: move the v2 DHT path to statement/3 (#13923)\n\n# Description\n\nA node with the v2 DHT flag now speaks statement/3 and falls back to\nstatement/2 and statement/1. A node without the flag does not change.\nThe messages of statement/3 are the messages of statement/2.\n\nUntil now both kinds of nodes shared statement/2, so a node waited ten\nseconds for the filter of a peer and guessed whether the peer ran the\nDHT path. Now the negotiated protocol says it at connect. A full peer\nthat falls back to statement/2 floods: it gets every statement at once\nand no filter. The ten second wait, the state of a peer assumed to want\neverything and the handling of a late filter are removed, and a flood\npeer stays out of the DHT index until its identify answer lists\nstatement/3.\n\nA statement/3 peer gets statements only after the filter of this node\nreaches it. If that one send at connect fails, the node logs a warning\nand the peer gets nothing until the local topics change. The ten second\nwait used to cover this case, but it needs the first notification on a\nfresh substream to fail, so it is left as it is.\n\nNo stable release has shipped the DHT path, so this is the last moment\nto split the protocols without supporting both layouts. statement/3 also\ngives a place for messages that only DHT nodes understand, the first\nbeing the hash announce of\nhttps://github.com/paritytech/polkadot-sdk/issues/12559.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/11938.\n\n**The name \"v2 DHT\" in the code, the flag and the metrics no longer fits\na path on statement/3. It stays here to keep the diff readable, and a\nseparate mechanical PR renames it.**\n\n## Integration\n\nNothing changes for a node without `--statement-v2-dht`. Nodes with the\nflag reach each other over the DHT only when both run this change, and\nflood to each other otherwise, so nothing is lost while a network\nupgrades.\n\nThe counters `substrate_sync_statement_peers_assumed_match_all_total`\nand `substrate_sync_statement_late_affinity_filters_total` are removed.",
+          "timestamp": "2026-11-23T11:26:39Z",
+          "tree_id": "28509883469b337081066da932568cc5ee50fcc8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cfbe4ef1c1c32e0e4cdf22249e1071c495add15a"
+        },
+        "date": 1795440454831,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20056794,
+            "range": "± 301090",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20587957,
+            "range": "± 239170",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22170214,
+            "range": "± 483627",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27239661,
+            "range": "± 420971",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 62392710,
+            "range": "± 970573",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 390207231,
+            "range": "± 11127640",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2758048492,
+            "range": "± 182388332",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17923731,
+            "range": "± 311774",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17921353,
+            "range": "± 138493",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18572788,
+            "range": "± 254150",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23011331,
+            "range": "± 207993",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63038758,
+            "range": "± 1077848",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 372004046,
+            "range": "± 2845216",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2833528358,
+            "range": "± 11911979",
             "unit": "ns/iter"
           }
         ]
