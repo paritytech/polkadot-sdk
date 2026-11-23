@@ -47,9 +47,9 @@ const LOG_TARGET: &str = "rpc-spec-v2::bitswap";
 /// worst-case response at ≤128 MiB (64 × 2 MiB/chunk). Spec only requires ≥16.
 pub const MAX_CIDS_PER_REQUEST: usize = 64;
 
-/// Bound quadratic base58 decoding work. Base32 CIDs with the supported 32-byte digests
-/// fit well below this limit.
-const MAX_ENCODED_CID_LEN: usize = 256;
+/// Bound quadratic base58 decoding work. A CIDv1 with a supported 32-byte digest fits
+/// even in base2, which uses eight characters per byte.
+const MAX_ENCODED_CID_LEN: usize = 512;
 
 /// Bitswap RPC implementation.
 pub struct Bitswap<Block, Client> {
