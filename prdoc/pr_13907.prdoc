@@ -3,6 +3,9 @@ doc:
 - audience: Runtime Dev
   description: |-
     Emits `UMPSignal::Provides` from SPMS header digests and synthesizes `UMPSignal::Requires` in `validate_block` via `Config::ConsumptionRecordSource` and `ParachainBlockData::V3`.
+    Signed scheduling overrides now reject duplicate scheduling signals. Collators skip candidates whose signals fail validation.
+    Candidates keep the runtime's scheduling-signal order.
+    Well-formed signals from the standard pallet produce the same bytes on submission and resubmission as before.
     Every `cumulus_pallet_parachain_system::Config` must set `ConsumptionRecordSource`. Use `()` to disable V3 PoVs.
     Upgrade parachain nodes to support V3 PoV recovery before enabling the format.
     Before the parachain emits either signal, deploy validator nodes that decode `Provides` and `Requires` and the relay runtime that checks `Requires` (#13906), then collators that append `Provides` and supply lifts in V3 PoVs.

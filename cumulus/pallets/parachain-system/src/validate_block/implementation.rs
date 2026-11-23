@@ -25,8 +25,8 @@ use cumulus_primitives_core::{
 		BlockNumber as RNumber, Hash as RHash, Header as RelayChainHeader, MAX_HEAD_DATA_SIZE,
 	},
 	signals::{split_at_separator, ump_signal_tail},
-	CumulusDigestItem, ParachainBlockData, PersistedValidationData, SchedulingSignals,
-	SignedSchedulingInfo, SpecMessagingSignals, VerifySchedulingSignature,
+	CumulusDigestItem, ParachainBlockData, PersistedValidationData, SignedSchedulingInfo,
+	VerifySchedulingSignature,
 };
 use cumulus_primitives_spec_messaging::ProvideConsumptionRecord;
 use frame_support::{
@@ -364,22 +364,16 @@ where
 		}
 	}
 
-	let scheduling_signals = match scheduling_override_inputs.as_ref() {
-		Some((signed_info, _)) => SchedulingSignals::from_scheduling_info(signed_info),
-		None => SchedulingSignals::from_block_signals(&upward_message_signals),
-	};
-
-	// On both paths: emit the digests' `Provides` and synthesize `Requires`; any failure
-	// invalidates.
-	let spec_msg_signals = SpecMessagingSignals::build(
-		provides,
+	let tail = ump_signal_tail(
 		&upward_message_signals,
+		scheduling_override_inputs.as_ref().map(|(signed, _)| signed),
+		provides,
 		&consumption_records,
 		lifts.as_ref(),
 	)
-	.unwrap_or_else(|error| panic!("{}", error));
+	.unwrap_or_else(|error| panic!("{error}"));
 
-	for message in ump_signal_tail(scheduling_signals, spec_msg_signals) {
+	for message in tail {
 		upward_messages
 			.try_push(message)
 			.expect("UMPSignals does not fit in UMPMessages");

@@ -46,10 +46,9 @@ pub use polkadot_primitives::{
 	PersistedValidationData,
 };
 pub use scheduling::{
-	SchedulingInfoPayload, SchedulingProof, SchedulingSignals, SignedSchedulingInfo,
-	VerifySchedulingSignature,
+	SchedulingInfoPayload, SchedulingProof, SignedSchedulingInfo, VerifySchedulingSignature,
 };
-pub use signals::{bundle_provides, SpecMessagingError, SpecMessagingSignals};
+pub use signals::bundle_provides;
 pub use sp_runtime::{
 	generic::{Digest, DigestItem},
 	traits::Block as BlockT,

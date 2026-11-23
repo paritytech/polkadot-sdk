@@ -15,21 +15,15 @@
 // limitations under the License.
 
 //! Upward message signals in a parachain candidate.
-//!
-//! Each block that touched a stream deposits its `StreamsRoot` as an
-//! SPMS header digest, and the bundle's last one is its `Provides` ([`bundle_provides`]).
-//! [`SpecMessagingSignals::build`] synthesizes `Requires` from the consumption records and the PoV
-//! lifts. The PVF assembles the tail with [`ump_signal_tail`] and panics on a
-//! [`SpecMessagingError`]; the collator forwards the blocks' signals unchecked.
 
-use crate::scheduling::SchedulingSignals;
+use crate::{scheduling::SchedulingSignals, SignedSchedulingInfo};
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::Encode;
 use cumulus_primitives_spec_messaging::{
 	build_requires, streams_root::read_streams_root, ConsumptionRecord, LiftError, LiftsBySource,
 	StreamsRoot,
 };
-use polkadot_primitives::{RequiresSet, UMPSignal, UMP_SEPARATOR};
+use polkadot_primitives::{UMPSignal, UMP_SEPARATOR};
 use sp_runtime::Digest;
 
 /// Split upward messages at the first `UMP_SEPARATOR`. Drop later separators so they never
@@ -41,21 +35,31 @@ pub fn split_at_separator(messages: Vec<Vec<u8>>) -> (Vec<Vec<u8>>, Vec<Vec<u8>>
 	(messages, signals)
 }
 
-/// Why the speculative-messaging part of a candidate's tail cannot be built.
+/// Why the candidate's UMP signal tail cannot be built.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum SpecMessagingError {
+pub enum SignalError {
 	/// A block emitted bytes that do not decode as a `UMPSignal`.
 	UndecodableSignal,
+	/// More than one block signal selects a core.
+	DuplicateSelectCore,
+	/// More than one block signal names an approved peer.
+	DuplicateApprovedPeer,
 	/// A block emitted `Provides` or `Requires`, which only the tail assembly may produce.
 	BlockEmittedSpecMsgSignal,
 	/// The consumption records and the lifts do not synthesize a `Requires`.
 	RequiresSynthesis(LiftError),
 }
 
-impl core::fmt::Display for SpecMessagingError {
+impl core::fmt::Display for SignalError {
 	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		match self {
 			Self::UndecodableSignal => write!(f, "Failed to decode `UMPSignal`"),
+			Self::DuplicateSelectCore => {
+				write!(f, "Parachain emitted more than one `SelectCore` UMP signal")
+			},
+			Self::DuplicateApprovedPeer => {
+				write!(f, "Parachain emitted more than one `ApprovedPeer` UMP signal")
+			},
 			Self::BlockEmittedSpecMsgSignal => {
 				write!(f, "Parachain block emitted a speculative-messaging UMP signal")
 			},
@@ -66,86 +70,39 @@ impl core::fmt::Display for SpecMessagingError {
 	}
 }
 
-/// The speculative-messaging part of a candidate's UMP signal tail.
-#[derive(Debug, Default, PartialEq, Eq)]
-pub struct SpecMessagingSignals {
-	provides: Option<StreamsRoot>,
-	requires: Option<RequiresSet>,
-}
-
-impl SpecMessagingSignals {
-	/// Pair the bundle's `provides` ([`bundle_provides`]) with `Requires` synthesized from the
-	/// bundle-ordered consumption records and the PoV-carried lifts. `raw` are the blocks' encoded
-	/// `UMPSignal`s.
-	pub fn build(
-		provides: Option<StreamsRoot>,
-		raw: &[Vec<u8>],
-		records: &[ConsumptionRecord],
-		lifts: Option<&LiftsBySource>,
-	) -> Result<Self, SpecMessagingError> {
-		reject_block_signals(raw)?;
-
-		let no_lifts = LiftsBySource::default();
-		let requires = build_requires(records, lifts.unwrap_or(&no_lifts))
-			.map_err(SpecMessagingError::RequiresSynthesis)?;
-
-		Ok(Self { provides, requires })
-	}
-
-	/// Whether there is nothing to emit.
-	pub fn is_empty(&self) -> bool {
-		self.provides.is_none() && self.requires.is_none()
-	}
-
-	/// The encoded signals, `Provides` then `Requires`, without a `UMP_SEPARATOR`.
-	pub fn into_ump_messages(self) -> Vec<Vec<u8>> {
-		let mut messages = Vec::with_capacity(2);
-		if let Some(root) = self.provides {
-			messages.push(UMPSignal::Provides(root).encode());
-		}
-		if let Some(requires) = self.requires {
-			messages.push(UMPSignal::Requires(requires).encode());
-		}
-		messages
-	}
-}
-
-/// The candidate's complete UMP signal tail. Empty, not even a separator, when there are no
-/// signals, since the relay decoder keys off the first `UMP_SEPARATOR`.
+/// Build the candidate's UMP tail from the blocks' scheduling signals in order, followed by
+/// `Provides` and `Requires`. A signed override supplies both scheduling values in pallet order
+/// unless the blocks emitted both. An empty tail omits the separator because the relay decoder
+/// reads signals after the first `UMP_SEPARATOR`.
 pub fn ump_signal_tail(
-	scheduling: SchedulingSignals,
-	spec_messaging: SpecMessagingSignals,
-) -> Vec<Vec<u8>> {
-	// `into_ump_messages` already starts with the separator unless the scheduling part is empty.
+	raw: &[Vec<u8>],
+	signed: Option<&SignedSchedulingInfo>,
+	provides: Option<StreamsRoot>,
+	records: &[ConsumptionRecord],
+	lifts: Option<&LiftsBySource>,
+) -> Result<Vec<Vec<u8>>, SignalError> {
+	let scheduling = SchedulingSignals::for_candidate(raw, signed)?;
+	let no_lifts = LiftsBySource::default();
+	let requires = build_requires(records, lifts.unwrap_or(&no_lifts))
+		.map_err(SignalError::RequiresSynthesis)?;
+
 	let mut tail = scheduling.into_ump_messages();
-	if tail.is_empty() && !spec_messaging.is_empty() {
+	if tail.is_empty() && (provides.is_some() || requires.is_some()) {
 		tail.push(UMP_SEPARATOR);
 	}
-	tail.extend(spec_messaging.into_ump_messages());
-	tail
+	if let Some(root) = provides {
+		tail.push(UMPSignal::Provides(root).encode());
+	}
+	if let Some(requires) = requires {
+		tail.push(UMPSignal::Requires(requires).encode());
+	}
+	Ok(tail)
 }
 
 /// The bundle's `Provides`: the last `StreamsRoot` digest among its blocks' headers, in bundle
 /// order. `None` if no block touched a stream.
 pub fn bundle_provides<'a>(digests: impl IntoIterator<Item = &'a Digest>) -> Option<StreamsRoot> {
 	digests.into_iter().filter_map(read_streams_root).last()
-}
-
-/// Blocks emit only scheduling signals. Runs on every candidate, unlike the scheduling parse an
-/// override skips.
-fn reject_block_signals(raw: &[Vec<u8>]) -> Result<(), SpecMessagingError> {
-	for bytes in raw {
-		match UMPSignal::decode(&mut &bytes[..])
-			.map_err(|_| SpecMessagingError::UndecodableSignal)?
-		{
-			UMPSignal::Provides(_) | UMPSignal::Requires(_) => {
-				return Err(SpecMessagingError::BlockEmittedSpecMsgSignal)
-			},
-			// Scheduling signals belong to `SchedulingSignals`.
-			UMPSignal::SelectCore(..) | UMPSignal::ApprovedPeer(..) => {},
-		}
-	}
-	Ok(())
 }
 
 #[cfg(test)]
@@ -156,7 +113,9 @@ mod tests {
 		streams_root::{gen_stream_proof, streams_root},
 		Interval, MmrExtensionProof, MmrFrontier, MmrRoot, RequiresLift, StreamId, SPMS_ENGINE_ID,
 	};
-	use polkadot_primitives::{ClaimQueueOffset, CoreSelector, Hash as RHash, Id as ParaId};
+	use polkadot_primitives::{
+		ApprovedPeerId, ClaimQueueOffset, CoreSelector, Hash as RHash, Id as ParaId, RequiresSet,
+	};
 	use sp_runtime::DigestItem;
 
 	#[test]
@@ -233,38 +192,84 @@ mod tests {
 		assert_eq!(bundle_provides([&sent, &digest(&[root(4), root(5)])]), Some(root(1)));
 	}
 
+	fn peer(byte: u8) -> ApprovedPeerId {
+		vec![byte; 4].try_into().expect("four bytes fit in a peer ID; qed")
+	}
+
+	fn signed() -> SignedSchedulingInfo {
+		SignedSchedulingInfo {
+			payload: crate::SchedulingInfoPayload::new(
+				CoreSelector(5),
+				1,
+				peer(2),
+				Default::default(),
+			),
+			signature: [0; 64],
+		}
+	}
+
 	#[test]
-	fn block_emitted_provides_is_rejected() {
-		let raw = vec![select_core().encode(), UMPSignal::Provides(root(2)).encode()];
+	fn scheduling_order_is_preserved_with_or_without_an_override() {
+		let core = select_core().encode();
+		let peer_signal = UMPSignal::ApprovedPeer(peer(1)).encode();
+		let signed = signed();
+		let signed_core = UMPSignal::SelectCore(CoreSelector(5), ClaimQueueOffset(1)).encode();
+		let signed_peer = UMPSignal::ApprovedPeer(peer(2)).encode();
+		let provides = UMPSignal::Provides(root(3)).encode();
+		for (raw, replacement) in [
+			([core.clone(), peer_signal.clone()], [signed_core.clone(), signed_peer.clone()]),
+			([peer_signal, core], [signed_peer, signed_core]),
+		] {
+			for (info, expected) in [(None, &raw), (Some(&signed), &replacement)] {
+				assert_eq!(
+					ump_signal_tail(&raw, info, Some(root(3)), &[], None).unwrap(),
+					vec![UMP_SEPARATOR, expected[0].clone(), expected[1].clone(), provides.clone()]
+				);
+			}
+		}
+	}
+
+	#[test]
+	fn partial_or_empty_scheduling_signals_get_the_full_signed_pair() {
+		let clean = UMPSignal::ApprovedPeer(peer(1)).encode();
+		let mut padded = clean.clone();
+		padded.push(0xff);
 		assert_eq!(
-			SpecMessagingSignals::build(None, &raw, &[], None),
-			Err(SpecMessagingError::BlockEmittedSpecMsgSignal)
+			ump_signal_tail(&[padded.clone()], None, None, &[], None).unwrap(),
+			vec![UMP_SEPARATOR, clean]
 		);
+		for raw in [vec![padded], vec![select_core().encode()], vec![]] {
+			assert_eq!(
+				ump_signal_tail(&raw, Some(&signed()), None, &[], None).unwrap(),
+				vec![
+					UMP_SEPARATOR,
+					UMPSignal::SelectCore(CoreSelector(5), ClaimQueueOffset(1)).encode(),
+					UMPSignal::ApprovedPeer(peer(2)).encode(),
+				]
+			);
+		}
+	}
+
+	#[test]
+	fn both_paths_reject_invalid_block_signals() {
+		let requires = RequiresSet::try_from_iter([(ParaId::from(1), root(1))]).unwrap();
+		let peer_signal = UMPSignal::ApprovedPeer(peer(1)).encode();
+		for (raw, error) in [
+			(vec![select_core().encode(); 2], SignalError::DuplicateSelectCore),
+			(vec![peer_signal; 2], SignalError::DuplicateApprovedPeer),
+			(vec![UMPSignal::Provides(root(2)).encode()], SignalError::BlockEmittedSpecMsgSignal),
+			(vec![UMPSignal::Requires(requires).encode()], SignalError::BlockEmittedSpecMsgSignal),
+			(vec![vec![0xff]], SignalError::UndecodableSignal),
+		] {
+			for signed in [None, Some(&signed())] {
+				assert_eq!(ump_signal_tail(&raw, signed, None, &[], None), Err(error));
+			}
+		}
 	}
 
 	#[test]
 	fn all_idle_bundle_emits_nothing() {
-		let signals = SpecMessagingSignals::build(None, &[], &[], None).unwrap();
-		assert!(signals.is_empty());
-		assert!(ump_signal_tail(SchedulingSignals::default(), signals).is_empty());
-	}
-
-	#[test]
-	fn block_emitted_requires_is_rejected() {
-		let requires = RequiresSet::try_from_iter([(ParaId::from(1), root(1))]).unwrap();
-		let raw = vec![UMPSignal::Requires(requires).encode()];
-		assert_eq!(
-			SpecMessagingSignals::build(None, &raw, &[], None),
-			Err(SpecMessagingError::BlockEmittedSpecMsgSignal)
-		);
-	}
-
-	#[test]
-	fn undecodable_signal_is_rejected() {
-		assert_eq!(
-			SpecMessagingSignals::build(None, &[vec![0xff]], &[], None),
-			Err(SpecMessagingError::UndecodableSignal)
-		);
+		assert!(ump_signal_tail(&[], None, None, &[], None).unwrap().is_empty());
 	}
 
 	#[test]
@@ -273,8 +278,8 @@ mod tests {
 		let stream = StreamId::Channel { recipient: 2001.into(), domain: 0, num: 0 };
 		let (record, _, _) = source_fixture(2000.into(), stream, 5);
 		assert!(matches!(
-			SpecMessagingSignals::build(None, &[], &[record], None),
-			Err(SpecMessagingError::RequiresSynthesis(_))
+			ump_signal_tail(&[], None, None, &[record], None),
+			Err(SignalError::RequiresSynthesis(_))
 		));
 	}
 
@@ -286,13 +291,9 @@ mod tests {
 		let source = ParaId::from(2000);
 		let (record, lifts, committed) = source_fixture(source, stream, 5);
 
-		let signals =
-			SpecMessagingSignals::build(Some(root(9)), &[], &[record], Some(&lifts)).unwrap();
-
 		let expected = RequiresSet::try_from_iter([(source, committed)]).unwrap();
-		assert_eq!(signals.requires, Some(expected.clone()));
 		assert_eq!(
-			ump_signal_tail(SchedulingSignals::default(), signals),
+			ump_signal_tail(&[], None, Some(root(9)), &[record], Some(&lifts)).unwrap(),
 			vec![
 				UMP_SEPARATOR,
 				UMPSignal::Provides(root(9)).encode(),
@@ -306,10 +307,7 @@ mod tests {
 		// Scheduling and spec-messaging parts together: one separator, then `SelectCore`,
 		// `Provides`.
 		let raw = vec![select_core().encode()];
-		let tail = ump_signal_tail(
-			SchedulingSignals::from_block_signals(&raw),
-			SpecMessagingSignals::build(Some(root(4)), &raw, &[], None).unwrap(),
-		);
+		let tail = ump_signal_tail(&raw, None, Some(root(4)), &[], None).unwrap();
 		assert_eq!(
 			tail,
 			vec![UMP_SEPARATOR, select_core().encode(), UMPSignal::Provides(root(4)).encode()]
@@ -320,10 +318,10 @@ mod tests {
 	fn error_messages_are_stable() {
 		// `validate_block` panics with these; tests and operators match on them.
 		assert_eq!(
-			SpecMessagingError::BlockEmittedSpecMsgSignal.to_string(),
+			SignalError::BlockEmittedSpecMsgSignal.to_string(),
 			"Parachain block emitted a speculative-messaging UMP signal"
 		);
-		assert!(SpecMessagingError::RequiresSynthesis(LiftError::LiftCountMismatch)
+		assert!(SignalError::RequiresSynthesis(LiftError::LiftCountMismatch)
 			.to_string()
 			.starts_with("Speculative Messaging `Requires` synthesis failed"));
 	}

@@ -15,6 +15,7 @@
 //! `signed_scheduling_info` proving it is the eligible author for the slot at
 //! `internal_scheduling_parent`.
 
+use crate::signals::SignalError;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use polkadot_primitives::{
@@ -67,51 +68,49 @@ impl SchedulingInfoPayload {
 	}
 }
 
-/// The scheduling-signal tail (`SelectCore`/`ApprovedPeer`) a candidate emits after the first
-/// `UMP_SEPARATOR`.
-///
-/// Single source of truth shared by the collator and the PVF (`validate_block`) so their tails
-/// can't drift. The relay decoder (`CandidateCommitments::ump_signals`) rejects a repeated variant
-/// or more than `MAX_UMP_SIGNALS` signals, and parses only the run after the first
-/// `UMP_SEPARATOR`.
+/// The scheduling signals in a candidate's UMP tail, in emission order.
 #[derive(Debug, Default, PartialEq, Eq)]
-pub struct SchedulingSignals {
+pub(crate) struct SchedulingSignals {
 	select_core: Option<(CoreSelector, ClaimQueueOffset)>,
 	approved_peer: Option<ApprovedPeerId>,
+	peer_before_core: bool,
 }
 
 impl SchedulingSignals {
-	/// Parse the encoded `UMPSignal`s a PoV's blocks emitted after the in-block `UMP_SEPARATOR`.
-	///
-	/// Panics on a repeated variant even when the values match: the relay decoder counts
-	/// occurrences, not distinct values, so a duplicate is a bug regardless.
-	pub fn from_block_signals(raw: &[Vec<u8>]) -> Self {
+	pub(crate) fn for_candidate(
+		raw: &[Vec<u8>],
+		signed: Option<&SignedSchedulingInfo>,
+	) -> Result<Self, SignalError> {
 		let mut signals = Self::default();
 		for bytes in raw {
-			// Exhaustive on purpose (no `_`): a new `UMPSignal` variant must fail to compile
-			// here, forcing a deliberate decision rather than being silently dropped.
-			match UMPSignal::decode(&mut &bytes[..]).expect("Failed to decode `UMPSignal`") {
+			match UMPSignal::decode(&mut &bytes[..]).map_err(|_| SignalError::UndecodableSignal)? {
 				UMPSignal::SelectCore(selector, offset) => {
 					if signals.select_core.replace((selector, offset)).is_some() {
-						panic!("Parachain emitted more than one `SelectCore` UMP signal");
+						return Err(SignalError::DuplicateSelectCore);
+					}
+					signals.peer_before_core = signals.approved_peer.is_some();
+				},
+				UMPSignal::ApprovedPeer(peer) => {
+					if signals.approved_peer.replace(peer).is_some() {
+						return Err(SignalError::DuplicateApprovedPeer);
 					}
 				},
-				UMPSignal::ApprovedPeer(peer_id) => {
-					if signals.approved_peer.replace(peer_id).is_some() {
-						panic!("Parachain emitted more than one `ApprovedPeer` UMP signal");
-					}
+				UMPSignal::Requires(_) | UMPSignal::Provides(_) => {
+					return Err(SignalError::BlockEmittedSpecMsgSignal);
 				},
-				// Blocks don't emit these; `SpecMessagingSignals::build` rejects them.
-				UMPSignal::Provides(_) | UMPSignal::Requires(_) => {},
 			}
 		}
-		signals
+		if let Some(signed) = signed {
+			signals = Self {
+				peer_before_core: signals.peer_before_core,
+				..Self::from_scheduling_info(signed)
+			};
+		}
+		Ok(signals)
 	}
 
-	/// Build the tail from a verified `SignedSchedulingInfo`, replacing the block's *scheduling*
-	/// signals wholesale. Classify each new `UMPSignal` in
-	/// `every_ump_signal_is_classified`.
-	pub fn from_scheduling_info(signed_info: &SignedSchedulingInfo) -> Self {
+	/// Build the scheduling pair for a resubmission with no block-specified order.
+	fn from_scheduling_info(signed_info: &SignedSchedulingInfo) -> Self {
 		let payload = &signed_info.payload;
 		Self {
 			select_core: Some((
@@ -119,6 +118,7 @@ impl SchedulingSignals {
 				ClaimQueueOffset(payload.claim_queue_offset),
 			)),
 			approved_peer: Some(payload.peer_id.clone()),
+			peer_before_core: false,
 		}
 	}
 
@@ -126,11 +126,8 @@ impl SchedulingSignals {
 		self.select_core.is_none() && self.approved_peer.is_none()
 	}
 
-	/// The encoded UMP messages for this tail: empty when there are no signals, otherwise
-	/// `[UMP_SEPARATOR, SelectCore?, ApprovedPeer?]`. Order is `SelectCore` then `ApprovedPeer`,
-	/// matching `pallet_parachain_system::send_ump_signals`. Nothing — not even the separator — is
-	/// emitted when empty, since the relay decoder keys off the first `UMP_SEPARATOR`.
-	pub fn into_ump_messages(self) -> Vec<Vec<u8>> {
+	/// Emit the scheduling signals with a leading separator when present.
+	pub(crate) fn into_ump_messages(self) -> Vec<Vec<u8>> {
 		if self.is_empty() {
 			return Vec::new();
 		}
@@ -141,6 +138,9 @@ impl SchedulingSignals {
 		}
 		if let Some(peer_id) = self.approved_peer {
 			messages.push(UMPSignal::ApprovedPeer(peer_id).encode());
+		}
+		if self.peer_before_core {
+			messages[1..].reverse();
 		}
 		messages
 	}
@@ -221,7 +221,7 @@ mod tests {
 	use alloc::vec;
 	use codec::Encode;
 	use polkadot_primitives::{
-		ApprovedPeerId, ClaimQueueOffset, CoreSelector, Hash, StreamsRoot, UMPSignal, UMP_SEPARATOR,
+		ApprovedPeerId, ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR,
 	};
 
 	fn peer(byte: u8) -> ApprovedPeerId {
@@ -242,75 +242,6 @@ mod tests {
 			),
 			signature: [0u8; 64],
 		}
-	}
-
-	#[test]
-	fn from_block_signals_roundtrips_select_core_and_approved_peer() {
-		// Both signals present: parsed, then emitted as [SEPARATOR, SelectCore, ApprovedPeer] in
-		// that exact order.
-		let raw = vec![
-			UMPSignal::SelectCore(CoreSelector(7), ClaimQueueOffset(1)).encode(),
-			UMPSignal::ApprovedPeer(peer(0xAA)).encode(),
-		];
-		assert_eq!(
-			SchedulingSignals::from_block_signals(&raw).into_ump_messages(),
-			vec![
-				UMP_SEPARATOR,
-				UMPSignal::SelectCore(CoreSelector(7), ClaimQueueOffset(1)).encode(),
-				UMPSignal::ApprovedPeer(peer(0xAA)).encode(),
-			]
-		);
-	}
-
-	#[test]
-	fn from_block_signals_select_core_only() {
-		// Block emitted only a `SelectCore`: no `ApprovedPeer`, one signal emitted.
-		let raw = vec![UMPSignal::SelectCore(CoreSelector(3), ClaimQueueOffset(0)).encode()];
-		assert_eq!(
-			SchedulingSignals::from_block_signals(&raw).into_ump_messages(),
-			vec![
-				UMP_SEPARATOR,
-				UMPSignal::SelectCore(CoreSelector(3), ClaimQueueOffset(0)).encode()
-			]
-		);
-	}
-
-	#[test]
-	#[should_panic(expected = "more than one `SelectCore`")]
-	fn from_block_signals_panics_on_duplicate_select_core_same_value() {
-		// Two identical `SelectCore` signals: still an error. The relay decoder counts
-		// occurrences, not distinct values, so matching duplicates would be rejected too.
-		let raw = vec![
-			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode(),
-			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode(),
-		];
-		let _ = SchedulingSignals::from_block_signals(&raw);
-	}
-
-	#[test]
-	#[should_panic(expected = "more than one `SelectCore`")]
-	fn from_block_signals_panics_on_duplicate_select_core_different_value() {
-		let raw = vec![
-			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode(),
-			UMPSignal::SelectCore(CoreSelector(2), ClaimQueueOffset(0)).encode(),
-		];
-		let _ = SchedulingSignals::from_block_signals(&raw);
-	}
-
-	#[test]
-	#[should_panic(expected = "more than one `ApprovedPeer`")]
-	fn from_block_signals_panics_on_duplicate_approved_peer() {
-		let raw = vec![
-			UMPSignal::ApprovedPeer(peer(0xAA)).encode(),
-			UMPSignal::ApprovedPeer(peer(0xBB)).encode(),
-		];
-		let _ = SchedulingSignals::from_block_signals(&raw);
-	}
-
-	#[test]
-	fn from_block_signals_empty_emits_nothing() {
-		// No signals in, nothing out — not even a separator.
-		assert!(SchedulingSignals::from_block_signals(&[]).into_ump_messages().is_empty());
 	}
 
 	#[test]
@@ -345,65 +276,10 @@ mod tests {
 	}
 
 	#[test]
-	fn override_matches_block_signals_when_values_agree() {
-		// Given the same core info and peer id, the override emits the block's own tail byte for
-		// byte. Resubmissions rely on this: the collator rebuilds the commitments from the signed
-		// payload, and the PVF's override must land on identical bytes to pass the commitments
-		// check at backing.
-		let selector = CoreSelector(7);
-		let offset = ClaimQueueOffset(3);
-		let peer_id = peer(0xAA);
-
-		let from_block = SchedulingSignals::from_block_signals(&[
-			UMPSignal::SelectCore(selector, offset).encode(),
-			UMPSignal::ApprovedPeer(peer_id.clone()).encode(),
-		])
-		.into_ump_messages();
-
-		let from_signed =
-			SchedulingSignals::from_scheduling_info(&signed_with(selector, offset.0, peer_id))
-				.into_ump_messages();
-
-		assert_eq!(from_block, from_signed);
-	}
-
-	#[test]
 	fn from_scheduling_info_emits_even_when_block_emitted_nothing() {
 		// The override is authoritative and independent of what the block emitted: a resubmission
 		// always produces its tail.
 		let signed = signed_with(CoreSelector(0), 0, peer(0xCC));
 		assert!(!SchedulingSignals::from_scheduling_info(&signed).into_ump_messages().is_empty());
-	}
-
-	#[test]
-	fn an_override_keeps_the_bundles_provides() {
-		// A resubmission replaces only the scheduling signals; `Provides` comes from the digests.
-		use crate::signals::{ump_signal_tail, SpecMessagingSignals};
-		let root = StreamsRoot(Hash::repeat_byte(4));
-		let raw = vec![UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode()];
-		let signed = signed_with(CoreSelector(1), 1, peer(0xCC));
-
-		let tail = ump_signal_tail(
-			SchedulingSignals::from_scheduling_info(&signed),
-			SpecMessagingSignals::build(Some(root), &raw, &[], None).unwrap(),
-		);
-		let mut expected = SchedulingSignals::from_scheduling_info(&signed).into_ump_messages();
-		expected.push(UMPSignal::Provides(root).encode());
-		assert_eq!(tail, expected);
-	}
-
-	/// Stops compiling when a `UMPSignal` variant is added. Then decide whether it must survive
-	/// [`SchedulingSignals::from_scheduling_info`], which keeps only scheduling signals.
-	#[test]
-	fn every_ump_signal_is_classified() {
-		fn classify(signal: UMPSignal) {
-			match signal {
-				UMPSignal::SelectCore(..) | UMPSignal::ApprovedPeer(..) => {},
-				// Not scheduling signals: `validate_block` builds them in its own pass on both
-				// paths, so the override dropping them here is intended.
-				UMPSignal::Provides(..) | UMPSignal::Requires(..) => {},
-			}
-		}
-		let _ = classify;
 	}
 }
