@@ -80,6 +80,12 @@ fn generate_mock_xcm_page(
 	data
 }
 
+fn get_outbound_status(recipient: ParaId) -> Option<OutboundChannelDetails> {
+	<OutboundXcmpStatus<Test>>::get()
+		.into_iter()
+		.find(|item| item.recipient == recipient)
+}
+
 #[test]
 fn handling_signals_works() {
 	new_test_ext().execute_with(|| {
