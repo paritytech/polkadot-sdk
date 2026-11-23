@@ -13,37 +13,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Converts reported units of a validator service into era points, intended to be used in Asset
-//! Hub.
-//!
-//! Receives the blocks validators author on system chains and on the chain that runs this pallet.
+//! Converts the units of a validator service reported by a chain into era points, intended to be
+//! used in Asset Hub.
 //!
 //! ## Overview
 //!
-//! Each system chain counts the blocks its authors produce in `pallet-validator-collators` and
-//! reports the counts of the validators. Other chains call [`Pallet::report_authored_blocks`]
-//! from [`Config::ReportOrigin`], which names the reporting chain as a [`Config::Source`]. The
-//! chain that runs this pallet credits its own counts through [`Pallet::credit_authored_blocks`].
-//! A credited count becomes `count × PointsPerService[(source, Collation)]` era points, handed to
-//! [`Config::RewardPoints`] as [`sp_staking::ServiceKind::Collation`] points. A source without an
-//! entry for [`sp_staking::ServiceKind::Collation`] in [`PointsPerService`] earns nothing.
-//! Governance sets the entries through [`Config::PointsOrigin`]. Relay chain consensus points are
-//! not converted here.
+//! Each service has its own unit. A chain reports, per validator, the units of a service the
+//! validator delivered there. A credited count becomes
+//! `count × PointsPerService[(source, service)]` era points, handed to [`Config::RewardPoints`] as
+//! points of that service. A source without an entry for the service in [`PointsPerService`]
+//! earns nothing. Governance sets the entries through [`Config::PointsOrigin`]. Relay chain
+//! consensus points are not converted here.
+//!
+//! Collation is the only service converted. Its unit is one block authored. Each system chain
+//! counts the blocks its authors produce in `pallet-validator-collators`. The chain that runs this
+//! pallet credits its own counts through [`Pallet::credit_authored_blocks`]. Other chains call
+//! [`Pallet::report_authored_blocks`] from [`Config::ReportOrigin`], which names the reporting
+//! chain as a [`Config::Source`].
 //!
 //! For example, with `PointsPerService[(source, Collation)] = 10` for a reporting chain, a report
-//! from that chain of 40 units (blocks authored, for
-//! [`sp_staking::ServiceKind::Collation`]) for an account credits it 400 era points.
+//! from that chain of 40 blocks for an account credits it 400 era points.
 //!
 //! ## Limits
 //!
-//! Each count is first clamped to [`Config::MaxBlocksPerEntry`]. A source is then credited at
-//! most [`UnitsPerEraLimit`] units of a service per era, and [`CreditedUnits`] tracks what it was
-//! credited in the active era. When a report asks for more than what is left, every entry is cut
-//! by the same ratio, rounded down. Units that are not credited are dropped and reported in
-//! [`Event::UnitsOverLimit`]. Governance sets the limits through [`Config::PointsOrigin`].
+//! A source is credited at most [`UnitsPerEraLimit`] units of a service per era, and
+//! [`CreditedUnits`] tracks what it was credited in the active era. When a report asks for more
+//! than what is left, every entry is cut by the same ratio, rounded down. Units that are not
+//! credited are dropped and reported in [`Event::UnitsOverLimit`]. Governance sets the limits
+//! through [`Config::PointsOrigin`]. For collation, each count is first clamped to
+//! [`Config::MaxBlocksPerEntry`], and the clamped counts are what the limit applies to.
 //!
-//! For example, with 80 units left in the era, a report of 50 blocks for each of three accounts
-//! asks for 150. Each account is credited `50 × 80 / 150 = 26` blocks and 72 blocks are over the
+//! For example, with 80 units left in the era, a report of 50 units for each of three accounts
+//! asks for 150. Each account is credited `50 × 80 / 150 = 26` units and 72 units are over the
 //! limit.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -77,7 +78,7 @@ pub mod pallet {
 	/// Configuration trait of this pallet.
 	#[pallet::config]
 	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
-		/// Identifies a chain whose blocks earn era points.
+		/// Identifies a chain whose reported units earn era points.
 		type Source: Parameter + MaxEncodedLen + Ord + Copy + MaybeSerializeDeserialize;
 
 		/// Origin of a chain allowed to report the blocks authored on it. Returns that chain.
@@ -310,35 +311,47 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Credit `blocks` authored on `source` as era points in the active era, with the points
-		/// per service of `source` for [`ServiceKind::Collation`].
-		///
-		/// Each count is clamped to [`Config::MaxBlocksPerEntry`]. If the clamped counts exceed
-		/// what is left of the limit of `source` in [`UnitsPerEraLimit`] for the active era, every
-		/// count is cut by the same ratio, rounded down. The outcome is one of:
-		/// - nothing is credited when `blocks` is empty, with no event.
-		/// - nothing is credited when `source` earns no points or no era is active, with
-		///   [`Event::UnitsIgnored`]. The limit of `source` is not used.
-		/// - otherwise, entries credited at least one block are handed to [`Config::RewardPoints`]
-		///   with [`Event::UnitsCredited`], and blocks not credited are reported in
-		///   [`Event::UnitsOverLimit`].
+		/// Credit `blocks` authored on `source` as [`ServiceKind::Collation`] era points in the
+		/// active era, each count clamped to [`Config::MaxBlocksPerEntry`] first. Blocks beyond
+		/// what is left of [`UnitsPerEraLimit`] for the active era are not credited.
 		///
 		/// Returns the number of entries handed to [`Config::RewardPoints`].
 		pub fn credit_authored_blocks(
 			source: T::Source,
 			blocks: impl IntoIterator<Item = (T::AccountId, u32)>,
 		) -> u32 {
-			let service = ServiceKind::Collation;
-			let max_blocks = T::MaxBlocksPerEntry::get();
+			Self::credit_units(source, ServiceKind::Collation, blocks, T::MaxBlocksPerEntry::get())
+		}
+
+		/// Credit `counts` of `service` on `source` as era points in the active era, with the
+		/// points per service of `source` for `service`.
+		///
+		/// Each count is clamped to `max_per_entry`. If the clamped counts exceed what is left of
+		/// the limit of `source` for `service` in [`UnitsPerEraLimit`] for the active era, every
+		/// count is cut by the same ratio, rounded down. The outcome is one of:
+		/// - nothing is credited when `counts` is empty, with no event.
+		/// - nothing is credited when `source` earns no points for `service` or no era is active,
+		///   with [`Event::UnitsIgnored`]. The limit of `source` is not used.
+		/// - otherwise, entries credited at least one unit are handed to [`Config::RewardPoints`]
+		///   with [`Event::UnitsCredited`], and units not credited are reported in
+		///   [`Event::UnitsOverLimit`].
+		///
+		/// Returns the number of entries handed to [`Config::RewardPoints`].
+		fn credit_units(
+			source: T::Source,
+			service: ServiceKind,
+			counts: impl IntoIterator<Item = (T::AccountId, u32)>,
+			max_per_entry: u32,
+		) -> u32 {
 			let mut requested = 0u64;
-			let blocks: Vec<_> = blocks
+			let counts: Vec<_> = counts
 				.into_iter()
 				.map(|(who, count)| {
 					requested.saturating_accrue(count.into());
-					(who, count.min(max_blocks))
+					(who, count.min(max_per_entry))
 				})
 				.collect();
-			if blocks.is_empty() {
+			if counts.is_empty() {
 				return 0;
 			}
 
@@ -353,7 +366,7 @@ pub mod pallet {
 			};
 
 			let (used, remaining) = Self::units_used_and_remaining(source, service, era);
-			let credits = Self::fit_to_remaining(blocks, remaining);
+			let credits = Self::fit_to_remaining(counts, remaining);
 			let credited =
 				credits.iter().fold(0u32, |total, (_, credit)| total.saturating_add(*credit));
 			CreditedUnits::<T>::insert(source, service, (era, used.saturating_add(credited)));

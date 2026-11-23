@@ -1287,10 +1287,11 @@ pub struct MaxPointsPerService;
 impl sp_runtime::traits::Convert<sp_staking::ServiceKind, u32> for MaxPointsPerService {
 	fn convert(service: sp_staking::ServiceKind) -> u32 {
 		match service {
-			// A relay chain block earns a fixed number of points. The cap leaves governance room
-			// above the per-block value that matches it, while an era's total stays far from
-			// saturating.
+			// A relay chain block earns its author 20 points. A system chain block is meant to earn
+			// a similar amount, and 1000 leaves governance room above it while an era's total stays
+			// far from saturating.
 			sp_staking::ServiceKind::Collation => 1_000,
+			// Not converted here, the relay chain issues these points itself.
 			sp_staking::ServiceKind::RelayConsensus => 0,
 		}
 	}
@@ -1306,6 +1307,7 @@ impl sp_runtime::traits::Convert<sp_staking::ServiceKind, u32> for DefaultUnitsP
 			// higher velocity can have blocks left uncredited until governance raises its limit
 			// with `set_units_per_era_limit`.
 			sp_staking::ServiceKind::Collation => 2 * MaxBlocksPerEntry::get(),
+			// Not converted here, the relay chain issues these points itself.
 			sp_staking::ServiceKind::RelayConsensus => 0,
 		}
 	}
@@ -1319,6 +1321,7 @@ impl sp_runtime::traits::Convert<sp_staking::ServiceKind, u32> for MaxUnitsPerEr
 			// Four times the default. Room above it for a chain that authors more blocks per era
 			// than the default assumes, or for an era that lasts longer than expected.
 			sp_staking::ServiceKind::Collation => 4 * DefaultUnitsPerEraLimit::convert(service),
+			// Not converted here, the relay chain issues these points itself.
 			sp_staking::ServiceKind::RelayConsensus => 0,
 		}
 	}
