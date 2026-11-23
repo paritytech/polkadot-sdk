@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795448908522,
+  "lastUpdate": 1795463206100,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "claravanstaden64@gmail.com",
-            "name": "Clara van Staden",
-            "username": "claravanstaden"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "2b5a0e15122b7d24eca7371d20d5f8b7e31fa9fd",
-          "message": "Snowbridge: Set default asset claimer to local network (#11919)\n\nThe inbound-queue v2 message converter falls back to the Snowbridge\nsovereign account on AssetHub as the asset claimer when no explicit\nclaimer is supplied. Previously this fallback used `AccountId32 {\nnetwork: None, .. }`, which did not match the location AssetHub's\nsigned-origin converter produces (it sets `network:\nSome(LocalNetwork)`). The trap-key hash stored on `AssetsTrapped`\ntherefore could not be matched by a signed `polkadotXcm.claim_assets`\ncall, making default-claimer trapped funds effectively unrecoverable\nwithout a runtime upgrade.\n\nThis PR sets `network: Some(LocalNetwork::get())` on the fallback\nclaimer so its `Location` agrees with what `SignedToAccountId32<_, _,\nLocalNetwork>` yields on AssetHub, and adds a test covering the\nno-claimer-supplied path.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-05-08T13:59:03Z",
-          "tree_id": "aa40f757496e1f52cf0c7a61dd30ab49f089c50b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2b5a0e15122b7d24eca7371d20d5f8b7e31fa9fd"
-        },
-        "date": 1778254821547,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.11800000000002,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038806275277999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0802485947099999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03874599313399999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dharjeezy@gmail.com",
+            "name": "dharjeezy",
+            "username": "dharjeezy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3f06135e662e854fe0573ce962e4a6904c07bac1",
+          "message": "try state check for i'm online pallet (#12632)\n\nThis PR introduces try state hook into the I'm Online Pallet. It also\ndefines the invariants that holds for the pallet.\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/239\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-23T17:16:31Z",
+          "tree_id": "973956b0d4ded0ebea28469b206d1c7f205bb667",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3f06135e662e854fe0573ce962e4a6904c07bac1"
+        },
+        "date": 1795463168906,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.14799999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09056166279599992,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039220618655999996,
             "unit": "seconds"
           }
         ]
