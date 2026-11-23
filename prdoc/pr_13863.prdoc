@@ -1,19 +1,12 @@
-title: 'statement-store: disconnect a peer that stops reading statements'
+title: 'statement-store: disconnect a peer that reads statements too slowly'
 doc:
 - audience: Node Dev
   description: |-
-    A peer whose last two statement sends failed has stopped reading and is now disconnected.
-    There is no reputation change, because such a peer is broken or overloaded, not malicious.
-    A send left over from a previous connection does not count. When the peer reconnects it gets
-    a fresh initial sync, and in the meantime routing sends new statements to other peers.
-    Before, such a peer kept its connection and lost every chunk sent to it.
+    A peer is now disconnected, with no reputation change, when its last two statement sends
+    failed or its propagation outbox overflowed behind a chunk in flight. Its reconnect gets a
+    fresh initial sync. Before, such a peer kept its connection and lost statements.
 
-    A full propagation outbox now refuses new hashes instead of dropping its oldest. A full
-    outbox alone disconnects nobody: a peer that is still reading keeps its connection and loses
-    only the refused hashes, counted in
-    `substrate_sync_statement_undelivered_total{reason="outbox_full"}`.
-
-    Each disconnect is logged with the peer id and counted in
+    A full outbox refuses new hashes instead of dropping its oldest. Disconnects are counted in
     `substrate_sync_statement_stalled_peers_disconnected`.
 crates:
 - name: sc-network-statement

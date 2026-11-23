@@ -80,10 +80,12 @@
 //! outbox (`config::MAX_PROPAGATION_OUTBOX_LEN`) refuses new hashes, which are counted in
 //! `undelivered_statements`.
 //!
-//! A peer whose last `STALLED_PEER_FAILED_SENDS` sends failed has stopped reading and is
-//! disconnected without a reputation change. It gets a fresh initial sync when it reconnects. A
-//! full outbox alone disconnects nobody: a peer that is still reading keeps its connection and
-//! loses only the refused hashes.
+//! A stalled peer is disconnected without a reputation change and gets a fresh initial sync when
+//! it reconnects, so it loses nothing. A peer stalls when its last `STALLED_PEER_FAILED_SENDS`
+//! sends failed, or when its outbox overflows while it holds a propagation chunk in flight: it
+//! reads slower than statements arrive. An outbox that overflows with the slot free or during an
+//! initial sync waits on this node, not on the peer, so the peer stays and loses only the refused
+//! hashes.
 //!
 //! In-flight bytes of both kinds are held against the shared
 //! `config::MAX_SEND_IN_FLIGHT_BYTES` budget. A peer that finds the budget full, or whose store
@@ -553,7 +555,7 @@ impl Metrics {
 			stalled_peers_disconnected: register(
 				Counter::new(
 					"substrate_sync_statement_stalled_peers_disconnected",
-					"Number of peers disconnected for consecutive failed statement sends",
+					"Number of peers disconnected for reading statements too slowly",
 				)?,
 				r,
 			)?,
@@ -2428,20 +2430,31 @@ where
 
 		if overflow > 0 {
 			self.record_abandoned_send(send_failure::OUTBOX_FULL, overflow);
+			if self.in_flight_chunks.contains_key(who) &&
+				!self.pending_initial_syncs.contains_key(who)
+			{
+				self.disconnect_stalled_peer(*who, "overflowed its outbox");
+				return;
+			}
 		}
 		self.try_send_next_chunk(*who);
 	}
 
-	/// Disconnect a peer that stopped reading, the way a flooding peer is disconnected but
+	/// Disconnect a peer that reads too slowly, the way a flooding peer is disconnected but
 	/// without a reputation change: the peer is broken or overloaded, not malicious. It gets a
 	/// fresh initial sync when it reconnects, and routing sends new statements to other peers
 	/// meanwhile.
-	fn disconnect_stalled_peer(&mut self, who: PeerId) {
-		let queued = self.propagation_outboxes.get(&who).map_or(0, |outbox| outbox.len());
+	fn disconnect_stalled_peer(&mut self, who: PeerId, cause: &str) {
+		let queued = self.propagation_outboxes.remove(&who);
+		if queued > 0 {
+			self.record_abandoned_send(send_failure::DISCONNECTED, queued);
+		}
+
 		log::warn!(
 			target: LOG_TARGET,
-			"Peer {who} failed {STALLED_PEER_FAILED_SENDS} statement sends in a row with {queued} statements queued. Disconnecting.",
+			"Peer {who} {cause} with {queued} statements queued. Disconnecting.",
 		);
+
 		// Initiate peer state cleanup in the `NotificationStreamClosed` handler
 		if dht_enabled() {
 			self.dht.release_reserved_peer(&self.network, who);
@@ -2678,7 +2691,7 @@ where
 			// Disconnect once, on the send that reaches the limit: results that follow before
 			// the stream closes count past it.
 			if failed_sends == Some(STALLED_PEER_FAILED_SENDS) {
-				self.disconnect_stalled_peer(peer);
+				self.disconnect_stalled_peer(peer, "failed consecutive statement sends");
 			}
 		}
 
@@ -4337,58 +4350,73 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn full_outbox_refuses_hashes_and_keeps_the_peer() {
-		let (mut handler, statement_store, network, _notification_service, _, peer_ids) =
-			build_handler(1);
-		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
-		let peer_id = peer_ids[0];
+	async fn full_outbox_refuses_hashes_and_disconnects_a_peer_with_a_chunk_in_flight() {
+		for chunk_in_flight in [false, true] {
+			let (mut handler, statement_store, network, _notification_service, _, peer_ids) =
+				build_handler(1);
+			handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
+			let peer_id = peer_ids[0];
 
-		let mut old = new_live_statement();
-		old.set_plain_data(b"oldest".to_vec());
-		let old_hash = old.hash();
+			let mut old = new_live_statement();
+			old.set_plain_data(b"oldest".to_vec());
+			let old_hash = old.hash();
 
-		// Three fresh statements arrive by tick while the outbox is full and the
-		// peer's slot is busy.
-		let fresh_hashes: HashSet<_> = (0..3u8)
-			.map(|i| {
-				let mut fresh = new_live_statement();
-				fresh.set_plain_data(vec![i]);
-				let hash = fresh.hash();
-				statement_store.recent_statements.lock().unwrap().insert(hash, fresh);
-				hash
-			})
-			.collect();
-		handler.in_flight_chunks.insert(peer_id, 0);
-		handler
-			.propagation_outboxes
-			.push(peer_id, vec![old_hash; MAX_PROPAGATION_OUTBOX_LEN]);
+			// Three fresh statements arrive by tick while the outbox is full.
+			let fresh_hashes: HashSet<_> = (0..3u8)
+				.map(|i| {
+					let mut fresh = new_live_statement();
+					fresh.set_plain_data(vec![i]);
+					let hash = fresh.hash();
+					statement_store.recent_statements.lock().unwrap().insert(hash, fresh);
+					hash
+				})
+				.collect();
+			if chunk_in_flight {
+				handler.in_flight_chunks.insert(peer_id, 0);
+			} else {
+				// A saturated send budget keeps the slot free and the outbox full.
+				handler.propagation_in_flight_bytes = MAX_SEND_IN_FLIGHT_BYTES;
+			}
+			handler
+				.propagation_outboxes
+				.push(peer_id, vec![old_hash; MAX_PROPAGATION_OUTBOX_LEN]);
 
-		handler.propagate_statements().await;
+			handler.propagate_statements().await;
 
-		let outbox = handler.propagation_outboxes.get(&peer_id).unwrap();
-		assert_eq!(outbox.len(), MAX_PROPAGATION_OUTBOX_LEN);
-		assert!(outbox.iter().all(|hash| *hash == old_hash), "the queued hashes must stay");
-		let held = statement_store.held.lock().unwrap();
-		assert_eq!(held[&old_hash], MAX_PROPAGATION_OUTBOX_LEN);
-		assert!(fresh_hashes.iter().all(|hash| held.get(hash).map_or(true, |holds| *holds == 0)));
-		drop(held);
+			let held = statement_store.held.lock().unwrap();
+			assert!(fresh_hashes
+				.iter()
+				.all(|hash| held.get(hash).map_or(true, |holds| *holds == 0)));
+			let metrics = handler.metrics.as_ref().unwrap();
+			assert_eq!(
+				metrics
+					.undelivered_statements
+					.with_label_values(&[send_failure::OUTBOX_FULL])
+					.get(),
+				3,
+				"each refused hash counts as undelivered"
+			);
+			assert_eq!(
+				metrics.send_failures.with_label_values(&[send_failure::OUTBOX_FULL]).get(),
+				1,
+				"one overflow event"
+			);
 
-		assert!(network.get_disconnected_peers().is_empty(), "a full outbox alone keeps the peer");
-
-		let metrics = handler.metrics.as_ref().unwrap();
-		assert_eq!(
-			metrics
-				.undelivered_statements
-				.with_label_values(&[send_failure::OUTBOX_FULL])
-				.get(),
-			3,
-			"each refused hash counts as undelivered"
-		);
-		assert_eq!(
-			metrics.send_failures.with_label_values(&[send_failure::OUTBOX_FULL]).get(),
-			1,
-			"one overflow event"
-		);
+			if chunk_in_flight {
+				assert_eq!(network.get_disconnected_peers(), vec![peer_id]);
+				assert!(network.get_reports().is_empty(), "a slow peer is not punished");
+				assert!(handler.propagation_outboxes.get(&peer_id).is_none());
+				assert_eq!(metrics.stalled_peers_disconnected.get(), 1);
+			} else {
+				assert!(
+					network.get_disconnected_peers().is_empty(),
+					"the peer had no chunk to read"
+				);
+				let outbox = handler.propagation_outboxes.get(&peer_id).unwrap();
+				assert_eq!(outbox.len(), MAX_PROPAGATION_OUTBOX_LEN);
+				assert_eq!(held[&old_hash], MAX_PROPAGATION_OUTBOX_LEN);
+			}
+		}
 	}
 
 	#[tokio::test]
@@ -4443,10 +4471,9 @@ mod tests {
 		assert_eq!(network.get_disconnected_peers(), vec![peer_id]);
 		assert!(network.get_reports().is_empty(), "a stalled peer is not punished");
 
-		// A send that fails before the stream closes does not disconnect again.
-		let result = handler.pending_sends.next().await.unwrap();
-		handler.handle_send_result(result);
-		assert_eq!(network.get_disconnected_peers(), vec![peer_id]);
+		// The disconnect drops the backlog, so nothing more goes out before the stream closes.
+		assert!(handler.propagation_outboxes.get(&peer_id).is_none());
+		assert!(handler.pending_sends.is_empty());
 		assert_eq!(handler.metrics.as_ref().unwrap().stalled_peers_disconnected.get(), 1);
 	}
 
