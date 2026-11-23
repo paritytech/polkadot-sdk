@@ -91,18 +91,23 @@ pub fn commitment(digest: &Digest) -> Result<Option<[u8; 32]>, CommitmentError> 
 	bytes.as_slice().try_into().map(Some).map_err(|_| CommitmentError::Malformed)
 }
 
-/// Host side of committing a block's additional data.
-#[runtime_interface]
-pub trait AdditionalDataHost {
-	/// Write the digest value into `hash_out` and return whether there was anything to commit.
-	/// A missing extension counts as nothing recorded.
-	fn finalize_into(&mut self, hash_out: PassPointerAndWrite<&mut [u8; 32], 32>) -> bool {
-		match self.extension::<AdditionalDataExt>().and_then(|ext| ext.finalize()) {
-			Some(hash) => {
-				*hash_out = hash;
-				true
-			},
-			None => false,
+/// Host functions of this crate.
+pub mod host {
+	use super::*;
+
+	/// Host side of committing a block's additional data.
+	#[runtime_interface]
+	pub trait AdditionalData {
+		/// Write the digest value into `hash_out` and return whether there was anything to
+		/// commit. A missing extension counts as nothing recorded.
+		fn finalize_into(&mut self, hash_out: PassPointerAndWrite<&mut [u8; 32], 32>) -> bool {
+			match self.extension::<AdditionalDataExt>().and_then(|ext| ext.finalize()) {
+				Some(hash) => {
+					*hash_out = hash;
+					true
+				},
+				None => false,
+			}
 		}
 	}
 }
@@ -110,7 +115,7 @@ pub trait AdditionalDataHost {
 /// The digest value of everything recorded this block, or `None` when nothing was recorded.
 pub fn finalize() -> Option<[u8; 32]> {
 	let mut out = [0u8; 32];
-	additional_data_host::finalize_into(&mut out).then_some(out)
+	host::additional_data::finalize_into(&mut out).then_some(out)
 }
 
 #[cfg(feature = "std")]
