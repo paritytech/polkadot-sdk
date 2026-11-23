@@ -25,11 +25,56 @@ use frame::{prelude::*, runtime::prelude::*, testing_prelude::*};
 
 type Block = frame_system::mocking::MockBlockU32<Test>;
 
+// Mock pallet whose call re-enters the multisig pallet while being executed by it.
+#[frame::pallet(dev_mode)]
+pub mod reentrancy_mock {
+	use frame::prelude::*;
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config + crate::Config {}
+
+	/// Arguments of the `cancel_as_multi` call dispatched by `cancel_on_execute`: the depositor,
+	/// threshold, other signatories, timepoint and call hash.
+	#[pallet::storage]
+	pub type Target<T: Config> = StorageValue<
+		_,
+		(
+			T::AccountId,
+			u16,
+			Vec<T::AccountId>,
+			crate::Timepoint<crate::BlockNumberFor<T>>,
+			[u8; 32],
+		),
+	>;
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		/// Cancels the multisig operation stored in [`Target`] on behalf of its depositor.
+		#[pallet::call_index(0)]
+		pub fn cancel_on_execute(origin: OriginFor<T>) -> DispatchResult {
+			ensure_signed(origin)?;
+			let (depositor, threshold, others, timepoint, call_hash) =
+				Target::<T>::get().ok_or(DispatchError::Other("no target"))?;
+			crate::Pallet::<T>::cancel_as_multi(
+				frame_system::RawOrigin::Signed(depositor).into(),
+				threshold,
+				others,
+				timepoint,
+				call_hash,
+			)
+		}
+	}
+}
+
 construct_runtime!(
 	pub struct Test {
 		System: frame_system,
 		Balances: pallet_balances,
 		Multisig: pallet_multisig,
+		ReentrancyMock: reentrancy_mock,
 	}
 );
 
@@ -52,6 +97,7 @@ impl Contains<RuntimeCall> for TestBaseCallFilter {
 	fn contains(c: &RuntimeCall) -> bool {
 		match *c {
 			RuntimeCall::Balances(_) => true,
+			RuntimeCall::ReentrancyMock(_) => true,
 			// Needed for benchmarking
 			RuntimeCall::System(frame_system::Call::remark { .. }) => true,
 			_ => false,
@@ -74,6 +120,8 @@ impl Config for Test {
 	type WeightInfo = ();
 	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
+
+impl reentrancy_mock::Config for Test {}
 
 use pallet_balances::{Call as BalancesCall, Error as BalancesError};
 
@@ -1424,5 +1472,54 @@ fn poke_deposit_handles_insufficient_balance() {
 			Multisig::poke_deposit(RuntimeOrigin::signed(4), threshold, other_signatories, hash),
 			BalancesError::<Test, _>::InsufficientBalance
 		);
+	});
+}
+
+#[test]
+fn reentrant_cancel_during_execution_does_not_unreserve_deposit_twice() {
+	new_test_ext().execute_with(|| {
+		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
+		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
+		// An unrelated reserve of the depositor that must survive the execution.
+		assert_ok!(<Balances as ReservableCurrency<_>>::reserve(&1, 2));
+
+		let call =
+			Box::new(RuntimeCall::ReentrancyMock(reentrancy_mock::Call::cancel_on_execute {}));
+		let call_weight = call.get_dispatch_info().call_weight;
+		let hash = blake2_256(&call.encode());
+		assert_ok!(Multisig::as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			call.clone(),
+			Weight::zero()
+		));
+		assert_eq!(Balances::reserved_balance(1), 5);
+
+		// The executed call tries to cancel the very multisig operation that executes it.
+		reentrancy_mock::Target::<Test>::put((1, 2, vec![2, 3], now(), hash));
+		assert_ok!(Multisig::as_multi(
+			RuntimeOrigin::signed(2),
+			2,
+			vec![1, 3],
+			Some(now()),
+			call,
+			call_weight
+		));
+
+		System::assert_last_event(
+			pallet_multisig::Event::MultisigExecuted {
+				approving: 2,
+				timepoint: now(),
+				multisig: multi,
+				call_hash: hash,
+				result: Err(Error::<Test>::NotFound.into()),
+			}
+			.into(),
+		);
+		assert!(!Multisigs::<Test>::contains_key(multi, hash));
+		assert_eq!(Balances::reserved_balance(1), 2);
+		assert_eq!(Balances::free_balance(1), 8);
 	});
 }
