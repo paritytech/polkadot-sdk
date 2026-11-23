@@ -2543,7 +2543,9 @@ impl Store {
 		}
 		if !commit.is_empty() {
 			self.db.commit(commit).map_err(|e| Error::Db(e.to_string()))?;
-			// A local resubmission brings a banned statement back, and its short hash stays.
+			// A local resubmission brings a banned statement back, and its short hash stays. The
+			// submit lock keeps a resubmission or a new ban of the same hash out of the check.
+			let _submit_index = self.submit_index.read();
 			lifted.retain(|hash| !self.has_statement(hash));
 			let mut query_index = self.query_index.write();
 			for hash in &lifted {

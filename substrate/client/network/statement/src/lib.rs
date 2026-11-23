@@ -1203,6 +1203,9 @@ enum SendKind {
 		/// Number of wanted hashes the pending sync drops once this chunk's send is confirmed.
 		count: usize,
 	},
+	/// The answer to a peer's announce. It takes no send slot and no part of the byte budget: a
+	/// peer's announces are rate limited, and an answer is at most 513 bytes.
+	Answer,
 }
 
 impl SendKind {
@@ -1212,6 +1215,7 @@ impl SendKind {
 			Self::InitialSync { .. } | Self::Announce { .. } | Self::Wanted { .. } => {
 				"initial_sync"
 			},
+			Self::Answer => "announce_answer",
 		}
 	}
 }
@@ -2186,7 +2190,7 @@ where
 								},
 								StatementMessage::Announce { id, hashes } => {
 									if dht_enabled() && peer_data.syncs_by_announce() {
-										self.on_announce(peer, id, hashes.into_inner()).await;
+										self.on_announce(peer, id, hashes.into_inner());
 									} else {
 										self.report_bad_message(peer);
 									}
@@ -2226,7 +2230,7 @@ where
 
 	/// Answer the announce `id` of `who` with the bitmap of the statements this node lacks: those
 	/// neither stored, nor banned, nor waiting for validation.
-	async fn on_announce(&mut self, who: PeerId, id: u64, hashes: Vec<ShortHash>) {
+	fn on_announce(&mut self, who: PeerId, id: u64, hashes: Vec<ShortHash>) {
 		let Some(peer) = self.peers.get(&who) else {
 			return;
 		};
@@ -2249,8 +2253,29 @@ where
 			metrics.announced_hashes_wanted.inc_by(wanted.into());
 		});
 		let wanted = WantedBitmap::truncate_from(bitmap);
-		self.send_notification(&who, StatementMessage::Want { id, wanted }.encode())
-			.await;
+		let encoded = StatementMessage::Want { id, wanted }.encode();
+		let Some(message_sink) = self.notification_service.message_sink(&who) else {
+			self.record_send_failure(send_failure::NO_SINK);
+			return;
+		};
+		let route = peer.route();
+		let bytes_sent = encoded.len() as u64;
+		// A fresh id that occupies no send slot, so the result frees none.
+		let chunk_id = self.next_chunk_id;
+		self.next_chunk_id = self.next_chunk_id.saturating_add(1);
+		// The send waits for room in the peer's buffer, so it runs beside the event loop.
+		self.pending_sends.push(Box::pin(async move {
+			let result = send_with_timeout(message_sink.send_async_notification(encoded)).await;
+			PendingSendResult {
+				peer: who,
+				statement_count: 0,
+				bytes_sent,
+				result,
+				kind: SendKind::Answer,
+				route,
+				chunk_id,
+			}
+		}));
 	}
 
 	/// Take the answer of `who` to the announce `id`: the statements it asks for go out before
@@ -2260,8 +2285,11 @@ where
 			.pending_initial_syncs
 			.get_mut(&who)
 			.and_then(|pending| pending.announce.as_mut())
-			.and_then(|announce| announce.awaiting.take_if(|awaited| awaited.id == id));
-		let Some(awaited) = awaited else {
+			.and_then(|announce| {
+				let awaited = announce.awaiting.take_if(|awaited| awaited.id == id)?;
+				Some((announce, awaited))
+			});
+		let Some((announce, awaited)) = awaited else {
 			// The answer to an announce sent twice after a send timeout, or to a sync that has
 			// ended since.
 			log::debug!(target: LOG_TARGET, "Ignoring the answer of {who} to an announce not awaited");
@@ -2274,17 +2302,10 @@ where
 		}
 		let requested = awaited
 			.hashes
-			.iter()
+			.into_iter()
 			.enumerate()
 			.filter(|(position, _)| is_wanted(&wanted, *position))
-			.map(|(_, hash)| *hash);
-		let Some(announce) = self
-			.pending_initial_syncs
-			.get_mut(&who)
-			.and_then(|pending| pending.announce.as_mut())
-		else {
-			return;
-		};
+			.map(|(_, hash)| hash);
 		let wanted_before = announce.wanted.len();
 		announce.wanted.extend(requested);
 		let requested = announce.wanted.len() - wanted_before;
@@ -2866,6 +2887,7 @@ where
 				let in_flight = self.initial_sync_in_flight_bytes.saturating_sub(bytes_sent);
 				self.set_initial_sync_in_flight_bytes(in_flight);
 			},
+			SendKind::Answer => {},
 		}
 
 		let failure = match result {
@@ -2877,7 +2899,7 @@ where
 						.with_label_values(&[route])
 						.inc_by(statement_count as u64);
 					metrics.bytes_sent_total.with_label_values(&[route]).inc_by(bytes_sent);
-					if !matches!(kind, SendKind::Announce { .. }) {
+					if !matches!(kind, SendKind::Announce { .. } | SendKind::Answer) {
 						metrics
 							.propagated_statements_chunks
 							.with_label_values(&[kind_label])
@@ -2907,7 +2929,8 @@ where
 				SendKind::Propagation => self.record_abandoned_send(reason, statement_count),
 				SendKind::InitialSync { .. } |
 				SendKind::Announce { .. } |
-				SendKind::Wanted { .. } => self.record_send_failure(reason),
+				SendKind::Wanted { .. } |
+				SendKind::Answer => self.record_send_failure(reason),
 			}
 		}
 
@@ -2919,7 +2942,7 @@ where
 		}
 
 		let sync_id = match kind {
-			SendKind::Propagation => return slot_freed,
+			SendKind::Propagation | SendKind::Answer => return slot_freed,
 			SendKind::InitialSync { sync_id, .. } |
 			SendKind::Announce { sync_id, .. } |
 			SendKind::Wanted { sync_id, .. } => sync_id,
@@ -2966,7 +2989,7 @@ where
 					announce.wanted.drain(..sent);
 				}
 			},
-			SendKind::Propagation | SendKind::Announce { .. } => {},
+			SendKind::Propagation | SendKind::Announce { .. } | SendKind::Answer => {},
 		}
 		self.metrics.as_ref().map(|metrics| {
 			metrics
@@ -7569,9 +7592,8 @@ mod tests {
 		let (in_validation, lacking) = ([0xBB; 8], [0xCC; 8]);
 		handler.short_hashes_in_validation.insert(in_validation);
 
-		handler
-			.on_announce(peer_id, 7, vec![short_hash(&stored.hash()), in_validation, lacking])
-			.await;
+		handler.on_announce(peer_id, 7, vec![short_hash(&stored.hash()), in_validation, lacking]);
+		handler.flush_pending_sends().await;
 
 		let want = StatementMessage::Want { id: 7, wanted: vec![0b100].try_into().unwrap() };
 		assert_eq!(notification_service.get_sent_notifications(), vec![(peer_id, want.encode())]);
@@ -7598,10 +7620,12 @@ mod tests {
 		handler.peers.get_mut(&peer_id).unwrap().announce_rate_limiter =
 			PeerRateLimiter::with_clock(two, two, &FakeRelativeClock::default());
 
-		handler.on_announce(peer_id, 1, vec![[1; 8], [2; 8]]).await;
+		handler.on_announce(peer_id, 1, vec![[1; 8], [2; 8]]);
+		handler.flush_pending_sends().await;
 		assert_eq!(notification_service.get_sent_notifications().len(), 1, "within the quota");
 
-		handler.on_announce(peer_id, 2, vec![[3; 8]]).await;
+		handler.on_announce(peer_id, 2, vec![[3; 8]]);
+		handler.flush_pending_sends().await;
 		assert_eq!(notification_service.get_sent_notifications().len(), 1);
 		assert!(network.get_reports().contains(&(peer_id, rep::ANNOUNCE_FLOODING)));
 	}
