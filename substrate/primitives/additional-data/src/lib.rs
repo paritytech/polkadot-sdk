@@ -73,10 +73,6 @@ impl<T: AdditionalDataFinalizer + Sync + ?Sized> AdditionalDataFinalizer for Arc
 	}
 }
 
-/// Returns the map recorded while building a block.
-#[cfg(feature = "std")]
-pub type AdditionalDataGetter = Box<dyn Fn() -> Option<AdditionalData> + Send>;
-
 #[cfg(feature = "std")]
 sp_externalities::decl_extension! {
 	/// Externalities extension holding the registered finalizers, keyed by producer.
