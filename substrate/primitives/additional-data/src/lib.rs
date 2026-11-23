@@ -113,15 +113,15 @@ impl core::fmt::Debug for CreateAdditionalDataExtensions {
 /// Host side of committing a block's additional data.
 #[runtime_interface]
 pub trait AdditionalDataHost {
-	/// Write the digest value into `hash_out` and return `1`, or return `0` when there is nothing
-	/// to commit. A missing extension counts as nothing recorded.
-	fn finalize_into(&mut self, hash_out: PassFatPointerAndReadWrite<&mut [u8]>) -> u32 {
+	/// Write the digest value into `hash_out` and return whether there was anything to commit.
+	/// A missing extension counts as nothing recorded.
+	fn finalize_into(&mut self, hash_out: PassFatPointerAndReadWrite<&mut [u8]>) -> bool {
 		match self.extension::<AdditionalDataExt>().and_then(|ext| ext.finalize()) {
 			Some(hash) => {
 				hash_out[..32].copy_from_slice(&hash);
-				1
+				true
 			},
-			None => 0,
+			None => false,
 		}
 	}
 }
@@ -133,7 +133,7 @@ pub mod additional_data {
 	/// The digest value of everything recorded this block, or `None` when nothing was recorded.
 	pub fn finalize() -> Option<[u8; 32]> {
 		let mut out = [0u8; 32];
-		(finalize_into(&mut out[..]) == 1).then_some(out)
+		finalize_into(&mut out[..]).then_some(out)
 	}
 }
 
