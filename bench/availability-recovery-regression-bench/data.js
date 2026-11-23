@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795448774822,
+  "lastUpdate": 1795463022729,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "mail@skunert.dev",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "18b7361aed92d7ee8c24ed9fdd0f1e9bd2941477",
-          "message": "Network: Add bitswap client (#12038)\n\nAdds a public Bitswap client API to `sc-network`, centered around the\n`request_bitswap_*` helpers for fetching CID-addressed blocks and\nWANT-HAVE responses.\n\nThe API includes unverified variants for cases where the caller uses\nCID-shaped locators but cannot yet prove that the returned bytes hash to\nthe requested CID. These variants preserve request/response correlation\nwhile leaving the hash checking to the caller.\n\nThis also wires outbound Bitswap requests through the litep2p backend,\nincluding WANT-BLOCK/WANT-HAVE handling and local invalid-request\nreporting.\n\n`BitswapService` now handles both directions: serving inbound Bitswap\nrequests and coordinating outbound Bitswap client requests.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>",
-          "timestamp": "2026-05-13T15:18:09Z",
-          "tree_id": "b5f061ac05c8f1b299b7175adeada8a53a5e8752",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/18b7361aed92d7ee8c24ed9fdd0f1e9bd2941477"
-        },
-        "date": 1778690455116,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.292800124700003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12768416353333337,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1310114543,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dharjeezy@gmail.com",
+            "name": "dharjeezy",
+            "username": "dharjeezy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3f06135e662e854fe0573ce962e4a6904c07bac1",
+          "message": "try state check for i'm online pallet (#12632)\n\nThis PR introduces try state hook into the I'm Online Pallet. It also\ndefines the invariants that holds for the pallet.\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/239\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-23T17:16:31Z",
+          "tree_id": "973956b0d4ded0ebea28469b206d1c7f205bb667",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3f06135e662e854fe0573ce962e4a6904c07bac1"
+        },
+        "date": 1795462985222,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.052226512566666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12996709733333336,
             "unit": "seconds"
           }
         ]
