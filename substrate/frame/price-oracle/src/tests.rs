@@ -1300,12 +1300,36 @@ fn pair_with_markets_cannot_be_removed() {
 		assert_ok!(PriceOracle::set_market(root(), MARKET, market(PAIR)));
 
 		// `MARKET` refers to `PAIR`, so the pair stays.
-		assert!(PriceOracle::remove_pair(root(), PAIR).is_err());
-		assert!(Pairs::<Test>::contains_key(PAIR));
+		assert_noop!(PriceOracle::remove_pair(root(), PAIR), Error::<Test>::PairInUse);
 
 		// Without its market, the pair is removed.
 		assert_ok!(PriceOracle::remove_market(root(), MARKET));
 		assert_ok!(PriceOracle::remove_pair(root(), PAIR));
 		assert!(!Pairs::<Test>::contains_key(PAIR));
+	});
+}
+
+#[test]
+fn pair_used_in_cross_rates_cannot_be_removed() {
+	new_test_ext().execute_with(|| {
+		let root = RuntimeOrigin::root;
+		let (source, rate) = (PAIR_B, PairId(3));
+		for pair in [source, rate] {
+			assert_ok!(PriceOracle::set_pair(root(), pair, PairConfig { market_quorum: 1 }));
+		}
+		assert_ok!(PriceOracle::set_cross_rates(
+			root(),
+			PAIR,
+			vec![(source, rate)].try_into().unwrap()
+		));
+
+		// The cross rates of `PAIR` refer to both pairs, so they stay.
+		assert_noop!(PriceOracle::remove_pair(root(), source), Error::<Test>::PairInUse);
+		assert_noop!(PriceOracle::remove_pair(root(), rate), Error::<Test>::PairInUse);
+
+		// Without the cross rates, they are removed.
+		assert_ok!(PriceOracle::set_cross_rates(root(), PAIR, Default::default()));
+		assert_ok!(PriceOracle::remove_pair(root(), source));
+		assert_ok!(PriceOracle::remove_pair(root(), rate));
 	});
 }

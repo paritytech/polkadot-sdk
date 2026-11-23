@@ -317,6 +317,8 @@ pub mod pallet {
 		UnknownPair,
 		/// The venue still has markets.
 		VenueInUse,
+		/// The pair still has markets, or is used in the cross rates of another pair.
+		PairInUse,
 		/// A pair used as a `rate` cannot have cross rates of its own.
 		RateHasCrossRates,
 		/// More reports than signers in one block.
@@ -507,12 +509,19 @@ pub mod pallet {
 		}
 
 		/// Remove a pair, along with its cross rates, votes and price.
+		///
+		/// The pair must have no markets and not be used in the cross rates of another pair.
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::remove_pair())]
 		pub fn remove_pair(origin: OriginFor<T>, pair: PairId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			ensure!(Pairs::<T>::contains_key(pair), Error::<T>::UnknownPair);
-			// TODO: markets and cross rates may still refer to the pair.
+			ensure!(!Markets::<T>::iter_values().any(|m| m.pair == pair), Error::<T>::PairInUse);
+			let in_cross_rates = CrossRates::<T>::iter().any(|(other, cross_rates)| {
+				other != pair &&
+					cross_rates.iter().any(|(source, rate)| *source == pair || *rate == pair)
+			});
+			ensure!(!in_cross_rates, Error::<T>::PairInUse);
 			Pairs::<T>::remove(pair);
 			CrossRates::<T>::remove(pair);
 			Votes::<T>::remove(pair);
