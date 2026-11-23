@@ -437,6 +437,9 @@ async fn follow_with_runtime() {
 		.build()
 		.unwrap();
 	builder.push_storage_change(CODE.to_vec(), Some(wasm)).unwrap();
+	builder
+		.push_deposit_log_digest_item(sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated)
+		.unwrap();
 	let block = builder.build().unwrap().block;
 	let best_hash = block.header.hash();
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
