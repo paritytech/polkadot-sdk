@@ -1,0 +1,7 @@
+title: 'pallet-revive: reuse decoded call in dry run and bound call decoding'
+doc:
+- audience: Runtime Dev
+  description: 'Small consistency and performance change: Align the decoding of substrate
+    calls via Eth TX with the decoding of `generic::UncheckedExtrinsic`. Also reuse
+    the decoded call in the dry run.'
+crates: []
