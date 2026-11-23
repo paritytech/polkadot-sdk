@@ -105,7 +105,8 @@ where
 			.map_err(|e| format!("scale codec error: {e}"))?;
 
 		if let Some(named_preset) = named_preset {
-			Ok(from_slice(&named_preset[..]).expect("returned value is json. qed."))
+			from_slice(&named_preset[..])
+				.map_err(|e| format!("The preset is not a valid json blob: {e}"))
 		} else {
 			Err(format!("The preset with name {id:?} is not available."))
 		}
@@ -209,6 +210,38 @@ mod tests {
 				.unwrap();
 		let expected = r#"{"foo":"bar"}"#;
 		assert_eq!(from_str::<Value>(expected).unwrap(), config);
+	}
+
+	#[test]
+	fn get_named_preset_unknown_returns_err() {
+		let err =
+			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
+				.get_named_preset(Some(&"unknown".to_string()))
+				.unwrap_err();
+		assert!(err.contains("is not available"), "unexpected error: {err}");
+	}
+
+	#[test]
+	fn get_named_preset_with_invalid_json_returns_err() {
+		// The `invalid_json` preset of the test runtime is not a json blob. The runtime
+		// interface returns opaque `Vec<u8>` here, so the caller must report an error
+		// instead of panicking.
+		let err =
+			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
+				.get_named_preset(Some(&"invalid_json".to_string()))
+				.unwrap_err();
+		assert!(err.contains("not a valid json blob"), "unexpected error: {err}");
+	}
+
+	#[test]
+	fn get_storage_for_malformed_config_returns_err() {
+		// `build_state` deserializes the full `RuntimeGenesisConfig` without defaults, so a
+		// config with missing fields must be rejected with an error.
+		let err =
+			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
+				.get_storage_for_config(json!({"foo": "bar"}))
+				.unwrap_err();
+		assert!(err.contains("for blob:"), "unexpected error: {err}");
 	}
 
 	#[test]
