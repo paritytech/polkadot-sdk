@@ -821,8 +821,16 @@ fn publishing_pause_withholds_prices() {
 			Prices::<Test>::get(PAIR),
 			Some(PricePoint { price: Price::from_u32(5), updated_at: 100, signers: 1 })
 		);
-		// Consumers do not get it, and `OnPriceUpdate` is not called.
+		// Consumers do not get it, `PriceUpdated` is not emitted and `OnPriceUpdate` is not
+		// called.
 		assert_eq!(<PriceOracle as PriceProvider>::price(PAIR), None);
+		assert_eq!(
+			take_events(),
+			vec![
+				Event::PauseSet { pause: Some(Pause::Publishing) },
+				Event::ReportsProcessed { accepted: 1, rejected: 0 },
+			]
+		);
 		assert!(take_price_updates().is_empty());
 	});
 }

@@ -798,11 +798,9 @@ impl<T: Config> Pallet<T> {
 
 			let changed = Prices::<T>::get(pair).map_or(true, |p| p.price != price);
 			Prices::<T>::insert(pair, PricePoint { price, updated_at, signers });
-			if changed {
+			if changed && !publishing_paused {
 				Self::deposit_event(Event::PriceUpdated { pair: *pair, price, signers });
-				if !publishing_paused {
-					T::OnPriceUpdate::on_price_update(*pair, price);
-				}
+				T::OnPriceUpdate::on_price_update(*pair, price);
 			}
 		}
 
