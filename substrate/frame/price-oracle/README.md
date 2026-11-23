@@ -68,9 +68,9 @@ block author ──▶ process_reports ──filter, vote, median──▶ Price
    to the nodes authoring next.
 4. A block author includes the reports it collected as an inherent. The inherent never rejects a
    block: if it fails, the block keeps no oracle update.
-5. The pallet drops reports that are stale, from an unknown signer or wrongly signed, replaces
-   each signer's vote with its newer one, and publishes the median of every pair with enough
-   votes.
+5. The pallet drops reports that are stale, from an unknown signer, with more quotes than
+   registered pairs or wrongly signed, replaces each signer's vote with its newer one, and
+   publishes the median of every pair with enough votes.
 
 The runtime APIs are `PriceOracleApi` of `sp-price-oracle`. A runtime implements them with the
 pallet's `settings`, `latest_anchors`, `active_markets`, `parse_market` and `aggregate_markets`.

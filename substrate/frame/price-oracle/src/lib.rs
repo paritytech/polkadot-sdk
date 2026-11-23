@@ -249,7 +249,7 @@ pub mod pallet {
 
 	/// Registered pairs and their settings.
 	#[pallet::storage]
-	pub type Pairs<T: Config> = StorageMap<_, Twox64Concat, PairId, PairConfig, OptionQuery>;
+	pub type Pairs<T: Config> = CountedStorageMap<_, Twox64Concat, PairId, PairConfig, OptionQuery>;
 
 	/// Other ways to price a pair, as `(source, rate)` such that `pair = source * rate`.
 	///
@@ -317,6 +317,8 @@ pub mod pallet {
 		UnknownPair,
 		/// The venue still has markets.
 		VenueInUse,
+		/// A pair used as a `rate` cannot have cross rates of its own.
+		RateHasCrossRates,
 		/// More reports than signers in one block.
 		TooManyReports,
 		/// Reports were already processed in this block.
@@ -473,7 +475,8 @@ pub mod pallet {
 
 		/// Set the cross rates of a pair. An empty list removes them.
 		///
-		/// All pairs involved must be registered.
+		/// All pairs involved must be registered. A pair used as a `rate` cannot have cross rates
+		/// of its own, since such a `rate` is not used when pricing.
 		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::set_cross_rates())]
 		pub fn set_cross_rates(
@@ -486,10 +489,17 @@ pub mod pallet {
 			for (source, rate) in cross_rates.iter() {
 				ensure!(Pairs::<T>::contains_key(source), Error::<T>::UnknownPair);
 				ensure!(Pairs::<T>::contains_key(rate), Error::<T>::UnknownPair);
+				// A `rate` must not have cross rates.
+				ensure!(*rate != pair, Error::<T>::RateHasCrossRates);
+				ensure!(!CrossRates::<T>::contains_key(rate), Error::<T>::RateHasCrossRates);
 			}
 			if cross_rates.is_empty() {
 				CrossRates::<T>::remove(pair);
 			} else {
+				// `pair` gets cross rates, so it must not be a `rate`.
+				let is_rate =
+					CrossRates::<T>::iter_values().flatten().any(|(_, rate)| rate == pair);
+				ensure!(!is_rate, Error::<T>::RateHasCrossRates);
 				CrossRates::<T>::insert(pair, cross_rates);
 			}
 			Self::deposit_event(Event::CrossRatesSet { pair });
@@ -681,14 +691,16 @@ fn is_live(anchor: Anchor, current: Anchor, params: &Parameters) -> bool {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Drop reports that are stale, from an unknown signer, wrongly signed, or superseded by a
-	/// later report of the same signer in the same batch. At equal anchors the later one wins.
+	/// Drop reports that are stale, from an unknown signer, with more quotes than registered
+	/// pairs, wrongly signed, or superseded by a later report of the same signer in the same
+	/// batch. At equal anchors the later one wins.
 	fn filter_reports(
 		reports: Vec<SignedPriceReportOf<T>>,
 		current: Anchor,
 		params: &Parameters,
 	) -> Vec<SignedPriceReportOf<T>> {
 		let signers = T::Signers::signers();
+		let max_quotes = Pairs::<T>::count() as usize;
 		let mut latest: BTreeMap<T::SignerId, SignedPriceReportOf<T>> = BTreeMap::new();
 
 		for report in reports {
@@ -702,6 +714,15 @@ impl<T: Config> Pallet<T> {
 			}
 			if !signers.contains(&report.signer) {
 				log::debug!(target: LOG_TARGET, "Report from unknown signer {:?}", report.signer);
+				continue;
+			}
+			if report.report.quotes.len() > max_quotes {
+				log::debug!(
+					target: LOG_TARGET,
+					"Report of {:?} has {} quotes, more than the {max_quotes} registered pairs",
+					report.signer,
+					report.report.quotes.len(),
+				);
 				continue;
 			}
 			if latest

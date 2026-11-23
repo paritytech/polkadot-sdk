@@ -1064,6 +1064,38 @@ fn cross_rates_need_registered_pairs() {
 }
 
 #[test]
+fn rate_cannot_have_cross_rates() {
+	new_test_ext().execute_with(|| {
+		let root = RuntimeOrigin::root;
+		let (source, rate) = (PAIR_B, PairId(3));
+		for pair in [source, rate] {
+			assert_ok!(PriceOracle::set_pair(root(), pair, PairConfig { market_quorum: 1 }));
+		}
+		let cross_rates =
+			|source, rate| -> BoundedVec<_, _> { vec![(source, rate)].try_into().unwrap() };
+
+		// A pair cannot be its own `rate`.
+		assert_noop!(
+			PriceOracle::set_cross_rates(root(), PAIR, cross_rates(source, PAIR)),
+			Error::<Test>::RateHasCrossRates
+		);
+
+		// `rate` is used as a `rate` of `PAIR`, so it cannot get cross rates.
+		assert_ok!(PriceOracle::set_cross_rates(root(), PAIR, cross_rates(source, rate)));
+		assert_noop!(
+			PriceOracle::set_cross_rates(root(), rate, cross_rates(source, source)),
+			Error::<Test>::RateHasCrossRates
+		);
+
+		// `PAIR` has cross rates, so it cannot be used as a `rate`.
+		assert_noop!(
+			PriceOracle::set_cross_rates(root(), source, cross_rates(rate, PAIR)),
+			Error::<Test>::RateHasCrossRates
+		);
+	});
+}
+
+#[test]
 fn remove_pair_removes_cross_rates_votes_and_price() {
 	new_test_ext().execute_with(|| {
 		let root = RuntimeOrigin::root;
