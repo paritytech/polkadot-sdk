@@ -11,8 +11,7 @@ doc:
 
     Each service has its own unit, so `DefaultUnitsPerEraLimit`, `MaxUnitsPerEraLimit` and the
     existing `MaxPointsPerService` give a value per service: they are `Convert<ServiceKind, u32>`.
-    `MaxPointsPerService` changes from `Get<u32>`, and the three items are no longer metadata
-    constants.
+    `MaxPointsPerService` changes from `Get<u32>` and is no longer a metadata constant.
 
     Each count is first clamped to `MaxBlocksPerEntry`. When a report asks for more than what is
     left of the limit, every entry is cut by the same ratio, rounded down. Units that are not

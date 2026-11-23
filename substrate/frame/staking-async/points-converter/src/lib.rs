@@ -90,7 +90,7 @@ pub mod pallet {
 		type RewardPoints: RewardPoints<Self::AccountId>;
 
 		/// Largest points per unit of a service [`Pallet::set_points_per_service`] and the genesis
-		/// config accept, per service.
+		/// config accept.
 		///
 		/// Crediting also bounds a stored value by it.
 		type MaxPointsPerService: Convert<ServiceKind, u32>;
@@ -104,10 +104,10 @@ pub mod pallet {
 		type MaxBlocksPerEntry: Get<u32>;
 
 		/// Units of a service credited to a source per era until governance sets
-		/// [`UnitsPerEraLimit`] for that source and service, per service.
+		/// [`UnitsPerEraLimit`] for that source and service.
 		type DefaultUnitsPerEraLimit: Convert<ServiceKind, u32>;
 
-		/// Largest limit of a service [`Pallet::set_units_per_era_limit`] accepts, per service.
+		/// Largest limit of a service [`Pallet::set_units_per_era_limit`] accepts.
 		///
 		/// Crediting also bounds a stored limit by it.
 		type MaxUnitsPerEraLimit: Convert<ServiceKind, u32>;
@@ -211,7 +211,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
-			// The only service this pallet credits.
+			// The only service this pallet credits. A service credited later needs its own checks.
 			let service = ServiceKind::Collation;
 			let max_points = T::MaxPointsPerService::convert(service);
 			let default_limit = T::DefaultUnitsPerEraLimit::convert(service);

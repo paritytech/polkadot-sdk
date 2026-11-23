@@ -1301,7 +1301,7 @@ pub struct DefaultUnitsPerEraLimit;
 impl sp_runtime::traits::Convert<sp_staking::ServiceKind, u32> for DefaultUnitsPerEraLimit {
 	fn convert(service: sp_staking::ServiceKind) -> u32 {
 		match service {
-			// Twice [`MaxBlocksPerEntry`]. Blocks reach the era active when their report arrives,
+			// Twice `MaxBlocksPerEntry`. Blocks reach the era active when their report arrives,
 			// so an era can also receive up to one era of blocks reported late. A chain at a
 			// higher velocity can have blocks left uncredited until governance raises its limit
 			// with `set_units_per_era_limit`.
