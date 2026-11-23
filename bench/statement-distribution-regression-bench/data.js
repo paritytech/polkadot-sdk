@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795389204994,
+  "lastUpdate": 1795394528496,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "180dc75fdd427c8ac17d51b9075ff6b71114f607",
-          "message": "Fix zombienet test throughput flakyness and enable more tests (#12001)\n\nI added waiting for PVF to be compiled before we measure tput. Even if\nwe wit for 1 block to be backed, doesn't mean that all validators in\ntest have compiled PVF. Let's see how stable the numbers get in CI\n\n\nAssetHub Westend ES test should pass with\nhttps://github.com/paritytech/polkadot-sdk/pull/12005 merged\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-07T17:20:51Z",
-          "tree_id": "9c9d47872f9ad434b76aa3e98616422f7c6196b9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/180dc75fdd427c8ac17d51b9075ff6b71114f607"
-        },
-        "date": 1778179562357,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.092,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03889231331200002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08000591929599996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08455808575199994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "54c21d97b0b77c95919363c76a93183bbe51dab4",
+          "message": "Use `OnChainContext` for `check_inherents` (#13840)\n\nWhen calling `check_inherents`, we need to use the `OnChainContext`.\nThis is required because the extrinsics of the block to check could\nalready have been build by the new runtime. In this case, we need to\nalso use the new runtime to properly check them.",
+          "timestamp": "2026-11-22T23:02:56Z",
+          "tree_id": "c7d5acce0b2ba8b76605b48b24437e940c0a55b7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/54c21d97b0b77c95919363c76a93183bbe51dab4"
+        },
+        "date": 1795394486143,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.096,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038255706859999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08208382333799992,
             "unit": "seconds"
           }
         ]
