@@ -627,6 +627,7 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 	'cfg(ignore_flaky_test)',
 	'cfg(revive_debug)',
 	'cfg(substrate_runtime)',
+	'cfg(without_inherent_upgrade_pallet)',
 ] }
 
 [workspace.lints.clippy]
