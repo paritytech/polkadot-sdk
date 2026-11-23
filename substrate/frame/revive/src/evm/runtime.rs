@@ -872,6 +872,43 @@ mod test {
 		}
 	}
 
+	#[test]
+	fn check_runtime_pallets_addr_decode_limits() {
+		use codec::Compact;
+		use frame_support::MAX_EXTRINSIC_DEPTH;
+		use sp_runtime::generic::DEFAULT_MAX_CALL_SIZE;
+
+		let check = |data: Vec<u8>| {
+			UncheckedExtrinsicBuilder::call_with(RUNTIME_PALLETS_ADDR)
+				.data(data)
+				.mutate_estimate_and_check(Box::new(|tx| {
+					tx.gas = Some(1_000_000_000_000u64.into())
+				}))
+				.map(|_| ())
+		};
+
+		// Nested deeper than `MAX_EXTRINSIC_DEPTH`.
+		let mut call: RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+		for _ in 0..=MAX_EXTRINSIC_DEPTH {
+			call = pallet_utility::Call::<Test>::as_derivative { index: 0, call: Box::new(call) }
+				.into();
+		}
+		assert_eq!(check(call.encode()), Err(InvalidTransaction::Call.into()));
+
+		// Decodes to more than `DEFAULT_MAX_CALL_SIZE` bytes.
+		let batch: RuntimeCall = pallet_utility::Call::<Test>::batch { calls: vec![] }.into();
+		let batch = batch.encode();
+		let remark: RuntimeCall = frame_system::Call::<Test>::remark { remark: vec![] }.into();
+		let remark = remark.encode();
+		let len = DEFAULT_MAX_CALL_SIZE / core::mem::size_of::<RuntimeCall>() + 1;
+		let mut data = batch[..2].to_vec();
+		data.extend(Compact(len as u32).encode());
+		for _ in 0..len {
+			data.extend_from_slice(&remark);
+		}
+		assert_eq!(check(data), Err(InvalidTransaction::Call.into()));
+	}
+
 	/// The raw bytes seen in this test is of a deployment transaction from [eip-2470] which publish
 	/// a contract at a predicable address on any chain that it's run on. We use these bytes to test
 	/// that if we were to run this transaction on pallet-revive that it would run and also produce
