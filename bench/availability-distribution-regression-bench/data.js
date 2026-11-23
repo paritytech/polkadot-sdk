@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795448820421,
+  "lastUpdate": 1795463083774,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9a0d118456879b86f6ce87159c0b64d20bd26956",
-          "message": "ci: update image tag for images in master branch (#12056)\n\ncc https://github.com/paritytech/devops/issues/5296",
-          "timestamp": "2026-05-12T13:21:10Z",
-          "tree_id": "57ddd3e007cb82cf91ffab2a671138a5a043c13f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9a0d118456879b86f6ce87159c0b64d20bd26956"
-        },
-        "date": 1778596949099,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023686600393333337,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009652904199999972,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.00698313555333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14082075652666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.024246318313333327,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dharjeezy@gmail.com",
+            "name": "dharjeezy",
+            "username": "dharjeezy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3f06135e662e854fe0573ce962e4a6904c07bac1",
+          "message": "try state check for i'm online pallet (#12632)\n\nThis PR introduces try state hook into the I'm Online Pallet. It also\ndefines the invariants that holds for the pallet.\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/239\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-23T17:16:31Z",
+          "tree_id": "973956b0d4ded0ebea28469b206d1c7f205bb667",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3f06135e662e854fe0573ce962e4a6904c07bac1"
+        },
+        "date": 1795463046616,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009770700259999987,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007924257293333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023990220700000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14259055288666664,
             "unit": "seconds"
           }
         ]
