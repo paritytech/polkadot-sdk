@@ -18,6 +18,7 @@
 
 use alloc::vec::Vec;
 use frame_support::{traits::Get, weights::Weight};
+use sp_runtime::traits::Hash;
 
 use crate::{
 	consensus_hook, relay_chain::relay_state_snapshot::RelayChainStateProof,
@@ -31,7 +32,8 @@ pub(crate) fn maybe_drop_included_ancestors<T: Config>(
 ) -> Weight {
 	let mut weight_used = Weight::zero();
 	// If the unincluded segment length is nonzero, then the parachain head must be present.
-	let para_head = relay_state_proof.read_included_para_head_hash::<T::Hashing>().ok();
+	let para_head =
+		relay_state_proof.read_included_para_head().ok().map(|h| T::Hashing::hash(&h.0));
 
 	let unincluded_segment_len = <UnincludedSegment<T>>::decode_len().unwrap_or(0);
 	weight_used += T::DbWeight::get().reads(1);

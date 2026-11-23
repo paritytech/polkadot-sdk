@@ -22,7 +22,7 @@
 //! `:code` the node boots from is the same PolkaVM blob every other test only validates with.
 
 use anyhow::Context;
-use cumulus_jam_zombienet_tests::{
+use cumulus_zombienet_sdk_helpers::jam::{
 	chain_spec,
 	env::{init_logger, NodeArtifacts},
 	genesis_build::polkavm_env,
@@ -59,11 +59,12 @@ async fn dev_node_on_polkavm_blob_rotates_keys_and_authors_blocks() -> Result<()
 	log::info!("work dir: {}", work_dir.display());
 
 	// The chain spec: the PolkaVM blob as `:code`, built by the node binary itself, exactly as
-	// `chain_spec::build` builds the collators' specs — the only difference is the relay-chain
-	// id, which a dev node never connects to. The spec is built under the same PolkaVM env the
-	// node runs under: chain-spec-builder has to execute the PVM blob to read its genesis preset.
+	// `chain_spec::build` builds the collators' specs — the relay-chain id is the JAM marker,
+	// which makes the dev node run the JAM dev path. The spec is built under the same PolkaVM env
+	// the node runs under: chain-spec-builder has to execute the PVM blob to read its genesis
+	// preset.
 	let spec_path = work_dir.join("dev-spec.json");
-	chain_spec::generate(&artifacts.omni_node, &artifacts.runtime, &spec_path, "dev", 0)?;
+	chain_spec::generate(&artifacts.omni_node, &artifacts.runtime, &spec_path, "jam", 0)?;
 	log::info!(
 		"chain spec {} embeds the PolkaVM blob as :code — the node will have no other runtime",
 		spec_path.display()

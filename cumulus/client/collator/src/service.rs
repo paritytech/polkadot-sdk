@@ -32,7 +32,6 @@ use cumulus_client_consensus_common::ParachainCandidate;
 use polkadot_node_primitives::{BlockData, Collation, MaybeCompressedPoV, PoV};
 
 use codec::Encode;
-use sp_additional_data::AdditionalData;
 use std::sync::Arc;
 /// The logging target.
 const LOG_TARGET: &str = "cumulus-collator";
@@ -226,7 +225,6 @@ where
 		blocks: Vec<Block>,
 		proof: StorageProof,
 		scheduling_proof: Option<SchedulingProof>,
-		additional_data: Vec<Option<AdditionalData>>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
 		let compact_proof =
 			match proof.into_compact_proof::<HashingFor<Block>>(*parent_header.state_root()) {
@@ -293,17 +291,7 @@ where
 		// Sort by recipient as required by the relay chain rules.
 		horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));
 
-		let block_data = match scheduling_proof {
-			Some(scheduling_proof) => ParachainBlockData::<Block>::new_with_additional_data(
-				blocks,
-				compact_proof,
-				scheduling_proof,
-				additional_data,
-			),
-			// No scheduling proof (V3 scheduling disabled) → legacy V1 candidate. Additional data
-			// can only ride in a V3 candidate (a V3 extension of V2), so it is not carried here.
-			None => ParachainBlockData::new(blocks, compact_proof, None),
-		};
+		let block_data = ParachainBlockData::<Block>::new(blocks, compact_proof, scheduling_proof);
 
 		let pov = polkadot_node_primitives::maybe_compress_pov(PoV {
 			block_data: BlockData(if api_version >= 3 {
@@ -388,7 +376,6 @@ where
 			vec![candidate.block],
 			candidate.proof,
 			scheduling_proof,
-			Vec::new(),
 		)
 	}
 
@@ -409,142 +396,6 @@ where
 			blocks,
 			proof,
 			scheduling_proof,
-			Vec::new(),
 		)
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use cumulus_test_client::{
-		BuildBlockBuilder, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
-	};
-	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
-	use polkadot_primitives::HeadData;
-	use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
-	use sp_consensus::BlockOrigin;
-	use sp_core::{traits::SpawnNamed, H256};
-	use std::sync::Arc;
-
-	type Block = cumulus_test_client::runtime::Block;
-	type Client = cumulus_test_client::Client;
-
-	#[derive(Clone)]
-	struct NoopSpawner;
-	impl SpawnNamed for NoopSpawner {
-		fn spawn_blocking(
-			&self,
-			_: &'static str,
-			_: Option<&'static str>,
-			future: futures::future::BoxFuture<'static, ()>,
-		) {
-			drop(future);
-		}
-
-		fn spawn(
-			&self,
-			_: &'static str,
-			_: Option<&'static str>,
-			future: futures::future::BoxFuture<'static, ()>,
-		) {
-			drop(future);
-		}
-	}
-
-	fn make_scheduling_proof() -> SchedulingProof {
-		let make_header = |n: u32| {
-			polkadot_primitives::Header::new(
-				n,
-				H256::repeat_byte(1),
-				H256::repeat_byte(2),
-				H256::repeat_byte(3),
-				Default::default(),
-			)
-		};
-		SchedulingProof {
-			header_chain: vec![make_header(2)],
-			internal_scheduling_parent_header: make_header(1),
-			signed_scheduling_info: None,
-		}
-	}
-
-	async fn build_and_import_block(client: &Arc<Client>) -> (Block, StorageProof) {
-		use cumulus_test_client::BlockBuilderAndSupportData;
-		let genesis_hash = client.chain_info().genesis_hash;
-		let genesis_header = client.header(genesis_hash).unwrap().unwrap();
-		let mut sproof = RelayStateSproofBuilder::default();
-		sproof.para_id = cumulus_test_client::runtime::PARACHAIN_ID.into();
-		sproof.included_para_head = Some(HeadData(genesis_header.encode()));
-		let BlockBuilderAndSupportData {
-			block_builder,
-			proof_recorder,
-			additional_data_recorder,
-			..
-		} = client.init_block_builder_builder().with_relay_sproof_builder(sproof).build();
-		let built = block_builder.build().expect("block built");
-		let block = built.block.clone();
-		let proof = proof_recorder.drain_storage_proof();
-
-		let mut params = BlockImportParams::new(BlockOrigin::Own, block.header.clone());
-		params.body = Some(block.extrinsics.clone());
-		params.state_action = StateAction::Execute;
-		params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
-		// The runtime read relay state while building, so the header carries an `AdditionalData`
-		// digest; the executing import path requires the matching recorded map.
-		params.additional_data = additional_data_recorder();
-		client.import_block(params).await.expect("block imported");
-
-		(block, proof)
-	}
-
-	fn make_service(client: Arc<Client>) -> CollatorService<Block, Client, Client> {
-		CollatorService::new(
-			client.clone(),
-			Arc::new(NoopSpawner) as Arc<dyn SpawnNamed + Send + Sync>,
-			Arc::new(|_, _| {}),
-			client,
-		)
-	}
-
-	#[tokio::test]
-	async fn v3_packing_when_additional_data_provided() {
-		let client = Arc::new(TestClientBuilder::new().build());
-		let genesis_hash = client.chain_info().genesis_hash;
-		let genesis_header = client.header(genesis_hash).unwrap().unwrap();
-		let (block, proof) = build_and_import_block(&client).await;
-
-		let blob: AdditionalData = [("test".to_string(), vec![7u8, 8, 9])].into();
-		let result = make_service(client).build_multi_block_collation(
-			&genesis_header,
-			vec![block],
-			proof,
-			Some(make_scheduling_proof()),
-			vec![Some(blob.clone())],
-		);
-
-		let (_, block_data) = result.expect("collation produced");
-		assert!(matches!(block_data, ParachainBlockData::V3 { .. }), "expected V3");
-		assert_eq!(block_data.additional_data()[0], Some(blob));
-	}
-
-	#[tokio::test]
-	async fn v2_fallback_when_no_additional_data() {
-		let client = Arc::new(TestClientBuilder::new().build());
-		let genesis_hash = client.chain_info().genesis_hash;
-		let genesis_header = client.header(genesis_hash).unwrap().unwrap();
-		let (block, proof) = build_and_import_block(&client).await;
-
-		let result = make_service(client).build_multi_block_collation(
-			&genesis_header,
-			vec![block],
-			proof,
-			Some(make_scheduling_proof()),
-			vec![None],
-		);
-
-		let (_, block_data) = result.expect("collation produced");
-		assert!(matches!(block_data, ParachainBlockData::V2 { .. }), "expected V2");
-		assert!(block_data.additional_data().is_empty());
 	}
 }

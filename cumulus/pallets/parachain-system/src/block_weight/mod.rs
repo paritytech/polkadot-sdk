@@ -61,8 +61,13 @@
 //!
 //! If any context that allows to use the full core weight, pushes the used block weight above the
 //! target block weight, all other contexts will get access to the full core weight.
+//!
+//! # Configuration
+//!
+//! The logic needs only the narrow [`Config`]. Every runtime that implements this pallet's
+//! [`crate::Config`] gets it through a blanket implementation backed by the pallet's storage; a
+//! runtime without the pallet implements it itself.
 
-use crate::{Config, PreviousCoreCount};
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use cumulus_primitives_core::CumulusDigestItem;
@@ -102,12 +107,53 @@ pub(crate) const FULL_CORE_WEIGHT: Weight =
 // transactions that exceed the fractional target limit.
 environmental::environmental!(inside_pre_validate: bool);
 
+/// What the dynamic block weight logic needs from the runtime.
+pub trait Config: frame_system::Config {
+	/// Weights of the [`DynamicMaxBlockWeight`] transaction extension.
+	type WeightInfo: crate::WeightInfo;
+
+	/// The current [`BlockWeightMode`], if any.
+	fn mode() -> Option<BlockWeightMode<Self>>;
+
+	/// Replace the current [`BlockWeightMode`]; `None` removes it.
+	fn set_mode(mode: Option<BlockWeightMode<Self>>);
+
+	/// The number of cores the previous block was built for, used when the block carries no
+	/// [`CumulusDigestItem::CoreInfo`].
+	fn previous_core_count() -> Option<u16>;
+}
+
+impl<T: crate::Config> Config for T {
+	type WeightInfo = <T as crate::Config>::WeightInfo;
+
+	fn mode() -> Option<BlockWeightMode<Self>> {
+		crate::BlockWeightMode::<T>::get()
+	}
+
+	fn set_mode(mode: Option<BlockWeightMode<Self>>) {
+		crate::BlockWeightMode::<T>::set(mode)
+	}
+
+	fn previous_core_count() -> Option<u16> {
+		crate::PreviousCoreCount::<T>::get().map(|count| count.0)
+	}
+}
+
+/// Hand the current [`BlockWeightMode`] to `f` and store what `f` leaves in it, the way
+/// `StorageValue::mutate` does.
+fn mutate_mode<T: Config, R>(f: impl FnOnce(&mut Option<BlockWeightMode<T>>) -> R) -> R {
+	let mut mode = T::mode();
+	let result = f(&mut mode);
+	T::set_mode(mode);
+	result
+}
+
 /// The current block weight mode.
 ///
 /// Based on this mode [`MaxParachainBlockWeight`] determines the current allowed block weight.
 #[derive(DebugNoBound, Encode, Decode, CloneNoBound, TypeInfo, PartialEq)]
 #[scale_info(skip_type_params(T))]
-pub enum BlockWeightMode<T: Config> {
+pub enum BlockWeightMode<T: frame_system::Config> {
 	/// The block is allowed to use the weight of a full core.
 	FullCore {
 		/// The block in which this mode was set. Is used to determine if this is maybe stale mode
@@ -141,7 +187,7 @@ pub enum BlockWeightMode<T: Config> {
 	},
 }
 
-impl<T: Config> BlockWeightMode<T> {
+impl<T: frame_system::Config> BlockWeightMode<T> {
 	/// Check if this mode is stale, aka was set in a previous block.
 	fn is_stale(&self) -> bool {
 		let context = self.context();
@@ -193,7 +239,7 @@ impl<T: Config> BlockWeightMode<T> {
 /// using the [`BlockWeightMode`].
 pub struct MaxParachainBlockWeight<Config, TargetBlockRate>(PhantomData<(Config, TargetBlockRate)>);
 
-impl<Config: crate::Config, TargetBlockRate: Get<u32>>
+impl<Config: self::Config, TargetBlockRate: Get<u32>>
 	MaxParachainBlockWeight<Config, TargetBlockRate>
 {
 	/// Returns the target block weight for one block.
@@ -204,10 +250,9 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>>
 
 	/// Same as [`Self::target_block_weight`], but takes the `digests` directly.
 	fn target_block_weight_with_digest(digest: &Digest) -> Weight {
-		let number_of_cores = CumulusDigestItem::find_core_info(&digest).map_or_else(
-			|| PreviousCoreCount::<Config>::get().map_or(1, |pc| pc.0),
-			|ci| ci.number_of_cores.0,
-		) as u64;
+		let number_of_cores = CumulusDigestItem::find_core_info(&digest)
+			.map_or_else(|| Config::previous_core_count().unwrap_or(1), |ci| ci.number_of_cores.0)
+			as u64;
 
 		let target_blocks = TargetBlockRate::get() as u64;
 
@@ -234,7 +279,7 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>>
 	}
 }
 
-impl<Config: crate::Config, TargetBlockRate: Get<u32>> Get<Weight>
+impl<Config: self::Config, TargetBlockRate: Get<u32>> Get<Weight>
 	for MaxParachainBlockWeight<Config, TargetBlockRate>
 {
 	fn get() -> Weight {
@@ -259,7 +304,7 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>> Get<Weight>
 		// anymore.
 		let in_pre_validate = inside_pre_validate::with(|v| *v).unwrap_or(false);
 
-		match crate::BlockWeightMode::<Config>::get().filter(|m| !m.is_stale()) {
+		match Config::mode().filter(|m| !m.is_stale()) {
 			// We allow the full core.
 			Some(
 				BlockWeightMode::<Config>::FullCore { .. } |

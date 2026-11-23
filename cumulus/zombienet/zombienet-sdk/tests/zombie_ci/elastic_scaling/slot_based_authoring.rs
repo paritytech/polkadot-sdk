@@ -14,12 +14,10 @@ use cumulus_zombienet_sdk_helpers::network::{assign_cores, wait_relay_up};
 use serde_json::json;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
 #[cfg(not(feature = "jam"))]
-use zombienet_sdk::NetworkConfig;
-#[cfg(not(feature = "jam"))]
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 #[cfg(feature = "jam")]
-use cumulus_jam_zombienet_tests::{
+use cumulus_zombienet_sdk_helpers::jam::{
 	para::Para,
 	spawn::{spawn, SpawnOptions},
 };
@@ -38,8 +36,6 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 	let config = build_network_config().await?;
 	#[cfg(not(feature = "jam"))]
 	let network = initialize_network(config).await?;
-	#[cfg(not(feature = "jam"))]
-	let network = &network;
 	// Each para holds its cores from genesis, there is no relay chain to assign them.
 	#[cfg(feature = "jam")]
 	let paras = vec![
@@ -53,15 +49,14 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 			.with_runtime_code("default", cumulus_test_runtime::WASM_BINARY)?,
 	];
 	#[cfg(feature = "jam")]
-	let jam = spawn("elastic_scaling_slot_based_authoring", &paras, SpawnOptions::new(4)).await?;
-	#[cfg(feature = "jam")]
-	let network = &jam.network;
+	let network =
+		spawn("elastic_scaling_slot_based_authoring", &paras, SpawnOptions::new(4)).await?;
 
 	let collator_elastic = network.get_node("collator-elastic")?;
 	let collator_single_core = network.get_node("collator-single-core")?;
 
 	log::info!("Checking if alice is up");
-	wait_relay_up(network, "alice", 60).await?;
+	wait_relay_up(&network, "alice", 60).await?;
 
 	log::info!("Checking if collator-elastic is up");
 	assert!(collator_elastic.wait_until_is_up(60u64).await.is_ok());
@@ -69,7 +64,7 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 	log::info!("Checking if collator-single-core is up");
 	assert!(collator_single_core.wait_until_is_up(60u64).await.is_ok());
 
-	assign_cores(network, "alice", PARA_ID_1, vec![0, 1]).await?;
+	assign_cores(&network, "alice", PARA_ID_1, vec![0, 1]).await?;
 
 	for (node, block_cnt) in [(collator_single_core, 20.0), (collator_elastic, 40.0)] {
 		log::info!("Checking block production for {}", node.name());

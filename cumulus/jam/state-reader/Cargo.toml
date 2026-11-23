@@ -33,7 +33,8 @@ codec = { workspace = true }
 parachain-service-core = { workspace = true }
 
 [target.'cfg(jam)'.dependencies]
-# The JAM (PolkaVM) side declares its host calls at fixed indices.
+# The JAM (PolkaVM) side of `jam_upward` declares its typed host call (index 342) directly: its
+# exchangeable takes `(MessageId, &UpwardMessage)`, which `#[runtime_interface]` cannot express.
 sp-jam-runtime-interface = { workspace = true }
 
 [dev-dependencies]

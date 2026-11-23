@@ -5,16 +5,12 @@ use anyhow::anyhow;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{BlockBundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
 use futures::stream::StreamExt;
-use polkadot_primitives::{
-	BlakeTwo256, CandidateReceiptV2, Hash as RelayHash, HashT, Id as ParaId,
-};
+use polkadot_primitives::{BlakeTwo256, CandidateReceiptV2, HashT, Id as ParaId};
 use std::{cmp::max, collections::HashMap, ops::Range, sync::Arc};
 use tokio::{
 	join,
 	time::{sleep, Duration},
 };
-#[cfg(not(feature = "jam"))]
-use zombienet_sdk::subxt::PolkadotConfig;
 use zombienet_sdk::{
 	subxt::{
 		self,
@@ -30,7 +26,7 @@ use zombienet_sdk::{
 		metadata::Metadata,
 		tx::{signer::Signer, DynamicPayload, SubmittableTransaction, TxStatus},
 		utils::{AccountId32, MultiAddress, MultiSignature, H256},
-		OnlineClient,
+		OnlineClient, PolkadotConfig,
 	},
 	LocalFileSystem, Network,
 };
@@ -40,12 +36,8 @@ pub const PARA_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
 /// The Prometheus metric that reports a parachain's finalized block height.
 pub const PARA_FINALIZED_METRIC: &str = "block_height{status=\"finalized\"}";
 
-pub mod coretime;
 #[cfg(feature = "jam")]
 pub mod jam;
-pub mod jam_rpc;
-#[cfg(feature = "jam")]
-mod jam_throughput;
 
 mod runtime_blob;
 pub use runtime_blob::inflate_runtime_wasm;
@@ -67,21 +59,6 @@ pub trait ParaHeader: subxt::config::Header<Hasher = DynamicHasher256, Number = 
 }
 
 impl ParaHeader for SubstrateHeader<u32, DynamicHasher256> {
-	fn encode_digest(&self) -> Vec<u8> {
-		self.digest.encode()
-	}
-
-	fn state_root(&self) -> H256 {
-		self.state_root
-	}
-
-	fn parent_hash(&self) -> H256 {
-		self.parent_hash
-	}
-}
-
-#[cfg(feature = "jam")]
-impl ParaHeader for jam::JamHeader {
 	fn encode_digest(&self) -> Vec<u8> {
 		self.digest.encode()
 	}
@@ -129,9 +106,7 @@ impl<C> PolkadotLikeConfig for C where
 /// The subxt config used by the parachain under test: [`jam::JamConfig`] when the `jam`
 /// feature is enabled, [`PolkadotConfig`] otherwise.
 #[cfg(feature = "jam")]
-pub use jam::JamConfig;
-#[cfg(feature = "jam")]
-pub type ParaConfig = JamConfig;
+pub type ParaConfig = jam::JamConfig;
 #[cfg(not(feature = "jam"))]
 pub type ParaConfig = PolkadotConfig;
 
@@ -153,7 +128,6 @@ const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
 // compile per validator that contends for CPU. The clock starts at the session
 // change, but the first parachain candidate (which triggers PVF preparation)
 // can be delayed by several minutes of collator warm-up, which we must account for.
-#[cfg(not(feature = "jam"))]
 const PVF_PREPARE_TIMEOUT_SECS: u64 = 300;
 
 /// Format a `sp_runtime::DispatchError` using runtime metadata for human-readable output.
@@ -212,14 +186,13 @@ async fn is_session_change<C: Config>(
 // For tests where PVF preparation timing affects throughput (e.g. elastic scaling, runtime
 // upgrades), call [`wait_for_pvf_prepare`] before this helper to ensure all validators have
 // finished preparing the relevant PVFs.
-pub async fn assert_para_throughput<C: Config>(
+pub async fn assert_para_throughput<C: H256Config>(
 	relay_client: &OnlineClient<C>,
 	stop_after: u32,
 	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
 	expected_number_of_blocks: impl Into<HashMap<ParaId, (OnlineClient<C>, Range<u32>)>>,
 ) -> Result<(), anyhow::Error>
 where
-	C: H256Config,
 	C::Header: ParaHeader,
 {
 	let ranges = expected_candidate_ranges.into();
@@ -270,7 +243,6 @@ where
 /// deliberately do not read a baseline from the metric and add a delta, because validators
 /// may already have started or finished preparing a new PVF before the baseline read, which
 /// makes the delta racy.
-#[cfg(not(feature = "jam"))]
 pub async fn wait_for_pvf_prepare(
 	network: &Network<LocalFileSystem>,
 	min_total_prepares: u32,
@@ -298,15 +270,6 @@ pub async fn wait_for_pvf_prepare(
 		validators.len(),
 		target,
 	);
-	Ok(())
-}
-
-/// No-op on JAM: there is no relay PVF pre-checking to wait for.
-#[cfg(feature = "jam")]
-pub async fn wait_for_pvf_prepare(
-	_network: &Network<LocalFileSystem>,
-	_min_total_prepares: u32,
-) -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
@@ -345,95 +308,115 @@ pub mod network {
 		para_id: u32,
 		cores: Vec<u32>,
 	) -> Result<(), anyhow::Error> {
-		let Ok(coretime) = network.get_node(crate::coretime::CORETIME_COLLATOR) else {
+		let Ok(coretime) = network.get_node(crate::jam::coretime::CORETIME_COLLATOR) else {
 			return Ok(());
 		};
 		let client: OnlineClient<ParaConfig> = coretime.wait_client().await?;
-		crate::coretime::force_reserve(&client, para_id, &cores).await
+		crate::jam::coretime::force_reserve(&client, para_id, &cores).await
 	}
 
-	/// Upgrades the runtime of the para `para_node` belongs to, to `code`, and waits until a
-	/// block of `para_node` runs it.
-	///
-	/// On a relay chain this is a sudo `System::set_code`.
+	/// Registers `para_id` on the relay chain, for a para spawned with
+	/// `RegistrationStrategy::Manual`.
 	#[cfg(not(feature = "jam"))]
-	pub async fn upgrade_runtime(
-		network: &Network<LocalFileSystem>,
-		para_node: &str,
-		code: &[u8],
+	pub async fn register_parachain(
+		network: &mut Network<LocalFileSystem>,
+		para_id: u32,
 	) -> Result<(), anyhow::Error> {
-		let client: OnlineClient<PolkadotConfig> =
-			network.get_node(para_node)?.wait_client().await?;
-		submit_sudo_runtime_upgrade(
-			&client,
-			code,
-			&zombienet_sdk::subxt_signer::sr25519::dev::alice(),
-		)
-		.await?;
-		wait_for_runtime_upgrade(&client).await?;
+		network.register_parachain(para_id).await
+	}
+
+	/// No-op on JAM: every para of the network is registered in the JAM genesis.
+	#[cfg(feature = "jam")]
+	pub async fn register_parachain(
+		_network: &mut Network<LocalFileSystem>,
+		_para_id: u32,
+	) -> Result<(), anyhow::Error> {
 		Ok(())
 	}
 
-	/// The JAM code-upgrade lifecycle: [`schedule_code_upgrade`] arms it by hash, the code is
-	/// handed to JAM out of band with [`crate::jam_rpc::provide_validation_code`], and the para
-	/// switches once the service reflects the announcement (§5.2).
-	#[cfg(feature = "jam")]
-	pub async fn upgrade_runtime(
+	/// Asserts that `para_id` is registered within `blocks_to_wait` blocks of the relay node
+	/// `relay_node`.
+	#[cfg(not(feature = "jam"))]
+	pub async fn assert_para_is_registered(
 		network: &Network<LocalFileSystem>,
-		para_node: &str,
-		code: &[u8],
+		relay_node: &str,
+		para_id: ParaId,
+		blocks_to_wait: u32,
 	) -> Result<(), anyhow::Error> {
-		let client: OnlineClient<ParaConfig> = network.get_node(para_node)?.wait_client().await?;
-		schedule_code_upgrade(&client, code).await?;
-		let jam = crate::jam_rpc::JamRpc::wait_ready(
-			&crate::jam_throughput::ordinary_jam_node_url(network)?,
-			tokio::time::Instant::now() + std::time::Duration::from_secs(60),
+		let client: OnlineClient<PolkadotConfig> =
+			network.get_node(relay_node)?.wait_client().await?;
+		super::assert_para_is_registered(&client, para_id, blocks_to_wait).await
+	}
+
+	/// No-op on JAM: every para of the network is registered in the JAM genesis.
+	#[cfg(feature = "jam")]
+	pub async fn assert_para_is_registered(
+		_network: &Network<LocalFileSystem>,
+		_relay_node: &str,
+		_para_id: ParaId,
+		_blocks_to_wait: u32,
+	) -> Result<(), anyhow::Error> {
+		Ok(())
+	}
+
+	/// Submits a runtime upgrade to `code` for the para behind `client` and returns the block
+	/// that carried it.
+	///
+	/// On a relay chain this is [`submit_sudo_runtime_upgrade`] with Alice's sudo key.
+	#[cfg(not(feature = "jam"))]
+	pub async fn submit_runtime_upgrade(
+		_network: &Network<LocalFileSystem>,
+		client: &OnlineClient<PolkadotConfig>,
+		code: &[u8],
+	) -> Result<H256, anyhow::Error> {
+		submit_sudo_runtime_upgrade(
+			client,
+			code,
+			&zombienet_sdk::subxt_signer::sr25519::dev::alice(),
+		)
+		.await
+	}
+
+	/// On JAM `set_code` refuses the code bytes: the upgrade is armed by hash with
+	/// [`crate::jam::tx::schedule_code_upgrade`], whose block is returned, and the code is handed
+	/// to JAM out of band with [`crate::jam::rpc::provide_validation_code`].
+	#[cfg(feature = "jam")]
+	pub async fn submit_runtime_upgrade(
+		network: &Network<LocalFileSystem>,
+		client: &OnlineClient<ParaConfig>,
+		code: &[u8],
+	) -> Result<H256, anyhow::Error> {
+		let block = crate::jam::tx::schedule_code_upgrade(client, code).await?;
+		let jam = crate::jam::rpc::JamRpc::wait_ready(
+			&crate::jam::throughput::ordinary_jam_node_url(network)?,
+			tokio::time::Instant::now() + Duration::from_secs(60),
 		)
 		.await?;
-		crate::jam_rpc::provide_validation_code(
+		crate::jam::rpc::provide_validation_code(
 			&jam,
 			parachain_service_core::PARACHAIN_SERVICE_ID,
 			code,
 		)
 		.await?;
-		wait_for_runtime_upgrade_on_best(&client).await?;
-		Ok(())
+		Ok(block)
 	}
 
-	/// Arms a JAM runtime upgrade to `code`: a sudo `ParachainSystem::schedule_code_upgrade_hash`
-	/// with the code's 32-byte hash and length. The code itself never travels on chain, a
-	/// multi-MB extrinsic would trap the PolkaVM runtime. Returns the block that armed it.
+	/// Waits for the relay validators to prepare the PVFs, see [`super::wait_for_pvf_prepare`].
+	#[cfg(not(feature = "jam"))]
+	pub async fn wait_for_pvf_prepare(
+		network: &Network<LocalFileSystem>,
+		min_total_prepares: u32,
+	) -> Result<(), anyhow::Error> {
+		super::wait_for_pvf_prepare(network, min_total_prepares).await
+	}
+
+	/// No-op on JAM: there is no relay PVF pre-checking to wait for.
 	#[cfg(feature = "jam")]
-	pub async fn schedule_code_upgrade(
-		client: &OnlineClient<ParaConfig>,
-		code: &[u8],
-	) -> Result<H256, anyhow::Error> {
-		use zombienet_sdk::subxt::ext::scale_value::{value, Value};
-
-		let code_len = code.len() as u32;
-		let call = zombienet_sdk::subxt::tx::dynamic(
-			"ParachainSystem",
-			"schedule_code_upgrade_hash",
-			vec![Value::from_bytes(sp_crypto_hashing::blake2_256(code)), value!(code_len)],
-		);
-		log::info!("Sending sudo(schedule_code_upgrade_hash) for {code_len} bytes");
-		let block = submit_extrinsic_and_wait_for_best_block_success(
-			client,
-			&crate::coretime::sudo_call(call),
-			&zombienet_sdk::subxt_signer::sr25519::dev::alice(),
-		)
-		.await?;
-
-		// `sudo` reports the inner dispatch only through `Sudid`; the extrinsic itself succeeds
-		// either way.
-		let events = client.blocks().at(block).await?.events().await?;
-		let sudid: Vec<Result<(), sp_runtime::DispatchError>> =
-			find_event_and_decode_fields(&events, "Sudo", "Sudid")?;
-		match sudid.first() {
-			Some(Ok(())) => Ok(block),
-			Some(Err(e)) => Err(anyhow!("sudo(schedule_code_upgrade_hash) failed: {e:?}")),
-			None => Err(anyhow!("no Sudid event in block {block:?}")),
-		}
+	pub async fn wait_for_pvf_prepare(
+		_network: &Network<LocalFileSystem>,
+		_min_total_prepares: u32,
+	) -> Result<(), anyhow::Error> {
+		Ok(())
 	}
 
 	/// Waits for the relay node `relay_node` to accept clients.
@@ -531,7 +514,7 @@ pub mod network {
 		expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
 		expected_number_of_blocks: impl Into<HashMap<ParaId, (OnlineClient<ParaConfig>, Range<u32>)>>,
 	) -> Result<(), anyhow::Error> {
-		crate::jam_throughput::assert_para_throughput(
+		crate::jam::throughput::assert_para_throughput(
 			network,
 			stop_after,
 			expected_candidate_ranges.into(),
@@ -539,6 +522,13 @@ pub mod network {
 		)
 		.await
 	}
+	/// What a para node logs each time it imports blocks it recovered from the backing chain's
+	/// availability layer: relay PoV recovery, or JAM work-package recovery.
+	#[cfg(not(feature = "jam"))]
+	pub const RECOVERED_BLOCKS_LOG_LINE: &str = "Importing blocks retrieved using pov_recovery";
+	#[cfg(feature = "jam")]
+	pub const RECOVERED_BLOCKS_LOG_LINE: &str =
+		"Importing blocks retrieved using JAM work-package recovery";
 }
 
 async fn collect_para_throughput<F, C: Config>(
@@ -643,12 +633,11 @@ where
 	Ok(candidate_count)
 }
 
-async fn assert_expected_number_of_blocks<C: Config>(
+async fn assert_expected_number_of_blocks<C: H256Config>(
 	candidate_count: HashMap<ParaId, Vec<CandidateReceiptV2<H256>>>,
 	expected_number_of_blocks: HashMap<ParaId, (OnlineClient<C>, Range<u32>)>,
 ) -> Result<(), anyhow::Error>
 where
-	C: H256Config,
 	C::Header: ParaHeader,
 {
 	for (para_id, (para_client, expected_number_of_blocks)) in expected_number_of_blocks {
@@ -729,24 +718,6 @@ where
 
 	CumulusDigestItem::find_relay_block_identifier(&substrate_digest)
 		.ok_or_else(|| anyhow!("Failed to find `RelayBlockIdentifier` digest"))
-}
-
-/// Returns the JAM anchor and lookup anchor from the given parachain block, or `None` if the
-/// block carries no `JamParent` digest item.
-///
-/// Returns `Option` rather than `Result` so callers can skip blocks at low heights — where no
-/// prior anchor exists — without treating the absence of the digest as an error.
-pub fn find_jam_parent<C: Config>(
-	block: &Block<C, OnlineClient<C>>,
-) -> Option<(RelayHash, RelayHash)>
-where
-	C::Header: ParaHeader,
-{
-	let substrate_digest =
-		sp_runtime::generic::Digest::decode(&mut &block.header().encode_digest()[..])
-			.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
-
-	CumulusDigestItem::find_jam_parent(&substrate_digest)
 }
 
 /// Wait for the first block with a session change.
@@ -875,14 +846,13 @@ where
 /// * `para_client` - Client connected to a parachain node
 /// * `offset` - Expected minimum offset between relay parent and highest seen relay block
 /// * `block_limit` - Number of parachain blocks to verify before completing
-pub async fn assert_relay_parent_offset<C: Config>(
+pub async fn assert_relay_parent_offset<C: H256Config>(
 	relay_client: &OnlineClient<C>,
 	para_client: &OnlineClient<C>,
 	offset: u32,
 	block_limit: u32,
 ) -> Result<(), anyhow::Error>
 where
-	C: H256Config,
 	C::Header: ParaHeader,
 {
 	let mut relay_block_stream = relay_client.blocks().subscribe_all().await?;
@@ -1020,73 +990,6 @@ async fn submit_tx_and_wait_for_finalization<C: PolkadotLikeConfig>(
 	Err(anyhow!("Transaction event stream ended without reaching the finalized state"))
 }
 
-/// Submits the given `call` as a signed transaction and waits until it is included in a **best**
-/// block whose dispatch succeeded.
-///
-/// The JAM twin of [`submit_extrinsic_and_wait_for_finalization_success`]. A JAM collator's
-/// finality is a projection of JAM's accumulated parachain head and does not advance while the
-/// service's head is unchanged, so inclusion in a best block is the strongest signal a JAM para
-/// gives. Use the finalized variant on a chain with real finality.
-///
-/// The nonce is read at the best block too. subxt reads it at the finalized block by default,
-/// which lags behind on a JAM para: a second call right after the first would reuse its nonce.
-pub async fn submit_extrinsic_and_wait_for_best_block_success<
-	C: PolkadotLikeConfig,
-	S: Signer<C>,
->(
-	client: &OnlineClient<C>,
-	call: &DynamicPayload,
-	signer: &S,
-) -> Result<H256, anyhow::Error> {
-	let best = client
-		.blocks()
-		.subscribe_best()
-		.await?
-		.next()
-		.await
-		.ok_or_else(|| anyhow!("the best block stream ended before yielding a block"))??;
-	let nonce = best.account_nonce(&signer.account_id()).await?;
-	let extensions = PolkadotExtrinsicParamsBuilder::<C>::new().immortal().nonce(nonce).build();
-
-	log::info!("Submitting transaction...");
-
-	let tx = client.tx().create_signed(call, signer, extensions).await?;
-
-	submit_tx_and_wait_for_best_block(tx).await
-}
-
-/// Submit `tx` and return the hash of the best block that included it successfully.
-async fn submit_tx_and_wait_for_best_block<C: PolkadotLikeConfig>(
-	tx: SubmittableTransaction<C, OnlineClient<C>>,
-) -> Result<H256, anyhow::Error> {
-	log::info!("Submitting transaction: {:?}", tx.hash());
-
-	let mut tx = tx.submit_and_watch().await?;
-
-	while let Some(status) = tx.next().await.transpose()? {
-		match status {
-			TxStatus::InBestBlock(tx_in_block) => {
-				tx_in_block.wait_for_success().await?;
-				log::info!("[Best] In block: {:#?}", tx_in_block.block_hash());
-				return Ok(tx_in_block.block_hash());
-			},
-			TxStatus::InFinalizedBlock(tx_in_block) => {
-				tx_in_block.wait_for_success().await?;
-				log::info!("[Finalized] In block: {:#?}", tx_in_block.block_hash());
-				return Ok(tx_in_block.block_hash());
-			},
-			TxStatus::Error { message } |
-			TxStatus::Invalid { message } |
-			TxStatus::Dropped { message } => {
-				return Err(anyhow!("Error submitting tx: {message}"));
-			},
-			_ => continue,
-		}
-	}
-
-	Err(anyhow!("Transaction event stream ended without being included in a best block"))
-}
-
 /// Submits the given `call` as transaction and waits `timeout_secs` for it successful finalization.
 ///
 /// If the transaction does not reach the finalized state in `timeout_secs` an error is returned.
@@ -1177,27 +1080,24 @@ where
 ///
 /// If `is_only_block_in_core` is true, it checks if the given block is the first block in the core
 /// and the only one. If this is `false`, it only checks if the block is the last block in the core.
-async fn ensure_is_block_in_core_impl<C: Config>(
+async fn ensure_is_block_in_core_impl<C: H256Config>(
 	para_client: &OnlineClient<C>,
 	block_hash: H256,
 	is_only_block_in_core: bool,
 ) -> Result<(), anyhow::Error>
 where
-	C: H256Config,
 	C::Header: ParaHeader,
 {
 	let blocks = para_client.blocks();
 	let block = blocks.at(block_hash).await?;
 
 	if is_only_block_in_core {
-		// A block with a non-zero bundle index continues the bundle of its parent, i.e. shares
-		// the core with it. Comparing the parent's `CoreInfo` instead would produce false
-		// positives: the core selector restarts at `0` every parachain slot, so after a reorg a
-		// first-in-core block may legitimately carry the same `CoreInfo` as a parent that was
-		// produced in a previous slot.
-		if find_block_bundle_info(&block)?.index != 0 {
+		let parent = blocks.at(block.header().parent_hash()).await?;
+
+		// Genesis is for sure on a different core :)
+		if parent.number() != 0 && is_on_same_core(&parent, &block)? {
 			return Err(anyhow::anyhow!(
-				"Not first block ({}) in core, the block continues the bundle of its parent.",
+				"Not first block ({}) in core, at least the parent block is on the same core.",
 				block.number()
 			));
 		}
@@ -1227,9 +1127,7 @@ where
 		}
 	};
 
-	// The direct descendant either opens a new bundle (index 0), meaning it occupies a new
-	// core, or continues the bundle of the checked block, meaning it shares the core with it.
-	if find_block_bundle_info(&next_block)?.index != 0 {
+	if is_on_same_core(&block, &next_block)? {
 		return Err(anyhow::anyhow!(
 			"Not {} block ({}) in core, at least the following block is on the same core.",
 			if is_only_block_in_core { "first" } else { "last" },
@@ -1240,24 +1138,48 @@ where
 	Ok(())
 }
 
-/// Checks if the specified block occupies a full core and returns its hash.
+/// Whether `child`, a direct descendant of `parent`, was built on the same core: both carry the
+/// same [`CoreInfo`].
+#[cfg(not(feature = "jam"))]
+fn is_on_same_core<C: Config>(
+	parent: &Block<C, OnlineClient<C>>,
+	child: &Block<C, OnlineClient<C>>,
+) -> Result<bool, anyhow::Error>
+where
+	C::Header: ParaHeader,
+{
+	Ok(find_core_info(parent)? == find_core_info(child)?)
+}
+
+/// Whether `child`, a direct descendant of `parent`, was built on the same core: a non-zero
+/// bundle index means it continues the bundle of `parent`.
 ///
-/// The returned hash is the block that was checked: for [`BlockToCheck::Exact`] the one handed
-/// in, for [`BlockToCheck::NextFirstBundleBlock`] the first block of the next bundle.
-pub async fn ensure_is_only_block_in_core<C: Config>(
+/// The JAM collator's core selector restarts at `0` every parachain slot, so after a reorg a
+/// block that opens a core may carry the same [`CoreInfo`] as a parent built in an earlier slot.
+#[cfg(feature = "jam")]
+fn is_on_same_core<C: Config>(
+	_parent: &Block<C, OnlineClient<C>>,
+	child: &Block<C, OnlineClient<C>>,
+) -> Result<bool, anyhow::Error>
+where
+	C::Header: ParaHeader,
+{
+	Ok(find_block_bundle_info(child)?.index != 0)
+}
+
+/// Checks if the specified block occupies a full core.
+pub async fn ensure_is_only_block_in_core<C: H256Config>(
 	para_client: &OnlineClient<C>,
 	block_to_check: BlockToCheck,
-) -> Result<H256, anyhow::Error>
+) -> Result<(), anyhow::Error>
 where
-	C: H256Config,
 	C::Header: ParaHeader,
 {
 	let blocks = para_client.blocks();
 
 	match block_to_check {
 		BlockToCheck::Exact(block_hash) => {
-			ensure_is_block_in_core_impl(para_client, block_hash, true).await?;
-			Ok(block_hash)
+			ensure_is_block_in_core_impl(para_client, block_hash, true).await
 		},
 		BlockToCheck::NextFirstBundleBlock(start_block_hash) => {
 			let start_block = blocks.at(start_block_hash).await?;
@@ -1280,8 +1202,7 @@ where
 			}
 
 			if let Some(block) = next_first_bundle_block {
-				ensure_is_block_in_core_impl(para_client, block, true).await?;
-				Ok(block)
+				ensure_is_block_in_core_impl(para_client, block, true).await
 			} else {
 				Err(anyhow!("Could not find the next bundle after {}", start_block.number()))
 			}
@@ -1289,40 +1210,14 @@ where
 	}
 }
 
-/// Checks that the given block carries the [`CumulusDigestItem::UseFullCore`] digest, i.e. the
-/// runtime escalated the block to occupy its entire core.
-///
-/// On the relay this is the signal for a bundle that consumed more than its share of the core; on
-/// JAM every block is alone in its core, so this complements [`ensure_is_only_block_in_core`].
-pub async fn ensure_uses_full_core<C: Config>(
-	para_client: &OnlineClient<C>,
-	block_hash: H256,
-) -> Result<(), anyhow::Error>
-where
-	C: H256Config,
-	C::Header: ParaHeader,
-{
-	let block = para_client.blocks().at(block_hash).await?;
-	let substrate_digest =
-		sp_runtime::generic::Digest::decode(&mut &block.header().encode_digest()[..])
-			.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
-
-	if !CumulusDigestItem::contains_use_full_core(&substrate_digest) {
-		return Err(anyhow!("Block {block_hash:?} does not carry the `UseFullCore` digest"));
-	}
-
-	Ok(())
-}
-
 /// Checks if the specified block is the last block in a core.
 ///
 /// Also ensures that the last block is NOT the first block.
-pub async fn ensure_is_last_block_in_core<C: Config>(
+pub async fn ensure_is_last_block_in_core<C: H256Config>(
 	para_client: &OnlineClient<C>,
 	block_to_check: H256,
 ) -> Result<(), anyhow::Error>
 where
-	C: H256Config,
 	C::Header: ParaHeader,
 {
 	ensure_is_block_in_core_impl(para_client, block_to_check, false).await?;
@@ -1473,11 +1368,10 @@ pub async fn submit_sudo_runtime_upgrade<C: PolkadotLikeConfig, S: Signer<C>>(
 /// `RuntimeEnvironmentUpdated` digest.
 ///
 /// Returns the hash of the block at which the runtime upgrade was applied.
-pub async fn wait_for_runtime_upgrade<C: Config>(
+pub async fn wait_for_runtime_upgrade<C: H256Config>(
 	client: &OnlineClient<C>,
 ) -> Result<H256, anyhow::Error>
 where
-	C: H256Config,
 	C::Header: ParaHeader,
 {
 	let mut finalized_blocks = client.blocks().subscribe_finalized().await?;
@@ -1500,75 +1394,18 @@ where
 	Err(anyhow!("Did not find a runtime upgrade"))
 }
 
-/// How long the JAM path waits for the upgraded code to appear in a best block header.
-#[cfg(feature = "jam")]
-const RUNTIME_UPGRADE_TIMEOUT: Duration = Duration::from_secs(300);
-
-/// Wait until a runtime upgrade has happened, scanning **best** blocks.
-///
-/// The JAM twin of [`wait_for_runtime_upgrade`]. A JAM collator's finality is a projection of
-/// JAM's accumulated parachain head and does not advance while the service's head is unchanged,
-/// so the `RuntimeEnvironmentUpdated` digest has to be read from best blocks. The runtime
-/// deposits that digest into the block header, so it is observable there without any finality.
-#[cfg(feature = "jam")]
-pub async fn wait_for_runtime_upgrade_on_best<C: Config>(
-	client: &OnlineClient<C>,
-) -> Result<H256, anyhow::Error>
-where
-	C: H256Config,
-	C::Header: ParaHeader,
-{
-	tokio::time::timeout(RUNTIME_UPGRADE_TIMEOUT, scan_for_runtime_upgrade_on_best(client))
-		.await
-		.map_err(|_| {
-			anyhow!(
-				"runtime upgrade did not appear in a best block within \
-				 {RUNTIME_UPGRADE_TIMEOUT:?}"
-			)
-		})?
-}
-
-#[cfg(feature = "jam")]
-async fn scan_for_runtime_upgrade_on_best<C: Config>(
-	client: &OnlineClient<C>,
-) -> Result<H256, anyhow::Error>
-where
-	C: H256Config,
-	C::Header: ParaHeader,
-{
-	let mut best_blocks = client.blocks().subscribe_best().await?;
-
-	while let Some(block) = best_blocks.next().await {
-		let block = block?;
-		let substrate_digest =
-			sp_runtime::generic::Digest::decode(&mut &block.header().encode_digest()[..])
-				.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
-		if substrate_digest
-			.logs()
-			.iter()
-			.any(|d| matches!(d, sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated))
-		{
-			log::info!("Runtime upgraded in best block {:?}", block.hash());
-
-			return Ok(block.hash());
-		}
-	}
-
-	Err(anyhow!("Best block stream ended before a runtime upgrade"))
-}
-
 /// Poll a node's WebSocket endpoint until its subxt metadata reports the given pallet,
 /// returning a fresh `OnlineClient` against that metadata, or fail on timeout.
 ///
 /// After a runtime upgrade that introduces a new pallet, subxt's cached metadata can lag
 /// the on-chain state until a new client is constructed against a block executed under the
 /// upgraded runtime.
-pub async fn wait_for_pallet_in_metadata<C: Config>(
+pub async fn wait_for_pallet_in_metadata(
 	ws_url: &str,
 	pallet_name: &str,
 	timeout: Duration,
 	poll_interval: Duration,
-) -> Result<OnlineClient<C>, anyhow::Error> {
+) -> Result<OnlineClient<PolkadotConfig>, anyhow::Error> {
 	let deadline = std::time::Instant::now() + timeout;
 	loop {
 		if std::time::Instant::now() >= deadline {
@@ -1577,7 +1414,7 @@ pub async fn wait_for_pallet_in_metadata<C: Config>(
 			));
 		}
 		sleep(poll_interval).await;
-		let candidate = OnlineClient::<C>::from_url(ws_url).await?;
+		let candidate = OnlineClient::<PolkadotConfig>::from_url(ws_url).await?;
 		if candidate.metadata().pallet_by_name(pallet_name).is_some() {
 			return Ok(candidate);
 		}

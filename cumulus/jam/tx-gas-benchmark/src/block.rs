@@ -15,10 +15,9 @@
 
 use crate::jam_state::{Entries, JamState};
 use codec::{Decode, Encode};
-use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_jam_state_reader::{JamProofFinalizer, JamProofReader, JamStateExt, JAM_PROOF_KEY};
 use cumulus_primitives_core::{
-	relay_chain::HeadData, BlockBundleInfo, CumulusDigestItem, ParachainBlockData, SchedulingProof,
+	BlockBundleInfo, CumulusDigestItem, ParachainBlockData, SchedulingProof,
 };
 use jam_types::RefineContext;
 use parachain_service_core::blake2_256;
@@ -30,7 +29,6 @@ use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::in_mem;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
 use sc_executor::WasmExecutor;
-use sc_executor_polkavm::JamRefineContextExt;
 use sc_service::{client::Client, ClientConfig, GenesisBlockBuilder, LocalCallExecutor};
 use sp_additional_data::{hash_value, AdditionalData, AdditionalDataExt, AdditionalDataFinalizer};
 use sp_api::{ProofRecorder, ProvideRuntimeApi};
@@ -70,8 +68,6 @@ type ParaClient = Client<Backend, LocalCallExecutor<Block, Backend, Executor>, B
 
 /// The genesis preset the chain starts from.
 const PRESET: &str = sp_genesis_builder::DEV_RUNTIME_PRESET;
-/// Milliseconds per JAM timeslot.
-const JAM_SLOT_MILLIS: u64 = 6000;
 /// Milliseconds per parachain slot, the template's `SLOT_DURATION`.
 const PARA_SLOT_MILLIS: u64 = 6000;
 /// JAM slot of the first block. The chain advances by one slot per block.
@@ -101,8 +97,6 @@ pub struct Chain {
 	collator: Signer,
 	sender: Signer,
 	nonce: u32,
-	/// Nonces for the mocked relay chain's BABE seals.
-	relay_rng: ChaCha20Rng,
 	genesis_hash: H256,
 	spec_version: u32,
 	transaction_version: u32,
@@ -162,7 +156,6 @@ impl Chain {
 			collator,
 			sender: Signer::new(Sr25519Keyring::Alice, 2),
 			nonce: 0,
-			relay_rng: ChaCha20Rng::seed_from_u64(3),
 			genesis_hash,
 			spec_version: version.spec_version,
 			transaction_version: version.transaction_version,
@@ -184,7 +177,6 @@ impl Chain {
 		let jam_slot = self.jam_slot(number);
 		let timestamp = timestamp(jam_slot);
 		let para_slot = Slot::from(timestamp / PARA_SLOT_MILLIS);
-		let relay_slot = timestamp / JAM_SLOT_MILLIS;
 
 		// The JAM state at the anchor the block is built against. The parent is the included
 		// head, as if every block was accumulated before the next one is authored.
@@ -210,7 +202,6 @@ impl Chain {
 		let recorder = ProofRecorder::<Block>::default();
 		let mut extensions = Extensions::new();
 		extensions.register(ProofSizeExt::new(recorder.clone()));
-		extensions.register(JamRefineContextExt(refine_context.clone()));
 		let jam_proof = (jam_state.root, &jam_state.proof).encode();
 		extensions.register(JamStateExt(Box::new(Arc::new(JamProofReader::new(
 			jam_state.root,
@@ -242,25 +233,11 @@ impl Chain {
 		};
 
 		let mut inherent_data = InherentData::new();
-		let mocked_parachain = MockValidationDataInherentDataProvider::<()> {
-			current_para_block: number,
-			para_id: self.para_id.into(),
-			current_para_block_head: Some(HeadData(parent_header.encode())),
-			relay_blocks_per_para_block: (PARA_SLOT_MILLIS / JAM_SLOT_MILLIS) as u32,
-			relay_offset: (relay_slot as u32).saturating_sub(number),
-			relay_parent_offset: 0,
-			para_blocks_per_relay_epoch: 10,
-			upgrade_go_ahead: None,
-			..Default::default()
-		};
-		futures::executor::block_on(async {
+		futures::executor::block_on(
 			sp_timestamp::InherentDataProvider::new(timestamp.into())
-				.provide_inherent_data(&mut inherent_data)
-				.await?;
-			mocked_parachain.provide_inherent_data(&mut inherent_data).await
-		})
+				.provide_inherent_data(&mut inherent_data),
+		)
 		.map_err(|error| format!("inherent data: {error}"))?;
-		normalize_relay_parent_seals(&mut inherent_data, &mut self.relay_rng)?;
 
 		let transfers: Vec<_> = (self.nonce..self.nonce + transactions)
 			.map(|nonce| self.transfer(nonce))
@@ -388,50 +365,6 @@ impl Chain {
 /// Unix time in milliseconds at the start of `jam_slot`.
 fn timestamp(jam_slot: u32) -> u64 {
 	(jam_types::JAM_COMMON_ERA + u64::from(jam_slot) * 6) * 1000
-}
-
-/// Re-seal the relay-parent descendants of the mocked parachain inherent with reproducible
-/// signatures.
-///
-/// The mock BABE-seals them with `sp_core`'s randomized sr25519 signing, which would make every
-/// block, and through the block hashes everything after it, differ from run to run. Each header is
-/// re-signed by the same authority (the mock's `AuthorityPair::from_seed(&[index; 32])`) over the
-/// same pre-hash, so the seals stay valid.
-fn normalize_relay_parent_seals(
-	inherent_data: &mut InherentData,
-	rng: &mut ChaCha20Rng,
-) -> Result<(), String> {
-	use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
-	use sp_consensus_babe::{digests::CompatibleDigestItem, AuthoritySignature};
-
-	let mut data: ParachainInherentData = inherent_data
-		.get_data(&INHERENT_IDENTIFIER)
-		.map_err(|error| format!("parachain inherent: {error}"))?
-		.ok_or("the mocked parachain inherent is missing")?;
-	let mut parent_hash = None;
-	for header in &mut data.relay_parent_descendants {
-		if let Some(parent_hash) = parent_hash {
-			header.parent_hash = parent_hash;
-		}
-		header.digest.logs.retain(|item| item.as_babe_seal().is_none());
-		let index = header
-			.digest
-			.logs
-			.iter()
-			.find_map(|item| item.as_babe_pre_digest())
-			.ok_or("a mocked relay header has no BABE pre-digest")?
-			.authority_index();
-		let keypair = schnorrkel::MiniSecretKey::from_bytes(&[index as u8; 32])
-			.expect("32 bytes are a mini secret key; qed")
-			.expand_to_keypair(schnorrkel::ExpansionMode::Ed25519);
-		let signature = sign(&keypair, rng, header.hash().as_bytes());
-		header.digest.push(<DigestItem as CompatibleDigestItem>::babe_seal(
-			AuthoritySignature::from(sp_core::sr25519::Signature::from_raw(signature)),
-		));
-		parent_hash = Some(header.hash());
-	}
-	inherent_data.replace_data(INHERENT_IDENTIFIER, &data);
-	Ok(())
 }
 
 /// Sign `message` in the `substrate` signing context, like `sp_core`'s sr25519, with a nonce

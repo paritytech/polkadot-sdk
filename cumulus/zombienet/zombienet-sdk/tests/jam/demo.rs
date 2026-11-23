@@ -5,10 +5,10 @@
 
 //! The demo: the same harness the tests use, with no assertion and no end.
 //!
-//! `cumulus/zombienet/jam-tests/demo.sh` is a thin wrapper around this.
+//! Run it with the `jam::demo` filter and `--ignored`, see the crate's README.
 
 use anyhow::anyhow;
-use cumulus_jam_zombienet_tests::{
+use cumulus_zombienet_sdk_helpers::jam::{
 	para::{Para, TINY_CORES},
 	rpc::Height,
 	spawn::{spawn, SpawnOptions},

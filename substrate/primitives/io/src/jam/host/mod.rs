@@ -32,7 +32,6 @@ pub mod default_child_storage;
 pub mod input;
 pub mod jam;
 pub mod offchain;
-pub mod service;
 pub mod storage;
 pub mod transaction_index;
 

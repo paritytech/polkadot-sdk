@@ -16,7 +16,7 @@
 
 use super::{
 	block_weight_over_target_block_weight, inside_pre_validate, is_first_block_in_core_with_digest,
-	BlockWeightMode, MaxParachainBlockWeight, FULL_CORE_WEIGHT, LOG_TARGET,
+	mutate_mode, BlockWeightMode, MaxParachainBlockWeight, FULL_CORE_WEIGHT, LOG_TARGET,
 };
 use crate::WeightInfo;
 use alloc::vec::Vec;
@@ -74,7 +74,7 @@ use sp_runtime::{
 ///
 /// # Generic parameters
 ///
-/// - `Config`: The [`Config`](crate::Config) trait of this pallet.
+/// - `Config`: The runtime's [`block_weight::Config`](super::Config).
 ///
 /// - `Inner`: The inner transaction extensions aka the other transaction extensions to be used by
 ///   the runtime.
@@ -115,7 +115,7 @@ impl<
 		const ALLOW_NORMAL: bool,
 	> DynamicMaxBlockWeight<Config, Inner, TargetBlockRate, MAX_TRANSACTION_TO_CONSIDER, ALLOW_NORMAL>
 where
-	Config: crate::Config,
+	Config: super::Config,
 	TargetBlockRate: Get<u32>,
 {
 	/// Should be executed before `validate` is called for any inner extension.
@@ -127,7 +127,7 @@ where
 		let extrinsic_index = frame_system::Pallet::<Config>::extrinsic_index().unwrap_or_default();
 		let transaction_index = is_not_inherent.then(|| extrinsic_index);
 
-		crate::BlockWeightMode::<Config>::mutate(|mode| {
+		mutate_mode::<Config, _>(|mode| {
 			let current_mode = mode.get_or_insert_with(|| BlockWeightMode::<Config>::fraction_of_core(transaction_index));
 
 			// If the mode is stale (from previous block), we reset it.
@@ -265,7 +265,7 @@ where
 	///
 	/// Returns the weight to refund. Aka the weight that wasn't used by this extension.
 	fn post_dispatch_extrinsic(info: &DispatchInfo) -> Weight {
-		crate::BlockWeightMode::<Config>::mutate(|weight_mode| {
+		mutate_mode::<Config, _>(|weight_mode| {
 			let Some(mode) = weight_mode else { return Weight::zero() };
 
 			match mode {
@@ -403,7 +403,7 @@ impl<
 }
 
 impl<
-		Config: crate::Config + Send + Sync,
+		Config: super::Config + Send + Sync,
 		Inner: TransactionExtension<Config::RuntimeCall>,
 		TargetBlockRate: Get<u32> + Send + Sync + 'static,
 		const MAX_TRANSACTION_TO_CONSIDER: u32,

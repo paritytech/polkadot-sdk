@@ -21,7 +21,7 @@
 //! The host calls follow the newest non-`register_only` version of each function in sdk3
 //! `host_functions/offchain.rs`, with every `AllocateAndReturn*` converted to a caller-provided
 //! buffer plus a returned length. The public functions keep the exact signatures of master's
-//! `relay_chain.rs` `Offchain` trait.
+//! `host_interface.rs` `Offchain` trait.
 //!
 //! Besides the encodings described in [`crate::jam::host`], the host calls use:
 //!

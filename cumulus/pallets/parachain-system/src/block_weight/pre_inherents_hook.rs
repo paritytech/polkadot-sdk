@@ -34,7 +34,7 @@ pub struct DynamicMaxBlockWeightHooks<Config, TargetBlockRate>(
 
 impl<Config, TargetBlockRate> PreInherents for DynamicMaxBlockWeightHooks<Config, TargetBlockRate>
 where
-	Config: crate::Config,
+	Config: super::Config,
 	TargetBlockRate: Get<u32>,
 {
 	fn pre_inherents() {
@@ -55,7 +55,7 @@ where
 				BlockWeightMode::<Config>::fraction_of_core(None)
 			};
 
-			crate::BlockWeightMode::<Config>::put(new_mode);
+			Config::set_mode(Some(new_mode));
 
 			return;
 		}
@@ -81,7 +81,7 @@ where
 			);
 		}
 
-		crate::BlockWeightMode::<Config>::put(BlockWeightMode::<Config>::full_core());
+		Config::set_mode(Some(BlockWeightMode::<Config>::full_core()));
 
 		// Inform the node that this block uses the full core.
 		frame_system::Pallet::<Config>::deposit_log(

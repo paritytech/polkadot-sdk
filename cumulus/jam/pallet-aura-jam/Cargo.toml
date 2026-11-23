@@ -15,7 +15,7 @@ workspace = true
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 cumulus-jam-aura-primitives = { workspace = true }
-cumulus-pallet-parachain-system = { workspace = true }
+cumulus-pallet-jam-system = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -26,16 +26,18 @@ sp-consensus-aura = { workspace = true }
 sp-runtime = { workspace = true }
 
 [dev-dependencies]
+cumulus-jam-state-reader = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
 	"cumulus-jam-aura-primitives/std",
-	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-jam-system/std",
 	"cumulus-primitives-core/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -46,7 +48,7 @@ std = [
 	"sp-runtime/std",
 ]
 try-runtime = [
-	"cumulus-pallet-parachain-system/try-runtime",
+	"cumulus-pallet-jam-system/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-session/try-runtime",
@@ -54,7 +56,7 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 runtime-benchmarks = [
-	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-pallet-jam-system/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",

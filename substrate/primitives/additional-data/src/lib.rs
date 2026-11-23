@@ -22,8 +22,8 @@
 //!
 //! Each block may carry an [`AdditionalData`] — a `BTreeMap<String, Vec<u8>>` mapping a namespaced
 //! producer key to that producer's opaque bytes. This crate is deliberately generic: it knows
-//! nothing about any particular producer (e.g. the relay-state reader lives in
-//! `cumulus-primitives-additional-data`). It provides only:
+//! nothing about any particular producer (e.g. the JAM chain-state reader lives in
+//! `cumulus-jam-state-reader`). It provides only:
 //!
 //! - the [`AdditionalData`] type and the per-value commitment [`hash_value`],
 //! - the [`AdditionalDataFinalizer`] trait — one commitment per producer,
@@ -52,7 +52,6 @@ extern crate alloc;
 use alloc::{boxed::Box, collections::btree_map::BTreeMap, string::String, sync::Arc, vec::Vec};
 use codec::Encode;
 use sp_crypto_hashing::blake2_256;
-#[cfg(not(all(jam, substrate_runtime)))]
 use sp_runtime_interface::{pass_by::PassFatPointerAndReadWrite, runtime_interface};
 
 #[cfg(feature = "std")]
@@ -162,7 +161,6 @@ impl core::fmt::Debug for CreateAdditionalDataExtensions {
 ///
 /// `finalize` runs from generic block finalization on every block and returns `None` when no
 /// [`AdditionalDataExt`] is registered (nothing was recorded).
-#[cfg(not(all(jam, substrate_runtime)))]
 #[runtime_interface]
 pub trait AdditionalDataHost {
 	/// Finalize this block's additional data, writing the 32-byte digest hash into `hash_out` and
@@ -171,6 +169,7 @@ pub trait AdditionalDataHost {
 	/// A missing extension is treated as "nothing recorded": this runs on every block — including
 	/// blocks and test contexts that never produced additional data — so it must not panic on a
 	/// missing extension.
+	#[polkavm_index(343)]
 	fn finalize_into(&mut self, hash_out: PassFatPointerAndReadWrite<&mut [u8]>) -> u32 {
 		match self.extension::<AdditionalDataExt>().and_then(|ext| ext.finalize()) {
 			Some(h) => {
@@ -183,42 +182,9 @@ pub trait AdditionalDataHost {
 }
 
 /// Committing a block's additional data: [`additional_data::finalize`] plus the exchangeable
-/// [`additional_data::host_finalize_into`] that `validate_block` replaces.
+/// `additional_data::host_finalize_into` that `validate_block` replaces.
 pub mod additional_data {
-	#[cfg(not(all(jam, substrate_runtime)))]
 	pub use super::additional_data_host::*;
-
-	#[cfg(all(jam, substrate_runtime))]
-	sp_jam_runtime_interface::host_calls! {
-		/// [`super::AdditionalDataHost::finalize_into`] at its fixed PolkaVM index, named like the
-		/// `#[runtime_interface]` host function so the node serves it through that registration.
-		#[index = 343]
-		fn ext_additional_data_host_finalize_into_version_1(hash_out: u64) -> u32;
-	}
-
-	#[cfg(all(jam, substrate_runtime))]
-	fn host_call(hash_out: &mut [u8]) -> u32 {
-		let hash_out = sp_runtime_interface::pack_ptr_and_len(
-			hash_out.as_mut_ptr() as u32,
-			hash_out.len() as u32,
-		);
-		// SAFETY: The packed pointer and length come from a live slice.
-		unsafe { ext_additional_data_host_finalize_into_version_1(hash_out) }
-	}
-
-	/// Exchangeable implementation of [`finalize_into`].
-	#[cfg(all(jam, substrate_runtime))]
-	#[allow(non_upper_case_globals)]
-	pub static host_finalize_into: sp_runtime_interface::wasm::ExchangeableFunction<
-		fn(&mut [u8]) -> u32,
-	> = sp_runtime_interface::wasm::ExchangeableFunction::new(host_call);
-
-	/// Finalize this block's additional data into `hash_out`; `1` when written, `0` when there is
-	/// nothing to commit.
-	#[cfg(all(jam, substrate_runtime))]
-	pub fn finalize_into(hash_out: &mut [u8]) -> u32 {
-		host_finalize_into.get()(hash_out)
-	}
 
 	/// Finalize and return the folded digest of everything recorded this block, or `None` when
 	/// nothing was recorded. Idempotent.

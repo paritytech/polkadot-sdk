@@ -567,8 +567,8 @@ fn is_pallet_active(pallet: &Pallet, enabled: &HashSet<&str>) -> bool {
 
 /// Ensures that no two pallets share an index in any combination of `cfg` atoms.
 ///
-/// Pallets whose `cfg`s exclude each other, e.g. `#[cfg(jam)]` and `#[cfg(not(jam))]`, may use the
-/// same index.
+/// Pallets whose `cfg`s exclude each other, e.g. `#[cfg(feature = "x")]` and
+/// `#[cfg(not(feature = "x"))]`, may use the same index.
 pub(crate) fn check_pallet_indices(pallets: &[Pallet], cfg_atoms: &BTreeSet<String>) -> Result<()> {
 	let mut combinations = None;
 
@@ -794,6 +794,9 @@ pub(crate) fn decl_static_assertions(
 ) -> TokenStream2 {
 	let error_encoded_size_check = pallet_decls.iter().map(|decl| {
 		let path = &decl.path;
+		// A pallet `cfg`-ed out of the runtime is not asserted on: its crate may be absent from the
+		// build.
+		let attrs = decl.get_attributes();
 		let assert_message = format!(
 			"The maximum encoded size of the error type in the `{}` pallet exceeds \
 			`MAX_MODULE_ERROR_ENCODED_SIZE`",
@@ -801,6 +804,7 @@ pub(crate) fn decl_static_assertions(
 		);
 
 		quote! {
+			#attrs
 			#[allow(deprecated)]
 			#scrate::__private::tt_call! {
 				macro = [{ #path::tt_error_token }]

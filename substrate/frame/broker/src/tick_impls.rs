@@ -329,6 +329,13 @@ impl<T: Config> Pallet<T> {
 		let workplan = Schedule::truncate_from(workplan);
 		Workload::<T>::insert(core, &workplan);
 
+		let assignment = Self::schedule_to_assignment(workplan);
+		T::Coretime::assign_core(core, rc_begin, assignment.clone(), None);
+		Self::deposit_event(Event::<T>::CoreAssigned { core, when: rc_begin, assignment });
+	}
+
+	/// The assignment a core running `workplan` is given.
+	pub fn schedule_to_assignment(workplan: Schedule) -> Vec<(CoreAssignment, PartsOf57600)> {
 		let mut total_used = 0;
 		let mut intermediate = workplan
 			.into_iter()
@@ -350,8 +357,7 @@ impl<T: Config> Pallet<T> {
 			}
 			assignment.push(i);
 		}
-		T::Coretime::assign_core(core, rc_begin, assignment.clone(), None);
-		Self::deposit_event(Event::<T>::CoreAssigned { core, when: rc_begin, assignment });
+		assignment
 	}
 
 	/// Renews all the cores which have auto-renewal enabled.

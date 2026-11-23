@@ -137,9 +137,10 @@ cumulus-client-consensus-common = { workspace = true, default-features = true }
 cumulus-client-consensus-relay-chain = { workspace = true, default-features = true }
 cumulus-client-jam-authorizer = { workspace = true }
 cumulus-client-jam-work-package-recovery = { workspace = true }
-cumulus-jam-aura-primitives = { workspace = true, features = ["std"] }
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }
 cumulus-client-service = { workspace = true, default-features = true }
+cumulus-jam-aura-primitives = { workspace = true, features = ["std"] }
+cumulus-jam-primitives = { workspace = true, features = ["std"] }
 cumulus-jam-state-reader = { workspace = true, features = ["std"] }
 cumulus-primitives-aura = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }

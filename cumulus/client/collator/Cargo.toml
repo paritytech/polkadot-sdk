@@ -12,7 +12,6 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-sp-additional-data = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
@@ -38,10 +37,8 @@ cumulus-primitives-core = { workspace = true, default-features = true }
 
 [dev-dependencies]
 async-trait = { workspace = true }
-tokio = { workspace = true, features = ["macros"] }
 
 # Substrate
-sc-consensus = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }

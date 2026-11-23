@@ -48,7 +48,6 @@ use sc_consensus::{
 	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
 };
 use sc_executor::RuntimeVersion;
-use sc_network_sync::code_request_handler::CodeBlobProvider;
 use sc_telemetry::{telemetry, TelemetryHandle, SUBSTRATE_INFO};
 use sp_api::{
 	ApiExt, ApiRef, CallApiAt, CallApiAtParams, ConstructRuntimeApi, Core as CoreApi,
@@ -170,9 +169,10 @@ pub struct ClientConfig<Block: BlockT> {
 	pub wasm_runtime_substitutes: HashMap<NumberFor<Block>, Vec<u8>>,
 	/// Enable recording of storage proofs during block import
 	pub enable_import_proof_recording: bool,
-	/// Factory that builds the externalities extensions needed to serve `read_relay_chain_state`
-	/// and recompute the additional-data digest while re-executing a block carrying additional
-	/// data on the generic import path. Injected by the node so the concrete (relay/JAM-specific)
+	/// Factory that builds the externalities extensions needed to serve the producers' read host
+	/// functions (e.g. `cumulus_jam_state_reader::jam_state::jam_state_read`) and recompute the
+	/// additional-data digest while re-executing a block carrying additional data on the generic
+	/// import path. Injected by the node so the concrete (relay/JAM-specific)
 	/// verifier lives outside substrate; `None` on chains that don't use the additional-data
 	/// channel.
 	pub create_additional_data_extensions: Option<CreateAdditionalDataExtensions>,
@@ -868,8 +868,9 @@ where
 				}
 
 				// Guard: verify digest ↔ additional_data consistency and register the verifying
-				// provider so the runtime's `read_relay_chain_state`/`finalize` host functions are
-				// answered on this generic re-execution path (reads served from the carried proof).
+				// provider so the runtime's producer read host functions (e.g.
+				// `jam_state_read`) and `AdditionalDataHost::finalize_into` are answered on this
+				// generic re-execution path (reads served from the carried proof).
 				// This is what lets a full node that synced a relay-read block import it: without
 				// the extension the read host function panics.
 				let additional_data_digest_count = import_block
@@ -2086,17 +2087,6 @@ where
 
 	fn requires_full_sync(&self) -> bool {
 		self.backend.requires_full_sync()
-	}
-}
-
-impl<B, E, Block, RA> CodeBlobProvider for Client<B, E, Block, RA>
-where
-	B: backend::Backend<Block>,
-	E: CallExecutor<Block>,
-	Block: BlockT,
-{
-	fn code_blob(&self, hash: &[u8; 32]) -> sp_blockchain::Result<Option<Vec<u8>>> {
-		<B as backend::Backend<Block>>::code_blob(&*self.backend, hash)
 	}
 }
 

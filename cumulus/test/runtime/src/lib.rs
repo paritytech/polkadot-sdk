@@ -27,6 +27,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 #[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), target_feature = "e"))]
 polkavm_derive::min_stack_size!(2 * 1024 * 1024);
 
+pub mod backing;
 mod features;
 mod flavors;
 mod genesis_config_presets;
@@ -41,7 +42,7 @@ use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{ConstBool, ConstU32, ConstU64, Get, OpaqueMetadata};
+use sp_core::{ConstU32, Get, OpaqueMetadata};
 
 use sp_runtime::{
 	generic, impl_opaque_keys,
@@ -86,14 +87,14 @@ pub use test_pallet::{Call as TestPalletCall, TestTransactionExtension};
 
 pub type SessionHandlers = ();
 
-#[cfg(not(feature = "with-authority-discovery"))]
+#[cfg(all(not(jam), not(feature = "with-authority-discovery")))]
 impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub aura: Aura,
 	}
 }
 
-#[cfg(feature = "with-authority-discovery")]
+#[cfg(all(not(jam), feature = "with-authority-discovery"))]
 impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub aura: Aura,
@@ -101,10 +102,25 @@ impl_opaque_keys! {
 	}
 }
 
+// On JAM the `aura` key is `AuraJam`'s. The keys are declared here and not in `backing`: their
+// type path is part of the metadata.
+#[cfg(all(jam, not(feature = "with-authority-discovery")))]
+impl_opaque_keys! {
+	pub struct SessionKeys {
+		pub aura: AuraJam,
+	}
+}
+
+#[cfg(all(jam, feature = "with-authority-discovery"))]
+impl_opaque_keys! {
+	pub struct SessionKeys {
+		pub aura: AuraJam,
+		pub authority_discovery: AuthorityDiscovery,
+	}
+}
+
 /// The para-id used in this runtime.
 pub const PARACHAIN_ID: u32 = 100;
-
-const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
 // The only difference between the three declarations below is the `spec_version`.
 // The behavior is:
@@ -229,7 +245,7 @@ impl frame_system::Config for Runtime {
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
 	type SS58Prefix = SS58Prefix;
-	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
+	type OnSetCode = backing::OnSetCode;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type PreInherents = cumulus_pallet_parachain_system::block_weight::DynamicMaxBlockWeightHooks<
 		Runtime,
@@ -252,12 +268,10 @@ parameter_types! {
 	pub const Offset: u32 = 0;
 }
 
-impl cumulus_pallet_aura_ext::Config for Runtime {}
-
 impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
-	type OnTimestampSet = Aura;
+	type OnTimestampSet = backing::OnTimestampSet;
 	type MinimumPeriod = MinimumPeriod;
 	type WeightInfo = ();
 }
@@ -336,39 +350,7 @@ impl VerifySchedulingSignature for NoVerification {
 	}
 }
 
-type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
-	Runtime,
-	RELAY_CHAIN_SLOT_DURATION_MILLIS,
-	{ block_processing_velocity() },
-	{ unincluded_segment_capacity() },
->;
-impl cumulus_pallet_parachain_system::Config for Runtime {
-	type WeightInfo = ();
-	type SelfParaId = parachain_info::Pallet<Runtime>;
-	type RuntimeEvent = RuntimeEvent;
-	type OnSystemEvent = ();
-	type OutboundXcmpMessageSource = TestPallet;
-	// Ignore all DMP messages by enqueueing them into `()`:
-	type DmpQueue = frame_support::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
-	type ReservedDmpWeight = ();
-	type XcmpMessageHandler = ();
-	type ReservedXcmpWeight = ();
-	type CheckAssociatedRelayNumber =
-		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-	type ConsensusHook = ConsensusHook;
-	type RelayParentOffset = ConstU32<{ relay_parent_offset() }>;
-	type SchedulingSignatureVerifier = NoVerification;
-}
-
 impl parachain_info::Config for Runtime {}
-
-impl pallet_aura::Config for Runtime {
-	type AuthorityId = AuraId;
-	type DisabledValidators = ();
-	type MaxAuthorities = ConstU32<32>;
-	type AllowMultipleBlocksPerSlot = ConstBool<{ !cfg!(feature = "sync-backing") }>;
-	type SlotDuration = ConstU64<{ slot_duration() }>;
-}
 
 impl test_pallet::Config for Runtime {}
 
@@ -381,8 +363,8 @@ impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
-	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
-	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type ShouldEndSession = backing::SessionRotation;
+	type NextSessionRotation = backing::SessionRotation;
 	type SessionManager = ();
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
@@ -401,7 +383,19 @@ construct_runtime! {
 	pub enum Runtime
 	{
 		System: frame_system,
-		ParachainSystem: cumulus_pallet_parachain_system,
+		// The pallets the backing selects carry explicit indices: the ones of the relay pallets
+		// before the JAM backing was added, so the relay metadata stays as it was.
+		#[cfg(not(jam))]
+		ParachainSystem: cumulus_pallet_parachain_system = 1,
+		// On JAM the Parachain Service validates the chain instead of a relay chain.
+		//
+		// The JAM pallets are written fully expanded (`expanded::{..}`, the extra parts, then the
+		// parts), which is what the macro would otherwise produce by looking the extra parts up
+		// in the pallet crate: the crates are `cfg(jam)` dependencies, so a relay build has none
+		// to look in. Keep both lists equal to the pallets' parts.
+		#[cfg(jam)]
+		JamSystem: cumulus_pallet_jam_system
+			expanded::{Error<T>} ::{Pallet, Call, Storage, Event<T>} = 1,
 		Timestamp: pallet_timestamp,
 		ParachainInfo: parachain_info,
 		Balances: pallet_balances,
@@ -410,14 +404,20 @@ construct_runtime! {
 		TransactionPayment: pallet_transaction_payment,
 		TestPallet: test_pallet,
 		Glutton: pallet_glutton,
-		Aura: pallet_aura,
+		#[cfg(not(jam))]
+		Aura: pallet_aura = 10,
+		// On JAM one pallet replaces `Aura` and `AuraExt`: the authority set is the one JAM
+		// authorizes at the block's anchor slot.
+		#[cfg(jam)]
+		AuraJam: pallet_aura_jam expanded::{} ::{Pallet, Storage, Event<T>, Config<T>} = 10,
 		// Session must come BEFORE AuraExt so its on_genesis_session populates
 		// pallet_aura::Authorities before AuraExt's genesis_build snapshots it.
 		#[cfg(feature = "with-authority-discovery")]
 		Session: pallet_session,
 		#[cfg(feature = "with-authority-discovery")]
 		AuthorityDiscovery: pallet_authority_discovery,
-		AuraExt: cumulus_pallet_aura_ext,
+		#[cfg(not(jam))]
+		AuraExt: cumulus_pallet_aura_ext = 13,
 		WeightReclaim: cumulus_pallet_weight_reclaim,
 	}
 }
@@ -507,8 +507,9 @@ pub type SingleBlockMigrations = (VerifyRuntimeUpgrade, migrations::EnableAuthor
 #[cfg(not(feature = "with-authority-discovery"))]
 pub type SingleBlockMigrations = (VerifyRuntimeUpgrade,);
 
-/// One-shot migration that seeds `pallet_session` from `pallet_aura::Authorities` when a
-/// default (no-AD) chain upgrades to the `with-authority-discovery` variant.
+/// One-shot migration that seeds `pallet_session` from the Aura authorities
+/// ([`backing::authorities`]) when a default (no-AD) chain upgrades to the
+/// `with-authority-discovery` variant.
 ///
 /// Idempotent: only runs when `pallet_session::Validators` is empty, which is the case
 /// on a chain that never had `pallet_session` in its runtime.
@@ -529,7 +530,7 @@ pub mod migrations {
 				return db.reads(1);
 			}
 
-			let aura_authorities = pallet_aura::Authorities::<Runtime>::get();
+			let aura_authorities = backing::authorities();
 			let n = aura_authorities.len() as u64;
 
 			let mut validators: Vec<AccountId> = Vec::with_capacity(aura_authorities.len());
@@ -604,7 +605,7 @@ pub mod migrations {
 
 	impl EnableAuthorityDiscovery {
 		fn assert_post_upgrade_invariants() {
-			let aura_count = pallet_aura::Authorities::<Runtime>::get().len();
+			let aura_count = backing::authorities().len();
 			let validators = pallet_session::Validators::<Runtime>::get();
 			let queued = pallet_session::QueuedKeys::<Runtime>::get();
 			let ad_keys = pallet_authority_discovery::Keys::<Runtime>::get();
@@ -741,10 +742,11 @@ impl_runtime_apis! {
 			included_hash: <Block as BlockT>::Hash,
 			slot: cumulus_primitives_aura::Slot,
 		) -> bool {
-			ConsensusHook::can_build_upon(included_hash, slot)
+			backing::ConsensusHook::can_build_upon(included_hash, slot)
 		}
 	}
 
+	#[cfg(not(jam))]
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
 			relay_parent_offset()
@@ -755,6 +757,7 @@ impl_runtime_apis! {
 		}
 	}
 
+	#[cfg(not(jam))]
 	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
 		fn scheduling_v3_enabled() -> bool {
 			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED
@@ -767,7 +770,7 @@ impl_runtime_apis! {
 		}
 
 		fn authorities() -> Vec<AuraId> {
-			pallet_aura::Authorities::<Runtime>::get().into_inner()
+			backing::authorities()
 		}
 	}
 
@@ -859,6 +862,7 @@ impl_runtime_apis! {
 		}
 	}
 
+	#[cfg(not(jam))]
 	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
 		fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
 			ParachainSystem::collect_collation_info(header)
@@ -893,8 +897,8 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::KeyToIncludeInRelayProof<Block> for Runtime {
 		fn keys_to_prove() -> cumulus_primitives_core::RelayProofRequest {
-			// Relay state is now read dynamically via `read_relay_chain_state` (recorded into the
-			// block's additional data), so no keys are declared for the fixed inherent proof.
+			// No extra keys: the fixed inherent proof always carries the static relay keys
+			// `set_validation_data` reads, and this runtime reads no other relay state.
 			RelayProofRequest { keys: vec![] }
 		}
 	}
@@ -910,7 +914,15 @@ impl_runtime_apis! {
 	}
 }
 
+#[cfg(not(jam))]
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
+}
+
+// On JAM the seal is checked against the set JAM authorizes at the block's anchor slot.
+#[cfg(jam)]
+cumulus_pallet_jam_system::register_jam_validate_block! {
+	Runtime = Runtime,
+	BlockExecutor = pallet_aura_jam::BlockExecutor::<Runtime, Executive>,
 }

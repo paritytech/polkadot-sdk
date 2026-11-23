@@ -1,0 +1,23 @@
+[package]
+name = "cumulus-jam-primitives"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+publish = false
+description = "Primitives only a parachain running on JAM needs"
+homepage.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+sp-core = { workspace = true }
+sp-crypto-hashing = { workspace = true }
+
+[features]
+default = ["std"]
+std = ["codec/std", "scale-info/std", "sp-core/std", "sp-crypto-hashing/std"]

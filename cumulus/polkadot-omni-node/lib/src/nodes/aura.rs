@@ -15,7 +15,7 @@
 // limitations under the License.
 
 use crate::{
-	cli::{AuthoringPolicy, DevSealMode, JamNodeParams},
+	cli::{AuthoringPolicy, DevSealMode},
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
 		rpc::{BuildParachainRpcExtensions, BuildRpcExtensions},
@@ -29,7 +29,6 @@ use crate::{
 		},
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
-	nodes::jam,
 };
 use codec::Encode;
 use cumulus_client_collator::service::{
@@ -46,12 +45,7 @@ use cumulus_client_consensus_aura::{
 	},
 	equivocation_import_queue::Verifier as EquivocationVerifier,
 };
-use cumulus_client_consensus_common as consensus_common;
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
-use cumulus_client_jam_work_package_recovery::{
-	FailingBundleRecovery, ImportBlocksSink, JamBundleRecovery, JamWorkPackageRecovery,
-	RecoveredBlock, RecoveryDelayRange, RpcBundleRecovery,
-};
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_primitives_core::{
 	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
@@ -59,24 +53,23 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::{prelude::*, FutureExt};
-use jam_rpc_interface::JamRpcInterface;
 use polkadot_primitives::{CollatorPair, UpgradeGoAhead};
 use prometheus_endpoint::Registry;
 use sc_client_api::{Backend, BlockchainEvents};
 use sc_client_db::DbHash;
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
-	BlockImportParams, DefaultImportQueue, IncomingBlock, LongestChain,
+	BlockImportParams, DefaultImportQueue, LongestChain,
 };
 use sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider;
-use sc_network::{config::FullNetworkConfiguration, NetworkBlock, NotificationMetrics, PeerId};
-use sc_service::{Configuration, Error, ImportQueue as _, PartialComponents, TaskManager};
+use sc_network::{config::FullNetworkConfiguration, NotificationMetrics, PeerId};
+use sc_service::{Configuration, Error, PartialComponents, TaskManager};
 use sc_storage_chain_sync::StorageChainBlockImport;
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ProvideRuntimeApi};
-use sp_consensus::{BlockOrigin, BlockStatus, Environment};
+use sp_consensus::Environment;
 use sp_core::traits::SpawnEssentialNamed;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
@@ -87,136 +80,29 @@ use sp_runtime::{
 use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
 use std::{marker::PhantomData, ops::Sub, sync::Arc, time::Duration};
 
-struct Verifier<Block: BlockT, Client, AuraId: AuraIdT, CIDP> {
+struct Verifier<Block, Client, AuraId> {
 	client: Arc<Client>,
 	aura_verifier: Box<dyn VerifierT<Block>>,
 	relay_chain_verifier: Box<dyn VerifierT<Block>>,
-	/// The authority sets by JAM anchor slot, for runtimes with slot-bound Aura sets.
-	jam_authorities: Arc<dyn jam::RuntimeAuthorities<Block, AuraId>>,
-	create_inherent_data_providers: CIDP,
 	_phantom: PhantomData<AuraId>,
 }
 
-impl<Block: BlockT, Client, AuraId, CIDP> Verifier<Block, Client, AuraId, CIDP>
-where
-	Client: ProvideRuntimeApi<Block> + Send + Sync,
-	Client::Api: AuraRuntimeApi<Block, AuraId> + sp_block_builder::BlockBuilder<Block>,
-	AuraId: AuraIdT + Sync,
-	CIDP: CreateInherentDataProviders<Block, ()>,
-{
-	/// Check a JAM block's seal against the set JAM authorizes at its anchor slot, not the set
-	/// of its parent: the next set is announced a session ahead, so the first block anchored at
-	/// a switch slot is already sealed by the new set.
-	async fn verify_jam(
-		&self,
-		mut params: BlockImportParams<Block>,
-		anchor_slot: u32,
-	) -> Result<BlockImportParams<Block>, String> {
-		if params.state_action.skip_execution_checks() || params.with_state() {
-			params.fork_choice =
-				Some(sc_consensus::ForkChoiceStrategy::Custom(params.with_state()));
-			return Ok(params);
-		}
-
-		let post_hash = params.header.hash();
-		let parent_hash = *params.header.parent_hash();
-		let authorities = self.jam_authorities.authorities_at(parent_hash, anchor_slot)?;
-		use sp_consensus_aura::AuraApi as _;
-		let slot_duration = self
-			.client
-			.runtime_api()
-			.slot_duration(parent_hash)
-			.map_err(|e| format!("slot duration at {parent_hash:?}: {e}"))?;
-		let slot_now = sp_consensus_aura::Slot::from_timestamp(
-			sp_timestamp::Timestamp::current(),
-			slot_duration,
-		);
-		let (pre_header, _slot, seal) =
-			sc_consensus_aura::standalone::check_header_slot_and_seal::<
-				Block,
-				<AuraId as AuraIdT>::BoundedPair,
-			>(slot_now, params.header, &authorities)
-			.map_err(|e| {
-				format!("Rejecting block {post_hash:?} with invalid seal at anchor slot {anchor_slot}: {e:?}")
-			})?;
-		params.header = pre_header;
-		params.post_digests.push(seal);
-		params.fork_choice = Some(sc_consensus::ForkChoiceStrategy::LongestChain);
-		params.post_hash = Some(post_hash);
-
-		if let Some(body) = params.body.clone() {
-			let block = Block::new(params.header.clone(), body);
-			let providers = self
-				.create_inherent_data_providers
-				.create_inherent_data_providers(parent_hash, ())
-				.await
-				.map_err(|e| format!("Could not create inherent data {e:?}"))?;
-			sp_block_builder::check_inherents(self.client.clone(), parent_hash, block, &providers)
-				.await
-				.map_err(|e| format!("Error checking block inherents {e:?}"))?;
-		}
-		Ok(params)
-	}
-}
-
 #[async_trait::async_trait]
-impl<Block: BlockT, Client, AuraId, CIDP> VerifierT<Block> for Verifier<Block, Client, AuraId, CIDP>
+impl<Block: BlockT, Client, AuraId> VerifierT<Block> for Verifier<Block, Client, AuraId>
 where
 	Client: ProvideRuntimeApi<Block> + Send + Sync,
-	Client::Api: AuraRuntimeApi<Block, AuraId> + sp_block_builder::BlockBuilder<Block>,
+	Client::Api: AuraRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT + Sync,
-	CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync,
 {
 	async fn verify(
 		&self,
 		block_import: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
-		let parent_hash = *block_import.header.parent_hash();
-		if let Some(jam_parent) = cumulus_primitives_core::CumulusDigestItem::find_jam_parent_info(
-			block_import.header.digest(),
-		) {
-			let slot_bound = self
-				.client
-				.runtime_api()
-				.has_api::<dyn cumulus_jam_aura_primitives::JamAuraApi<Block, jam::AuraPublic<AuraId>>>(
-					parent_hash,
-				)
-				.unwrap_or(false);
-			if slot_bound {
-				return self.verify_jam(block_import, jam_parent.anchor_slot).await;
-			}
-		}
-		if self.client.runtime_api().has_aura_api(parent_hash) {
+		if self.client.runtime_api().has_aura_api(*block_import.header.parent_hash()) {
 			self.aura_verifier.verify(block_import).await
 		} else {
 			self.relay_chain_verifier.verify(block_import).await
 		}
-	}
-}
-
-struct JamImportSink<Block: BlockT> {
-	service: Box<dyn sc_consensus::import_queue::ImportQueueService<Block>>,
-}
-
-impl<Block: BlockT> ImportBlocksSink<Block> for JamImportSink<Block> {
-	fn import_blocks(&mut self, blocks: Vec<RecoveredBlock<Block>>) {
-		let incoming: Vec<IncomingBlock<Block>> = blocks
-			.into_iter()
-			.map(|b| IncomingBlock {
-				hash: b.hash,
-				header: Some(b.header),
-				body: Some(b.body),
-				indexed_body: None,
-				justifications: None,
-				origin: None,
-				allow_missing_state: true,
-				import_existing: false,
-				state: None,
-				skip_execution: false,
-				additional_data: b.additional_data,
-			})
-			.collect();
-		self.service.import_blocks(BlockOrigin::NetworkBroadcast, incoming);
 	}
 }
 
@@ -226,7 +112,7 @@ pub(crate) struct BuildRelayToAuraImportQueue<Block, RuntimeApi, AuraId, BlockIm
 	PhantomData<(Block, RuntimeApi, AuraId, BlockImport)>,
 );
 
-impl<Block: NodeBlock, RuntimeApi, AuraId, BlockImport>
+impl<Block: BlockT, RuntimeApi, AuraId, BlockImport>
 	BuildImportQueue<Block, RuntimeApi, BlockImport>
 	for BuildRelayToAuraImportQueue<Block, RuntimeApi, AuraId, BlockImport>
 where
@@ -236,17 +122,13 @@ where
 	BlockImport:
 		sc_consensus::BlockImport<Block, Error = sp_consensus::Error> + Send + Sync + 'static,
 {
-	fn build_import_queue<QueuedBI>(
+	fn build_import_queue(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
-		block_import: QueuedBI,
+		block_import: ParachainBlockImport<Block, BlockImport>,
 		config: &Configuration,
 		telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
-	) -> sc_service::error::Result<DefaultImportQueue<Block>>
-	where
-		QueuedBI:
-			sc_consensus::BlockImport<Block, Error = sp_consensus::Error> + Send + Sync + 'static,
-	{
+	) -> sc_service::error::Result<DefaultImportQueue<Block>> {
 		let inherent_data_providers =
 			move |_, _| async move { Ok(sp_timestamp::InherentDataProvider::from_system_time()) };
 		let registry = config.prometheus_registry();
@@ -263,13 +145,9 @@ where
 			);
 
 		let verifier = Verifier {
-			jam_authorities: Arc::new(
-				jam::RuntimeApiAuthorities::<Block, RuntimeApi, AuraId>::new(client.clone()),
-			),
 			client,
 			aura_verifier: Box::new(equivocation_aura_verifier),
 			relay_chain_verifier,
-			create_inherent_data_providers: inherent_data_providers,
 			_phantom: Default::default(),
 		};
 
@@ -373,7 +251,7 @@ where
 			select_chain: _,
 			transaction_pool,
 			other: (_, mut telemetry, _, _, _),
-		} = Self::new_partial(&config, None)?;
+		} = Self::new_partial(&config)?;
 
 		// Since this is a dev node, prevent it from connecting to peers.
 		config.network.default_peers_set.in_peers = 0;
@@ -458,16 +336,13 @@ where
 			);
 		}
 
-		// The dev node holds no JAM state, so authoring runs with a proven-absent JAM-state reader
-		// registered: `jam_state_read` answers `-1` instead of trapping on a missing `JamStateExt`
-		// when the runtime is the polkavm JAM blob (task 13).
-		let proposer = jam::JamStateInjectingEnv::new(sc_basic_authorship::ProposerFactory::new(
+		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool.clone(),
 			None,
 			None,
-		));
+		);
 
 		// Note: Changing slot durations are currently not supported
 		let slot_duration = sc_consensus_aura::slot_duration(&*client)
@@ -602,418 +477,6 @@ where
 		})?;
 
 		// Spawn the storage monitor.
-		if let Some(database_path) = database_path {
-			sc_storage_monitor::StorageMonitorService::try_spawn(
-				storage_monitor.clone(),
-				database_path,
-				&task_manager.spawn_essential_handle(),
-			)
-			.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
-		}
-
-		Ok(task_manager)
-	}
-
-	fn start_jam_node(
-		config: Configuration,
-		jam_params: JamNodeParams,
-		node_extra_args: NodeExtraArgs,
-	) -> sc_service::error::Result<TaskManager> {
-		// Destructure all fields so the compiler enforces handling new args.
-		let NodeExtraArgs {
-			authoring_policy: _,
-			ref export_pov,
-			max_pov_percentage,
-			ref statement_store_config,
-			ref storage_monitor,
-			ref hop,
-			collator_reserved_slots: _,
-		} = node_extra_args;
-
-		// Warn about args that have no effect in the JAM PoC.
-		if export_pov.is_some() {
-			log::warn!("`--export-pov` has no effect in JAM mode yet.");
-		}
-		if max_pov_percentage.is_some() {
-			log::warn!("`--max-pov-percentage` has no effect in JAM mode yet.");
-		}
-		if statement_store_config.is_some() {
-			log::warn!("The statement store is not supported in JAM mode yet.");
-		}
-		if hop.is_some() {
-			log::warn!("HOP is not supported in JAM mode yet.");
-		}
-		if config.offchain_worker.enabled {
-			log::warn!("Offchain workers are not supported in JAM mode yet.");
-		}
-
-		// The PoV store, shared with the import queue built below, the builder's own import wrapper
-		// and the collation task. Created before `new_partial` so the queue's `JamBlockImport`
-		// records into it.
-		let block_povs = jam::pov_store::BlockPovs::new(jam::pov_store::BLOCK_POVS_CAPACITY);
-		// Filled once the JAM connection is up, so imports can resolve `:code` markers.
-		let code_resolver = jam::block_import::CodeResolver::<Block>::default();
-
-		let PartialComponents {
-			client,
-			backend,
-			mut task_manager,
-			import_queue,
-			keystore_container,
-			select_chain: _,
-			transaction_pool,
-			other: (block_import, mut telemetry, _, _, _),
-		} = Self::new_partial(
-			&config,
-			Some(jam::block_import::JamImportShared {
-				povs: block_povs.clone(),
-				code: code_resolver.clone(),
-			}),
-		)?;
-
-		// The JAM import path (task 12): wrap the inner import so every block that re-executes on
-		// import does so with the carried JAM state proof registered. The import queue
-		// `new_partial` built is already over this wrapper, so network imports take that path too
-		// and the essential `basic-block-import-worker` it spawned is never orphaned.
-		let block_import = jam::block_import::JamBlockImport::new(
-			block_import.clone(),
-			client.clone(),
-			Some(block_povs.clone()),
-			Some(code_resolver.clone()),
-		);
-
-		let is_authority = config.role.is_authority();
-
-		let net_config = FullNetworkConfiguration::<_, _, sc_network::Litep2pNetworkBackend>::new(
-			&config.network,
-			None,
-		);
-
-		let metrics = NotificationMetrics::new(None);
-		let import_queue_service = import_queue.service();
-
-		let (network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
-			sc_service::build_network(sc_service::BuildNetworkParams {
-				config: &config,
-				client: client.clone(),
-				transaction_pool: transaction_pool.clone(),
-				spawn_handle: task_manager.spawn_handle(),
-				spawn_essential_handle: task_manager.spawn_essential_handle(),
-				import_queue,
-				net_config,
-				block_announce_validator_builder: None,
-				warp_sync_config: None,
-				block_relay: None,
-				metrics,
-			})?;
-
-		let para_id =
-			Self::parachain_id(&client, &config).ok_or("Failed to retrieve the parachain id")?;
-		let announce_block = {
-			let sync_service = sync_service.clone();
-			Arc::new(move |hash, data| sync_service.announce_block(hash, data))
-		};
-
-		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
-			task_manager.spawn_handle(),
-			client.clone(),
-			transaction_pool.clone(),
-			config.prometheus_registry(),
-			telemetry.as_ref().map(|t| t.handle()),
-		);
-
-		log::info!(
-			"🍇 Starting in JAM mode: para id {para_id}, service id {}, collator: {is_authority}",
-			jam_params.service_id,
-		);
-
-		// Before anything reads a key: `spawn_tasks` is what puts this node's session keys in the
-		// keystore (`generate_initial_session_keys`, which is where `--alice` and friends land), so
-		// the authorizer below would find an empty keystore if it ran first. The relay-chain path
-		// orders itself the same way, starting consensus only once this has run.
-		let spawn_handle = Arc::new(task_manager.spawn_handle());
-		let rpc_extensions_builder = {
-			let client = client.clone();
-			let transaction_pool = transaction_pool.clone();
-			let backend_for_rpc = backend.clone();
-
-			Box::new(move |_| {
-				let module = Self::BuildRpcExtensions::build_rpc_extensions(
-					client.clone(),
-					backend_for_rpc.clone(),
-					transaction_pool.clone(),
-					None,
-					None,
-					spawn_handle.clone(),
-				)?;
-				Ok(module)
-			})
-		};
-
-		let database_path = config.database.path().map(|p| p.to_path_buf());
-
-		let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-			network,
-			client: client.clone(),
-			keystore: keystore_container.keystore(),
-			task_manager: &mut task_manager,
-			transaction_pool: transaction_pool.clone(),
-			rpc_builder: rpc_extensions_builder,
-			backend: backend.clone(),
-			system_rpc_tx,
-			tx_handler_controller,
-			sync_service,
-			config,
-			telemetry: telemetry.as_mut(),
-			tracing_execute_block: None,
-		})?;
-
-		// Up front, and fatal only for what is genuinely broken: an unreadable authorizer blob, or
-		// a degenerate config the guest itself rejects. Holding no key of the current set is not
-		// fatal any more — the set changes at JAM slots and the node may be in the next one — so
-		// the authorizer is resolved per anchor slot by [`jam::Authorizers`]. A full node signs
-		// nothing and is not given one.
-		let jam_authorizers = if is_authority {
-			let source = Arc::new(jam::RuntimeApiAuthorities::<Block, RuntimeApi, AuraId>::new(
-				client.clone(),
-			));
-			Some(Arc::new(jam::Authorizers::<Block, AuraId>::new(
-				source,
-				jam_params.authorizer_blob.clone(),
-				para_id.into(),
-				jam_params.service_id,
-				jam_params.slot_duration,
-				keystore_container.keystore(),
-			)) as Arc<dyn jam::AuthoritySource<Block>>)
-		} else {
-			None
-		};
-
-		let jam_init = {
-			let block_povs = block_povs.clone();
-			let client = client.clone();
-			let para_backend = backend.clone();
-			let keystore = keystore_container.keystore();
-			let spawn_essential = task_manager.spawn_essential_handle();
-			let announce_block = announce_block.clone();
-			let block_import = block_import.clone();
-			let code_resolver = code_resolver.clone();
-			async move {
-				let (jam, worker) = match JamRpcInterface::new(jam_params.rpc_urls.clone()).await {
-					Ok(connection) => connection,
-					Err(error) => {
-						log::error!("Unable to connect to any JAM node: {error}");
-						log::warn!(
-							"Skipping JAM work-package recovery: this collator will not \
-							 recover blocks it did not author.",
-						);
-						return;
-					},
-				};
-				let jam = Arc::new(jam);
-				spawn_essential.spawn_essential("jam-rpc-worker", Some("jam"), Box::pin(worker));
-
-				{
-					let client = client.clone();
-					let para_backend = para_backend.clone();
-					let jam = jam.clone();
-					let service_id = jam_params.service_id;
-					let _ = code_resolver.set(Box::new(move |block, anchor| {
-						let (client, para_backend, jam) =
-							(client.clone(), para_backend.clone(), jam.clone());
-						async move {
-							jam::ensure_code_blob_at(
-								&client,
-								&para_backend,
-								&*jam,
-								service_id,
-								block,
-								anchor,
-							)
-							.await
-						}
-						.boxed()
-					}));
-				}
-
-				let best_heads = match jam::para_header_stream::<Block, _>(
-					&*jam,
-					client.clone(),
-					jam_params.service_id,
-					para_id.into(),
-					false,
-				)
-				.await
-				{
-					Ok(stream) => stream,
-					Err(error) => {
-						log::error!("Unable to open the JAM best para-head stream: {error}");
-						return;
-					},
-				};
-				let finalized_heads = match jam::para_header_stream::<Block, _>(
-					&*jam,
-					client.clone(),
-					jam_params.service_id,
-					para_id.into(),
-					true,
-				)
-				.await
-				{
-					Ok(stream) => stream,
-					Err(error) => {
-						log::error!("Unable to open the JAM finalized para-head stream: {error}");
-						return;
-					},
-				};
-				spawn_essential.spawn_essential_blocking(
-					"jam-parachain-consensus",
-					Some("jam"),
-					Box::pin(consensus_common::run_parachain_consensus(
-						client.clone(),
-						announce_block.clone(),
-						Box::new(best_heads.map(|(header, _slot)| header.encode()).boxed()),
-						Box::new(finalized_heads.map(|(header, _slot)| header).boxed()),
-						None,
-					)),
-				);
-
-				// Work-package recovery: randomised bundle fetch from the JAM DA layer.
-				//
-				// Slot timing: one JAM timeslot = JAM_SLOT_DURATION_MS (6 s);
-				// jam_params.slot_duration is the para-slot length in JAM timeslots,
-				// so a para slot lasts (slot_duration × 6 s).  We wait half a para
-				// slot (min) before attempting recovery — enough time for the authoring
-				// collator to gossip its bundle normally.  The upper bound (max) is one
-				// full para slot: the window in which the block was originally produced,
-				// keeping recovery timely.  Mirrors the Collator profile in
-				// start_relay_chain_tasks, adapted to JAM timing.
-				let para_slot_ms = Duration::from_millis(
-					jam::JAM_SLOT_DURATION_MS * u64::from(jam_params.slot_duration),
-				);
-				let recovery_delay_range =
-					RecoveryDelayRange { min: para_slot_ms / 2, max: para_slot_ms };
-				// The same ledger the collation task writes: the recovered bundle holds the
-				// author's own signed package, so its hash is authentic and can be recorded.
-				let wp_hash_ledger = jam::hash_ledger::WpHashLedger::new(client.clone());
-				let recovery = JamWorkPackageRecovery::new(
-					recovery_delay_range,
-					Box::new(JamImportSink { service: import_queue_service }),
-					Box::new(move |block_hash, wp_hash| {
-						wp_hash_ledger.insert(&block_hash.into(), wp_hash).map_err(|error| {
-							format!("recording the recovered work-package hash: {error}")
-						})
-					}),
-					Box::new((*jam).clone()),
-					Box::new((*jam).clone()),
-					jam_params.service_id,
-					para_id.into(),
-				);
-				let block_status_fn = {
-					let client = client.clone();
-					move |hash: Block::Hash| -> BlockStatus {
-						client.block_status(hash).unwrap_or(BlockStatus::Unknown)
-					}
-				};
-				let import_notifications =
-					client.import_notification_stream().map(|n| n.hash).boxed();
-				// Bundles are only served to JAM validators, so recovery may need its own endpoint.
-				let bundle_source = if jam_params.recovery_rpc_urls == jam_params.rpc_urls {
-					(*jam).clone()
-				} else {
-					match JamRpcInterface::new(jam_params.recovery_rpc_urls.clone()).await {
-						Ok((recovery_jam, recovery_worker)) => {
-							spawn_essential.spawn_essential(
-								"jam-recovery-rpc-worker",
-								Some("jam"),
-								Box::pin(recovery_worker),
-							);
-							recovery_jam
-						},
-						Err(error) => {
-							log::error!(
-								"Unable to connect to any JAM recovery RPC url: {error}; recovering \
-								 through `--jam-rpc-urls` instead."
-							);
-							(*jam).clone()
-						},
-					}
-				};
-				let bundle_recovery: Box<dyn JamBundleRecovery> = if jam_params.fail_pov_recovery {
-					Box::new(FailingBundleRecovery::new(RpcBundleRecovery::new(bundle_source)))
-				} else {
-					Box::new(RpcBundleRecovery::new(bundle_source))
-				};
-				spawn_essential.spawn(
-					"cumulus-jam-wp-recovery",
-					None,
-					Box::pin(recovery.run(bundle_recovery, block_status_fn, import_notifications)),
-				);
-				let Some(jam_authorizers) = jam_authorizers else {
-					// Essential task: park forever, returning would shut the node down.
-					return futures::future::pending::<()>().await;
-				};
-
-				// The service settings are read once and shared by every work package the
-				// collation task assembles.
-				let package_params =
-					jam::package::read_package_params(&*jam, jam_params.service_id).await;
-
-				wait_for_aura::<Block, RuntimeApi, AuraId>(client.clone()).await;
-				let (message_sender, message_receiver) = futures::channel::mpsc::channel(4);
-				let hold = jam::AuthoringHold::new();
-				spawn_essential.spawn_essential(
-					"jam-block-builder",
-					Some("jam"),
-					Box::pin(jam::builder_task::run_builder_task::<
-						Block,
-						RuntimeApi,
-						AuraId,
-						_,
-						_,
-						_,
-					>(jam::builder_task::BuilderTaskParams {
-						para_client: client.clone(),
-						para_backend: para_backend.clone(),
-						block_import,
-						proposer_factory,
-						keystore,
-						para_id,
-						service_id: jam_params.service_id,
-						authorizers: jam_authorizers.clone(),
-						jam: jam.clone(),
-						message_sender,
-						hold: hold.clone(),
-					})),
-				);
-				spawn_essential.spawn_essential(
-					"jam-collation",
-					Some("jam"),
-					Box::pin(jam::collation_task::run_collation_task(
-						jam::collation_task::CollationTaskParams {
-							para_client: client,
-							para_backend,
-							jam,
-							para_id,
-							service_id: jam_params.service_id,
-							authorizers: jam_authorizers,
-							message_receiver,
-							announce_block,
-							params: package_params,
-							block_povs,
-							hold,
-						},
-					)),
-				);
-
-				// Essential task: park forever, returning would shut the node down.
-				futures::future::pending::<()>().await;
-			}
-		};
-		task_manager
-			.spawn_essential_handle()
-			.spawn("jam-init", Some("jam"), Box::pin(jam_init));
-
 		if let Some(database_path) = database_path {
 			sc_storage_monitor::StorageMonitorService::try_spawn(
 				storage_monitor.clone(),
@@ -1359,7 +822,7 @@ where
 /// Wait for the Aura runtime API to appear on chain.
 /// This is useful for chains that started out without Aura. Components that
 /// are depending on Aura functionality will wait until Aura appears in the runtime.
-async fn wait_for_aura<Block: BlockT, RuntimeApi, AuraId>(
+pub(crate) async fn wait_for_aura<Block: BlockT, RuntimeApi, AuraId>(
 	client: Arc<ParachainClient<Block, RuntimeApi>>,
 ) where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,

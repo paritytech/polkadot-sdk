@@ -29,11 +29,12 @@ frame-system = { workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
+log = { workspace = true }
 pallet-accumulate-and-forward = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
-log = { workspace = true }
+pallet-broker = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-meta-tx = { workspace = true }
 pallet-multisig = { workspace = true }
@@ -87,12 +88,13 @@ parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["westend"], workspace = true }
 
-# On JAM the broker is `pallet-jam-broker`, aliased as `pallet_broker` in `src/lib.rs`.
-[target.'cfg(not(jam))'.dependencies]
-pallet-broker = { workspace = true }
-
+# The JAM backing (`src/backing/jam.rs`), with the broker's JAM side. Built for `--cfg jam` only:
+# the JAM pallets depend on `parachain-service-core`, which does not build for `wasm32v1-none`.
 [target.'cfg(jam)'.dependencies]
-pallet-jam-broker = { workspace = true }
+cumulus-jam-aura-primitives = { workspace = true }
+cumulus-pallet-jam-system = { workspace = true }
+pallet-aura-jam = { workspace = true }
+pallet-jam-coretime = { workspace = true }
 
 [dev-dependencies]
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
@@ -104,8 +106,9 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 default = ["std"]
 std = [
 	"codec/std",
-	"log/std",
+	"cumulus-jam-aura-primitives/std",
 	"cumulus-pallet-aura-ext/std",
+	"cumulus-pallet-jam-system/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-session-benchmarking/std",
 	"cumulus-pallet-weight-reclaim/std",
@@ -122,13 +125,15 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime?/std",
+	"log/std",
 	"pallet-accumulate-and-forward/std",
+	"pallet-aura-jam/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-broker/std",
-	"pallet-jam-broker/std",
 	"pallet-collator-selection/std",
+	"pallet-jam-coretime/std",
 	"pallet-message-queue/std",
 	"pallet-meta-tx/std",
 	"pallet-multisig/std",
@@ -173,6 +178,7 @@ std = [
 	"xcm/std",
 ]
 runtime-benchmarks = [
+	"cumulus-pallet-jam-system/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
 	"cumulus-pallet-weight-reclaim/runtime-benchmarks",
@@ -184,10 +190,11 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-accumulate-and-forward/runtime-benchmarks",
+	"pallet-aura-jam/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-broker/runtime-benchmarks",
-	"pallet-jam-broker/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
+	"pallet-jam-coretime/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-meta-tx/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -213,6 +220,7 @@ runtime-benchmarks = [
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
+	"cumulus-pallet-jam-system/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
 	"cumulus-pallet-weight-reclaim/try-runtime",
 	"cumulus-pallet-xcm/try-runtime",
@@ -222,12 +230,13 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"pallet-accumulate-and-forward/try-runtime",
+	"pallet-aura-jam/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-broker/try-runtime",
-	"pallet-jam-broker/try-runtime",
 	"pallet-collator-selection/try-runtime",
+	"pallet-jam-coretime/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-meta-tx/try-runtime",
 	"pallet-multisig/try-runtime",

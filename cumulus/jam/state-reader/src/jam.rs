@@ -16,9 +16,10 @@
 
 //! JAM chain-state read side of the additional-data channel.
 //!
-//! The generic additional-data machinery (the [`AdditionalData`] map, the finalizer registry and
-//! the `finalize` host function) lives in `sp-additional-data`. This crate holds the parts specific
-//! to *reading JAM chain state* into that channel, mirroring the relay side in `lib.rs`:
+//! The generic additional-data machinery (the
+//! [`AdditionalData`](sp_additional_data::AdditionalData) map, the finalizer registry and the
+//! `finalize` host function) lives in `sp-additional-data`. This module holds the parts specific to
+//! *reading JAM chain state* into that channel:
 //!
 //! - [`JAM_PROOF_KEY`] — the map key under which the JAM read-proof is carried,
 //! - [`JamStateReader`] + [`JamStateExt`] — the externalities extension the read host function
@@ -37,7 +38,6 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-#[cfg(not(all(jam, substrate_runtime)))]
 use sp_runtime_interface::{
 	pass_by::{PassFatPointerAndRead, PassFatPointerAndReadWrite},
 	runtime_interface,
@@ -90,9 +90,8 @@ impl<T: JamStateReader + Sync + ?Sized> JamStateReader for alloc::sync::Arc<T> {
 sp_externalities::decl_extension! {
 	/// Externalities extension backing [`jam_state::jam_state_read`].
 	///
-	/// Register this before executing a block that calls [`jam_state::jam_state_read`]
-	/// (jam_state::jam_state_read) — on build, on `validate_block`, and on the generic block-import
-	/// path.
+	/// Register this before executing a block that calls [`jam_state::jam_state_read`] — on build,
+	/// on `validate_block`, and on the generic block-import path.
 	pub struct JamStateExt(alloc::boxed::Box<dyn JamStateReader>);
 }
 
@@ -101,7 +100,6 @@ sp_externalities::decl_extension! {
 /// `jam_state_read` **panics** when [`JamStateExt`] is not registered — the read is
 /// consensus-critical (its proof feeds the additional-data digest), so a missing extension must
 /// fail loudly rather than silently diverge.
-#[cfg(not(all(jam, substrate_runtime)))]
 #[runtime_interface]
 pub trait JamStateHost {
 	/// Read the JAM state item at the 31-byte `key`, writing the value into `value_out` and
@@ -116,6 +114,7 @@ pub trait JamStateHost {
 	/// # Panics
 	///
 	/// If [`JamStateExt`] is not registered in the externalities.
+	#[polkavm_index(344)]
 	fn jam_state_read_into(
 		&mut self,
 		key: PassFatPointerAndRead<&[u8]>,
@@ -142,46 +141,12 @@ pub trait JamStateHost {
 }
 
 /// Reading JAM chain state: [`jam_state::jam_state_read`] plus the exchangeable
-/// [`jam_state::host_jam_state_read_into`] that `validate_block` replaces to serve reads from the
-/// carried proof.
+/// `jam_state::host_jam_state_read_into` (runtime builds only) that `validate_block` replaces to
+/// serve reads from the carried proof.
 pub mod jam_state {
 	use alloc::vec::Vec;
 
-	#[cfg(not(all(jam, substrate_runtime)))]
 	pub use super::jam_state_host::*;
-
-	#[cfg(all(jam, substrate_runtime))]
-	sp_jam_runtime_interface::host_calls! {
-		/// [`super::JamStateHost::jam_state_read_into`] at its fixed PolkaVM index, named like the
-		/// `#[runtime_interface]` host function so the node serves it through that registration.
-		#[index = 344]
-		fn ext_jam_state_host_jam_state_read_into_version_1(key: u64, value_out: u64) -> i64;
-	}
-
-	#[cfg(all(jam, substrate_runtime))]
-	fn host_call(key: &[u8], value_out: &mut [u8]) -> i64 {
-		let key = sp_runtime_interface::pack_ptr_and_len(key.as_ptr() as u32, key.len() as u32);
-		let value_out = sp_runtime_interface::pack_ptr_and_len(
-			value_out.as_mut_ptr() as u32,
-			value_out.len() as u32,
-		);
-		// SAFETY: The packed pointers and lengths come from live slices.
-		unsafe { ext_jam_state_host_jam_state_read_into_version_1(key, value_out) }
-	}
-
-	/// Exchangeable implementation of [`jam_state_read_into`].
-	#[cfg(all(jam, substrate_runtime))]
-	#[allow(non_upper_case_globals)]
-	pub static host_jam_state_read_into: sp_runtime_interface::wasm::ExchangeableFunction<
-		fn(&[u8], &mut [u8]) -> i64,
-	> = sp_runtime_interface::wasm::ExchangeableFunction::new(host_call);
-
-	/// Read the JAM state item at the 31-byte `key` into `value_out`, returning its full length
-	/// or `-1` when the key is (provably) absent.
-	#[cfg(all(jam, substrate_runtime))]
-	pub fn jam_state_read_into(key: &[u8], value_out: &mut [u8]) -> i64 {
-		host_jam_state_read_into.get()(key, value_out)
-	}
 
 	/// Read `key` from the JAM chain state, returning its value or `None` when (provably) absent.
 	///

@@ -16,43 +16,25 @@
 
 //! Consensus-agnostic core of the parachain block validation engine.
 //!
-//! This module implements everything the polkadot and the (future) JAM entry points share:
-//! decoding the parent head, replacing the storage related host functions, building the
-//! in-memory database from the block's storage proof, executing every block against it and
-//! assembling the resulting head/message outputs into a [`PartialValidationResult`].
+//! This module implements everything the polkadot entry point shares with other entry points
+//! (`cumulus-pallet-jam-system` has one): decoding the parent head, replacing the storage related
+//! host functions, building the in-memory database from the block's storage proof and executing
+//! every block against it.
 //!
-//! Relay-chain-only concerns stay out of the seam and live in
-//! [`super::relay_chain_implementation`]: V3 scheduling shape validation, the scheduling-signature
-//! override, `validate_validation_data` and the final `ValidationResult` assembly. The two
-//! callbacks are the boundary:
-//!
-//! - `on_db_ready` receives the built memory DB, its cache provider, the ORIGINAL parent header and
-//!   the state version at the exact moment the relay layer's V3 signature override needs them (the
-//!   core's loop has not reassigned the parent header yet). JAM passes `None`, which makes
-//!   scheduling-signature verification structurally unreachable.
-//! - `on_block_validated` fires inside the `run_with_externalities_and_recorder` scope after each
-//!   block's seal check, where the relay layer re-verifies the block's `set_validation_data`
-//!   against the relay-parent context. JAM uses it to read the scheduled-upgrade storage item while
-//!   the storage host-function overrides are still installed, since a read after `execute_blocks`
-//!   returns would be an unserved raw host call.
-//! - `on_execute` runs a block against the just-built backend with the caller's readers/finalizers
-//!   armed: it receives the block's additional-data entry and the base execute closure. JAM arms
-//!   its proof reader + finalizer from the carried `JAM_PROOF_KEY` entry; the relay chain arms
-//!   nothing. This is what keeps the core free of JAM-only `cfg` — the armed code lives in the
-//!   caller, which is itself target-gated.
+//! Everything an entry point derives from the executed blocks lives behind [`ValidationHooks`],
+//! so the core needs no pallet configuration and no target-specific `cfg`. The relay-chain
+//! entry, [`crate::relay_chain::relay_chain_implementation`], verifies the V3 scheduling
+//! signature in [`ValidationHooks::on_db_ready`] and re-checks the validation data and collects
+//! the candidate outputs in [`ValidationHooks::on_block_executed`]. An entry point that carries
+//! additional data arms its reader and finalizer in [`ValidationHooks::execute_block`].
 
 use super::{
 	block_checks::verify_blocks_form_chain, bytes::Bytes,
 	host_functions::run_with_externalities_and_recorder, trie_cache, trie_recorder,
 };
 use alloc::vec::Vec;
-use codec::Encode;
-use cumulus_primitives_core::{
-	relay_chain::{BlockNumber as RNumber, UMP_SEPARATOR},
-	ParachainBlockData,
-};
-use frame_support::traits::{ExecuteBlock, Get};
-use polkadot_parachain_primitives::primitives::{HeadData, HorizontalMessages, UpwardMessages};
+use cumulus_primitives_core::ParachainBlockData;
+use frame_support::traits::ExecuteBlock;
 use sp_additional_data::AdditionalData;
 use sp_core::storage::{well_known_keys, StateVersion};
 use sp_runtime::traits::{
@@ -60,6 +42,7 @@ use sp_runtime::traits::{
 };
 use sp_state_machine::OverlayedChanges;
 use sp_trie::{HashDBT, MemoryDB, EMPTY_PREFIX};
+use sp_version::RuntimeVersion;
 use trie_recorder::{SeenNodes, SizeOnlyRecorderProvider};
 
 /// The input of a single [`execute_blocks`] call.
@@ -67,28 +50,46 @@ use trie_recorder::{SeenNodes, SizeOnlyRecorderProvider};
 /// `block_data` is already decoded and `randomness_seed` already derived by the caller: the seed
 /// hashes the relay-parent storage root alongside the block hashes, which is relay-specific, so
 /// only its `[u8; 16]` result crosses the seam.
-pub(crate) struct SharedValidationInputs<B: BlockT> {
+pub struct SharedValidationInputs<B: BlockT> {
 	pub block_data: ParachainBlockData<B::LazyBlock>,
 	pub parent_head: Bytes,
 	pub randomness_seed: [u8; 16],
 }
 
-/// The raw outcome of the validation engine, before relay-layer post-processing.
-///
-/// The relay layer finalizes it into a [`ValidationResult`]
-/// (polkadot_parachain_primitives::primitives::ValidationResult): it appends the scheduling
-/// signal tail to `upward_messages` (from `upward_message_signals` or the signed override,
-/// whichever applies) and unwraps `head_data`/`new_validation_code`.
-pub(crate) struct PartialValidationResult {
-	pub head_data: Option<HeadData>,
-	pub new_validation_code: Option<Vec<u8>>,
-	pub upward_messages: UpwardMessages,
-	/// The raw UMP signals a PoV emitted after the in-block `UMP_SEPARATOR`, in order. The relay
-	/// layer routes them into the scheduling tail; JAM has no scheduling and ignores them.
-	pub upward_message_signals: Vec<Vec<u8>>,
-	pub processed_downward_messages: u32,
-	pub horizontal_messages: HorizontalMessages,
-	pub hrmp_watermark: RNumber,
+/// The points at which an entry point takes part in [`execute_blocks`].
+pub trait ValidationHooks<B: BlockT> {
+	/// Runs once, after the in-memory database was built from the PoV's storage proof and before
+	/// the first block executes. `parent` is the header the PoV builds on.
+	fn on_db_ready(
+		&mut self,
+		_db: &MemoryDB<HashingFor<B>>,
+		_cache: &trie_cache::CacheProvider<HashingFor<B>>,
+		_parent: &B::Header,
+		_state_version: StateVersion,
+	) {
+	}
+
+	/// Executes block `index` by calling `execute` exactly once, with whatever the entry point
+	/// arms around it. `additional_data` is the block's entry, absent for V0-V2 PoVs.
+	fn execute_block(
+		&mut self,
+		_index: usize,
+		_additional_data: Option<&AdditionalData>,
+		execute: &mut dyn FnMut(),
+	) {
+		execute()
+	}
+
+	/// Runs inside the externalities scope over the block's post-state, while the storage
+	/// host-function overrides are installed. `header` is the executed block's header and
+	/// `parent_head` the encoded header the PoV builds on.
+	fn on_block_executed(
+		&mut self,
+		index: usize,
+		is_last: bool,
+		header: &B::Header,
+		parent_head: &[u8],
+	);
 }
 
 /// Execute the given blocks against the sparse in-memory database built from their storage proof.
@@ -110,24 +111,14 @@ pub(crate) struct PartialValidationResult {
 /// 4. The last step is to execute the entire block in the machinery we just have setup. Executing
 ///    the blocks include running all transactions in the block against our in-memory database and
 ///    ensuring that the final storage root matches the storage root in the header of the block.
-pub(crate) fn execute_blocks<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
+///
+/// `version` is the runtime's own version; it selects the state version and the code-upgrade
+/// storage key. `hooks` receives the entry-point specific steps, see [`ValidationHooks`].
+pub fn execute_blocks<B: BlockT, E: ExecuteBlock<B>>(
 	inputs: SharedValidationInputs<B>,
-	on_db_ready: Option<
-		&dyn Fn(
-			&MemoryDB<HashingFor<B>>,
-			&trie_cache::CacheProvider<HashingFor<B>>,
-			&B::Header,
-			StateVersion,
-		),
-	>,
-	on_block_validated: &dyn Fn(&[u8]),
-	// Runs a block against the just-built backend with whichever readers/finalizers the caller's
-	// flavor needs armed. Receives the block's additional-data entry (absent for V0-V2) and the
-	// base execute closure. The relay path arms nothing; JAM arms its proof reader + finalizer
-	// from the carried `JAM_PROOF_KEY` entry. This keeps the core free of JAM-only `cfg` — the
-	// armed code lives in the caller, which is itself target-gated.
-	on_execute: &dyn Fn(&Option<AdditionalData>, &mut dyn FnMut()),
-) -> PartialValidationResult {
+	version: &RuntimeVersion,
+	hooks: &mut dyn ValidationHooks<B>,
+) {
 	let _guard = super::host_functions::install_overrides();
 
 	// Initialize hashmaps randomness.
@@ -152,15 +143,8 @@ pub(crate) fn execute_blocks<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 
 	verify_blocks_form_chain::<B>(&blocks, &parent_header);
 
-	let mut processed_downward_messages = 0;
-	let mut upward_messages = UpwardMessages::default();
-	let mut upward_message_signals = Vec::<Vec<u8>>::new();
-	let mut horizontal_messages = HorizontalMessages::default();
-	let mut hrmp_watermark = Default::default();
-	let mut head_data = None;
-	let mut new_validation_code = None;
 	let num_blocks = blocks.len();
-	let state_version = <PSC as frame_system::Config>::Version::get().state_version();
+	let state_version = version.state_version();
 
 	// Create the db
 	let mut db = match proof.to_memory_db::<HashingFor<B>>(parent_header.state_root()) {
@@ -173,10 +157,9 @@ pub(crate) fn execute_blocks<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 	let cache_provider = trie_cache::CacheProvider::new();
 	let seen_nodes = SeenNodes::<HashingFor<B>>::default();
 
-	// Hand the built DB to the relay layer at the exact moment its V3 scheduling override needs
-	// it — before the loop below reassigns `parent_header`, so `&parent_header` here is still the
-	// ORIGINAL parent header from `inputs.parent_head`.
-	on_db_ready.map(|f| f(&db, &cache_provider, &parent_header, state_version));
+	// Before the loop below reassigns `parent_header`, so it is still the header the PoV builds
+	// on.
+	hooks.on_db_ready(&db, &cache_provider, &parent_header, state_version);
 
 	for (block_index, mut block) in blocks.into_iter().enumerate() {
 		// We use the storage root of the `parent_head` to ensure that it is the correct root.
@@ -239,9 +222,9 @@ pub(crate) fn execute_blocks<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 		);
 
 		// block is moved into the inner FnOnce, so wrap it in RefCell<Option<_>> so that
-		// the outer `execute` closure can implement FnMut (required by `on_execute`'s
-		// `&mut dyn FnMut()` parameter). The `.take()` panics on a second call, preserving
-		// exactly-once semantics.
+		// the outer `execute` closure can implement FnMut (required by
+		// `ValidationHooks::execute_block`). The `.take()` panics on a second call, and the
+		// assertion after the hook rejects a hook that never ran the block.
 		let block = core::cell::RefCell::new(Some(block));
 		let mut execute = || {
 			run_with_externalities_and_recorder::<B, _, _>(
@@ -263,18 +246,17 @@ pub(crate) fn execute_blocks<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 				},
 			);
 		};
-		// Run the block under whichever readers/finalizers the caller's flavor arms: JAM serves
-		// `finalize` from its proof finalizer and `jam_state_read` from its proof-backed reader
-		// (both armed together from the same `JAM_PROOF_KEY` additional-data entry); the relay
-		// chain arms nothing and executes the block directly.
-		on_execute(&map_opt, &mut execute);
+		hooks.execute_block(block_index, map_opt.as_ref(), &mut execute);
+		assert!(
+			block.borrow().is_none(),
+			"`ValidationHooks::execute_block` must execute the block"
+		);
 
-		let code_upgrade_detected =
-			if <PSC as frame_system::Config>::Version::get().system_version >= 3 {
-				overlay.storage(well_known_keys::PENDING_CODE).is_some()
-			} else {
-				overlay.storage(well_known_keys::CODE).is_some()
-			};
+		let code_upgrade_detected = if version.system_version >= 3 {
+			overlay.storage(well_known_keys::PENDING_CODE).is_some()
+		} else {
+			overlay.storage(well_known_keys::CODE).is_some()
+		};
 		if code_upgrade_detected && num_blocks > 1 {
 			panic!(
 				"When applying a runtime upgrade, only one block per PoV is allowed. Received {num_blocks}."
@@ -288,49 +270,12 @@ pub(crate) fn execute_blocks<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 			&mut overlay,
 			state_version,
 			|| {
-				// The relay layer re-verifies the block's validation data against its relay
-				// context here, inside the externalities scope where `ValidationData` is set.
-				on_block_validated(&inputs.parent_head);
-
-				new_validation_code =
-					new_validation_code.take().or(crate::NewValidationCode::<PSC>::get());
-
-				let mut found_separator = false;
-				crate::UpwardMessages::<PSC>::get()
-					.into_iter()
-					.filter_map(|m| {
-						// Filter out the `UMP_SEPARATOR` and the `UMPSignals`.
-						if m == UMP_SEPARATOR {
-							found_separator = true;
-							None
-						} else if found_separator {
-							upward_message_signals.push(m);
-							None
-						} else {
-							// No signal or separator
-							Some(m)
-						}
-					})
-					.for_each(|m| {
-						upward_messages.try_push(m).expect(
-							"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
-						)
-					});
-
-				processed_downward_messages += crate::ProcessedDownwardMessages::<PSC>::get();
-				horizontal_messages
-					.try_extend(crate::HrmpOutboundMessages::<PSC>::get().into_iter())
-					.expect(
-						"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
-					);
-				hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
-
-				if block_index + 1 == num_blocks {
-					head_data = Some(
-						crate::CustomValidationHeadData::<PSC>::get()
-							.map_or_else(|| HeadData(parent_header.encode()), HeadData),
-					);
-				}
+				hooks.on_block_executed(
+					block_index,
+					block_index + 1 == num_blocks,
+					&parent_header,
+					&inputs.parent_head,
+				)
 			},
 		);
 
@@ -352,17 +297,5 @@ pub(crate) fn execute_blocks<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 				}
 			});
 		}
-	}
-
-	horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));
-
-	PartialValidationResult {
-		head_data,
-		new_validation_code,
-		upward_messages,
-		upward_message_signals,
-		processed_downward_messages,
-		horizontal_messages,
-		hrmp_watermark,
 	}
 }

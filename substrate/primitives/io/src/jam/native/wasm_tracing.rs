@@ -16,7 +16,7 @@
 // limitations under the License.
 
 //! Tracing is not a JAM host call: every function is a no-op inside the runtime. On the node
-//! side (std) they forward to the `tracing` dispatcher, mirroring the `relay_chain.rs` bodies.
+//! side (std) they forward to the `tracing` dispatcher, mirroring the `host_interface.rs` bodies.
 
 /// Whether the span described in `WasmMetadata` should be traced wasm-side.
 ///
@@ -86,76 +86,11 @@ pub fn exit(span: u64) {
 	let _ = span;
 }
 
-#[cfg(all(substrate_runtime, feature = "with-tracing"))]
-mod tracing_setup {
-	use super::{enabled, enter_span, exit};
-	use core::sync::atomic::{AtomicBool, Ordering};
-	use tracing_core::{
-		dispatcher::{set_global_default, Dispatch},
-		span::{Attributes, Id, Record},
-		Event, Metadata,
-	};
-
-	static TRACING_SET: AtomicBool = AtomicBool::new(false);
-
-	/// The PassingTracingSubscriber implements `tracing_core::Subscriber`
-	/// and pushes the information across the runtime interface to the host
-	struct PassingTracingSubscriber;
-
-	impl tracing_core::Subscriber for PassingTracingSubscriber {
-		fn enabled(&self, metadata: &Metadata<'_>) -> bool {
-			enabled(metadata.into())
-		}
-		fn new_span(&self, attrs: &Attributes<'_>) -> Id {
-			Id::from_u64(enter_span(attrs.into()))
-		}
-		fn enter(&self, _: &Id) {
-			// Do nothing, we already entered the span previously
-		}
-		/// Not implemented! We do not support recording values later
-		/// Will panic when used.
-		fn record(&self, _: &Id, _: &Record<'_>) {
-			unimplemented! {} // this usage is not supported
-		}
-		/// Not implemented! We do not support recording values later
-		/// Will panic when used.
-		fn record_follows_from(&self, _: &Id, _: &Id) {
-			unimplemented! {} // this usage is not supported
-		}
-		fn event(&self, event: &Event<'_>) {
-			super::event(event.into())
-		}
-		fn exit(&self, span: &Id) {
-			exit(span.into_u64())
-		}
-	}
-
-	/// Initialize tracing of sp_tracing on wasm with `with-tracing` enabled.
-	/// Can be called multiple times from within the same process and will only
-	/// set the global bridging subscriber once.
-	pub fn init_tracing() {
-		if TRACING_SET.load(Ordering::Relaxed) == false {
-			set_global_default(Dispatch::new(PassingTracingSubscriber {}))
-				.expect("We only ever call this once");
-			TRACING_SET.store(true, Ordering::Relaxed);
-		}
-	}
-}
-
-#[cfg(not(all(substrate_runtime, feature = "with-tracing")))]
-mod tracing_setup {
-	/// Initialize tracing of sp_tracing not necessary – noop. To enable build
-	/// when not both `substrate_runtime` and `with-tracing`-feature.
-	pub fn init_tracing() {}
-}
-
-pub use tracing_setup::init_tracing;
-
 #[cfg(all(test, not(substrate_runtime)))]
 mod tests {
 	#[test]
 	fn tracing_fns_do_not_panic() {
-		super::init_tracing();
+		crate::common::init_tracing();
 		let _ = super::enabled(Default::default());
 		let _ = super::enter_span(Default::default());
 		super::event(Default::default());

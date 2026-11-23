@@ -184,42 +184,6 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, conflicts_with = "dev_block_time")]
 	pub instant_seal: bool,
 
-	/// EXPERIMENTAL (JAM): Id of the parachain service on the JAM chain.
-	///
-	/// Only meaningful together with `--jam-rpc-urls`. The id is assigned when the service is
-	/// registered on the JAM chain, so it cannot live in a committed chain spec.
-	#[arg(long)]
-	pub jam_service_id: Option<u32>,
-
-	/// EXPERIMENTAL (JAM): Path to the AURA authorizer blob deployed on the JAM chain.
-	///
-	/// Only its hash is used, and it has to be the hash whoever installed the core's authorizer
-	/// queue computed from the same file. Required in JAM mode.
-	#[arg(long, value_name = "PATH")]
-	pub jam_authorizer_blob: Option<PathBuf>,
-
-	/// EXPERIMENTAL (JAM): Length of a parachain slot in JAM timeslots.
-	///
-	/// The divisor of the AURA round-robin, and part of the authorizer config, so it has to match
-	/// the value the core's authorizer was installed with.
-	#[arg(long, default_value_t = 1)]
-	pub jam_slot_duration: u32,
-
-	/// EXPERIMENTAL (JAM): JAM node JSON-RPC endpoints work-package recovery goes through.
-	///
-	/// Recovering a bundle needs a JAM validator: validators serve bundle shards only to other
-	/// validators. Defaults to `--jam-rpc-urls`.
-	///
-	/// TODO: Remove once https://github.com/zdave-parity/jam-np/issues/20 is solved.
-	#[arg(long, value_name = "URL", num_args = 1..)]
-	pub jam_recovery_rpc_urls: Vec<url::Url>,
-
-	/// EXPERIMENTAL (JAM): Report every third work-package recovery as unavailable once.
-	///
-	/// Testing only, exercises the recovery retry.
-	#[arg(long, hide = true)]
-	pub fail_pov_recovery: bool,
-
 	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
 	///
 	/// Use slot-based collator which can handle elastic scaling.
@@ -306,25 +270,99 @@ pub struct Cli<Config: CliConfig> {
 	#[command(flatten)]
 	pub hop: sc_hop::HopParams,
 
+	/// Parameters of a parachain node running against a JAM chain. See [`JamCli`].
+	// Last: its help heading carries over to the arguments declared after it.
+	#[command(flatten)]
+	pub(crate) jam: JamCli,
+
 	#[arg(skip)]
 	pub(crate) _phantom: PhantomData<Config>,
 }
 
+/// EXPERIMENTAL (JAM): the command-line options of a parachain node running against a JAM chain
+/// instead of a relay chain. `--jam-rpc-urls` selects the JAM mode.
+#[derive(Debug, clap::Args)]
+#[command(next_help_heading = "JAM (experimental)")]
+pub(crate) struct JamCli {
+	/// EXPERIMENTAL (JAM): Run the parachain node against a JAM chain instead of a relay chain.
+	///
+	/// The provided URLs should point to JSON-RPC (JIP-2) endpoints of JAM nodes. The node
+	/// connects to them following the order they were specified in. If the connection fails, it
+	/// attempts to connect to the next endpoint in the list.
+	///
+	/// Presence of this flag selects the JAM mode; there is no embedded JAM node.
+	#[arg(
+		long,
+		value_parser = parse_jam_rpc_url,
+		num_args = 1..,
+		alias = "jam-rpc-url",
+		conflicts_with = "relay_chain_rpc_urls"
+	)]
+	pub(crate) jam_rpc_urls: Vec<url::Url>,
+
+	/// EXPERIMENTAL (JAM): Id of the parachain service on the JAM chain.
+	///
+	/// Only meaningful together with `--jam-rpc-urls`. The id is assigned when the service is
+	/// registered on the JAM chain, so it cannot live in a committed chain spec.
+	#[arg(long)]
+	pub(crate) jam_service_id: Option<u32>,
+
+	/// EXPERIMENTAL (JAM): Path to the AURA authorizer blob deployed on the JAM chain.
+	///
+	/// Only its hash is used, and it has to be the hash whoever installed the core's authorizer
+	/// queue computed from the same file. Required in JAM mode.
+	#[arg(long, value_name = "PATH")]
+	pub(crate) jam_authorizer_blob: Option<PathBuf>,
+
+	/// EXPERIMENTAL (JAM): Length of a parachain slot in JAM timeslots.
+	///
+	/// The divisor of the AURA round-robin, and part of the authorizer config, so it has to match
+	/// the value the core's authorizer was installed with.
+	#[arg(long, default_value_t = 1)]
+	pub(crate) jam_slot_duration: u32,
+
+	/// EXPERIMENTAL (JAM): JAM node JSON-RPC endpoints work-package recovery goes through.
+	///
+	/// Recovering a bundle needs a JAM validator: validators serve bundle shards only to other
+	/// validators. Defaults to `--jam-rpc-urls`.
+	///
+	/// TODO: Remove once https://github.com/zdave-parity/jam-np/issues/20 is solved.
+	#[arg(long, value_name = "URL", num_args = 1..)]
+	pub(crate) jam_recovery_rpc_urls: Vec<url::Url>,
+
+	/// EXPERIMENTAL (JAM): Report every third work-package recovery as unavailable once.
+	///
+	/// Testing only, exercises the recovery retry.
+	#[arg(long, hide = true)]
+	pub(crate) fail_pov_recovery: bool,
+}
+
+/// Parses a JAM node JSON-RPC endpoint: only websocket endpoints are supported.
+fn parse_jam_rpc_url(arg: &str) -> Result<url::Url, String> {
+	let url = url::Url::parse(arg).map_err(|e| e.to_string())?;
+	match url.scheme() {
+		"ws" | "wss" => Ok(url),
+		scheme => Err(format!(
+			"'{scheme}' URL scheme not supported. Only websocket RPC is currently supported"
+		)),
+	}
+}
+
 /// Everything the JAM node-start path needs from the command line.
 #[derive(Debug, Clone)]
-pub struct JamNodeParams {
+pub(crate) struct JamNodeParams {
 	/// The JAM node JSON-RPC endpoints.
-	pub rpc_urls: Vec<url::Url>,
+	pub(crate) rpc_urls: Vec<url::Url>,
 	/// The JAM node JSON-RPC endpoints work-package recovery goes through.
-	pub recovery_rpc_urls: Vec<url::Url>,
+	pub(crate) recovery_rpc_urls: Vec<url::Url>,
 	/// Id of the parachain service on the JAM chain.
-	pub service_id: u32,
+	pub(crate) service_id: u32,
 	/// The AURA authorizer blob whose hash the para's cores run.
-	pub authorizer_blob: PathBuf,
+	pub(crate) authorizer_blob: PathBuf,
 	/// Length of a parachain slot in JAM timeslots.
-	pub slot_duration: u32,
+	pub(crate) slot_duration: u32,
 	/// Report every third work-package recovery as unavailable once.
-	pub fail_pov_recovery: bool,
+	pub(crate) fail_pov_recovery: bool,
 }
 
 /// Development sealing mode.
@@ -384,29 +422,30 @@ impl<Config: CliConfig> Cli<Config> {
 
 	/// Returns the JAM mode parameters if `--jam-rpc-urls` was given.
 	pub(crate) fn jam_mode(&self) -> sc_cli::Result<Option<JamNodeParams>> {
-		if self.run.jam_rpc_urls.is_empty() {
+		let jam = &self.jam;
+		if jam.jam_rpc_urls.is_empty() {
 			return Ok(None);
 		}
 		if !self.relay_chain_args.is_empty() {
 			return Err("JAM mode does not take relay chain arguments".into());
 		}
-		let Some(service_id) = self.jam_service_id else {
+		let Some(service_id) = jam.jam_service_id else {
 			return Err("JAM mode requires `--jam-service-id`".into());
 		};
-		let Some(authorizer_blob) = self.jam_authorizer_blob.clone() else {
+		let Some(authorizer_blob) = jam.jam_authorizer_blob.clone() else {
 			return Err("JAM mode requires `--jam-authorizer-blob`".into());
 		};
 		Ok(Some(JamNodeParams {
-			rpc_urls: self.run.jam_rpc_urls.clone(),
-			recovery_rpc_urls: if self.jam_recovery_rpc_urls.is_empty() {
-				self.run.jam_rpc_urls.clone()
+			rpc_urls: jam.jam_rpc_urls.clone(),
+			recovery_rpc_urls: if jam.jam_recovery_rpc_urls.is_empty() {
+				jam.jam_rpc_urls.clone()
 			} else {
-				self.jam_recovery_rpc_urls.clone()
+				jam.jam_recovery_rpc_urls.clone()
 			},
 			service_id,
 			authorizer_blob,
-			slot_duration: self.jam_slot_duration,
-			fail_pov_recovery: self.fail_pov_recovery,
+			slot_duration: jam.jam_slot_duration,
+			fail_pov_recovery: jam.fail_pov_recovery,
 		}))
 	}
 

@@ -30,7 +30,6 @@ use polkadot_sdk::{staging_parachain_info as parachain_info, staging_xcm as xcm,
 use polkadot_sdk::{staging_xcm_builder as xcm_builder, staging_xcm_executor as xcm_executor};
 
 // Substrate and Polkadot dependencies
-use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
 	derive_impl,
@@ -49,33 +48,21 @@ use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
 use polkadot_runtime_common::{
 	xcm_sender::ExponentialPrice, BlockHashCount, SlowAdjustingFeeUpdate,
 };
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_runtime::Perbill;
 use sp_version::RuntimeVersion;
 use xcm::latest::prelude::{AssetId, BodyId};
 
 // Local module imports
 use super::{
+	backing::{self, MAX_BLOCK_LENGTH},
 	weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
-	AccountId, Balance, Balances, Block, BlockNumber, CollatorSelection, ConsensusHook, Hash,
-	MessageQueue, Nonce, PalletInfo, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask, Session, SessionKeys,
-	System, WeightToFee, XcmpQueue, AVERAGE_ON_INITIALIZE_RATIO, CENTS, EXISTENTIAL_DEPOSIT, HOURS,
-	MAXIMUM_BLOCK_WEIGHT, MICRO_UNIT, NORMAL_DISPATCH_RATIO, SLOT_DURATION, VERSION,
+	AccountId, Balance, Balances, Block, BlockNumber, CollatorSelection, Hash, MessageQueue, Nonce,
+	PalletInfo, Runtime, RuntimeCall, RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason,
+	RuntimeOrigin, RuntimeTask, Session, SessionKeys, System, WeightToFee, XcmpQueue,
+	AVERAGE_ON_INITIALIZE_RATIO, CENTS, EXISTENTIAL_DEPOSIT, HOURS, MAXIMUM_BLOCK_WEIGHT,
+	MICRO_UNIT, NORMAL_DISPATCH_RATIO, VERSION,
 };
 use xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
-
-/// Maximum encoded block length, in bytes.
-///
-/// The relay-chain path keeps 5 MiB. Under `cfg(jam)` the `apply_upgrade` extrinsic carries the
-/// whole runtime code blob, so the bound is raised to 12 MiB: JAM's `max_input` is 13,791,360
-/// bytes and the work-package encoding plus proof overhead must fit in the remainder. It must
-/// stay below the PoV budget, which also has to cover the proof.
-#[cfg(jam)]
-const MAX_BLOCK_LENGTH: u32 = 12 * 1024 * 1024;
-/// Maximum encoded block length on the relay-chain (non-JAM) path.
-#[cfg(not(jam))]
-const MAX_BLOCK_LENGTH: u32 = 5 * 1024 * 1024;
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -145,7 +132,7 @@ impl frame_system::Config for Runtime {
 	/// This is used as an identifier of the chain. 42 is the generic substrate prefix.
 	type SS58Prefix = SS58Prefix;
 	/// The action to take on a Runtime Upgrade
-	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
+	type OnSetCode = backing::OnSetCode;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type SingleBlockMigrations = SingleBlockMigrations;
 }
@@ -158,19 +145,13 @@ impl cumulus_pallet_weight_reclaim::Config for Runtime {
 impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
-	#[cfg(not(jam))]
-	type OnTimestampSet = super::Aura;
-	#[cfg(jam)]
-	type OnTimestampSet = super::AuraJam;
+	type OnTimestampSet = backing::OnTimestampSet;
 	type MinimumPeriod = ConstU64<0>;
 	type WeightInfo = ();
 }
 
 impl pallet_authorship::Config for Runtime {
-	#[cfg(not(jam))]
-	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, super::Aura>;
-	#[cfg(jam)]
-	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, super::AuraJam>;
+	type FindAuthor = backing::FindAuthor;
 	type EventHandler = (CollatorSelection,);
 }
 
@@ -218,28 +199,6 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = ();
 }
 
-parameter_types! {
-	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
-	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
-	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
-}
-
-impl cumulus_pallet_parachain_system::Config for Runtime {
-	type WeightInfo = ();
-	type RuntimeEvent = RuntimeEvent;
-	type OnSystemEvent = ();
-	type SelfParaId = parachain_info::Pallet<Runtime>;
-	type OutboundXcmpMessageSource = XcmpQueue;
-	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
-	type ReservedDmpWeight = ReservedDmpWeight;
-	type XcmpMessageHandler = XcmpQueue;
-	type ReservedXcmpWeight = ReservedXcmpWeight;
-	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
-	type ConsensusHook = ConsensusHook;
-	type RelayParentOffset = ConstU32<0>;
-	type SchedulingSignatureVerifier = ();
-}
-
 impl parachain_info::Config for Runtime {}
 
 parameter_types! {
@@ -269,9 +228,6 @@ impl pallet_message_queue::Config for Runtime {
 	type IdleMaxServiceWeight = ();
 }
 
-#[cfg(not(jam))]
-impl cumulus_pallet_aura_ext::Config for Runtime {}
-
 parameter_types! {
 	/// The asset ID for the asset that we use to pay for message delivery fees.
 	pub FeeAssetId: AssetId = AssetId(xcm_config::RelayLocation::get());
@@ -284,13 +240,9 @@ parameter_types! {
 pub type PriceForSiblingParachainDelivery =
 	ExponentialPrice<FeeAssetId, ToSiblingBaseDeliveryFee, TransactionByteFee, XcmpQueue>;
 
-/// The price for delivering XCM messages to relay chain.
-pub type PriceForParentDelivery =
-	ExponentialPrice<FeeAssetId, ToParentBaseDeliveryFee, TransactionByteFee, ParachainSystem>;
-
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type ChannelInfo = ParachainSystem;
+	type ChannelInfo = backing::XcmpChannelInfo;
 	type VersionWrapper = ();
 	// Enqueue XCMP messages from siblings for later processing.
 	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
@@ -313,16 +265,8 @@ impl pallet_session::Config for Runtime {
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	// we don't have stash and controller, thus we don't need the convert as well.
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
-	#[cfg(jam)]
-	type ShouldEndSession = pallet_aura_jam::JamSlotSessions<Runtime>;
-	#[cfg(not(jam))]
-	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
-	// On JAM a session ends once the block's anchor slot reaches the next authorizer switch; on
-	// the relay chain it stays block-number based.
-	#[cfg(jam)]
-	type NextSessionRotation = pallet_aura_jam::JamSlotSessions<Runtime>;
-	#[cfg(not(jam))]
-	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type ShouldEndSession = backing::SessionRotation;
+	type NextSessionRotation = backing::SessionRotation;
 	type SessionManager = CollatorSelection;
 	// Essentially just Aura, but let's be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
@@ -331,26 +275,6 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = ();
 	type Currency = Balances;
 	type KeyDeposit = ();
-}
-
-#[cfg(not(jam))]
-#[docify::export(aura_config)]
-impl pallet_aura::Config for Runtime {
-	type AuthorityId = AuraId;
-	type DisabledValidators = ();
-	type MaxAuthorities = ConstU32<100_000>;
-	type AllowMultipleBlocksPerSlot = frame_support::traits::ConstBool<true>;
-	type SlotDuration = ConstU64<SLOT_DURATION>;
-}
-
-/// On JAM, Aura's authority set is the one JAM authorizes at the block's anchor slot.
-#[cfg(jam)]
-impl pallet_aura_jam::Config for Runtime {
-	type AuthorityId = AuraId;
-	type MaxAuthorities = ConstU32<100_000>;
-	type SlotDuration = ConstU64<SLOT_DURATION>;
-	/// One session per `Period` JAM slots; a JAM slot is 6 s, the same as this template's block.
-	type RotationPeriod = Period;
 }
 
 parameter_types! {

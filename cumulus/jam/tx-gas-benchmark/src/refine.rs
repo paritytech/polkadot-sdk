@@ -328,6 +328,17 @@ impl Host<'_> {
 					String::from_utf8_lossy(&payload)
 				));
 			},
+			// The inner-PVM management calls belong to the service; the runtime it runs as its
+			// inner PVM has none of them.
+			HostCall::Compile |
+			HostCall::Machine |
+			HostCall::Peek |
+			HostCall::Poke |
+			HostCall::Pages |
+			HostCall::Invoke |
+			HostCall::Expunge => {
+				return Err(format!("the runtime called the service-only host call {index}"));
+			},
 			HostCall::JamLog | HostCall::Log => {
 				let target = read(instance, a[1], a[2])?;
 				let text = read(instance, a[3], a[4])?;

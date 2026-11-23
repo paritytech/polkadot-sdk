@@ -19,9 +19,9 @@
 //!
 //! The commitment is `sp_additional_data::hash_value` of the exact bytes the `JAM_PROOF_KEY`
 //! entry carries in the additional-data map, so the digest recomputed from the carried map on
-//! import matches the one committed at authoring — one finalizer shape for both sides of the
-//! channel. The parachain runtime mirrors this shape (`validate_block_core::JamProofFinalizer`),
-//! and the reader counterpart lives in this crate's [`jam_proof`] module.
+//! import matches the one committed at authoring — one finalizer for every side of the channel:
+//! authoring and import in the omni-node, refine in the runtime's `jam_validate_block`. The reader
+//! counterpart lives in this crate's [`jam_proof`](crate::jam_proof) module.
 
 use sp_additional_data::AdditionalDataFinalizer;
 

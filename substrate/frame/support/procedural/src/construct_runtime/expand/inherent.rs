@@ -43,10 +43,11 @@ pub fn expand_outer_inherent(
 
 		pallet_positions.push(pallet_pos);
 		pallet_names.push(name);
-		pallet_attrs.push(attr);
 		query_inherent_part_macros.push(quote! {
+			#attr
 			#path::__substrate_inherent_check::is_inherent_part_defined!(#name);
 		});
+		pallet_attrs.push(attr);
 	}
 	let pallet_count = pallet_positions.len();
 

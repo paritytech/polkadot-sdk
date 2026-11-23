@@ -50,10 +50,11 @@ pub fn expand_outer_dispatch(
 		variant_usages.push(quote!( #scrate::dispatch::CallableCallFor<#name, #runtime> ));
 		variant_patterns.push(quote!(RuntimeCall::#name(call)));
 		pallet_names.push(name);
-		pallet_attrs.push(attr);
 		query_call_part_macros.push(quote! {
+			#attr
 			#path::__substrate_call_check::is_call_part_defined!(#name);
 		});
+		pallet_attrs.push(attr);
 	}
 
 	quote! {

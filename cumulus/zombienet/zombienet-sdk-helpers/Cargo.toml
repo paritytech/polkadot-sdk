@@ -9,12 +9,12 @@ publish = false
 
 [dependencies]
 anyhow = { workspace = true, default-features = true }
-array-bytes = { workspace = true }
+array-bytes = { workspace = true, optional = true }
 codec = { workspace = true, features = ["derive"] }
 log = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
-serde = { workspace = true, features = ["derive"] }
+serde = { workspace = true, features = ["derive"], optional = true }
 sp-crypto-hashing = { workspace = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
 sp-polkavm-blob = { workspace = true, default-features = true }
@@ -29,23 +29,56 @@ cumulus-jam-interface = { workspace = true, optional = true }
 cumulus-jam-rpc-interface = { workspace = true, optional = true }
 url = { workspace = true, optional = true }
 parachain-service-core = { workspace = true, default-features = true, features = ["std"], optional = true }
-# The JAM node RPC client (`jam_rpc`): polkajam's methods, with the base64 spelling of its byte
+# The JAM node RPC client (`jam::rpc`): polkajam's methods, with the base64 spelling of its byte
 # strings taken from `jam-types`' own serde.
-jam-std-common = { workspace = true }
-jam-types = { workspace = true, features = ["bytes", "serde", "std"] }
-jsonrpsee = { workspace = true, features = ["ws-client"] }
-serde_json = { workspace = true, default-features = true }
+jam-std-common = { workspace = true, optional = true }
+jam-types = { workspace = true, features = ["bytes", "serde", "std"], optional = true }
+jsonrpsee = { workspace = true, features = ["ws-client"], optional = true }
+serde_json = { workspace = true, default-features = true, features = ["raw_value"], optional = true }
+# The JAM network harness (`jam::spawn` and the modules it composes).
+env_logger = { workspace = true, optional = true }
+rand = { workspace = true, default-features = true, optional = true }
+sp-core = { workspace = true, default-features = true, optional = true }
+sp-keyring = { workspace = true, default-features = true, optional = true }
+tempfile = { workspace = true, optional = true }
+# The dropping proxy (`jam::proxy`) speaks polkajam's jsonrpsee 0.26 surface; `jam::rpc` keeps 0.24.
+jsonrpsee-jam = { workspace = true, features = ["server", "ws-client"], optional = true }
+# The authorizer hash written into genesis has to be the one the collator derives, so it is built
+# out of the very crates the collator and the guest use.
+parachain-authorizer = { workspace = true, default-features = true, features = ["std"], optional = true }
+# The genesis `gen-spec` reads is built by `parachain-chain-spec`, so the storage layout and the
+# authorizer hashes cannot drift from what the service decodes.
+parachain-chain-spec = { workspace = true, default-features = true, optional = true }
+# The hash an unassigned core's queue holds at genesis.
+jam-null-authorizer-bin = { workspace = true, default-features = true, optional = true }
 
 [dev-dependencies]
 polkavm = { workspace = true }
 
 [features]
-# Selects the JAM implementations of the helpers that abstract over the backing chain.
+# Selects the JAM implementations of the helpers that abstract over the backing chain, and the
+# JAM network harness in `jam`.
 jam = [
+	"dep:array-bytes",
 	"dep:cumulus-jam-interface",
 	"dep:cumulus-jam-rpc-interface",
+	"dep:env_logger",
+	"dep:jam-null-authorizer-bin",
+	"dep:jam-std-common",
+	"dep:jam-types",
+	"dep:jsonrpsee",
+	"dep:jsonrpsee-jam",
+	"dep:parachain-authorizer",
+	"dep:parachain-chain-spec",
 	"dep:parachain-service-core",
+	"dep:rand",
+	"dep:serde",
+	"dep:serde_json",
+	"dep:sp-core",
+	"dep:sp-keyring",
+	"dep:tempfile",
 	"dep:url",
+	"tokio/sync",
 ]
 
 

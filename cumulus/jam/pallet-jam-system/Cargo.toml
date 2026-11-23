@@ -1,0 +1,79 @@
+[package]
+name = "cumulus-pallet-jam-system"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+# Not publishable while `parachain-service-core` is a path dependency outside the workspace.
+publish = false
+description = "Base pallet for parachains backed by JAM (the Parachain Service) instead of a relay chain"
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+
+# Substrate
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-additional-data = { workspace = true }
+sp-code-marker = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+
+# Cumulus
+cumulus-jam-state-reader = { workspace = true }
+cumulus-pallet-parachain-system = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+
+# JAM
+parachain-service-core = { workspace = true }
+
+# Only the `jam_validate_block` entry point uses these, and only the riscv runtime blob compiles it.
+[target.'cfg(jam)'.dependencies]
+cumulus-jam-primitives = { workspace = true }
+environmental = { workspace = true }
+sp-crypto-hashing = { workspace = true }
+sp-externalities = { workspace = true }
+# `parachain-service-core` links `jam-pvm-common`, which installs the blob's `#[panic_handler]` and
+# picoalloc `#[global_allocator]`; sp-io must not define a second pair.
+sp-io = { workspace = true, features = ["disable_allocator", "disable_panic_handler"] }
+
+[dev-dependencies]
+cumulus-jam-primitives = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"cumulus-jam-state-reader/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-primitives-core/std",
+	"frame-support/std",
+	"frame-system/std",
+	"parachain-service-core/std",
+	"scale-info/std",
+	"sp-additional-data/std",
+	"sp-code-marker/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+]
+runtime-benchmarks = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"cumulus-pallet-parachain-system/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+]

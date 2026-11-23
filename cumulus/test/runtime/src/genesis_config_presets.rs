@@ -24,15 +24,17 @@ use frame_support::build_struct_json_patch;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 
-#[cfg(not(feature = "with-authority-discovery"))]
+#[cfg(all(not(feature = "with-authority-discovery"), not(jam)))]
 use super::AuraConfig;
+#[cfg(all(not(feature = "with-authority-discovery"), jam))]
+use super::AuraJamConfig;
 #[cfg(feature = "with-authority-discovery")]
 use super::SessionConfig;
 
 /// Build the genesis config seeding `pallet_aura::authorities` directly.
 ///
 /// This is the pre-upgrade path: no `pallet_session`, no `pallet_authority_discovery`.
-#[cfg(not(feature = "with-authority-discovery"))]
+#[cfg(all(not(feature = "with-authority-discovery"), not(jam)))]
 fn cumulus_test_runtime(
 	invulnerables: Vec<AuraId>,
 	endowed_accounts: Vec<AccountId>,
@@ -45,6 +47,24 @@ fn cumulus_test_runtime(
 		sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.public().into()) },
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		aura: AuraConfig { authorities: invulnerables },
+	})
+}
+
+/// The pre-upgrade path of the JAM backing (`--cfg jam`): the genesis config seeds
+/// `pallet_aura_jam::authorities` directly.
+#[cfg(all(not(feature = "with-authority-discovery"), jam))]
+fn cumulus_test_runtime(
+	invulnerables: Vec<AuraId>,
+	endowed_accounts: Vec<AccountId>,
+	id: ParaId,
+) -> serde_json::Value {
+	build_struct_json_patch!(RuntimeGenesisConfig {
+		balances: BalancesConfig {
+			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
+		},
+		sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.public().into()) },
+		parachain_info: ParachainInfoConfig { parachain_id: id },
+		aura_jam: AuraJamConfig { authorities: invulnerables },
 	})
 }
 

@@ -49,14 +49,14 @@
 
 use anyhow::{anyhow, Context};
 use codec::Decode;
-use cumulus_jam_zombienet_tests::{
-	network::free_port,
-	para::{Para, TINY_CORES},
-	proxy::{DropPolicy, ProxyServer, Resubmission},
-	spawn::{spawn, CollatorOptions, JamNetwork, SpawnOptions},
-};
 use cumulus_zombienet_sdk_helpers::{
-	jam::{DigestItem, JamHeader},
+	jam::{
+		network::free_port,
+		para::{Para, TINY_CORES},
+		proxy::{DropPolicy, ProxyServer, Resubmission},
+		spawn::{spawn, CollatorOptions, JamNetwork, SpawnOptions},
+		DigestItem, JamHeader,
+	},
 	ParaConfig,
 };
 use std::{collections::HashMap, env::VarError, path::PathBuf, time::Duration};
@@ -149,7 +149,8 @@ fn drop_seed() -> anyhow::Result<u64> {
 /// pointing their `--jam-rpc-urls` at a proxy applying `policy`; the others talk to JAM directly.
 ///
 /// `runtime` is the PolkaVM blob para 0 validates with *and* its collators execute; `None` keeps
-/// the run's default ([`Binaries::runtime_wasm`](cumulus_jam_zombienet_tests::env::Binaries)).
+/// the run's default
+/// ([`Binaries::runtime_wasm`](cumulus_zombienet_sdk_helpers::jam::env::Binaries)).
 async fn spawn_proxied_network(
 	test: &str,
 	collators: &[&str],

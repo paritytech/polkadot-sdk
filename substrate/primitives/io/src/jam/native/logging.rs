@@ -17,7 +17,7 @@
 
 //! Logging is not a JAM host call (index 204 stays reserved): `log` is a no-op inside the
 //! runtime and `max_level` reports [`LogLevelFilter::Off`]. On the node side (std) both forward
-//! to the `log` crate, mirroring the `relay_chain.rs` bodies.
+//! to the `log` crate, mirroring the `host_interface.rs` bodies.
 
 use sp_core::{LogLevelFilter, RuntimeInterfaceLogLevel};
 

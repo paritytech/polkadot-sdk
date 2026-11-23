@@ -28,6 +28,9 @@ use subxt_metadata::Metadata;
 
 /// Expected parachain system pallet runtime type name.
 pub const DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME: &str = "ParachainSystem";
+/// Expected JAM system pallet runtime type name: it takes the parachain system pallet's place in a
+/// runtime backed by JAM.
+pub const DEFAULT_JAM_SYSTEM_PALLET_NAME: &str = "JamSystem";
 /// Expected frame system pallet runtime type name.
 pub const DEFAULT_FRAME_SYSTEM_PALLET_NAME: &str = "System";
 /// Expected Aura pallet runtime type name.
@@ -154,7 +157,9 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 			BlockNumber::U32
 		});
 
-		if !metadata_inspector.pallet_exists(DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME) {
+		if !metadata_inspector.pallet_exists(DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME) &&
+			!metadata_inspector.pallet_exists(DEFAULT_JAM_SYSTEM_PALLET_NAME)
+		{
 			log::warn!(
 				r#"⚠️  The parachain system pallet (https://docs.rs/crate/cumulus-pallet-parachain-system/latest) is
 			   missing from the runtime's metadata. Please check Omni Node docs for runtime conventions:

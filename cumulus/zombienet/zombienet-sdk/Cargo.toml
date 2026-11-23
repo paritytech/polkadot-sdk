@@ -55,12 +55,9 @@ zombienet-configuration = { workspace = true }
 cumulus-zombienet-sdk-helpers = { workspace = true }
 cumulus-test-runtime = { workspace = true }
 
-# JAM genesis/authorizer computation. Optional so the relay path never builds it.
-cumulus-jam-zombienet-tests = { path = "../jam-tests", optional = true }
-
 [features]
 zombie-ci = []
 generate-snapshots = []
 # Root the network in a JAM chain. A feature, not `RUSTFLAGS="--cfg jam"`, so the JAM paths
 # are type-checked by `cargo check --features jam` without a whole-workspace rebuild.
-jam = ["dep:cumulus-jam-zombienet-tests", "cumulus-zombienet-sdk-helpers/jam"]
+jam = ["cumulus-zombienet-sdk-helpers/jam"]

@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use alloc::vec::Vec;
-use hash_db::Hasher as _;
 use primitive_types::H256;
 use sp_crypto_hashing::blake2_256;
 
@@ -43,37 +42,65 @@ pub enum CollatorProofError {
 	InvalidCollatorIndex,
 }
 
-pub(crate) fn padded_leaf_count(size: usize) -> Result<u32, CollatorProofError> {
-	if size == 0 {
-		return Err(CollatorProofError::EmptySet);
-	}
-
-	u32::try_from(size)
-		.ok()
-		.and_then(u32::checked_next_power_of_two)
-		.ok_or(CollatorProofError::TooManyCollators)
-}
-
-/// Build a zero-padded Merkle tree and return its root and the proof for `collator_index`.
+/// Build an unpadded Merkle tree and return its root and proof for `collator_index`.
 ///
+/// Keys are hashed as leaves; unpaired nodes are promoted to the next level.
 /// Construction takes O(n) hashing work for n keys.
 ///
-/// Returns an error if `keys` is empty, the padded tree exceeds the SDK's `u32` leaf count,
-/// or `collator_index` is outside the unpadded collator set.
+/// Returns an error for an empty set, more than `u32::MAX` keys, or an invalid index.
 pub fn build_collator_proof(
 	keys: &[CollatorKey],
 	collator_index: u32,
 ) -> Result<(H256, Vec<H256>), CollatorProofError> {
-	let padded_size = padded_leaf_count(keys.len())?;
+	if keys.is_empty() {
+		return Err(CollatorProofError::EmptySet);
+	}
+	u32::try_from(keys.len()).map_err(|_| CollatorProofError::TooManyCollators)?;
 	if collator_index as usize >= keys.len() {
 		return Err(CollatorProofError::InvalidCollatorIndex);
 	}
 
-	let leaves = (0..padded_size as usize)
-		.map(|index| keys.get(index).map_or_else(H256::zero, |key| CollatorHasher::hash(key)));
-
-	let proof = binary_merkle_tree::merkle_proof_raw::<CollatorHasher, _>(leaves, collator_index);
+	let proof = binary_merkle_tree::merkle_proof::<CollatorHasher, _, _>(keys, collator_index);
 	Ok((proof.root, proof.proof))
+}
+
+/// Verify collator membership, including the leaf index and proof length.
+pub(crate) fn verify_collator_proof(
+	root: &H256,
+	proof: &[H256],
+	size: u32,
+	collator_index: u32,
+	key: &CollatorKey,
+) -> bool {
+	if collator_index >= size || proof.len() != expected_siblings(size, collator_index) {
+		return false;
+	}
+
+	binary_merkle_tree::verify_proof::<CollatorHasher, _, _>(
+		root,
+		proof.iter().copied(),
+		size,
+		collator_index,
+		binary_merkle_tree::Leaf::Value(key),
+	)
+}
+
+/// Count sibling hashes needed to prove membership of the value at the position.
+///
+/// This is used to ensure that the right number of hashes was provided by the proof.
+pub(crate) fn expected_siblings(mut width: u32, mut position: u32) -> usize {
+	let mut siblings = 0;
+
+	while width > 1 {
+		// Odd positions have a left sibling; even positions need a node to their right.
+		if position % 2 == 1 || position < width - 1 {
+			siblings += 1;
+		}
+		position /= 2;
+		width = width.div_ceil(2);
+	}
+
+	siblings
 }
 
 #[cfg(test)]
@@ -94,23 +121,6 @@ mod tests {
 			assert_eq!(
 				super::build_collator_proof(&[[1; 32], [2; 32], [3; 32]], index),
 				Err(super::CollatorProofError::InvalidCollatorIndex)
-			);
-		}
-	}
-
-	#[test]
-	fn padded_leaf_count_boundaries_works() {
-		for (size, expected) in [(1, 1), (3, 4), (1usize << 31, 1u32 << 31)] {
-			assert_eq!(super::padded_leaf_count(size), Ok(expected));
-		}
-	}
-
-	#[test]
-	fn padded_leaf_count_oversized_errors() {
-		for size in [(1usize << 31) + 1, u32::MAX as usize, usize::MAX] {
-			assert_eq!(
-				super::padded_leaf_count(size),
-				Err(super::CollatorProofError::TooManyCollators)
 			);
 		}
 	}

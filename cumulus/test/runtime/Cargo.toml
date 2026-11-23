@@ -60,6 +60,12 @@ cumulus-primitives-core = { workspace = true }
 cumulus-primitives-storage-weight-reclaim = { workspace = true }
 parachain-info = { workspace = true }
 
+# The pallets of the JAM backing (`src/backing/jam.rs`). Built for `--cfg jam` only: they depend on
+# `parachain-service-core`, which does not build for `wasm32v1-none`.
+[target.'cfg(jam)'.dependencies]
+cumulus-pallet-jam-system = { workspace = true }
+pallet-aura-jam = { workspace = true }
+
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
@@ -68,6 +74,7 @@ default = ["std"]
 std = [
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
+	"cumulus-pallet-jam-system/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-weight-reclaim/std",
 	"cumulus-primitives-aura/std",
@@ -77,6 +84,7 @@ std = [
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
+	"pallet-aura-jam/std",
 	"pallet-aura/std",
 	"pallet-authority-discovery/std",
 	"pallet-authorship/std",

@@ -21,19 +21,13 @@ use sc_executor_common::{
 	error::{Error, WasmError},
 	wasm_runtime::{AllocationStats, HeapAllocStrategy, WasmInstance, WasmModule},
 };
-use sp_externalities::ExternalitiesExt as _;
 use sp_runtime_interface::unpack_ptr_and_len;
 use sp_wasm_interface::{
 	Function, FunctionContext as WasmFunctionContext, HostFunctions, Pointer, Value, ValueType,
 	WordSize,
 };
 
-/// The largest call payload a JAM runtime blob can be handed, in bytes.
-///
-/// A JAM blob's picoalloc allocator places its arena at the heap base without consulting `sbrk`,
-/// so a payload written there is overwritten by the first allocation. JAM blobs get it in the
-/// aux-data region instead, which the allocator never touches; this is that region's maximum.
-const JAM_MAX_INPUT_SIZE: u32 = 64 * 1024 * 1024;
+pub mod jam;
 
 /// State made available to host functions for the duration of a runtime call.
 ///
@@ -73,7 +67,7 @@ impl WasmInstance for Instance {
 				return (
 					Err(format!("cannot call into the runtime: export not found: '{name}'").into()),
 					None,
-				)
+				);
 			},
 		};
 
@@ -96,30 +90,22 @@ impl WasmInstance for Instance {
 		}
 
 		// A JAM blob (created with an aux-data region) reads its payload from there.
-		let aux_size = self.0.module().memory_map().aux_data_size();
-		let data_pointer = if aux_size > 0 {
-			if let Err(err) = self.0.set_accessible_aux_size(raw_data_length) {
-				return (
-					Err(format!(
-						"call into the runtime method '{name}' failed: input payload of {raw_data_length} bytes does not fit the {aux_size}-byte input region: {err}"
-					)
-					.into()),
-					None,
-				);
-			}
-			self.0.module().memory_map().aux_data_address()
-		} else {
+		let data_pointer = match jam::input_region(&mut self.0, name, raw_data_length) {
+			Some(Ok(data_pointer)) => data_pointer,
+			Some(Err(err)) => return (Err(err), None),
 			// Otherwise allocate space for the payload at the start of the heap.
-			if let Err(err) = self.0.sbrk(raw_data_length) {
-				return (
-					Err(format!(
-						"call into the runtime method '{name}' failed: reset memory failed: {err}"
-					)
-					.into()),
-					None,
-				);
-			}
-			self.0.module().memory_map().heap_base()
+			None => {
+				if let Err(err) = self.0.sbrk(raw_data_length) {
+					return (
+						Err(format!(
+							"call into the runtime method '{name}' failed: reset memory failed: {err}"
+						)
+						.into()),
+						None,
+					);
+				}
+				self.0.module().memory_map().heap_base()
+			},
 		};
 
 		if let Err(err) = self.0.write_memory(data_pointer, raw_data) {
@@ -134,19 +120,19 @@ impl WasmInstance for Instance {
 				return (
 					Err(format!("call into the runtime method '{name}' failed: trap").into()),
 					None,
-				)
+				);
 			},
 			Err(CallError::Error(err)) => {
 				return (
 					Err(format!("call into the runtime method '{name}' failed: {err}").into()),
 					None,
-				)
+				);
 			},
 			Err(CallError::User(err)) => {
 				return (
 					Err(format!("call into the runtime method '{name}' failed: {err}").into()),
 					None,
-				)
+				);
 			},
 			Err(CallError::NotEnoughGas) => unreachable!("gas metering is never enabled"),
 			Err(CallError::Step) => unreachable!("stepping is never enabled"),
@@ -157,7 +143,13 @@ impl WasmInstance for Instance {
 		let output = match self.0.read_memory(result_pointer, result_length) {
 			Ok(output) => output,
 			Err(error) => {
-				return (Err(format!("call into the runtime method '{name}' failed: failed to read the return payload: {error}").into()), None)
+				return (
+					Err(format!(
+						"call into the runtime method '{name}' failed: failed to read the return payload: {error}"
+					)
+					.into()),
+					None,
+				);
 			},
 		};
 
@@ -211,60 +203,6 @@ impl<'r, 'a> WasmFunctionContext for Context<'r, 'a> {
 	fn register_panic_error_message(&mut self, _message: &str) {
 		unimplemented!("'register_panic_error_message' is never used when running under PolkaVM");
 	}
-}
-
-/// The node side of the JAM host-call set, as seen from the PolkaVM executor.
-///
-/// Guest pointers are plain addresses; this adapter is the
-/// [`sp_jam_runtime_interface::FunctionContext`] the host-call bodies use to reach the guest's
-/// memory.
-struct JamContext<'r, 'a>(&'r mut polkavm::Caller<'a, HostState>);
-impl sp_jam_runtime_interface::FunctionContext for JamContext<'_, '_> {
-	fn read_memory_into(&mut self, ptr: *const u8, dest: &mut [u8]) -> Result<(), String> {
-		self.0
-			.instance
-			.read_memory_into(ptr as u32, dest)
-			.map_err(|error| error.to_string())
-			.map(|_| ())
-	}
-
-	fn write_memory(&mut self, ptr: *mut u8, data: &[u8]) -> Result<(), String> {
-		self.0
-			.instance
-			.write_memory(ptr as u32, data)
-			.map_err(|error| error.to_string())
-	}
-}
-
-/// Serve one JAM host call: every argument and the return value is one register.
-fn call_jam_host_function(
-	caller: &mut Caller<HostState>,
-	function: &dyn sp_jam_runtime_interface::HostFunction,
-) -> Result<(), String> {
-	struct Regs([u64; sp_jam_runtime_interface::MAX_ARGS]);
-
-	impl sp_jam_runtime_interface::Registers for Regs {
-		fn arg(&self, index: usize) -> u64 {
-			self.0[index]
-		}
-	}
-
-	let mut regs = [0u64; sp_jam_runtime_interface::MAX_ARGS];
-	for (index, reg) in Reg::ARG_REGS.iter().enumerate() {
-		regs[index] = caller.instance.reg(*reg);
-	}
-
-	log::trace!("Calling JAM host function: '{}', args = {:?}", function.name(), regs);
-
-	let value = function.execute(&mut JamContext(caller), &Regs(regs)).map_err(|error| {
-		format!("call into the host function '{}' failed: {error}", function.name())
-	})?;
-
-	if let Some(value) = value {
-		caller.instance.set_reg(Reg::A0, value);
-	}
-
-	Ok(())
 }
 
 fn call_host_function(
@@ -361,67 +299,13 @@ fn call_host_function(
 	Ok(())
 }
 
-sp_externalities::decl_extension! {
-	/// Externalities extension backing the JAM `fetch` host call during local block authoring.
-	///
-	/// The collator registers this per authoring round with the SCALE-encoded `RefineContext` of
-	/// the work package being executed, so a runtime calling
-	/// `parachain_service_core::refine::refine_context()` resolves it here instead of trapping on
-	/// the missing `fetch` host call. The service serves the same data on the PVF path.
-	pub struct JamRefineContextExt(Vec<u8>);
-}
-
-/// `jam_types::FetchKind::RefineContext`.
-const FETCH_KIND_REFINE_CONTEXT: u64 = 10;
-
-/// `jam_types::SimpleResultCode::Nothing`, the JAM `NONE` host-call result.
-const SIMPLE_RESULT_NOTHING: u64 = u64::MAX;
-
-fn registered_refine_context() -> Option<Vec<u8>> {
-	sp_externalities::with_externalities(|mut ext| {
-		ext.extension::<JamRefineContextExt>().map(|ext| ext.0.clone())
-	})
-	.flatten()
-}
-
-/// Clamp a fetched item to the caller's window, mirroring the service's `get_slice`.
-///
-/// The full length is returned even for an empty window: the guest's `fetch()` sizes its buffer
-/// with an empty first pass and fetches again with the real one.
-fn fetch_window(data: &[u8], offset: u64, len: u64) -> (u64, &[u8]) {
-	let data_len = data.len() as u64;
-	let offset = offset.min(data_len);
-	let len = len.min(data_len - offset);
-	(data_len, &data[offset as usize..(offset + len) as usize])
-}
-
-/// Serve one JAM `fetch` host call, returning the `SimpleResult` for `A0`.
-///
-/// Only `FetchKind::RefineContext` is served locally; every other kind is the PVF's to answer.
-/// `write` is skipped for an empty window, so the guest's sizing pass touches no memory.
-fn serve_fetch(
-	kind: u64,
-	offset: u64,
-	len: u64,
-	mut write: impl FnMut(&[u8]) -> Result<(), String>,
-) -> Result<u64, String> {
-	if kind != FETCH_KIND_REFINE_CONTEXT {
-		return Ok(SIMPLE_RESULT_NOTHING);
-	}
-	let Some(data) = registered_refine_context() else {
-		return Ok(SIMPLE_RESULT_NOTHING);
-	};
-	let (data_len, window) = fetch_window(&data, offset, len);
-	if !window.is_empty() {
-		write(window)?;
-	}
-	Ok(data_len)
-}
-
-pub fn create_runtime<H, J>(blob: &polkavm::ProgramBlob) -> Result<InstancePre, WasmError>
+/// Prepare `blob` for execution with the host functions `H` and the JAM host-call set.
+pub fn create_runtime<H>(
+	blob: &polkavm::ProgramBlob,
+	jam_host_functions: Vec<&'static dyn sp_jam_runtime_interface::HostFunction>,
+) -> Result<InstancePre, WasmError>
 where
 	H: HostFunctions,
-	J: sp_jam_runtime_interface::HostFunctions,
 {
 	static ENGINE: std::sync::OnceLock<Result<polkavm::Engine, polkavm::Error>> =
 		std::sync::OnceLock::new();
@@ -438,16 +322,7 @@ where
 		},
 	};
 
-	// JAM builds (`--cfg jam`) are identified by the `jam_validate_block` export that
-	// `register_validate_block!` emits only for them.
-	let is_jam = blob.exports().any(|export| export.symbol() == "jam_validate_block");
-
 	let mut module_config = polkavm::ModuleConfig::default();
-	if is_jam {
-		module_config.set_aux_data_size(JAM_MAX_INPUT_SIZE);
-	}
-	let module = polkavm::Module::from_blob(&engine, &module_config, blob.clone())?;
-
 	let mut linker = polkavm::Linker::<HostState, String>::new();
 
 	for function in H::host_functions() {
@@ -456,143 +331,9 @@ where
 		})?;
 	}
 
-	// The JAM host-call set (fixed PolkaVM indices): the runtime imports these by number.
-	for function in J::host_functions() {
-		linker.define_untyped(function.name(), |mut caller: Caller<HostState>| {
-			call_jam_host_function(&mut caller, function)
-		})?;
-	}
+	jam::configure(blob, &mut module_config, &mut linker, jam_host_functions)?;
 
-	// `grow_heap` is not part of the JAM host-call set (the service provides it); the blob's
-	// allocator imports it directly. It keeps the historical byte-delta `sbrk` contract for
-	// non-JAM blobs, while a JAM blob (identified by the `jam_validate_block` export) passes an
-	// absolute page count, as `jam-pvm-common`'s picoalloc does.
-
-	linker.define_untyped("grow_heap", move |caller: Caller<HostState>| {
-		if !is_jam {
-			let size = caller.instance.reg(Reg::A0) as u32;
-			match caller.instance.sbrk(size) {
-				Ok(Some(ptr)) => caller.instance.set_reg(Reg::A0, ptr as u64),
-				Ok(None) => caller.instance.set_reg(Reg::A0, 0),
-				Err(e) => return Err(e.to_string()),
-			}
-			return Ok(());
-		}
-
-		let requested = caller.instance.reg(Reg::A0);
-		let page_size = u64::from(caller.instance.module().memory_map().page_size());
-		let top = match caller.instance.sbrk(0) {
-			Ok(Some(top)) => u64::from(top),
-			Ok(None) => {
-				caller.instance.set_reg(Reg::A0, 0);
-				return Ok(());
-			},
-			Err(e) => return Err(e.to_string()),
-		};
-		let top_pages = top.div_ceil(page_size);
-
-		// The heap is already large enough: report the current page count, which is `>= requested`
-		// and therefore a success for the guest.
-		if requested <= top_pages {
-			caller.instance.set_reg(Reg::A0, top_pages);
-			return Ok(());
-		}
-
-		// Grow by whole pages; a request that does not fit is refused by reporting the current
-		// (smaller) page count.
-		let delta = (requested - top_pages)
-			.checked_mul(page_size)
-			.and_then(|delta| u32::try_from(delta).ok());
-		let Some(delta) = delta else {
-			caller.instance.set_reg(Reg::A0, top_pages);
-			return Ok(());
-		};
-
-		match caller.instance.sbrk(delta) {
-			Ok(Some(_)) => caller.instance.set_reg(Reg::A0, requested),
-			Ok(None) => caller.instance.set_reg(Reg::A0, top_pages),
-			Err(e) => return Err(e.to_string()),
-		}
-		Ok(())
-	})?;
-
-	// JAM `fetch` host call (Gray Paper index 2). The runtime imports it directly through
-	// `jam_pvm_common::imports::fetch`, so like `grow_heap` it needs a raw linker definition; the
-	// collator registers the per-block refine context as a [`JamRefineContextExt`].
-	linker.define_untyped("fetch", |caller: Caller<HostState>| {
-		let buffer = caller.instance.reg(Reg::A0) as u32;
-		let offset = caller.instance.reg(Reg::A1);
-		let len = caller.instance.reg(Reg::A2);
-		let kind = caller.instance.reg(Reg::A3);
-		let result = serve_fetch(kind, offset, len, |window| {
-			caller.instance.write_memory(buffer, window).map_err(|error| error.to_string())
-		})?;
-		caller.instance.set_reg(Reg::A0, result);
-		Ok(())
-	})?;
-
+	let module = polkavm::Module::from_blob(&engine, &module_config, blob.clone())?;
 	let instance_pre = linker.instantiate_pre(&module)?;
 	Ok(InstancePre(instance_pre))
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use sp_state_machine::BasicExternalities;
-
-	fn sink(written: &mut Vec<u8>) -> impl FnMut(&[u8]) -> Result<(), String> + '_ {
-		move |window| {
-			written.extend_from_slice(window);
-			Ok(())
-		}
-	}
-
-	#[test]
-	fn fetch_refine_context_serves_the_registered_context() {
-		let context = (0u8..169).collect::<Vec<u8>>();
-		let mut ext = BasicExternalities::default();
-		ext.register_extension(JamRefineContextExt(context.clone()));
-
-		ext.execute_with(|| {
-			// The guest's `fetch()` sizes with an empty window first, then fetches again.
-			let mut written = Vec::new();
-			let len = serve_fetch(FETCH_KIND_REFINE_CONTEXT, 0, 0, sink(&mut written)).unwrap();
-			assert_eq!(len, context.len() as u64);
-			assert!(written.is_empty(), "the sizing pass must not write");
-
-			let mut written = Vec::new();
-			let len = serve_fetch(FETCH_KIND_REFINE_CONTEXT, 0, 4, sink(&mut written)).unwrap();
-			assert_eq!(len, context.len() as u64);
-			assert_eq!(written, context[..4]);
-
-			let mut written = Vec::new();
-			let len = serve_fetch(FETCH_KIND_REFINE_CONTEXT, 2, 3, sink(&mut written)).unwrap();
-			assert_eq!(len, context.len() as u64);
-			assert_eq!(written, context[2..5]);
-		});
-	}
-
-	#[test]
-	fn fetch_refine_context_is_nothing_when_not_registered() {
-		BasicExternalities::default().execute_with(|| {
-			let mut written = Vec::new();
-			let result = serve_fetch(FETCH_KIND_REFINE_CONTEXT, 0, 0, sink(&mut written)).unwrap();
-			assert_eq!(result, SIMPLE_RESULT_NOTHING);
-			assert!(written.is_empty());
-		});
-	}
-
-	#[test]
-	fn fetch_other_kinds_are_not_served_locally() {
-		let mut ext = BasicExternalities::default();
-		ext.register_extension(JamRefineContextExt(vec![1, 2, 3]));
-
-		ext.execute_with(|| {
-			let mut written = Vec::new();
-			// Kind 0 is `ProtocolParameters`, which only the PVF serves.
-			let result = serve_fetch(0, 0, 0, sink(&mut written)).unwrap();
-			assert_eq!(result, SIMPLE_RESULT_NOTHING);
-			assert!(written.is_empty());
-		});
-	}
 }

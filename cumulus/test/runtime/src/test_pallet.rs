@@ -42,11 +42,18 @@ pub mod pallet {
 	/// The inherent identifier for weight consumption.
 	pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"consume0";
 
+	// The base pallet of the runtime's backing: `ParachainSystem`, or `JamSystem` on JAM
+	// (`--cfg jam`).
+	#[cfg(jam)]
+	use cumulus_pallet_jam_system as backing_system;
+	#[cfg(not(jam))]
+	use cumulus_pallet_parachain_system as backing_system;
+
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + cumulus_pallet_parachain_system::Config {}
+	pub trait Config: frame_system::Config + backing_system::Config {}
 
 	/// A simple storage map for testing purposes.
 	#[pallet::storage]
@@ -158,6 +165,8 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// A test dispatchable for setting a custom head data in `validate_block`.
+		// Relay only: on JAM the head data is the header hash.
+		#[cfg(not(jam))]
 		#[pallet::weight(0)]
 		pub fn set_custom_validation_head_data(
 			_: OriginFor<T>,
@@ -221,6 +230,8 @@ pub mod pallet {
 		}
 
 		/// Directly sets `n` small UMP messages in `PendingUpwardMessages`.
+		// Relay only, like the next call: there is no UMP queue on JAM.
+		#[cfg(not(jam))]
 		#[pallet::weight(0)]
 		pub fn send_n_upward_messages(_: OriginFor<T>, n: u32) -> DispatchResult {
 			let messages: alloc::vec::Vec<_> = (0..n).map(|i| vec![(i % 256) as u8]).collect();
@@ -229,6 +240,7 @@ pub mod pallet {
 		}
 
 		/// Sends a UMP message of specific size (in bytes).
+		#[cfg(not(jam))]
 		#[pallet::weight(0)]
 		pub fn send_upward_message_of_size(_: OriginFor<T>, size: u32) -> DispatchResult {
 			let message = alloc::vec![0u8; size as usize];

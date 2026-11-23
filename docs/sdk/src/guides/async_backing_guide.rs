@@ -66,7 +66,7 @@
 //!
 //! - Define a `FixedVelocityConsensusHook` using our capacity, velocity, and relay slot duration
 //! constants. Use this to set the parachain system `ConsensusHook` property.
-#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", ConsensusHook)]
+#![doc = docify::embed!("../../templates/parachain/runtime/src/backing/relay.rs", ConsensusHook)]
 //! ```ignore
 //! impl cumulus_pallet_parachain_system::Config for Runtime {
 //!     ..
@@ -199,9 +199,9 @@
 //!
 //! 1. Verify `pallet_aura` has `AllowMultipleBlocksPerSlot` set to `true` in `runtime/src/lib.rs`
 //!    (this should already be done from Phase 1).
-#![doc = docify::embed!("../../templates/parachain/runtime/src/configs/mod.rs", aura_config)]
+#![doc = docify::embed!("../../templates/parachain/runtime/src/backing/relay.rs", aura_config)]
 //! 2. Verify `UNINCLUDED_SEGMENT_CAPACITY` is set to at least `3` in `runtime/src/lib.rs`.
-#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", async_backing_params)]
+#![doc = docify::embed!("../../templates/parachain/runtime/src/backing/relay.rs", async_backing_params)]
 //! 3. Decrease `MILLISECS_PER_BLOCK` to 6000.
 //!
 //! - Note: For a parachain which measures time in terms of its own block number rather than by

@@ -31,7 +31,6 @@ use Debug;
 /// This is the execution time each PoV gets on a core on the relay chain.
 pub const REF_TIME_PER_CORE_IN_SECS: u64 = 2;
 
-pub mod jam_anchor_proof;
 pub mod parachain_block_data;
 pub mod scheduling;
 
@@ -155,9 +154,27 @@ pub trait GetChannelInfo {
 	fn get_channel_info(id: ParaId) -> Option<ChannelInfo>;
 }
 
+/// No channels: every channel is closed.
+impl GetChannelInfo for () {
+	fn get_channel_status(_id: ParaId) -> ChannelStatus {
+		ChannelStatus::Closed
+	}
+
+	fn get_channel_info(_id: ParaId) -> Option<ChannelInfo> {
+		None
+	}
+}
+
 /// List all open outgoing channels.
 pub trait ListChannelInfos {
 	fn outgoing_channels() -> Vec<ParaId>;
+}
+
+/// No channels.
+impl ListChannelInfos for () {
+	fn outgoing_channels() -> Vec<ParaId> {
+		Vec::new()
+	}
 }
 
 /// Something that should be called when sending an upward message.

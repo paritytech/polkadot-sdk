@@ -17,7 +17,8 @@
 //!   lookup and the collator.
 //! - [`BlockExecutor`] checks the seal against that set, so the first block anchored at a switch
 //!   slot is already sealed by the new set.
-//! - [`JamFixedVelocityConsensusHook`] checks that the block's Aura slot is the anchor's.
+//! - [`JamFixedVelocityConsensusHook`], the `cumulus-pallet-jam-system` consensus hook, checks that
+//!   the block's Aura slot is the anchor's.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -134,9 +135,13 @@ pub mod pallet {
 				CurrentSlot::<T>::put(slot);
 			}
 			if let Some(anchor) = Self::anchor_slot() {
+				// `BlockExecutor` checks the seal against the set at the anchor, read from the
+				// parent's state. Read it before this block changes it, to get it into the storage
+				// proof of the PoV.
+				Self::authorities_at(anchor);
 				Self::activate_due(anchor);
 			}
-			T::DbWeight::get().reads_writes(3, 3)
+			T::DbWeight::get().reads_writes(4, 3)
 		}
 
 		fn integrity_test() {
@@ -228,8 +233,13 @@ impl<T: Config> Pallet<T> {
 
 	/// Count the block against its anchor slot and check that its Aura slot is the anchor's.
 	///
+	/// The Aura slot comes from the block's pre-runtime digest, not [`CurrentSlot`]: the consensus
+	/// hook calls this from `JamSystem`'s `on_initialize`, before this pallet's `on_initialize`
+	/// stores the block's slot.
+	///
 	/// Panics when more than `velocity + 1` blocks build on one anchor slot, when the anchor slot
-	/// moves backwards, or when the Aura slot is not the one of the anchor.
+	/// moves backwards, when the block has no Aura pre-digest, or when its Aura slot is not the one
+	/// of the anchor.
 	pub fn check_anchor_slot(anchor: u32, velocity: u32) {
 		let velocity = velocity.max(1);
 		let authored = match SlotInfo::<T>::get() {
@@ -247,7 +257,7 @@ impl<T: Config> Pallet<T> {
 
 		let expected =
 			cumulus_jam_aura_primitives::aura_slot_for_anchor(anchor, T::SlotDuration::get());
-		let para_slot = *CurrentSlot::<T>::get();
+		let para_slot = *Self::slot_from_digest().expect("Could not find an AuRa pre-digest!");
 		if para_slot != expected {
 			panic!("Aura slot must be the anchor's: aura_slot={para_slot}, expected={expected}, anchor_slot={anchor}");
 		}

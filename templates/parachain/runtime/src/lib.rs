@@ -12,6 +12,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 polkavm_derive::min_stack_size!(2 * 1024 * 1024);
 
 pub mod apis;
+pub mod backing;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks;
 pub mod configs;
@@ -25,13 +26,14 @@ use smallvec::smallvec;
 use polkadot_sdk::{staging_parachain_info as parachain_info, *};
 
 use sp_runtime::{
-	generic, impl_opaque_keys,
+	generic,
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
 	MultiSignature,
 };
 
 use sp_version::RuntimeVersion;
 
+pub use backing::SessionKeys;
 use frame_support::weights::{
 	constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
 	WeightToFeePolynomial,
@@ -156,20 +158,6 @@ pub mod opaque {
 	pub type Hash = <BlakeTwo256 as HashT>::Output;
 }
 
-#[cfg(not(jam))]
-impl_opaque_keys! {
-	pub struct SessionKeys {
-		pub aura: Aura,
-	}
-}
-
-#[cfg(jam)]
-impl_opaque_keys! {
-	pub struct SessionKeys {
-		pub aura: AuraJam,
-	}
-}
-
 // The only difference between the two declarations below is the `spec_version`.
 // The behavior is:
 // - by default `spec_version` should be 1
@@ -254,48 +242,6 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 	cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
 );
 
-#[docify::export]
-mod async_backing_params {
-	/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
-	/// into the relay chain.
-	///
-	/// The Asset Hub shape with this runtime's relay-parent offset of zero
-	/// (`RelayParentOffsetApi::relay_parent_offset`): three slots' worth of velocity.
-	pub(crate) const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3 * BLOCK_PROCESSING_VELOCITY;
-	/// How many parachain blocks are processed by the relay chain per parent. Limits the
-	/// number of blocks authored per slot.
-	///
-	/// Two, because a JAM collator turn places one work package on each core that holds the
-	/// para's authorizer, and the JAM tiny preset has two cores: the runtime has to admit two
-	/// blocks per slot for a turn to reach both.
-	pub(crate) const BLOCK_PROCESSING_VELOCITY: u32 = 2;
-	/// Relay chain slot duration, in milliseconds.
-	///
-	/// JAM blocks derive their Aura slot from the anchor, so only the relay-chain path uses it.
-	#[cfg(not(jam))]
-	pub(crate) const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
-}
-pub(crate) use async_backing_params::*;
-
-/// Aura consensus hook
-#[cfg(not(jam))]
-#[docify::export]
-type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
-	Runtime,
-	RELAY_CHAIN_SLOT_DURATION_MILLIS,
-	BLOCK_PROCESSING_VELOCITY,
-	UNINCLUDED_SEGMENT_CAPACITY,
->;
-
-/// On JAM the Aura slot is checked against the block's verified anchor slot instead of the relay
-/// slot carried by the collator-built state proof.
-#[cfg(jam)]
-type ConsensusHook = pallet_aura_jam::JamFixedVelocityConsensusHook<
-	Runtime,
-	BLOCK_PROCESSING_VELOCITY,
-	UNINCLUDED_SEGMENT_CAPACITY,
->;
-
 // Create the runtime by composing the FRAME pallets that were previously configured.
 #[frame_support::runtime]
 mod runtime {
@@ -316,8 +262,16 @@ mod runtime {
 
 	#[runtime::pallet_index(0)]
 	pub type System = frame_system;
+	#[cfg(not(jam))]
 	#[runtime::pallet_index(1)]
 	pub type ParachainSystem = cumulus_pallet_parachain_system;
+	// On JAM the Parachain Service validates the chain instead of a relay chain.
+	//
+	// The JAM pallets list their parts: the crates are `cfg(jam)` dependencies, so a relay build
+	// has no crate to read the default parts from. Keep the lists equal to the pallets' parts.
+	#[cfg(jam)]
+	#[runtime::pallet_index(1)]
+	pub type JamSystem = cumulus_pallet_jam_system + Pallet + Call + Storage + Event<T> + Error<T>;
 	#[runtime::pallet_index(2)]
 	pub type Timestamp = pallet_timestamp;
 	#[runtime::pallet_index(3)]
@@ -352,7 +306,7 @@ mod runtime {
 	// anchor slot.
 	#[cfg(jam)]
 	#[runtime::pallet_index(23)]
-	pub type AuraJam = pallet_aura_jam;
+	pub type AuraJam = pallet_aura_jam + Pallet + Storage + Event<T> + Config<T>;
 
 	// XCM helpers.
 	#[runtime::pallet_index(30)]
@@ -378,7 +332,7 @@ cumulus_pallet_parachain_system::register_validate_block! {
 
 // On JAM the seal is checked against the set JAM authorizes at the block's anchor slot.
 #[cfg(jam)]
-cumulus_pallet_parachain_system::register_validate_block! {
+cumulus_pallet_jam_system::register_jam_validate_block! {
 	Runtime = Runtime,
 	BlockExecutor = pallet_aura_jam::BlockExecutor::<Runtime, Executive>,
 }

@@ -18,10 +18,7 @@
 
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
-pub(super) mod block_checks;
-#[cfg(not(feature = "std"))]
-#[doc(hidden)]
-pub(super) mod child_storage_host_functions;
+pub mod block_checks;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
 pub mod host_functions;
@@ -31,11 +28,6 @@ pub use crate::relay_chain::relay_chain_implementation as implementation;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
 pub mod validate_block_core;
-
-// JAM (parachain-service) implementation; never compiled on wasm.
-#[cfg(jam)]
-#[doc(hidden)]
-pub mod jam_implementation;
 
 #[cfg(test)]
 mod tests;

@@ -67,7 +67,6 @@ members = [
 	"cumulus/client/consensus/aura",
 	"cumulus/client/consensus/common",
 	"cumulus/client/consensus/relay-chain",
-	"cumulus/client/jam-work-package-recovery",
 	"cumulus/client/network",
 	"cumulus/client/parachain-inherent",
 	"cumulus/client/pov-recovery",
@@ -84,10 +83,13 @@ members = [
 	"cumulus/jam/client-authorizer",
 	"cumulus/jam/interface",
 	"cumulus/jam/pallet-aura-jam",
-	"cumulus/jam/pallet-jam-broker",
+	"cumulus/jam/pallet-jam-coretime",
+	"cumulus/jam/pallet-jam-system",
+	"cumulus/jam/primitives",
 	"cumulus/jam/rpc-interface",
 	"cumulus/jam/state-reader",
 	"cumulus/jam/tx-gas-benchmark",
+	"cumulus/jam/work-package-recovery",
 	"cumulus/pallets/ah-ops",
 	"cumulus/pallets/aura-ext",
 	"cumulus/pallets/collator-selection",
@@ -160,7 +162,6 @@ members = [
 	"cumulus/test/runtime",
 	"cumulus/test/service",
 	"cumulus/xcm/xcm-emulator",
-	"cumulus/zombienet/jam-tests",
 	"cumulus/zombienet/zombienet-sdk",
 	"cumulus/zombienet/zombienet-sdk-helpers",
 	"docs/sdk",
@@ -800,7 +801,7 @@ cumulus-client-consensus-aura = { path = "cumulus/client/consensus/aura", defaul
 cumulus-client-consensus-common = { path = "cumulus/client/consensus/common", default-features = false }
 cumulus-client-consensus-relay-chain = { path = "cumulus/client/consensus/relay-chain", default-features = false }
 cumulus-client-jam-authorizer = { path = "cumulus/jam/client-authorizer", default-features = false }
-cumulus-client-jam-work-package-recovery = { path = "cumulus/client/jam-work-package-recovery", default-features = false }
+cumulus-client-jam-work-package-recovery = { path = "cumulus/jam/work-package-recovery", default-features = false }
 cumulus-client-network = { path = "cumulus/client/network", default-features = false }
 cumulus-client-parachain-inherent = { path = "cumulus/client/parachain-inherent", default-features = false }
 cumulus-client-pov-recovery = { path = "cumulus/client/pov-recovery", default-features = false }
@@ -809,11 +810,11 @@ cumulus-client-resubmission-store = { path = "cumulus/client/resubmission-store"
 cumulus-client-service = { path = "cumulus/client/service", default-features = false }
 cumulus-jam-aura-primitives = { path = "cumulus/jam/aura-primitives", default-features = false }
 cumulus-jam-interface = { path = "cumulus/jam/interface", default-features = false }
+cumulus-jam-primitives = { path = "cumulus/jam/primitives", default-features = false }
 cumulus-jam-rpc-interface = { path = "cumulus/jam/rpc-interface", default-features = false }
 cumulus-jam-state-reader = { path = "cumulus/jam/state-reader", default-features = false }
-pallet-aura-jam = { path = "cumulus/jam/pallet-aura-jam", default-features = false }
-pallet-jam-broker = { path = "cumulus/jam/pallet-jam-broker", default-features = false }
 cumulus-pallet-aura-ext = { path = "cumulus/pallets/aura-ext", default-features = false }
+cumulus-pallet-jam-system = { path = "cumulus/jam/pallet-jam-system", default-features = false }
 cumulus-pallet-parachain-system = { path = "cumulus/pallets/parachain-system", default-features = false }
 cumulus-pallet-parachain-system-proc-macro = { path = "cumulus/pallets/parachain-system/proc-macro", default-features = false }
 cumulus-pallet-session-benchmarking = { path = "cumulus/pallets/session-benchmarking", default-features = false }
@@ -939,11 +940,15 @@ is-terminal = { version = "0.4.9" }
 is_executable = { version = "1.0.1" }
 itertools = { version = "0.11" }
 jam-codec = { version = "0.1.1", default-features = false, features = ["derive"] }
-jam-null-authorizer-bin = { git = "ssh://git@github.com/paritytech/polkajam.git", branch = "mku-jam-collator-poc-2", default-features = false }
-# The same polkajam branch parachain-service uses, so there is one instance of each and they unify
-# at the jam-interface trait boundary.
-jam-std-common = { git = "ssh://git@github.com/paritytech/polkajam.git", branch = "mku-jam-collator-poc-2" }
-jam-types = { git = "ssh://git@github.com/paritytech/polkajam.git", branch = "mku-jam-collator-poc-2", default-features = false }
+pallet-aura-jam = { path = "cumulus/jam/pallet-aura-jam", default-features = false }
+pallet-jam-coretime = { path = "cumulus/jam/pallet-jam-coretime", default-features = false }
+# The polkajam crates parachain-service vendors and builds its blobs against, taken from a sibling
+# parachain-service checkout (`../parachain-service`, its `vendor/polkajam` submodule) so there is
+# one instance of each and they unify at the jam-interface trait boundary. The JAM node the tests
+# run must be built from the same polkajam (host-call indices, key derivation).
+jam-null-authorizer-bin = { path = "../parachain-service/vendor/polkajam/services/null-authorizer-bin", default-features = false }
+jam-std-common = { path = "../parachain-service/vendor/polkajam/crates/jam-std-common" }
+jam-types = { path = "../parachain-service/vendor/polkajam/crates/jam-types", default-features = false }
 jobserver = { version = "0.1.26" }
 jsonrpsee = { version = "0.24.11" }
 jsonrpsee-core = { version = "0.24.11" }
@@ -1146,12 +1151,13 @@ pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-f
 pallet-xcm-bridge-hub = { path = "bridges/modules/xcm-bridge-hub", default-features = false }
 pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false }
 pallet-xcm-precompiles = { path = "polkadot/xcm/pallet-xcm/precompiles", default-features = false }
-parachain-authorizer = { git = "ssh://git@github.com/paritytech/parachain-service.git", branch = "parachain-service-poc", default-features = false }
-parachain-authorizer-ed25519 = { git = "ssh://git@github.com/paritytech/parachain-service.git", branch = "parachain-service-poc", default-features = false }
-parachain-authorizer-sr25519 = { git = "ssh://git@github.com/paritytech/parachain-service.git", branch = "parachain-service-poc", default-features = false }
-parachain-chain-spec = { git = "ssh://git@github.com/paritytech/parachain-service.git", branch = "parachain-service-poc", default-features = false }
+# The parachain-service checkout the `.jam` blobs are built from, see `jam-types` above.
+parachain-authorizer = { path = "../parachain-service/authorizer", default-features = false }
+parachain-authorizer-ed25519 = { path = "../parachain-service/authorizer-ed25519", default-features = false }
+parachain-authorizer-sr25519 = { path = "../parachain-service/authorizer-sr25519", default-features = false }
+parachain-chain-spec = { path = "../parachain-service/chain-spec", default-features = false }
 parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-features = false, package = "staging-parachain-info" }
-parachain-service-core = { git = "ssh://git@github.com/paritytech/parachain-service.git", branch = "parachain-service-poc", default-features = false }
+parachain-service-core = { path = "../parachain-service/core", default-features = false }
 parachain-template-runtime = { path = "templates/parachain/runtime" }
 parachains-common = { path = "cumulus/parachains/common", default-features = false }
 parachains-common-types = { path = "cumulus/parachains/common/types", default-features = false }
@@ -1630,9 +1636,9 @@ x25519-dalek = { opt-level = 3 }
 zeroize = { opt-level = 3 }
 
 # The parachain-service crates the JAM tooling depends on name these by crates.io version. Resolve
-# them to this tree and the polkajam git branch, so there is only one of each.
+# them to this tree and parachain-service's vendored polkajam, so there is only one of each.
 [patch.crates-io]
 cumulus-aura-authorizer-utils = { path = "cumulus/jam/aura-authorizer-utils" }
-jam-std-common = { git = "ssh://git@github.com/paritytech/polkajam.git", branch = "mku-jam-collator-poc-2" }
-jam-types = { git = "ssh://git@github.com/paritytech/polkajam.git", branch = "mku-jam-collator-poc-2" }
+jam-std-common = { path = "../parachain-service/vendor/polkajam/crates/jam-std-common" }
+jam-types = { path = "../parachain-service/vendor/polkajam/crates/jam-types" }
 sp-io = { path = "substrate/primitives/io" }

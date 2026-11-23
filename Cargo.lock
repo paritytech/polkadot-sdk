@@ -1581,25 +1581,6 @@ dependencies = [
 
 [[package]]
 name = "ark-vrf"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d815a2faa9e0fe6c342cc7f25f1f30016774cfbc966f56ea1967377a7ac2066"
-dependencies = [
- "ark-bls12-381 0.5.0",
- "ark-ec 0.5.0",
- "ark-ed-on-bls12-381-bandersnatch 0.5.0",
- "ark-ff 0.5.0",
- "ark-serialize 0.5.0",
- "ark-std 0.5.0",
- "digest 0.10.7",
- "rand_chacha 0.3.1",
- "sha2 0.10.9",
- "w3f-ring-proof 0.0.6",
- "zeroize",
-]
-
-[[package]]
-name = "ark-vrf"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e1eab4d92e7a80fea37a6a5424de677f8c46809b88ed4c5e94dd4eed5cc39e8"
@@ -1614,6 +1595,25 @@ dependencies = [
  "generic-array 0.14.7",
  "sha2 0.10.9",
  "w3f-ring-proof 0.0.10",
+ "zeroize",
+]
+
+[[package]]
+name = "ark-vrf"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de6fd966733b1b2f8419926f1934f7188792a78e38863247e4374727f6f6366a"
+dependencies = [
+ "ark-bls12-381 0.6.0",
+ "ark-ec 0.6.0",
+ "ark-ed-on-bls12-381-bandersnatch 0.6.0",
+ "ark-ff 0.6.0",
+ "ark-serialize 0.6.0",
+ "ark-std 0.6.0",
+ "digest 0.10.7",
+ "sha2 0.10.9",
+ "sha3 0.10.8",
+ "w3f-ring-proof 0.0.11",
  "zeroize",
 ]
 
@@ -4371,7 +4371,9 @@ dependencies = [
 name = "coretime-westend-runtime"
 version = "0.1.0"
 dependencies = [
+ "cumulus-jam-aura-primitives",
  "cumulus-pallet-aura-ext",
+ "cumulus-pallet-jam-system",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
  "cumulus-pallet-weight-reclaim",
@@ -4391,11 +4393,12 @@ dependencies = [
  "log",
  "pallet-accumulate-and-forward",
  "pallet-aura",
+ "pallet-aura-jam",
  "pallet-authorship",
  "pallet-balances",
  "pallet-broker",
  "pallet-collator-selection",
- "pallet-jam-broker",
+ "pallet-jam-coretime",
  "pallet-message-queue",
  "pallet-meta-tx",
  "pallet-multisig",
@@ -4901,8 +4904,6 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "sc-client-api 28.0.0",
- "sc-consensus",
- "sp-additional-data",
  "sp-api 26.0.0",
  "sp-consensus 0.32.0",
  "sp-core 28.0.0",
@@ -4910,7 +4911,6 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-tracing 16.0.0",
- "tokio",
  "tracing",
 ]
 
@@ -4967,7 +4967,6 @@ dependencies = [
  "sc-telemetry 15.0.0",
  "sc-utils 14.0.0",
  "schnellru",
- "sp-additional-data",
  "sp-api 26.0.0",
  "sp-application-crypto 30.0.0",
  "sp-block-builder",
@@ -5048,6 +5047,27 @@ dependencies = [
  "sp-inherents 26.0.0",
  "sp-runtime 31.0.1",
  "substrate-prometheus-endpoint 0.17.0",
+ "tracing",
+]
+
+[[package]]
+name = "cumulus-client-jam-authorizer"
+version = "0.1.0"
+dependencies = [
+ "array-bytes 6.2.2",
+ "cumulus-jam-interface",
+ "jam-std-common",
+ "jam-types",
+ "parachain-authorizer",
+ "parachain-authorizer-ed25519",
+ "parachain-authorizer-sr25519",
+ "parachain-service-core",
+ "parity-scale-codec",
+ "schnorrkel 0.11.5",
+ "sp-consensus-aura",
+ "sp-core 28.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
  "tracing",
 ]
 
@@ -5240,6 +5260,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-jam-aura-primitives"
+version = "0.1.0"
+dependencies = [
+ "cumulus-aura-authorizer-utils",
+ "parity-scale-codec",
+ "sp-api 26.0.0",
+]
+
+[[package]]
 name = "cumulus-jam-interface"
 version = "0.1.0"
 dependencies = [
@@ -5248,6 +5277,16 @@ dependencies = [
  "jam-codec",
  "jam-std-common",
  "jam-types",
+]
+
+[[package]]
+name = "cumulus-jam-primitives"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
 ]
 
 [[package]]
@@ -5287,12 +5326,10 @@ name = "cumulus-jam-tx-gas-benchmark"
 version = "0.1.0"
 dependencies = [
  "clap",
- "cumulus-client-parachain-inherent",
  "cumulus-client-service",
  "cumulus-jam-state-reader",
  "cumulus-pallet-weight-reclaim",
  "cumulus-primitives-core",
- "cumulus-primitives-parachain-inherent",
  "frame-metadata-hash-extension",
  "frame-system",
  "futures",
@@ -5300,7 +5337,6 @@ dependencies = [
  "jam-types",
  "pallet-balances",
  "pallet-transaction-payment",
- "parachain-authorizer",
  "parachain-service-core",
  "parachain-template-runtime",
  "parity-scale-codec",
@@ -5319,7 +5355,6 @@ dependencies = [
  "sp-blockchain 28.0.0",
  "sp-consensus 0.32.0",
  "sp-consensus-aura",
- "sp-consensus-babe",
  "sp-core 28.0.0",
  "sp-externalities 0.25.0",
  "sp-genesis-builder 0.8.0",
@@ -5332,39 +5367,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-jam-zombienet-tests"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "array-bytes 6.2.2",
- "cumulus-primitives-core",
- "cumulus-zombienet-sdk-helpers",
- "env_logger 0.11.3",
- "jam-null-authorizer-bin",
- "jam-std-common",
- "jam-types",
- "jsonrpsee 0.24.11",
- "jsonrpsee 0.26.0",
- "log",
- "parachain-authorizer",
- "parachain-chain-spec",
- "parachain-service-core",
- "parity-scale-codec",
- "rand 0.8.5",
- "serde_json",
- "sp-core 28.0.0",
- "sp-keyring",
- "sp-runtime 31.0.1",
- "tempfile",
- "tokio",
- "zombienet-sdk",
-]
-
-[[package]]
 name = "cumulus-pallet-aura-ext"
 version = "0.7.0"
 dependencies = [
- "cumulus-jam-state-reader",
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
  "cumulus-primitives-proof-size-hostfunction",
@@ -5374,7 +5379,6 @@ dependencies = [
  "log",
  "pallet-aura",
  "pallet-timestamp",
- "parachain-service-core",
  "parity-scale-codec",
  "rstest",
  "scale-info",
@@ -5390,13 +5394,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-pallet-jam-system"
+version = "0.1.0"
+dependencies = [
+ "cumulus-jam-primitives",
+ "cumulus-jam-state-reader",
+ "cumulus-pallet-parachain-system",
+ "cumulus-primitives-core",
+ "environmental",
+ "frame-support",
+ "frame-system",
+ "parachain-service-core",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-additional-data",
+ "sp-code-marker",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
+ "sp-externalities 0.25.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "cumulus-pallet-parachain-system"
 version = "0.7.0"
 dependencies = [
  "array-bytes 6.2.2",
  "assert_matches",
  "bytes",
- "cumulus-jam-state-reader",
  "cumulus-pallet-parachain-system-proc-macro",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
@@ -5414,23 +5440,18 @@ dependencies = [
  "hashbrown 0.15.3",
  "hex-literal",
  "impl-trait-for-tuples",
- "jam-codec",
- "jam-types",
  "log",
  "pallet-message-queue",
- "parachain-service-core",
  "parity-scale-codec",
  "polkadot-parachain-primitives 6.0.0",
  "polkadot-primitives",
  "polkadot-runtime-parachains",
- "polkavm-derive 0.35.0",
  "rand 0.8.5",
  "rstest",
  "sc-consensus",
  "scale-info",
  "sp-additional-data",
  "sp-api 26.0.0",
- "sp-code-marker",
  "sp-consensus-babe",
  "sp-consensus-slots",
  "sp-core 28.0.0",
@@ -5599,7 +5620,6 @@ dependencies = [
  "scale-info",
  "sp-additional-data",
  "sp-api 26.0.0",
- "sp-crypto-hashing 0.1.0",
  "sp-runtime 31.0.1",
  "sp-trie 29.0.0",
  "staging-xcm",
@@ -5626,7 +5646,6 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-externalities 0.25.0",
  "sp-io 30.0.0",
- "sp-jam-runtime-interface",
  "sp-runtime-interface 24.0.0",
  "sp-state-machine 0.35.0",
  "sp-trie 29.0.0",
@@ -5875,6 +5894,7 @@ name = "cumulus-test-runtime"
 version = "0.1.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
+ "cumulus-pallet-jam-system",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-weight-reclaim",
  "cumulus-primitives-aura",
@@ -5885,6 +5905,7 @@ dependencies = [
  "frame-system",
  "frame-system-rpc-runtime-api",
  "pallet-aura",
+ "pallet-aura-jam",
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-balances",
@@ -6008,23 +6029,32 @@ dependencies = [
  "cumulus-jam-interface",
  "cumulus-jam-rpc-interface",
  "cumulus-primitives-core",
+ "env_logger 0.11.3",
  "futures",
+ "jam-null-authorizer-bin",
  "jam-std-common",
  "jam-types",
  "jsonrpsee 0.24.11",
+ "jsonrpsee 0.26.0",
  "log",
+ "parachain-authorizer",
+ "parachain-chain-spec",
  "parachain-service-core",
  "parity-scale-codec",
  "parity-wasm",
  "polkadot-primitives",
  "polkavm 0.35.0",
+ "rand 0.8.5",
  "serde",
  "serde_json",
+ "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",
+ "sp-keyring",
  "sp-maybe-compressed-blob 11.0.0",
  "sp-polkavm-blob",
  "sp-runtime 31.0.1",
  "sp-version 29.0.0",
+ "tempfile",
  "tokio",
  "url",
  "zombienet-configuration",
@@ -6037,7 +6067,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cid",
- "cumulus-jam-zombienet-tests",
  "cumulus-primitives-core",
  "cumulus-test-runtime",
  "cumulus-zombienet-sdk-helpers",
@@ -9760,9 +9789,9 @@ dependencies = [
 
 [[package]]
 name = "jam-codec"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb948eace373d99de60501a02fb17125d30ac632570de20dccc74370cdd611b9"
+checksum = "28bea45000fdcf0e396813dc40f62e25c4db84d7d83954f0a712f93844217055"
 dependencies = [
  "arrayvec 0.7.8",
  "bitvec",
@@ -9777,9 +9806,9 @@ dependencies = [
 
 [[package]]
 name = "jam-codec-derive"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "319af585c4c8a6b5552a52b7787a1ab3e4d59df7614190b1f85b9b842488789d"
+checksum = "44571936196507bf05764da4d51ded95e203f9ff126e3869365018e8e5a9ffe6"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2 1.0.107",
@@ -9792,14 +9821,6 @@ name = "jam-null-authorizer-bin"
 version = "0.1.29"
 
 [[package]]
-name = "jam-program-blob-common"
-version = "0.1.29"
-dependencies = [
- "jam-codec",
- "polkavm 0.36.0",
-]
-
-[[package]]
 name = "jam-pvm-common"
 version = "0.1.29"
 dependencies = [
@@ -9807,14 +9828,14 @@ dependencies = [
  "jam-codec",
  "jam-types",
  "picoalloc",
- "polkavm-derive 0.36.0",
+ "polkavm-derive 0.38.0",
 ]
 
 [[package]]
 name = "jam-std-common"
 version = "0.1.29"
 dependencies = [
- "ark-vrf 0.2.2",
+ "ark-vrf 0.6.2",
  "arrayvec 0.7.8",
  "async-trait",
  "blake2b_simd",
@@ -12897,6 +12918,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-aura-jam"
+version = "0.1.0"
+dependencies = [
+ "cumulus-jam-aura-primitives",
+ "cumulus-jam-state-reader",
+ "cumulus-pallet-jam-system",
+ "cumulus-primitives-core",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-session",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-consensus-aura",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
+]
+
+[[package]]
 name = "pallet-authority-discovery"
 version = "28.0.0"
 dependencies = [
@@ -13999,25 +14042,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-jam-broker"
+name = "pallet-jam-coretime"
 version = "0.1.0"
 dependencies = [
  "cumulus-jam-state-reader",
- "fp-coretime",
- "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
+ "pallet-balances",
+ "pallet-broker",
  "parachain-service-core",
  "parity-scale-codec",
- "pretty_assertions",
  "scale-info",
- "sp-api 26.0.0",
- "sp-arithmetic 23.0.0",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
- "sp-tracing 16.0.0",
 ]
 
 [[package]]
@@ -15890,7 +15928,7 @@ dependencies = [
  "jam-pvm-common",
  "jam-types",
  "parachain-authorizer",
- "polkavm-derive 0.36.0",
+ "polkavm-derive 0.37.0",
 ]
 
 [[package]]
@@ -15900,7 +15938,7 @@ dependencies = [
  "jam-pvm-common",
  "jam-types",
  "parachain-authorizer",
- "polkavm-derive 0.36.0",
+ "polkavm-derive 0.37.0",
  "schnorrkel 0.11.5",
 ]
 
@@ -15930,8 +15968,8 @@ dependencies = [
  "jam-types",
  "parachain-service-core",
  "parity-scale-codec",
- "polkavm 0.36.0",
- "polkavm-derive 0.36.0",
+ "polkavm 0.37.0",
+ "polkavm-derive 0.37.0",
  "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -15941,14 +15979,12 @@ version = "0.1.0"
 dependencies = [
  "bounded-collections 0.3.2",
  "cumulus-aura-authorizer-utils",
- "jam-program-blob-common",
  "jam-pvm-common",
  "jam-types",
  "num_enum",
  "parity-scale-codec",
  "polkadot-parachain-primitives 23.0.0",
- "polkavm 0.36.0",
- "polkavm-derive 0.36.0",
+ "polkavm-derive 0.37.0",
  "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-io 30.0.0",
  "sp-io 48.0.0",
@@ -15982,10 +16018,13 @@ dependencies = [
 name = "parachain-template-runtime"
 version = "0.0.0"
 dependencies = [
+ "cumulus-jam-aura-primitives",
+ "cumulus-pallet-jam-system",
  "cumulus-pallet-parachain-system",
  "docify",
  "hex-literal",
  "log",
+ "pallet-aura-jam",
  "pallet-parachain-template",
  "parity-scale-codec",
  "polkadot-sdk",
@@ -17687,10 +17726,13 @@ dependencies = [
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
  "cumulus-client-consensus-relay-chain",
+ "cumulus-client-jam-authorizer",
  "cumulus-client-jam-work-package-recovery",
  "cumulus-client-parachain-inherent",
  "cumulus-client-service",
+ "cumulus-jam-aura-primitives",
  "cumulus-jam-interface",
+ "cumulus-jam-primitives",
  "cumulus-jam-rpc-interface",
  "cumulus-jam-state-reader",
  "cumulus-pallet-parachain-system",
@@ -17717,7 +17759,6 @@ dependencies = [
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
  "parachain-authorizer",
- "parachain-authorizer-ed25519",
  "parachain-authorizer-sr25519",
  "parachain-service-core",
  "parachains-common-types",
@@ -17756,7 +17797,6 @@ dependencies = [
  "sc-transaction-pool-api 28.0.0",
  "scale-info",
  "schnellru",
- "schnorrkel 0.11.5",
  "serde",
  "serde_json",
  "sp-additional-data",
@@ -19149,6 +19189,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkavm"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c40ac953a7396523af50f8f3523ac58d683f59a74a252a71690f778b494f824a"
+dependencies = [
+ "libc",
+ "log",
+ "picosimd",
+ "polkavm-assembler 0.37.0",
+ "polkavm-common 0.37.0",
+ "polkavm-linux-raw 0.37.0",
+]
+
+[[package]]
 name = "polkavm-assembler"
 version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -19171,6 +19225,15 @@ name = "polkavm-assembler"
 version = "0.36.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7be926d5b0b12a26d7a9187dac46423a0952a1f1fa944063482e7f681720c56d"
+dependencies = [
+ "log",
+]
+
+[[package]]
+name = "polkavm-assembler"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6264b876711c7c921a87df3ffb2c152d91686050940253d30083782ab68f06f7"
 dependencies = [
  "log",
 ]
@@ -19210,6 +19273,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkavm-common"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b44940b0d82ff491647139e045e026b98666be87770f72d48d6463fb65b866fd"
+dependencies = [
+ "log",
+ "picosimd",
+ "polkavm-assembler 0.37.0",
+]
+
+[[package]]
+name = "polkavm-common"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ef35bc7f93dff55723e05cde93c618a2ba4bba2b92947136091220671fe8718"
+dependencies = [
+ "picosimd",
+]
+
+[[package]]
 name = "polkavm-derive"
 version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -19229,11 +19312,20 @@ dependencies = [
 
 [[package]]
 name = "polkavm-derive"
-version = "0.36.0"
+version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41a7a5487e76bf90e7fce09d6bc1c4c41d2e8c817909b4c29ee1bdca2d338601"
+checksum = "b155c82c47af761e7450e1e5eff1d48ad78d040b09ed57b93bc8e46ca4ad71b0"
 dependencies = [
- "polkavm-derive-impl-macro 0.36.0",
+ "polkavm-derive-impl-macro 0.37.0",
+]
+
+[[package]]
+name = "polkavm-derive"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc9e460fcd402d621d38bb36547aa4f4bdb1e726fc66461352c2bc2b9cfa2d4b"
+dependencies = [
+ "polkavm-derive-impl-macro 0.38.0",
 ]
 
 [[package]]
@@ -19262,11 +19354,23 @@ dependencies = [
 
 [[package]]
 name = "polkavm-derive-impl"
-version = "0.36.0"
+version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "743296539465980c7e7f7294396607add7169b52d276c1642f5cd972f012889f"
+checksum = "b0f385d969918c91b2f89646b5e77e43cd3f52178e3ed642eec2365f9bc3c575"
 dependencies = [
- "polkavm-common 0.36.0",
+ "polkavm-common 0.37.0",
+ "proc-macro2 1.0.107",
+ "quote 1.0.40",
+ "syn 2.0.98",
+]
+
+[[package]]
+name = "polkavm-derive-impl"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aaf470f87d5fb45dfa3e8a5f3d07e16ddf8322b7aef43bee004d5238aa63bb72"
+dependencies = [
+ "polkavm-common 0.38.0",
  "proc-macro2 1.0.107",
  "quote 1.0.40",
  "syn 2.0.98",
@@ -19294,11 +19398,21 @@ dependencies = [
 
 [[package]]
 name = "polkavm-derive-impl-macro"
-version = "0.36.0"
+version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5dc5c392278508d85fa6073423470b56faad2438bf33874cc71444cf3c8b279a"
+checksum = "2d89dbb6c2d1a7c951dc8e70bf1302329939a3c21f757861d97e013f8352c8f7"
 dependencies = [
- "polkavm-derive-impl 0.36.0",
+ "polkavm-derive-impl 0.37.0",
+ "syn 2.0.98",
+]
+
+[[package]]
+name = "polkavm-derive-impl-macro"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "313d4d5f7f592ca7e73db3d03915788aadded0093930a16a843c0e21a3ef7bc8"
+dependencies = [
+ "polkavm-derive-impl 0.38.0",
  "syn 2.0.98",
 ]
 
@@ -19335,6 +19449,12 @@ name = "polkavm-linux-raw"
 version = "0.36.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0c7bca6a196543655c87279d4619d15ebd120c340ac4d9a6d67f481d265053d"
+
+[[package]]
+name = "polkavm-linux-raw"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb9c5f2225abfe56ebf8e6681ebfef57d5dcb228c03da32d96a1fd50ed9bad24"
 
 [[package]]
 name = "polling"
@@ -25350,7 +25470,6 @@ dependencies = [
  "sp-crypto-hashing 0.1.0",
  "sp-externalities 0.25.0",
  "sp-io 30.0.0",
- "sp-jam-runtime-interface",
  "sp-runtime 31.0.1",
  "sp-runtime-interface 24.0.0",
 ]
@@ -30112,20 +30231,6 @@ dependencies = [
 
 [[package]]
 name = "w3f-pcs"
-version = "0.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ea1046a1deb6d26c34ba2d1f1bab4222d695d126502ee765f80b021753cb674"
-dependencies = [
- "ark-ec 0.5.0",
- "ark-ff 0.5.0",
- "ark-poly 0.5.0",
- "ark-serialize 0.5.0",
- "ark-std 0.5.0",
- "merlin",
-]
-
-[[package]]
-name = "w3f-pcs"
 version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1304615e0b129091634dcebd1acf9edee4d6aabd03e7d679a0c49a1a1a45fe98"
@@ -30157,25 +30262,26 @@ dependencies = [
 
 [[package]]
 name = "w3f-plonk-common"
-version = "0.0.6"
+version = "0.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "077db25196f87773d7f0784c0ea5b11f18f38d336fa25c24bc67d7936af05d7a"
+checksum = "e24647403dfe8eeb4ef57358e41c29c1ae253c4a123ef9e04d3029fabca38bc2"
 dependencies = [
- "ark-ec 0.5.0",
- "ark-ff 0.5.0",
- "ark-poly 0.5.0",
- "ark-serialize 0.5.0",
- "ark-std 0.5.0",
+ "ark-ec 0.6.0",
+ "ark-ff 0.6.0",
+ "ark-poly 0.6.0",
+ "ark-serialize 0.6.0",
+ "ark-std 0.6.0",
  "getrandom_or_panic",
  "rand_core 0.6.4",
- "w3f-pcs 0.0.5",
+ "subtle 2.6.1",
+ "w3f-pcs 0.0.7",
 ]
 
 [[package]]
 name = "w3f-plonk-common"
-version = "0.0.10"
+version = "0.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e24647403dfe8eeb4ef57358e41c29c1ae253c4a123ef9e04d3029fabca38bc2"
+checksum = "b87f79489cacacb6abe6a41e240bbf73edb517a9bf418a83f218fb72c178481e"
 dependencies = [
  "ark-ec 0.6.0",
  "ark-ff 0.6.0",
@@ -30207,22 +30313,6 @@ dependencies = [
 
 [[package]]
 name = "w3f-ring-proof"
-version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3afac5d485a6eed7c1762be4b7b70a6f9b346bd6eebe485f48b7d909a6773f5"
-dependencies = [
- "ark-ec 0.5.0",
- "ark-ff 0.5.0",
- "ark-poly 0.5.0",
- "ark-serialize 0.5.0",
- "ark-std 0.5.0",
- "ark-transcript 0.0.3",
- "w3f-pcs 0.0.5",
- "w3f-plonk-common 0.0.6",
-]
-
-[[package]]
-name = "w3f-ring-proof"
 version = "0.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b86bf57d9f25c1020c372f1a64069fef9f158db85cd6ef087cee560337bed56d"
@@ -30235,6 +30325,22 @@ dependencies = [
  "ark-transcript 0.0.6",
  "w3f-pcs 0.0.7",
  "w3f-plonk-common 0.0.10",
+]
+
+[[package]]
+name = "w3f-ring-proof"
+version = "0.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "baebbd0c660fe839a59b6b230a680276504b16d52ab635e2cc11c7a631e5ef4e"
+dependencies = [
+ "ark-ec 0.6.0",
+ "ark-ff 0.6.0",
+ "ark-poly 0.6.0",
+ "ark-serialize 0.6.0",
+ "ark-std 0.6.0",
+ "ark-transcript 0.0.6",
+ "w3f-pcs 0.0.7",
+ "w3f-plonk-common 0.0.11",
 ]
 
 [[package]]

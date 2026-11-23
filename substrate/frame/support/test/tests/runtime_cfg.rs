@@ -69,6 +69,20 @@ mod runtime_macro {
 		#[cfg(not(debug_assertions))]
 		#[runtime::pallet_index(1)]
 		pub type B = pallet_b;
+		// A pallet whose crate is not in this build, like a dependency of another target: its
+		// parts are listed, and nothing the macro generates may name the crate.
+		#[cfg(any())]
+		#[runtime::pallet_index(2)]
+		pub type Absent = pallet_outside_the_build
+			+ Pallet
+			+ Call
+			+ Storage
+			+ Event<T>
+			+ Error<T>
+			+ Origin<T>
+			+ Config<T>
+			+ Inherent
+			+ ValidateUnsigned;
 	}
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -91,6 +105,11 @@ mod runtime_macro {
 		assert_eq!(A::index(), 1);
 		#[cfg(not(debug_assertions))]
 		assert_eq!(B::index(), 1);
+	}
+
+	#[test]
+	fn pallet_outside_the_build_is_left_out_works() {
+		assert!(!pallet_names::<AllPalletsWithSystem>().contains(&"Absent"));
 	}
 }
 

@@ -46,9 +46,9 @@ use sp_version::RuntimeVersion;
 
 // Local module imports
 use super::{
-	AccountId, Balance, Block, ConsensusHook, Executive, InherentDataExt, Nonce, ParachainSystem,
-	Runtime, RuntimeCall, RuntimeGenesisConfig, SessionKeys, System, TransactionPayment,
-	SLOT_DURATION, VERSION,
+	backing::{self, ConsensusHook},
+	AccountId, Balance, Block, Executive, InherentDataExt, Nonce, Runtime, RuntimeCall,
+	RuntimeGenesisConfig, SessionKeys, System, TransactionPayment, SLOT_DURATION, VERSION,
 };
 
 // we move some impls outside so we can easily use them with `docify`.
@@ -74,38 +74,28 @@ impl_runtime_apis! {
 		}
 
 		fn authorities() -> Vec<AuraId> {
-			#[cfg(not(jam))]
-			let authorities = pallet_aura::Authorities::<Runtime>::get();
-			#[cfg(jam)]
-			let authorities = pallet_aura_jam::Authorities::<Runtime>::get();
-			authorities.into_inner()
+			backing::authorities()
 		}
 	}
 
 	impl cumulus_jam_aura_primitives::JamAuraApi<Block, AuraId> for Runtime {
-		fn authorities_at(_anchor_slot: u32) -> Vec<AuraId> {
-			// Off JAM there is one set for every slot.
-			#[cfg(not(jam))]
-			return pallet_aura::Authorities::<Runtime>::get().into_inner();
-			#[cfg(jam)]
-			return pallet_aura_jam::Pallet::<Runtime>::authorities_at(_anchor_slot);
+		fn authorities_at(anchor_slot: u32) -> Vec<AuraId> {
+			backing::authorities_at(anchor_slot)
 		}
 
 		fn scheduled_changes() -> Vec<(u32, Vec<AuraId>)> {
-			#[cfg(not(jam))]
-			return Vec::new();
-			#[cfg(jam)]
-			return pallet_aura_jam::Pallet::<Runtime>::scheduled_changes();
+			backing::scheduled_changes()
 		}
 	}
 
+	#[cfg(not(jam))]
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
 			0
 		}
 
 		fn max_claim_queue_offset() -> u8 {
-			ParachainSystem::max_claim_queue_offset()
+			super::ParachainSystem::max_claim_queue_offset()
 		}
 	}
 
@@ -251,9 +241,10 @@ impl_runtime_apis! {
 		}
 	}
 
+	#[cfg(not(jam))]
 	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
 		fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
-			ParachainSystem::collect_collation_info(header)
+			super::ParachainSystem::collect_collation_info(header)
 		}
 	}
 

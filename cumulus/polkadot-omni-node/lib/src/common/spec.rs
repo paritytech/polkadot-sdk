@@ -27,7 +27,6 @@ use crate::{
 		},
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
-	nodes::jam::block_import::{JamBlockImport, JamImportShared},
 };
 use codec::Encode;
 use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
@@ -83,16 +82,13 @@ pub(crate) trait BuildImportQueue<
 	BlockImport: sc_consensus::BlockImport<Block>,
 >
 {
-	fn build_import_queue<QueuedBI>(
+	fn build_import_queue(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
-		block_import: QueuedBI,
+		block_import: ParachainBlockImport<Block, BlockImport>,
 		config: &Configuration,
 		telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
-	) -> sc_service::error::Result<DefaultImportQueue<Block>>
-	where
-		QueuedBI:
-			sc_consensus::BlockImport<Block, Error = sp_consensus::Error> + Send + Sync + 'static;
+	) -> sc_service::error::Result<DefaultImportQueue<Block>>;
 }
 
 pub(crate) trait StartConsensus<Block: BlockT, RuntimeApi, BI, BIAuxiliaryData>
@@ -139,8 +135,7 @@ pub(crate) trait InitBlockImport<Block: BlockT, RuntimeApi> {
 	type BlockImport: sc_consensus::BlockImport<Block, Error = sp_consensus::Error>
 		+ Clone
 		+ Send
-		+ Sync
-		+ 'static;
+		+ Sync;
 	type BlockImportAuxiliaryData;
 
 	/// Build the path-specific outer block import on top of the supplied
@@ -241,15 +236,8 @@ pub(crate) trait BaseNodeSpec {
 	///
 	/// Use this macro if you don't actually need the full service, but just the builder in order to
 	/// be able to perform chain operations.
-	///
-	/// On the JAM path (`jam` is `Some`) the import queue is built over the
-	/// [`JamBlockImport`] re-execution wrapper: the queue `new_partial` builds is the one the
-	/// essential `basic-block-import-worker` runs over for the life of the node, so it must import
-	/// through the wrapper (task 12) — never a queue built here and rebuilt after, which would
-	/// orphan that worker by dropping its queue.
 	fn new_partial(
 		config: &Configuration,
-		jam: Option<JamImportShared<Self::Block>>,
 	) -> sc_service::error::Result<
 		ParachainService<
 			Self::Block,
@@ -323,32 +311,13 @@ pub(crate) trait BaseNodeSpec {
 
 		let block_import = ParachainBlockImport::new(outer_block_import, backend.clone());
 
-		// The queue built here is the one the essential `basic-block-import-worker` runs over for
-		// the life of the node, so on the JAM path it must be built over the `JamBlockImport`
-		// re-execution wrapper (task 12) — never built once and rebuilt after, which would orphan
-		// that worker by dropping its queue.
-		let import_queue = if let Some(jam) = jam {
-			Self::BuildImportQueue::build_import_queue(
-				client.clone(),
-				JamBlockImport::new(
-					block_import.clone(),
-					client.clone(),
-					Some(jam.povs),
-					Some(jam.code),
-				),
-				config,
-				telemetry.as_ref().map(|telemetry| telemetry.handle()),
-				&task_manager,
-			)?
-		} else {
-			Self::BuildImportQueue::build_import_queue(
-				client.clone(),
-				block_import.clone(),
-				config,
-				telemetry.as_ref().map(|telemetry| telemetry.handle()),
-				&task_manager,
-			)?
-		};
+		let import_queue = Self::BuildImportQueue::build_import_queue(
+			client.clone(),
+			block_import.clone(),
+			config,
+			telemetry.as_ref().map(|telemetry| telemetry.handle()),
+			&task_manager,
+		)?;
 
 		Ok(PartialComponents {
 			backend,
@@ -392,14 +361,6 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		Err(sc_service::Error::Other("Dev not supported for this node type".into()))
 	}
 
-	fn start_jam_node(
-		_config: Configuration,
-		_jam_params: JamNodeParams,
-		_node_extra_args: NodeExtraArgs,
-	) -> sc_service::error::Result<TaskManager> {
-		Err(sc_service::Error::Other("JAM not supported for this node type".into()))
-	}
-
 	/// Start a node with the given parachain spec.
 	///
 	/// This is the actual implementation that is abstract over the executor and the runtime api.
@@ -431,7 +392,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let parachain_fork_id = parachain_config.chain_spec.fork_id().map(ToString::to_string);
 			let advertise_non_global_ips = parachain_config.network.allow_non_globals_in_dht;
 
-			let params = Self::new_partial(&parachain_config, None)?;
+			let params = Self::new_partial(&parachain_config)?;
 			let (
 				block_import,
 				mut telemetry,
@@ -754,13 +715,15 @@ pub(crate) trait DynNodeSpec: NodeCommandRunner {
 		node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager>;
 
-	/// Start node against a JAM chain.
+	/// Start node against a JAM chain. Only the JAM node spec supports it.
 	fn start_jam_node(
 		self: Box<Self>,
-		config: Configuration,
-		jam_params: JamNodeParams,
-		node_extra_args: NodeExtraArgs,
-	) -> sc_service::error::Result<TaskManager>;
+		_config: Configuration,
+		_jam_params: JamNodeParams,
+		_node_extra_args: NodeExtraArgs,
+	) -> sc_service::error::Result<TaskManager> {
+		Err(sc_service::Error::Other("JAM not supported for this node type".into()))
+	}
 
 	/// Start the node.
 	fn start_node(
@@ -784,15 +747,6 @@ where
 		node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager> {
 		<Self as NodeSpec>::start_dev_node(config, mode, node_extra_args)
-	}
-
-	fn start_jam_node(
-		self: Box<Self>,
-		config: Configuration,
-		jam_params: JamNodeParams,
-		node_extra_args: NodeExtraArgs,
-	) -> sc_service::error::Result<TaskManager> {
-		<Self as NodeSpec>::start_jam_node(config, jam_params, node_extra_args)
 	}
 
 	fn start_node(

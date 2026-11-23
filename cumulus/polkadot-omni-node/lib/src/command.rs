@@ -79,15 +79,38 @@ where
 	}
 }
 
+fn new_jam_node_spec<Block: NodeBlock>(aura_id: AuraConsensusId) -> Box<dyn DynNodeSpec> {
+	use crate::nodes::jam::service::JamNode;
+	match aura_id {
+		AuraConsensusId::Sr25519 => Box::new(JamNode::<
+			Block,
+			fake_runtime_api::aura_sr25519::RuntimeApi,
+			sp_consensus_aura::sr25519::AuthorityId,
+		>::default()),
+		AuraConsensusId::Ed25519 => Box::new(JamNode::<
+			Block,
+			fake_runtime_api::aura_ed25519::RuntimeApi,
+			sp_consensus_aura::ed25519::AuthorityId,
+		>::default()),
+	}
+}
+
 fn new_node_spec(
 	config: &sc_service::Configuration,
 	runtime_resolver: &Box<dyn RuntimeResolverT>,
 	extra_args: &NodeExtraArgs,
 ) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error> {
 	let runtime = runtime_resolver.runtime(config.chain_spec.as_ref())?;
+	let jam = crate::nodes::jam::service::is_jam_chain_spec(&*config.chain_spec);
 
 	Ok(match runtime {
 		Runtime::Omni(block_number, consensus) => match (block_number, consensus) {
+			(BlockNumber::U32, Consensus::Aura(aura_id)) if jam => {
+				new_jam_node_spec::<Block<u32>>(aura_id)
+			},
+			(BlockNumber::U64, Consensus::Aura(aura_id)) if jam => {
+				new_jam_node_spec::<Block<u64>>(aura_id)
+			},
 			(BlockNumber::U32, Consensus::Aura(aura_id)) => {
 				new_aura_node_spec::<Block<u32>>(aura_id, extra_args)
 			},
@@ -311,10 +334,7 @@ where
 						.map_err(Into::into);
 				}
 
-				let jam_marker =
-					crate::common::chain_spec::Extensions::try_get(&*config.chain_spec)
-						.map(|extensions| extensions.relay_chain().starts_with("jam"))
-						.unwrap_or(false);
+				let jam_marker = crate::nodes::jam::service::is_jam_chain_spec(&*config.chain_spec);
 				if let Some(jam_params) = cli.jam_mode()? {
 					if !jam_marker {
 						return Err(

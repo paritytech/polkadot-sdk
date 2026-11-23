@@ -16,11 +16,6 @@
 // limitations under the License.
 
 use anyhow::anyhow;
-#[cfg(feature = "jam")]
-use cumulus_jam_zombienet_tests::{
-	para::{Para, PARACHAIN_SERVICE_ID},
-	spawn::{spawn, SpawnOptions},
-};
 use cumulus_primitives_core::relay_chain::MAX_POV_SIZE;
 use cumulus_test_runtime::block_bundling::WASM_BINARY;
 use cumulus_zombienet_sdk_helpers::{
@@ -29,7 +24,11 @@ use cumulus_zombienet_sdk_helpers::{
 };
 #[cfg(feature = "jam")]
 use cumulus_zombienet_sdk_helpers::{
-	jam_rpc::provide_validation_code, network::schedule_code_upgrade,
+	jam::{
+		para::Para,
+		spawn::{spawn, SpawnOptions},
+	},
+	network::submit_runtime_upgrade,
 };
 #[cfg(not(feature = "jam"))]
 use cumulus_zombienet_sdk_helpers::{
@@ -85,13 +84,14 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 
 	#[cfg(not(feature = "jam"))]
 	let config = build_network_config().await?;
+
 	#[cfg(not(feature = "jam"))]
-	let network = zombienet_sdk::environment::get_spawn_fn()(config).await?;
+	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
 	#[cfg(not(feature = "jam"))]
-	let network = &network;
+	let network = spawn_fn(config).await?;
 	// The para holds its three cores from genesis, there is no relay chain to assign them.
 	#[cfg(feature = "jam")]
-	let jam = spawn(
+	let network = spawn(
 		"block_bundling_runtime_upgrade",
 		&[Para::new(PARA_ID, 0, &["collator-0", "collator-1", "collator-2"])
 			.also_on([1, 2])
@@ -99,15 +99,13 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 		SpawnOptions::new(3),
 	)
 	.await?;
-	#[cfg(feature = "jam")]
-	let network = &jam.network;
 
 	let para_node = network.get_node("collator-1")?;
 
 	let para_client: OnlineClient<ParaConfig> = para_node.wait_client().await?;
 
 	// Assign cores 0 and 1 to start with 3 cores total (core 2 is assigned by Zombienet)
-	assign_cores(network, "validator-0", PARA_ID, vec![0, 1]).await?;
+	assign_cores(&network, "validator-0", PARA_ID, vec![0, 1]).await?;
 
 	log::info!("3 cores total assigned to the parachain");
 
@@ -148,17 +146,7 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 	// handed to JAM out of band. The para is finalized only once JAM accumulates its head, which
 	// the service holds back until it has the code, so the arming block is awaited as best block.
 	#[cfg(feature = "jam")]
-	let block_hash = {
-		// Step 1: Schedule the runtime upgrade by hash
-		log::info!("Sending schedule_code_upgrade_hash transaction");
-		let block_hash = schedule_code_upgrade(&para_client, &runtime_wasm).await?;
-		log::info!("schedule_code_upgrade_hash included in block: {:?}", block_hash);
-
-		// Step 2: Provide the actual runtime code to JAM
-		log::info!("Providing the runtime code to JAM, runtime size: {} bytes", runtime_wasm.len());
-		provide_validation_code(&jam.jam_rpc, PARACHAIN_SERVICE_ID, &runtime_wasm).await?;
-		block_hash
-	};
+	let block_hash = submit_runtime_upgrade(&network, &para_client, &runtime_wasm).await?;
 
 	ensure_is_only_block_in_core(&para_client, BlockToCheck::Exact(block_hash)).await?;
 

@@ -15,9 +15,9 @@
 // limitations under the License.
 
 use super::{
-	AccountId, AllPalletsWithSystem, Balance, Balances, BaseDeliveryFee, Broker, FeeAssetId,
-	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeHoldReason, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmpQueue,
+	backing, AccountId, AllPalletsWithSystem, Balance, Balances, Broker, ParachainInfo,
+	PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, WeightToFee,
+	XcmpQueue,
 };
 use frame_support::{
 	pallet_prelude::PalletInfoAccess,
@@ -35,7 +35,6 @@ use parachains_common::xcm_config::{
 	ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
-use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use testnet_parachains_constants::westend::locations::AssetHubLocation;
 use westend_runtime_constants::system_parachain::COLLECTIVES_ID;
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
@@ -274,14 +273,11 @@ impl xcm_executor::Config for XcmConfig {
 /// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 
-pub type PriceForParentDelivery =
-	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
-
 /// The means for routing XCM messages which are not for local execution into the right message
 /// queues.
 pub type XcmRouter = WithUniqueTopic<(
-	// Two routers - use UMP to communicate with the relay chain:
-	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm, PriceForParentDelivery>,
+	// Two routers - use UMP to communicate with the relay chain (no route on JAM):
+	backing::ParentXcmRouter,
 	// ..and XCMP to communicate with the sibling chains.
 	XcmpQueue,
 )>;

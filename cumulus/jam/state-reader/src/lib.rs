@@ -14,12 +14,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! JAM chain-state read side of the additional-data channel, extracted from
-//! `cumulus-primitives-additional-data`.
+//! JAM chain-state read side of the additional-data channel: the producer of the
+//! [`JAM_PROOF_KEY`] entry in a block's `sp_additional_data::AdditionalData` map.
 //!
-//! The generic additional-data machinery (the [`AdditionalData`] map, the finalizer registry and
-//! the `finalize` host function) lives in `sp-additional-data`. This crate holds the parts specific
-//! to *reading JAM chain state* into that channel:
+//! The generic additional-data machinery (the
+//! [`AdditionalData`](sp_additional_data::AdditionalData) map, the finalizer registry and the
+//! `finalize` host function) lives in `sp-additional-data`. This crate holds the parts specific to
+//! *reading JAM chain state* into that channel:
 //!
 //! - [`JAM_PROOF_KEY`] — the map key under which the JAM read-proof is carried,
 //! - [`JamStateReader`] + [`JamStateExt`] — the externalities extension the read host function
@@ -47,16 +48,13 @@ pub type StateKey = [u8; 31];
 #[cfg(any(jam, not(substrate_runtime)))]
 pub mod jam_proof;
 // The commit side pairs with [`JamProofReader`]: authoring commits the carried proof's hash under
-// `JAM_PROOF_KEY` so the digest recomputed on import matches. `std`-only like every additional-data
-// finalizer consumer (the omni-node); riscv runtimes do not need the type (their `additional-data`
-// digest uses the reader's `proof_size` instead).
-#[cfg(feature = "std")]
+// `JAM_PROOF_KEY`, and import (the omni-node) and refine (`jam_validate_block`) recompute the
+// digest with the same finalizer.
 pub mod jam_proof_finalizer;
 #[cfg(feature = "std")]
 pub use jam::JamStateExt;
 pub use jam::{jam_state, JamStateReader, JAM_PROOF_KEY};
 #[cfg(any(jam, not(substrate_runtime)))]
 pub use jam_proof::JamProofReader;
-#[cfg(feature = "std")]
 pub use jam_proof_finalizer::JamProofFinalizer;
 pub use upward::jam_upward;

@@ -61,7 +61,9 @@ pub fn expand_outer_origin(
 				instance,
 				generics,
 			));
+			let attr = pallet_decl.get_attributes();
 			query_origin_part_macros.push(quote! {
+				#attr
 				#path::__substrate_origin_check::is_origin_part_defined!(#name);
 			});
 		}

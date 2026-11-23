@@ -2,9 +2,11 @@
 // This file is part of Cumulus.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{mock::*, JamSlotSessions, NextSwitch};
+use crate::{mock::*, CurrentSlot, JamSlotSessions, NextSwitch, SlotInfo};
+use frame_support::traits::OnInitialize;
 use pallet_session::ShouldEndSession;
 use sp_consensus_aura::Slot;
+use sp_core::H256;
 
 fn session() -> u32 {
 	pallet_session::CurrentIndex::<Test>::get()
@@ -73,19 +75,23 @@ fn the_queued_set_takes_over_at_its_switch_slot_works() {
 	});
 }
 
-fn set_aura_slot_for(anchor: u32) {
-	crate::CurrentSlot::<Test>::put(Slot::from(cumulus_jam_aura_primitives::aura_slot_for_anchor(
-		anchor, 6000,
-	)));
+/// Initialize block `number` anchored at `anchor` whose Aura pre-digest names the Aura slot of
+/// `aura_slot_anchor`.
+fn initialize_in_aura_slot_of(number: u64, anchor: u32, aura_slot_anchor: u32) {
+	System::initialize(
+		&number,
+		&Default::default(),
+		&block_digest(anchor, aura_slot(aura_slot_anchor)),
+	);
 }
 
 #[test]
 fn the_anchor_slot_check_accepts_the_anchors_aura_slot_works() {
 	new_test_ext().execute_with(|| {
-		set_aura_slot_for(100);
+		initialize_in_aura_slot_of(1, 100, 100);
 		AuraJam::check_anchor_slot(100, 1);
 		AuraJam::check_anchor_slot(100, 1);
-		set_aura_slot_for(101);
+		initialize_in_aura_slot_of(2, 101, 101);
 		AuraJam::check_anchor_slot(101, 1);
 	});
 }
@@ -94,7 +100,7 @@ fn the_anchor_slot_check_accepts_the_anchors_aura_slot_works() {
 #[should_panic(expected = "Aura slot must be the anchor's")]
 fn the_anchor_slot_check_rejects_another_aura_slot_works() {
 	new_test_ext().execute_with(|| {
-		set_aura_slot_for(101);
+		initialize_in_aura_slot_of(1, 100, 101);
 		AuraJam::check_anchor_slot(100, 1);
 	});
 }
@@ -103,7 +109,7 @@ fn the_anchor_slot_check_rejects_another_aura_slot_works() {
 #[should_panic(expected = "authored blocks limit is reached")]
 fn the_anchor_slot_check_enforces_the_velocity_works() {
 	new_test_ext().execute_with(|| {
-		set_aura_slot_for(100);
+		initialize_in_aura_slot_of(1, 100, 100);
 		for _ in 0..3 {
 			AuraJam::check_anchor_slot(100, 1);
 		}
@@ -114,10 +120,75 @@ fn the_anchor_slot_check_enforces_the_velocity_works() {
 #[should_panic(expected = "Anchor slot moved backwards")]
 fn the_anchor_slot_check_rejects_an_older_anchor_works() {
 	new_test_ext().execute_with(|| {
-		set_aura_slot_for(100);
+		initialize_in_aura_slot_of(1, 100, 100);
 		AuraJam::check_anchor_slot(100, 1);
-		set_aura_slot_for(99);
+		initialize_in_aura_slot_of(2, 99, 99);
 		AuraJam::check_anchor_slot(99, 1);
+	});
+}
+
+#[test]
+#[should_panic(expected = "Could not find an AuRa pre-digest!")]
+fn the_anchor_slot_check_rejects_a_block_without_aura_pre_digest_works() {
+	new_test_ext().execute_with(|| {
+		CurrentSlot::<Test>::put(Slot::from(aura_slot(100)));
+		System::initialize(&1, &Default::default(), &jam_digest(100));
+		AuraJam::check_anchor_slot(100, 1);
+	});
+}
+
+#[test]
+fn the_hook_runs_before_aura_jam_on_initialize_works() {
+	new_test_ext().execute_with(|| {
+		run_block(1, 100);
+		System::initialize(&2, &H256::repeat_byte(2), &block_digest(101, aura_slot(101)));
+		// `JamSystem` runs the hook while `CurrentSlot` still holds block 1's slot; the hook
+		// accepts block 2 on the slot of its digest.
+		JamSystem::on_initialize(2);
+		assert_eq!(*CurrentSlot::<Test>::get(), aura_slot(100));
+		assert_eq!(SlotInfo::<Test>::get(), Some((101, 1)));
+		AuraJam::on_initialize(2);
+		assert_eq!(*CurrentSlot::<Test>::get(), aura_slot(101));
+	});
+}
+
+#[test]
+#[should_panic(expected = "Aura slot must be the anchor's")]
+fn a_block_whose_aura_slot_is_behind_its_anchor_panics_in_jam_system_works() {
+	new_test_ext().execute_with(|| {
+		run_block(1, 100);
+		System::initialize(&2, &H256::repeat_byte(2), &block_digest(101, aura_slot(100)));
+		JamSystem::on_initialize(2);
+	});
+}
+
+#[test]
+#[should_panic(expected = "Anchor slot moved backwards")]
+fn a_block_on_an_older_anchor_panics_in_jam_system_works() {
+	new_test_ext().execute_with(|| {
+		run_block(1, 100);
+		run_block(2, 99);
+	});
+}
+
+#[test]
+fn can_build_upon_counts_the_jam_system_segment_works() {
+	new_test_ext().execute_with(|| {
+		// Nothing is included, so the parents of blocks 2..=CAPACITY fill the segment.
+		for number in 1..=CAPACITY {
+			run_block(number as u64, 100 + number);
+		}
+		let next = Slot::from(aura_slot(101 + CAPACITY));
+		assert!(Hook::can_build_upon(H256::repeat_byte(CAPACITY as u8), next));
+		// A hash not in the segment counts all of it plus the current block: capacity reached.
+		assert!(!Hook::can_build_upon(H256::zero(), next));
+		// Same slot as the last block: one more block fits the velocity, an older slot never.
+		let last = Slot::from(aura_slot(100 + CAPACITY));
+		assert!(Hook::can_build_upon(H256::repeat_byte(CAPACITY as u8), last));
+		assert!(!Hook::can_build_upon(
+			H256::repeat_byte(CAPACITY as u8),
+			Slot::from(aura_slot(99 + CAPACITY))
+		));
 	});
 }
 
@@ -159,6 +230,30 @@ fn a_timestamp_off_the_aura_slot_is_rejected_works() {
 		AuraJam::on_timestamp_set(10 * 6000);
 		AuraJam::on_timestamp_set(11 * 6000);
 	});
+}
+
+/// `BlockExecutor` checks a PoV's seal against the set at the block's anchor, read from the
+/// parent's state, so those reads have to be in the block's storage proof. `on_initialize` makes
+/// them itself: in a runtime where no other pallet reads the set (one without `pallet-authorship`),
+/// nothing else would.
+#[test]
+fn on_initialize_puts_the_set_at_the_anchor_into_the_proof_works() {
+	let mut ext = new_test_ext();
+	ext.execute_with(|| run_block(1, 100));
+	ext.commit_all().expect("no transaction is open");
+	let root = *ext.backend.root();
+
+	let ((), proof) = ext.execute_and_prove(|| {
+		System::initialize(&2, &H256::repeat_byte(2), &block_digest(101, aura_slot(101)));
+		AuraJam::on_initialize(2);
+	});
+
+	sp_state_machine::read_proof_check::<sp_runtime::traits::BlakeTwo256, _>(
+		root,
+		proof,
+		[crate::Pending::<Test>::hashed_key(), crate::Authorities::<Test>::hashed_key()],
+	)
+	.expect("the reads of the seal check are in the proof");
 }
 
 mod block_executor {

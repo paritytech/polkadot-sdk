@@ -48,8 +48,6 @@ use std::cell::RefCell;
 
 use crate as parachain_system;
 use crate::consensus_hook::UnincludedSegmentCapacity;
-use cumulus_jam_state_reader::{JamStateExt, JamStateReader};
-use parachain_service_core::StateKey;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -228,48 +226,13 @@ impl XcmpMessageHandler for SaveIntoThreadLocal {
 	}
 }
 
-thread_local! {
-	/// Serves the JAM-state reads made by the riscv `read_included_para_head_hash_jam` branch during
-	/// the mock tests, keyed by the 31-byte JAM state key.
-	static MOCK_JAM_READS: RefCell<Option<BTreeMap<Vec<u8>, Vec<u8>>>> =
-		const { RefCell::new(None) };
-}
-
-/// Configure the JAM-state reads served to `read_included_para_head_hash_jam` (the riscv branch).
-pub(crate) fn set_mock_jam_reads(map: BTreeMap<Vec<u8>, Vec<u8>>) {
-	MOCK_JAM_READS.with(|c| *c.borrow_mut() = Some(map));
-}
-
-/// Externalities extension provider that serves `jam_state_read` from [`MOCK_JAM_READS`] (the
-/// JAM state configured for the current test), mirroring how the riscv runtime reads it.
-struct MockJamReads;
-
-impl JamStateReader for MockJamReads {
-	fn read(&self, key: &StateKey) -> Option<Vec<u8>> {
-		MOCK_JAM_READS.with(|c| {
-			c.borrow()
-				.as_ref()
-				.expect("jam reads configured for the current test")
-				.get(&key[..])
-				.cloned()
-		})
-	}
-	fn proof_size(&self) -> usize {
-		0
-	}
-}
-
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	HANDLED_DMP_MESSAGES.with(|m| m.borrow_mut().clear());
 	HANDLED_XCMP_MESSAGES.with(|m| m.borrow_mut().clear());
-	MOCK_JAM_READS.with(|c| *c.borrow_mut() = None);
 
-	let mut ext: sp_io::TestExternalities =
-		frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into();
-	ext.register_extension(JamStateExt(Box::new(MockJamReads)));
-	ext
+	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
 
 #[allow(dead_code)]

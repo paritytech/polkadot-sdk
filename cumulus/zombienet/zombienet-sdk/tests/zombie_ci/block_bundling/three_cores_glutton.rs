@@ -24,12 +24,10 @@ use cumulus_zombienet_sdk_helpers::network::{
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 #[cfg(not(feature = "jam"))]
-use zombienet_sdk::NetworkConfig;
-#[cfg(not(feature = "jam"))]
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 #[cfg(feature = "jam")]
-use cumulus_jam_zombienet_tests::{
+use cumulus_zombienet_sdk_helpers::jam::{
 	para::Para,
 	spawn::{spawn, SpawnOptions},
 };
@@ -48,13 +46,14 @@ async fn block_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
 
 	#[cfg(not(feature = "jam"))]
 	let config = build_network_config().await?;
+
 	#[cfg(not(feature = "jam"))]
-	let network = zombienet_sdk::environment::get_spawn_fn()(config).await?;
+	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
 	#[cfg(not(feature = "jam"))]
-	let network = &network;
+	let network = spawn_fn(config).await?;
 	// The para holds its three cores from genesis, there is no relay chain to assign them.
 	#[cfg(feature = "jam")]
-	let jam = spawn(
+	let network = spawn(
 		"block_bundling_three_cores_glutton",
 		&[Para::new(PARA_ID, 0, &["collator-0", "collator-1", "collator-2"])
 			.also_on([1, 2])
@@ -63,15 +62,13 @@ async fn block_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
 		SpawnOptions::new(3),
 	)
 	.await?;
-	#[cfg(feature = "jam")]
-	let network = &jam.network;
 
 	let para_node = network.get_node("collator-1")?;
 
 	let para_client = para_node.wait_client().await?;
 
 	// Assign cores 0 and 1 to start with 3 cores total (core 2 is assigned by Zombienet)
-	assign_cores(network, "validator-0", PARA_ID, vec![0, 1]).await?;
+	assign_cores(&network, "validator-0", PARA_ID, vec![0, 1]).await?;
 
 	// Wait for the parachain to produce 72 blocks with 3 cores and glutton active
 	// With 3 cores, we expect roughly 3x throughput compared to single core
@@ -83,7 +80,7 @@ async fn block_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
 	#[cfg(feature = "jam")]
 	let expected_blocks = 12..19;
 	assert_para_throughput(
-		network,
+		&network,
 		"validator-0",
 		6,
 		[(ParaId::from(PARA_ID), 12..19)],
@@ -91,7 +88,7 @@ async fn block_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
 	)
 	.await?;
 
-	assert_finality_lag(network, "collator-1", 72).await?;
+	assert_finality_lag(&network, "collator-1", 72).await?;
 	log::info!("Test finished successfully - 72 blocks produced with 3 cores and glutton");
 	Ok(())
 }

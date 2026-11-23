@@ -88,17 +88,20 @@ mod global_alloc_riscv;
 #[cfg(all(substrate_runtime, jam, target_arch = "riscv64"))]
 mod mem_riscv;
 
-/// Host functions for the relay chain runtime.
+/// Items shared by both host interfaces, re-exported by each.
+mod common;
+
+/// The host interface of every non-JAM runtime.
 #[cfg(not(jam))]
-pub mod relay_chain;
+pub mod host_interface;
 #[cfg(not(jam))]
-pub use relay_chain::*;
+pub use host_interface::*;
 
 /// Host functions for a JAM runtime.
 ///
 /// Compiled for a JAM runtime blob (`--cfg jam`) and on the node side, where the PolkaVM
 /// executor registers these host calls for a JAM blob. The glob re-export stays `--cfg jam`
-/// only: on the node side the relay-chain items keep their `sp_io` paths.
+/// only: on the node side the `host_interface` items keep their `sp_io` paths.
 #[cfg(any(jam, not(substrate_runtime)))]
 pub mod jam;
 #[cfg(jam)]

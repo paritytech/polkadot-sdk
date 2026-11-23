@@ -47,7 +47,9 @@ pub fn expand_outer_config(
 			genesis_build_calls
 				.extend(expand_config_build_storage_call(scrate, &config, attr, field_name));
 			query_genesis_config_part_macros.push(quote! {
+				#attr
 				#path::__substrate_genesis_config_check::is_genesis_config_defined!(#pallet_name);
+				#attr
 				#[cfg(feature = "std")]
 				#path::__substrate_genesis_config_check::is_std_enabled_for_genesis!(#pallet_name, #path_str);
 			});

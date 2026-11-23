@@ -307,8 +307,11 @@ where
 	H: HostFunctions,
 {
 	if let Some(blob) = blob.as_polkavm_blob() {
-		return sc_executor_polkavm::create_runtime::<H, sp_io::jam::HostFunctions>(blob)
-			.map(|module| Box::new(module) as Box<dyn WasmModule>);
+		return sc_executor_polkavm::create_runtime::<H>(
+			blob,
+			sc_executor_polkavm::jam::host_functions::<sp_io::jam::HostFunctions>(),
+		)
+		.map(|module| Box::new(module) as Box<dyn WasmModule>);
 	}
 
 	match wasm_method {

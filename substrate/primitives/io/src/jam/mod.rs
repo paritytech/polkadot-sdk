@@ -32,10 +32,6 @@
 //! | 2 | `jam::fetch` | no |
 //! | 7 | `jam::historical_lookup` | no |
 //! | 8 | `jam::export` | no |
-//! | 200 | `service::set_parent_head_hash` | no |
-//! | 201 | `service::set_head` | no |
-//! | 202 | `service::send_upward_message` | no |
-//! | 203 | `service::report_error` | no |
 //! | 204 | reserved: log (not emitted, logging is a no-op) | - |
 //! | 301-311 | `storage::{read, set, clear, exists, clear_prefix, append, root, next_key, start_transaction, rollback_transaction, commit_transaction}` | yes |
 //! | 312-316 | reserved (bandersnatch/bls) | - |
@@ -58,17 +54,14 @@ pub use native::*;
 #[cfg(all(test, not(substrate_runtime)))]
 mod tests;
 
-use codec::{Decode, Encode};
-
+pub use crate::common::*;
 pub use sp_crypto_hashing as hashing;
-pub use sp_externalities::MultiRemovalResults;
 
 /// The JAM PolkaVM host-call index table, collected from every module that declares host
 /// calls, sorted by index.
 pub fn host_call_indices() -> alloc::vec::Vec<(u32, &'static str)> {
 	let mut v = alloc::vec::Vec::new();
 	v.extend_from_slice(host::jam::HOST_CALL_INDICES);
-	v.extend_from_slice(service::HOST_CALL_INDICES);
 	v.extend_from_slice(storage::HOST_CALL_INDICES);
 	v.extend_from_slice(default_child_storage::HOST_CALL_INDICES);
 	v.extend_from_slice(crypto::HOST_CALL_INDICES);
@@ -95,87 +88,3 @@ pub type HostFunctions = (
 /// All these host functions will be callable from inside the PolkaVM environment.
 #[cfg(not(substrate_runtime))]
 pub type SubstrateHostFunctions = HostFunctions;
-
-#[cfg(not(substrate_runtime))]
-sp_externalities::decl_extension! {
-	/// Extension to signal to [`crypto::ed25519_verify`] to use the dalek crate.
-	///
-	/// The switch from `ed25519-dalek` to `ed25519-zebra` was a breaking change. `ed25519-zebra`
-	/// is more permissive when verifying signatures, so some chains may fail to sync from genesis
-	/// with it. Register this extension to the runtime execution environment to signal that
-	/// `ed25519-dalek` should be used instead.
-	pub struct UseDalekExt;
-}
-
-#[cfg(not(substrate_runtime))]
-impl Default for UseDalekExt {
-	fn default() -> Self {
-		Self
-	}
-}
-
-/// Error verifying ECDSA signature
-#[derive(Encode, Decode)]
-pub enum EcdsaVerifyError {
-	/// Incorrect value of R or S
-	BadRS,
-	/// Incorrect value of V
-	BadV,
-	/// Invalid signature
-	BadSignature,
-}
-
-/// The outcome of calling `storage_kill`. Returned value is the number of storage items
-/// removed from the backend from making the `storage_kill` call.
-#[derive(Encode, Decode)]
-pub enum KillStorageResult {
-	/// All keys to remove were removed, return number of iterations performed during the
-	/// operation.
-	AllRemoved(u32),
-	/// Not all key to remove were removed, return number of iterations performed during the
-	/// operation.
-	SomeRemaining(u32),
-}
-
-impl From<MultiRemovalResults> for KillStorageResult {
-	fn from(r: MultiRemovalResults) -> Self {
-		// We use `loops` here rather than `backend` because that's the same as the original
-		// functionality pre-#11490. This won't matter once we switch to the new host function
-		// since we won't be using the `KillStorageResult` type in the runtime any more.
-		match r.maybe_cursor {
-			None => Self::AllRemoved(r.loops),
-			Some(..) => Self::SomeRemaining(r.loops),
-		}
-	}
-}
-
-/// Type alias for Externalities implementation used in tests.
-#[cfg(feature = "std")] // NOTE: Deliberately isn't `not(substrate_runtime)`.
-pub type TestExternalities = sp_state_machine::TestExternalities<sp_core::Blake2Hasher>;
-
-/// Initialize tracing of sp_tracing.
-///
-/// The jam tracing functions are no-ops inside the runtime, so this only installs the bridging
-/// subscriber when built with `substrate_runtime` and the `with-tracing` feature; otherwise it
-/// is a no-op.
-pub use wasm_tracing::init_tracing;
-
-/// Crashes the execution of the program.
-///
-/// Equivalent to the WASM `unreachable` instruction, RISC-V `unimp` instruction,
-/// or just the `unreachable!()` macro everywhere else.
-pub fn unreachable() -> ! {
-	#[cfg(target_family = "wasm")]
-	{
-		core::arch::wasm32::unreachable();
-	}
-
-	#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
-	// SAFETY: `unimp` unconditionally traps and never returns.
-	unsafe {
-		core::arch::asm!("unimp", options(noreturn));
-	}
-
-	#[cfg(not(any(target_arch = "riscv32", target_arch = "riscv64", target_family = "wasm")))]
-	unreachable!();
-}

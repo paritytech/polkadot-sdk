@@ -22,7 +22,7 @@ use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
 };
 use scale_info::TypeInfo;
-use sp_runtime::traits::{Hash, HashingFor};
+use sp_runtime::traits::HashingFor;
 use sp_state_machine::{Backend, TrieBackend, TrieBackendBuilder};
 use sp_trie::{HashDBT, MemoryDB, StorageProof, EMPTY_PREFIX};
 
@@ -271,52 +271,10 @@ impl RelayChainStateProof {
 	}
 
 	/// Read latest included parachain [head data](`relay_chain::HeadData`) from the relay chain
-	/// state, where the relay chain stores the full head.
+	/// state.
 	pub fn read_included_para_head(&self) -> Result<relay_chain::HeadData, Error> {
 		self.read_entry_inner(&relay_chain::well_known_keys::para_head(self.para_id), None)
 			.map_err(Error::ParaHead)
-	}
-
-	/// Hash of the latest included parachain head: read as is on JAM, where the parachain
-	/// service stores the header hash; the full relay-chain head is hashed with `H`.
-	pub fn read_included_para_head_hash<H: Hash>(&self) -> Result<H::Output, Error> {
-		#[cfg(jam)]
-		{
-			return self.read_included_para_head_hash_jam::<H>();
-		}
-		#[cfg(not(jam))]
-		{
-			self.read_included_para_head().map(|head| <H as Hash>::hash(&head.0))
-		}
-	}
-
-	/// Read the hash of the latest included parachain head from the parachain-service JAM state
-	/// (riscv runtime).
-	///
-	/// The service stores the included head, a header hash, in the `ParaInfo` entry under
-	/// [`parachain_service_core::para_info_key`]. Compiled on the riscv runtime and, so the mock
-	/// tests can exercise it, on host test builds (where it is reached directly, not through
-	/// [`Self::read_included_para_head_hash`]).
-	///
-	/// INTERIM (task 8 → task 11): while no JAM state proof is carried in the PoV yet, a read that
-	/// JAM state cannot serve (absent value / missing reader) falls back to the relay chain state
-	/// proof — byte-identical to the pre-task-8 behaviour. Task 11 replaces the fallback with the
-	/// proof-backed JAM read.
-	#[cfg(any(test, jam))]
-	pub(crate) fn read_included_para_head_hash_jam<H: Hash>(&self) -> Result<H::Output, Error> {
-		let para_id = parachain_service_core::types::ParaId::from(u32::from(self.para_id));
-		let state_key = parachain_service_core::service_value_state_key(
-			parachain_service_core::PARACHAIN_SERVICE_ID,
-			&parachain_service_core::para_info_key(para_id),
-		);
-		if let Some(raw) = cumulus_jam_state_reader::jam_state::jam_state_read(state_key) {
-			let info = parachain_service_core::ParaInfo::decode(&mut &raw[..])
-				.map_err(|_| Error::ParaHead(ReadEntryErr::Decode))?;
-			<H::Output as codec::DecodeAll>::decode_all(&mut &info.head_data[..])
-				.map_err(|_| Error::ParaHead(ReadEntryErr::Decode))
-		} else {
-			self.read_included_para_head().map(|head| <H as Hash>::hash(&head.0))
-		}
 	}
 
 	/// Read relay chain authorities.

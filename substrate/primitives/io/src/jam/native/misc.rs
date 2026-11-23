@@ -18,7 +18,7 @@
 //! Miscellaneous helpers (`print_*`); there is no `runtime_version` under JAM.
 //!
 //! Printing is not a JAM host call: the `print_*` functions are no-ops inside the runtime and
-//! only log on the node side (std), mirroring the `relay_chain.rs` bodies.
+//! only log on the node side (std), mirroring the `host_interface.rs` bodies.
 
 /// Print a number.
 ///

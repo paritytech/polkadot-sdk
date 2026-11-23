@@ -20,9 +20,7 @@ use codec::{Decode, Encode};
 use primitive_types::H256;
 
 use crate::{
-	config::{AuthConfig, ConfigError},
-	merkle::{padded_leaf_count, CollatorHasher},
-	AuthorizationError, SignatureVerifier,
+	config::AuthConfig, merkle::verify_collator_proof, AuthorizationError, SignatureVerifier,
 };
 
 /// Raw 32-byte collator public key.
@@ -64,23 +62,12 @@ impl AuthToken {
 		config: &AuthConfig,
 		collator_index: u32,
 	) -> Result<(), AuthorizationError> {
-		let padded_size = padded_leaf_count(config.collator_set_size.get() as usize)
-			.map_err(|_| AuthorizationError::BadConfig(ConfigError::InvalidCollatorSetSize))?;
-
-		if self.proof.len() != padded_size.ilog2() as usize {
-			return Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof));
-		}
-
-		if collator_index >= config.collator_set_size.get() {
-			return Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof));
-		}
-
-		binary_merkle_tree::verify_proof::<CollatorHasher, _, _>(
+		verify_collator_proof(
 			&config.collator_set_root,
-			self.proof.iter().copied(),
-			padded_size,
+			&self.proof,
+			config.collator_set_size.get(),
 			collator_index,
-			binary_merkle_tree::Leaf::Value(&self.key),
+			&self.key,
 		)
 		.then_some(())
 		.ok_or(AuthorizationError::BadToken(TokenError::BadCollatorSetProof))
@@ -136,42 +123,28 @@ mod tests {
 	}
 
 	#[test]
-	fn check_proof_maximum_supported_size_works() {
+	fn check_proof_large_sets_works() {
 		let (mut config, mut token, _) = fixture();
-		config.collator_set_size = core::num::NonZero::new(1u32 << 31).expect("nonzero test size");
+		for (size, siblings) in [(1u32 << 31, 31), ((1u32 << 31) + 1, 1), (u32::MAX, 31)] {
+			config.collator_set_size = core::num::NonZero::new(size).unwrap();
+			let index = size - 1;
+			token.proof = alloc::vec![H256::zero(); siblings];
+			let mut current = sp_crypto_hashing::blake2_256(&token.key);
 
-		let index = config.collator_set_size.get() - 1;
-		token.proof = alloc::vec![H256::zero(); 31];
-		let mut current = sp_crypto_hashing::blake2_256(&token.key);
+			// The rightmost leaf is promoted or takes the right branch at each level.
+			for sibling in &token.proof {
+				let mut pair = [0; 64];
+				pair[..32].copy_from_slice(sibling.as_bytes());
+				pair[32..].copy_from_slice(&current);
+				current = sp_crypto_hashing::blake2_256(&pair);
+			}
 
-		// The rightmost leaf takes the right branch at every level.
-		for sibling in &token.proof {
-			let mut pair = [0; 64];
-			pair[..32].copy_from_slice(sibling.as_bytes());
-			pair[32..].copy_from_slice(&current);
-			current = sp_crypto_hashing::blake2_256(&pair);
+			config.collator_set_root = H256::from(current);
+			assert!(token.check_proof(&config, index).is_ok());
+			assert!(matches!(
+				token.check_proof(&config, index - 1),
+				Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof))
+			));
 		}
-
-		config.collator_set_root = H256::from(current);
-
-		assert!(token.check_proof(&config, index).is_ok());
-		assert!(matches!(
-			token.check_proof(&config, index - 1),
-			Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof))
-		));
-	}
-
-	#[test]
-	fn check_proof_first_unsupported_size_errors() {
-		let (mut config, mut token, _) = fixture();
-
-		config.collator_set_size =
-			core::num::NonZero::new((1u32 << 31) + 1).expect("nonzero test size");
-		token.proof = alloc::vec![H256::zero(); 32];
-
-		assert_eq!(
-			token.check_proof(&config, 0),
-			Err(AuthorizationError::BadConfig(ConfigError::InvalidCollatorSetSize))
-		);
 	}
 }

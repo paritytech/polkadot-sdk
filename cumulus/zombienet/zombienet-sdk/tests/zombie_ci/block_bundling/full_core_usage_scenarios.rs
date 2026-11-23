@@ -17,14 +17,14 @@
 
 #[cfg(not(feature = "jam"))]
 use anyhow::anyhow;
-#[cfg(feature = "jam")]
-use cumulus_jam_zombienet_tests::{
-	para::Para,
-	spawn::{spawn, SpawnOptions},
-};
 use cumulus_primitives_core::relay_chain::MAX_POV_SIZE;
 #[cfg(not(feature = "jam"))]
 use cumulus_zombienet_sdk_helpers::ensure_is_last_block_in_core;
+#[cfg(feature = "jam")]
+use cumulus_zombienet_sdk_helpers::jam::{
+	para::Para,
+	spawn::{spawn, SpawnOptions},
+};
 use cumulus_zombienet_sdk_helpers::{
 	ensure_is_only_block_in_core, network::assign_cores,
 	submit_extrinsic_and_wait_for_finalization_success, BlockToCheck, ParaConfig,
@@ -55,13 +55,14 @@ async fn block_bundling_full_core_usage_scenarios() -> Result<(), anyhow::Error>
 
 	#[cfg(not(feature = "jam"))]
 	let config = build_network_config().await?;
+
 	#[cfg(not(feature = "jam"))]
-	let network = zombienet_sdk::environment::get_spawn_fn()(config).await?;
+	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
 	#[cfg(not(feature = "jam"))]
-	let network = &network;
+	let network = spawn_fn(config).await?;
 	// The para holds its three cores from genesis, there is no relay chain to assign them.
 	#[cfg(feature = "jam")]
-	let jam = spawn(
+	let network = spawn(
 		"block_bundling_full_core_usage_scenarios",
 		&[Para::new(PARA_ID, 0, &["collator-0", "collator-1", "collator-2"])
 			.also_on([1, 2])
@@ -72,8 +73,6 @@ async fn block_bundling_full_core_usage_scenarios() -> Result<(), anyhow::Error>
 		SpawnOptions::new(3),
 	)
 	.await?;
-	#[cfg(feature = "jam")]
-	let network = &jam.network;
 
 	let para_node = network.get_node("collator-1")?;
 
@@ -81,7 +80,7 @@ async fn block_bundling_full_core_usage_scenarios() -> Result<(), anyhow::Error>
 	let alice = dev::alice();
 
 	// Assign cores 0 and 1 to start with 3 cores total (core 2 is assigned by Zombienet)
-	assign_cores(network, "validator-0", PARA_ID, vec![0, 1]).await?;
+	assign_cores(&network, "validator-0", PARA_ID, vec![0, 1]).await?;
 
 	// Create and send first transaction: 1s ref_time using utility.with_weight
 	//

@@ -36,10 +36,11 @@ pub fn expand_outer_validate_unsigned(
 			let attr = pallet_decl.get_attributes();
 
 			pallet_names.push(name);
-			pallet_attrs.push(attr);
 			query_validate_unsigned_part_macros.push(quote! {
+				#attr
 				#path::__substrate_validate_unsigned_check::is_validate_unsigned_part_defined!(#name);
 			});
+			pallet_attrs.push(attr);
 		}
 	}
 

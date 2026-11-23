@@ -260,9 +260,10 @@ pub fn is_internal_attr(attr: &syn::Attribute) -> bool {
 
 /// Returns the PolkaVM host-call index declared as `#[polkavm_index(N)]`, if present.
 ///
-/// PolkaVM/JAM dispatches host calls by number, and the PolkaVM linker rejects a program that
-/// mixes indexed with unindexed imports. A runtime interface intended for such a target must
-/// therefore give every function an index agreed with the host.
+/// JAM dispatches host calls by number, and the PolkaVM linker rejects a program that mixes
+/// indexed with unindexed imports. The index therefore applies only to JAM builds (`--cfg jam`),
+/// where every function the runtime imports must carry an index agreed with the host; other riscv
+/// builds import the function unindexed.
 pub fn get_item_polkavm_index(item: &TraitItemFn) -> Result<Option<u32>> {
 	item.attrs
 		.iter()

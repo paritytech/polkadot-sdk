@@ -131,8 +131,9 @@ pub use sp_std;
 ///     /// runtime that is built for a PolkaVM target and that talks to a host expecting fixed
 ///     /// numbers, *every* import it emits needs an index agreed with that host.
 ///     ///
-///     /// The attribute only affects the riscv import; wasm and native are untouched. Each
-///     /// version of a function is a distinct host call and therefore needs its own index.
+///     /// The index applies only to the riscv import of a JAM build (`--cfg jam`); other riscv
+///     /// builds import the function unindexed, and wasm and native are untouched. Each version
+///     /// of a function is a distinct host call and therefore needs its own index.
 ///     #[polkavm_index(300)]
 ///     fn indexed_call(data: PassFatPointerAndRead<&[u8]>) {
 ///         let _ = data;

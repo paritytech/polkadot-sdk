@@ -14,7 +14,7 @@ transaction costs.
 - **Block building** (`src/block.rs`): the runtime blob runs through the node's executor on an
   in-memory client. Each block gets what the omni-node's JAM builder gives it: the refine context,
   the JAM state reader and additional-data finalizer over a JAM state proof, the Aura slot,
-  `JamParent` and `BlockBundleInfo` digests, the timestamp and mocked parachain inherents, and the
+  `JamParent` and `BlockBundleInfo` digests, the timestamp inherent (a JAM block carries no parachain inherent), and the
   Aura seal.
 - **JAM state** (`src/jam_state.rs`): the para's `ParaInfo` in a Gray Paper state trie. Its root is the refine context's state root and every block carries
   the proof, as against a real JAM node.

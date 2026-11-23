@@ -36,7 +36,7 @@
 //! it somewhere else.
 
 use anyhow::Context;
-use cumulus_jam_zombienet_tests::{
+use cumulus_zombienet_sdk_helpers::jam::{
 	control,
 	env::{binaries_or_err, Binaries},
 	network::wait_for_collators,
@@ -455,7 +455,7 @@ async fn log_lines_with(
 
 /// The running network plus the handles the dynamic-core tests change it with.
 ///
-/// This mirrors what the old `jam-tests` harness kept in its `Run`: the spawned network, its JAM
+/// This mirrors what the old JAM harness kept in its `Run`: the spawned network, its JAM
 /// RPC, the URL and authorizer blob the control tool is pointed at, and the single para of a
 /// single-para run.
 struct Run<'a> {

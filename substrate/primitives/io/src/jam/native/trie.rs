@@ -18,7 +18,7 @@
 //! In-guest trie operations, delegating to `sp_trie`.
 //!
 //! JAM does not provide trie host calls; roots and proof checks run inside the runtime. The
-//! public functions keep the exact signatures of `crate::relay_chain::trie` (newest version
+//! public functions keep the exact signatures of `crate::host_interface::trie` (newest version
 //! each).
 
 use alloc::vec::Vec;

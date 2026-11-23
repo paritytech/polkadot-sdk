@@ -1,7 +1,6 @@
-use super::PriceForParentDelivery;
 use crate::{
-	AccountId, AllPalletsWithSystem, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
-	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
+	backing, AccountId, AllPalletsWithSystem, Balances, ParachainInfo, PolkadotXcm, Runtime,
+	RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 
 use polkadot_sdk::{
@@ -162,8 +161,8 @@ pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, R
 /// The means for routing XCM messages which are not for local execution into the right message
 /// queues.
 pub type XcmRouter = WithUniqueTopic<(
-	// Two routers - use UMP to communicate with the relay chain:
-	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm, PriceForParentDelivery>,
+	// Two routers - the backing's route to the relay chain (UMP; none on JAM):
+	backing::ParentXcmRouter,
 	// ..and XCMP to communicate with the sibling chains.
 	XcmpQueue,
 )>;

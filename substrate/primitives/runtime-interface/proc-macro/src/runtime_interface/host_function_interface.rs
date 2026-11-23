@@ -146,20 +146,38 @@ fn generate_extern_host_function(
 		) #ffi_return_value;
 	};
 
-	// `#[polkavm_index(N)]` on the method pins the host-call number. The index attribute has to
-	// sit on the function *inside* the `extern` block, and an inner `cfg_attr` is not expanded
-	// before the outer `polkavm_import` macro reads it, so riscv gets its own `cfg`-selected block
-	// rather than sharing one via `cfg_attr`.
-	let polkavm_index = crate::utils::get_item_polkavm_index(method)?
-		.map(|index| quote!( #[polkavm_import(index = #index)] ));
+	// `#[polkavm_index(N)]` on the method pins the host-call number of a JAM build (`--cfg jam`),
+	// which dispatches host calls by number. Every other riscv build stays unindexed: the PolkaVM
+	// linker rejects a program that mixes indexed with unindexed imports, and those builds also
+	// import unindexed interfaces. The index attribute has to sit on the function *inside* the
+	// `extern` block, and an inner `cfg_attr` is not expanded before the outer `polkavm_import`
+	// macro reads it, so each riscv flavor gets its own `cfg`-selected block.
+	let riscv_extern_block = match crate::utils::get_item_polkavm_index(method)? {
+		Some(index) => quote! {
+			#[cfg(all(target_arch = "riscv64", jam))]
+			#[#crate_::polkavm::polkavm_import(abi = #crate_::polkavm::polkavm_abi)]
+			extern "C" {
+				#[polkavm_import(index = #index)]
+				#extern_fn
+			}
+
+			#[cfg(all(target_arch = "riscv64", not(jam)))]
+			#[#crate_::polkavm::polkavm_import(abi = #crate_::polkavm::polkavm_abi)]
+			extern "C" {
+				#extern_fn
+			}
+		},
+		None => quote! {
+			#[cfg(target_arch = "riscv64")]
+			#[#crate_::polkavm::polkavm_import(abi = #crate_::polkavm::polkavm_abi)]
+			extern "C" {
+				#extern_fn
+			}
+		},
+	};
 
 	let extern_block = quote! {
-		#[cfg(target_arch = "riscv64")]
-		#[#crate_::polkavm::polkavm_import(abi = #crate_::polkavm::polkavm_abi)]
-		extern "C" {
-			#polkavm_index
-			#extern_fn
-		}
+		#riscv_extern_block
 
 		#[cfg(not(target_arch = "riscv64"))]
 		#[cfg_attr(target_arch = "wasm32", link(wasm_import_module = "env"))]

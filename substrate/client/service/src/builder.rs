@@ -56,7 +56,6 @@ use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
 use sc_network_sync::{
 	block_relay_protocol::{BlockDownloader, BlockRelayParams},
 	block_request_handler::BlockRequestHandler,
-	code_request_handler::{CodeBlobProvider, CodeRequestHandler},
 	engine::SyncingEngine,
 	service::network::{NetworkServiceHandle, NetworkServiceProvider},
 	state_request_handler::StateRequestHandler,
@@ -1038,7 +1037,6 @@ where
 		+ ProofProvider<Block>
 		+ HeaderBackend<Block>
 		+ BlockchainEvents<Block>
-		+ CodeBlobProvider
 		+ 'static,
 	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + 'static,
 	IQ: ImportQueue<Block> + 'static,
@@ -1427,7 +1425,6 @@ where
 		+ BlockBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ ProofProvider<Block>
-		+ CodeBlobProvider
 		+ Send
 		+ Sync
 		+ 'static,
@@ -1544,7 +1541,6 @@ where
 		+ BlockBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ ProofProvider<Block>
-		+ CodeBlobProvider
 		+ Send
 		+ Sync
 		+ 'static,
@@ -1578,18 +1574,6 @@ where
 		(protocol_config, config_name)
 	};
 	net_config.add_request_response_protocol(state_request_protocol_config);
-
-	let code_request_protocol_config = {
-		let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize +
-			net_config.network_config.default_peers_set.reserved_nodes.len();
-		// Allow both outgoing and incoming requests.
-		let (handler, protocol_config) =
-			CodeRequestHandler::new::<Block, Net>(fork_id, client.clone(), num_peer_hint);
-
-		spawn_handle.spawn("code-request-handler", Some("networking"), handler.run());
-		protocol_config
-	};
-	net_config.add_request_response_protocol(code_request_protocol_config);
 
 	let (warp_sync_protocol_config, warp_sync_protocol_name) = match warp_sync_config.as_ref() {
 		Some(WarpSyncConfig::WithProvider(warp_with_provider)) => {

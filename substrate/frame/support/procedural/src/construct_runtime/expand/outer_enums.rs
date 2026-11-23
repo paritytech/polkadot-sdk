@@ -139,7 +139,9 @@ pub fn expand_outer_enum(
 		));
 
 		if enum_ty == OuterEnumType::Event {
+			let attr = pallet_decl.get_attributes();
 			query_enum_part_macros.push(quote! {
+				#attr
 				#path::__substrate_event_check::is_event_part_defined!(#pallet_name);
 			});
 		}

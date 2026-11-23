@@ -5,24 +5,18 @@
 use crate::utils::initialize_network;
 #[cfg(not(feature = "jam"))]
 use anyhow::anyhow;
-#[cfg(feature = "jam")]
-use cumulus_jam_zombienet_tests::{
-	para::{Para, PARACHAIN_SERVICE_ID},
-	spawn::{spawn, SpawnOptions},
-};
 use cumulus_test_runtime::{
 	elastic_scaling::WASM_BINARY as WASM_ELASTIC_SCALING,
 	elastic_scaling_12s_slot::WASM_BINARY as WASM_ELASTIC_SCALING_12S_SLOT,
 };
-#[cfg(not(feature = "jam"))]
-use cumulus_zombienet_sdk_helpers::submit_sudo_runtime_upgrade;
 #[cfg(feature = "jam")]
-use cumulus_zombienet_sdk_helpers::{
-	jam_rpc::provide_validation_code, network::schedule_code_upgrade,
+use cumulus_zombienet_sdk_helpers::jam::{
+	para::Para,
+	spawn::{spawn, SpawnOptions},
 };
 use cumulus_zombienet_sdk_helpers::{
-	network::{assert_para_throughput, assign_cores},
-	wait_for_pvf_prepare, wait_for_runtime_upgrade, ParaConfig,
+	network::{assert_para_throughput, assign_cores, submit_runtime_upgrade, wait_for_pvf_prepare},
+	wait_for_runtime_upgrade, ParaConfig,
 };
 use polkadot_primitives::Id as ParaId;
 use rstest::rstest;
@@ -30,7 +24,7 @@ use rstest::rstest;
 use serde_json::json;
 use zombienet_sdk::subxt::OnlineClient;
 #[cfg(not(feature = "jam"))]
-use zombienet_sdk::{subxt_signer::sr25519::dev, NetworkConfig, NetworkConfigBuilder};
+use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 const PARA_ID: u32 = 2000;
 
@@ -62,38 +56,34 @@ async fn elastic_scaling_upgrade_to_3_cores(
 	let config = build_network_config(async_backing).await?;
 	#[cfg(not(feature = "jam"))]
 	let network = initialize_network(config).await?;
-	#[cfg(not(feature = "jam"))]
-	let network = &network;
 	// Cores are assigned through the Coretime chain's broker, the JAM counterpart of the relay's
 	// coretime assignment. A JAM para cannot start without a core, so it is created on the core
 	// the test assigns first.
 	#[cfg(feature = "jam")]
-	let jam = spawn(
+	let network = spawn(
 		"elastic_scaling_upgrade_to_3_cores",
 		&[Para::new(PARA_ID, FIRST_CORE, &["collator0", "collator1", "collator2"])
 			.with_runtime_code("async_backing", cumulus_test_runtime::WASM_BINARY)?],
 		SpawnOptions::new(4).with_coretime(),
 	)
 	.await?;
-	#[cfg(feature = "jam")]
-	let network = &jam.network;
 
-	assign_cores(network, "validator0", PARA_ID, vec![FIRST_CORE]).await?;
+	assign_cores(&network, "validator0", PARA_ID, vec![FIRST_CORE]).await?;
 
 	// Wait for PVF preparation to complete.
-	wait_for_pvf_prepare(network, 1).await?;
+	wait_for_pvf_prepare(&network, 1).await?;
 
 	if async_backing {
 		log::info!("Ensuring parachain makes progress making 6s blocks");
-		assert_para_throughput(network, "validator0", 20, [(ParaId::from(PARA_ID), 19..21)], [])
+		assert_para_throughput(&network, "validator0", 20, [(ParaId::from(PARA_ID), 19..21)], [])
 			.await?;
 	} else {
 		log::info!("Ensuring parachain makes progress making 12s blocks");
-		assert_para_throughput(network, "validator0", 20, [(ParaId::from(PARA_ID), 9..12)], [])
+		assert_para_throughput(&network, "validator0", 20, [(ParaId::from(PARA_ID), 9..12)], [])
 			.await?;
 	}
 
-	assign_cores(network, "validator0", PARA_ID, vec![FIRST_CORE + 1, FIRST_CORE + 2]).await?;
+	assign_cores(&network, "validator0", PARA_ID, vec![FIRST_CORE + 1, FIRST_CORE + 2]).await?;
 	let collator0 = network.get_node("collator0")?;
 	let collator0_client: OnlineClient<ParaConfig> = collator0.wait_client().await?;
 
@@ -108,15 +98,7 @@ async fn elastic_scaling_upgrade_to_3_cores(
 	};
 
 	log::info!("Performing runtime upgrade");
-	#[cfg(not(feature = "jam"))]
-	submit_sudo_runtime_upgrade(&collator0_client, wasm, &dev::alice()).await?;
-	// On JAM `set_code` refuses the code bytes: the upgrade is armed by hash and the code is
-	// handed to JAM out of band.
-	#[cfg(feature = "jam")]
-	{
-		schedule_code_upgrade(&collator0_client, wasm).await?;
-		provide_validation_code(&jam.jam_rpc, PARACHAIN_SERVICE_ID, wasm).await?;
-	}
+	submit_runtime_upgrade(&network, &collator0_client, wasm).await?;
 
 	let collator1 = network.get_node("collator1")?;
 	let collator1_client: OnlineClient<ParaConfig> = collator1.wait_client().await?;
@@ -134,8 +116,8 @@ async fn elastic_scaling_upgrade_to_3_cores(
 
 	log::info!("Ensure elastic scaling works, 3 blocks should be produced in each 6s slot");
 	// Wait for post-upgrade PVF preparation to complete.
-	wait_for_pvf_prepare(network, 2).await?;
-	assert_para_throughput(network, "validator0", 20, [(ParaId::from(PARA_ID), 50..61)], [])
+	wait_for_pvf_prepare(&network, 2).await?;
+	assert_para_throughput(&network, "validator0", 20, [(ParaId::from(PARA_ID), 50..61)], [])
 		.await?;
 
 	Ok(())

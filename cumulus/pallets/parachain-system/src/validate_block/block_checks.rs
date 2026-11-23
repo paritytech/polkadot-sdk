@@ -24,10 +24,7 @@ use cumulus_primitives_core::{relay_chain::MAX_HEAD_DATA_SIZE, CumulusDigestItem
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, LazyBlock};
 
 /// Validates that the given `blocks` form a valid chain, starting from `parent_header`.
-pub(super) fn verify_blocks_form_chain<B: BlockT>(
-	blocks: &[B::LazyBlock],
-	parent_header: &B::Header,
-) {
+pub fn verify_blocks_form_chain<B: BlockT>(blocks: &[B::LazyBlock], parent_header: &B::Header) {
 	let num_blocks = blocks.len();
 
 	// Check first block's parent matches the given parent_header
