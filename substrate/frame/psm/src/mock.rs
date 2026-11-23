@@ -236,9 +236,9 @@ fn install_test_psm() {
 	let internal_decimals = <Assets as frame_support::traits::fungibles::metadata::Inspect<
 		AccountId,
 	>>::decimals(INTERNAL_ASSET_ID);
-	let full_admin: OriginCaller = frame_system::RawOrigin::<AccountId>::Root.into();
-	let emergency_admin: OriginCaller =
-		frame_system::RawOrigin::<AccountId>::Signed(EMERGENCY_ACCOUNT).into();
+	let full_admin = crate::AdminOrigin::Origin(frame_system::RawOrigin::Root.into());
+	let emergency_admin =
+		crate::AdminOrigin::Origin(frame_system::RawOrigin::Signed(EMERGENCY_ACCOUNT).into());
 	crate::Psm::<Test>::insert(
 		INTERNAL_ASSET_ID,
 		crate::PsmInfo::<Test> {

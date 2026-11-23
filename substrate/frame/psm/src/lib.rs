@@ -220,6 +220,27 @@ pub mod pallet {
 		}
 	}
 
+	/// Holder of a PSM admin role.
+	///
+	/// Stored in [`PsmAdminInfo`] and passed to [`Pallet::create_psm`],
+	/// [`Pallet::set_full_admin`] and [`Pallet::set_emergency_admin`]. [`Self::AssetOwner`] is
+	/// resolved on every authorisation, so the role moves with the internal asset whenever its
+	/// owner changes, by any path. [`Self::Origin`] stays with one origin, also when that origin
+	/// is the signed origin of the current owner.
+	#[derive(
+		Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
+	)]
+	pub enum AdminOrigin<PalletsOrigin> {
+		/// The signed origin of the internal asset's current owner, as reported by
+		/// [`Config::Fungibles`] at the time of the check. Nobody holds the role while the asset
+		/// has no owner.
+		#[codec(index = 0)]
+		AssetOwner,
+		/// A fixed origin, independent of who owns the internal asset.
+		#[codec(index = 1)]
+		Origin(PalletsOrigin),
+	}
+
 	/// Privilege level of an origin acting on a PSM instance.
 	///
 	/// Resolved by matching the incoming origin against the instance's stored
@@ -325,19 +346,19 @@ pub mod pallet {
 		pub external_count: u32,
 	}
 
-	/// Admin origins and creation-deposit bookkeeping for a PSM instance. Always written
+	/// Admin roles and creation-deposit bookkeeping for a PSM instance. Always written
 	/// and removed together with the [`Psm`] entry.
 	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug)]
 	#[scale_info(skip_type_params(T))]
 	// Kept separate from `PsmInfo` so the swap path (`mint`/`redeem`) doesn't read the
 	// admin origins, which can be large.
 	pub struct PsmAdminInfo<T: Config> {
-		/// Origin with `Full` management privileges over this PSM. Set on `create_psm` and
-		/// reassignable to any origin via `set_full_admin`.
-		pub full_admin: T::PalletsOrigin,
-		/// Origin with `Emergency` management privileges over this PSM. Set on `create_psm` and
-		/// reassignable to any origin via `set_emergency_admin`.
-		pub emergency_admin: T::PalletsOrigin,
+		/// Holder of the `Full` management privileges over this PSM. Set on `create_psm` and
+		/// reassignable via `set_full_admin`.
+		pub full_admin: AdminOrigin<T::PalletsOrigin>,
+		/// Holder of the `Emergency` management privileges over this PSM. Set on `create_psm` and
+		/// reassignable via `set_emergency_admin`.
+		pub emergency_admin: AdminOrigin<T::PalletsOrigin>,
 		/// Optional creation deposit and its depositor. Dropped on `remove_psm`, independently of
 		/// any admin reassignment.
 		pub deposit: Option<(T::AccountId, T::Consideration)>,
@@ -389,8 +410,9 @@ pub mod pallet {
 			+ From<Self::PalletsOrigin>
 			+ IsType<<Self as frame_system::Config>::RuntimeOrigin>;
 
-		/// The caller origin, overarching type of all pallets' origins. Stored as a PSM's
-		/// `full_admin` / `emergency_admin` and matched against incoming origins.
+		/// The caller origin, overarching type of all pallets' origins. Stored in a PSM's
+		/// `full_admin` / `emergency_admin` as [`AdminOrigin::Origin`] and matched against
+		/// incoming origins.
 		type PalletsOrigin: Parameter
 			+ From<frame_system::RawOrigin<Self::AccountId>>
 			+ CallerTrait<Self::AccountId>
@@ -616,8 +638,8 @@ pub mod pallet {
 		PsmCreated {
 			internal_asset: T::AssetId,
 			// Boxed: `PalletsOrigin` can be large and would otherwise inflate the `Event` enum.
-			full_admin: Box<T::PalletsOrigin>,
-			emergency_admin: Box<T::PalletsOrigin>,
+			full_admin: Box<AdminOrigin<T::PalletsOrigin>>,
+			emergency_admin: Box<AdminOrigin<T::PalletsOrigin>>,
 			fee_destination: T::AccountId,
 			max_debt: BalanceOf<T>,
 		},
@@ -626,14 +648,14 @@ pub mod pallet {
 		/// A PSM's `full_admin` was reassigned.
 		FullAdminChanged {
 			internal_asset: T::AssetId,
-			old_admin: Box<T::PalletsOrigin>,
-			new_admin: Box<T::PalletsOrigin>,
+			old_admin: Box<AdminOrigin<T::PalletsOrigin>>,
+			new_admin: Box<AdminOrigin<T::PalletsOrigin>>,
 		},
 		/// A PSM's `emergency_admin` was reassigned.
 		EmergencyAdminChanged {
 			internal_asset: T::AssetId,
-			old_admin: Box<T::PalletsOrigin>,
-			new_admin: Box<T::PalletsOrigin>,
+			old_admin: Box<AdminOrigin<T::PalletsOrigin>>,
+			new_admin: Box<AdminOrigin<T::PalletsOrigin>>,
 		},
 	}
 
@@ -686,8 +708,8 @@ pub mod pallet {
 		PsmHasApprovedExternals,
 		/// An unexpected invariant violation occurred. This should be reported.
 		Unexpected,
-		/// An admin origin was supplied that cannot be used as an authority, such as the system
-		/// `None` origin.
+		/// An admin origin was supplied that cannot be used as an authority, such as
+		/// [`AdminOrigin::Origin`] of the system `None` origin.
 		InvalidAdminOrigin,
 		/// The PSM reserve account cannot receive the external asset.
 		ReserveCannotReceive,
@@ -985,8 +1007,13 @@ pub mod pallet {
 		/// If [`Config::CreateOrigin`] resolves to `Some(account)`, takes a
 		/// [`Config::Consideration`] deposit from that account for the instance's footprint
 		/// (refunded on `remove_psm`). If it resolves to `None`, no deposit is taken. The
-		/// `full_admin` and `emergency_admin` origins are set from the provided arguments and may
+		/// `full_admin` and `emergency_admin` roles are set from the provided arguments and may
 		/// later be reassigned via [`Pallet::set_full_admin`] / [`Pallet::set_emergency_admin`].
+		///
+		/// An admin argument of `None` sets the role to [`AdminOrigin::AssetOwner`]: it is held by
+		/// whoever owns the internal asset at the time of each admin call. An explicit
+		/// [`AdminOrigin::Origin`] stays with that origin, also when it is the owner's signed
+		/// origin and the asset later changes hands.
 		///
 		/// ## Dispatch Origin
 		///
@@ -997,8 +1024,10 @@ pub mod pallet {
 		///
 		/// - `internal_asset`: The internal stablecoin keying the new PSM. Must exist in the
 		///   fungibles backend; must not already have a PSM registered.
-		/// - `full_admin`: Origin granted full management of the new PSM.
-		/// - `emergency_admin`: Origin granted emergency management of the new PSM.
+		/// - `full_admin`: Holder of full management of the new PSM. `None` means
+		///   [`AdminOrigin::AssetOwner`].
+		/// - `emergency_admin`: Holder of emergency management of the new PSM. `None` means
+		///   [`AdminOrigin::AssetOwner`].
 		/// - `fee_destination`: Account that will receive mint/redeem fees. Fees are waived while
 		///   it cannot receive the internal asset.
 		/// - `max_debt`: Initial absolute internal-asset debt ceiling.
@@ -1008,7 +1037,8 @@ pub mod pallet {
 		/// ## Errors
 		///
 		/// - [`DispatchError::BadOrigin`]: The origin is not permitted by [`Config::CreateOrigin`].
-		/// - [`Error::InvalidAdminOrigin`]: Either admin is the system `None` origin.
+		/// - [`Error::InvalidAdminOrigin`]: Either admin is [`AdminOrigin::Origin`] of the system
+		///   `None` origin.
 		/// - [`Error::PsmAlreadyExists`]: A PSM is already registered for `internal_asset`.
 		/// - [`Error::ZeroMinSwapAmount`]: `min_swap_amount` is zero.
 		/// - [`Error::AssetDoesNotExist`]: The internal asset does not exist.
@@ -1023,15 +1053,17 @@ pub mod pallet {
 		pub fn create_psm(
 			origin: OriginFor<T>,
 			internal_asset: T::AssetId,
-			full_admin: Box<T::PalletsOrigin>,
-			emergency_admin: Box<T::PalletsOrigin>,
+			full_admin: Option<Box<AdminOrigin<T::PalletsOrigin>>>,
+			emergency_admin: Option<Box<AdminOrigin<T::PalletsOrigin>>>,
 			fee_destination: T::AccountId,
 			max_debt: BalanceOf<T>,
 			min_swap_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let maybe_depositor = T::CreateOrigin::ensure_origin(origin, &internal_asset)?;
+			let full_admin = full_admin.map_or(AdminOrigin::AssetOwner, |admin| *admin);
+			let emergency_admin = emergency_admin.map_or(AdminOrigin::AssetOwner, |admin| *admin);
 			ensure!(
-				!full_admin.is_none() && !emergency_admin.is_none(),
+				Self::is_valid_admin(&full_admin) && Self::is_valid_admin(&emergency_admin),
 				Error::<T>::InvalidAdminOrigin
 			);
 			ensure!(!Psm::<T>::contains_key(&internal_asset), Error::<T>::PsmAlreadyExists);
@@ -1048,8 +1080,6 @@ pub mod pallet {
 				})
 				.transpose()?;
 
-			let full_admin = *full_admin;
-			let emergency_admin = *emergency_admin;
 			let internal_decimals = T::Fungibles::decimals(internal_asset.clone());
 			Psm::<T>::insert(
 				&internal_asset,
@@ -1499,12 +1529,14 @@ pub mod pallet {
 		/// ## Parameters
 		///
 		/// - `internal_asset`: The PSM whose `full_admin` is being changed.
-		/// - `new_admin`: The new `full_admin` origin.
+		/// - `new_admin`: The new `full_admin`. [`AdminOrigin::AssetOwner`] follows the internal
+		///   asset's owner.
 		///
 		/// ## Errors
 		///
 		/// - [`Error::PsmNotFound`]: No PSM is registered for `internal_asset`.
-		/// - [`Error::InvalidAdminOrigin`]: `new_admin` is the system `None` origin.
+		/// - [`Error::InvalidAdminOrigin`]: `new_admin` is [`AdminOrigin::Origin`] of the system
+		///   `None` origin.
 		///
 		/// ## Events
 		///
@@ -1514,14 +1546,14 @@ pub mod pallet {
 		pub fn set_full_admin(
 			origin: OriginFor<T>,
 			internal_asset: T::AssetId,
-			new_admin: Box<T::PalletsOrigin>,
+			new_admin: Box<AdminOrigin<T::PalletsOrigin>>,
 		) -> DispatchResult {
 			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_admins())?;
-			ensure!(!new_admin.is_none(), Error::<T>::InvalidAdminOrigin);
+			ensure!(Self::is_valid_admin(&new_admin), Error::<T>::InvalidAdminOrigin);
 			let new_admin = *new_admin;
 			let old_admin = PsmAdmin::<T>::try_mutate(
 				&internal_asset,
-				|maybe| -> Result<T::PalletsOrigin, DispatchError> {
+				|maybe| -> Result<AdminOrigin<T::PalletsOrigin>, DispatchError> {
 					let admin = maybe.as_mut().ok_or(Error::<T>::PsmNotFound)?;
 					let old = core::mem::replace(&mut admin.full_admin, new_admin.clone());
 					Ok(old)
@@ -1544,12 +1576,14 @@ pub mod pallet {
 		/// ## Parameters
 		///
 		/// - `internal_asset`: The PSM whose `emergency_admin` is being changed.
-		/// - `new_admin`: The new `emergency_admin` origin.
+		/// - `new_admin`: The new `emergency_admin`. [`AdminOrigin::AssetOwner`] follows the
+		///   internal asset's owner.
 		///
 		/// ## Errors
 		///
 		/// - [`Error::PsmNotFound`]: No PSM is registered for `internal_asset`.
-		/// - [`Error::InvalidAdminOrigin`]: `new_admin` is the system `None` origin.
+		/// - [`Error::InvalidAdminOrigin`]: `new_admin` is [`AdminOrigin::Origin`] of the system
+		///   `None` origin.
 		///
 		/// ## Events
 		///
@@ -1559,14 +1593,14 @@ pub mod pallet {
 		pub fn set_emergency_admin(
 			origin: OriginFor<T>,
 			internal_asset: T::AssetId,
-			new_admin: Box<T::PalletsOrigin>,
+			new_admin: Box<AdminOrigin<T::PalletsOrigin>>,
 		) -> DispatchResult {
 			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_admins())?;
-			ensure!(!new_admin.is_none(), Error::<T>::InvalidAdminOrigin);
+			ensure!(Self::is_valid_admin(&new_admin), Error::<T>::InvalidAdminOrigin);
 			let new_admin = *new_admin;
 			let old_admin = PsmAdmin::<T>::try_mutate(
 				&internal_asset,
-				|maybe| -> Result<T::PalletsOrigin, DispatchError> {
+				|maybe| -> Result<AdminOrigin<T::PalletsOrigin>, DispatchError> {
 					let admin = maybe.as_mut().ok_or(Error::<T>::PsmNotFound)?;
 					let old = core::mem::replace(&mut admin.emergency_admin, new_admin.clone());
 					Ok(old)
@@ -1739,12 +1773,24 @@ pub mod pallet {
 			factor_u128.try_into().map_err(|_| Error::<T>::ConversionOverflow)
 		}
 
+		/// Whether `admin` can hold a PSM admin role. The system `None` origin cannot.
+		fn is_valid_admin(admin: &AdminOrigin<T::PalletsOrigin>) -> bool {
+			match admin {
+				AdminOrigin::AssetOwner => true,
+				AdminOrigin::Origin(origin) => !origin.is_none(),
+			}
+		}
+
 		/// Authorise an operation on the PSM keyed by `internal_asset`.
 		///
 		/// Matches the incoming origin's caller against the PSM's stored
 		/// [`PsmAdminInfo::full_admin`] (yielding `Full`) or [`PsmAdminInfo::emergency_admin`]
 		/// (yielding `Emergency`). The resolved level is then checked against `required`. No
 		/// other authority can manage a PSM.
+		///
+		/// [`AdminOrigin::AssetOwner`] matches a signed caller that owns `internal_asset` now.
+		/// The owner is read at most once, and only for a signed caller when a role is
+		/// [`AdminOrigin::AssetOwner`].
 		///
 		/// We reject the `None` origin to prevent the block author from controlling PSMs with an
 		/// admin set to `None`.
@@ -1756,9 +1802,24 @@ pub mod pallet {
 			let admin = PsmAdmin::<T>::get(internal_asset).ok_or(Error::<T>::PsmNotFound)?;
 			let caller = <T as Config>::RuntimeOrigin::from(origin).into_caller();
 			ensure!(!caller.is_none(), DispatchError::BadOrigin);
-			let level = if caller == admin.full_admin {
+			let follows_owner =
+				|role: &AdminOrigin<T::PalletsOrigin>| matches!(role, AdminOrigin::AssetOwner);
+			let caller_is_owner = match caller.as_signed() {
+				Some(who)
+					if follows_owner(&admin.full_admin) ||
+						follows_owner(&admin.emergency_admin) =>
+				{
+					T::Fungibles::owner(internal_asset.clone()).as_ref() == Some(who)
+				},
+				_ => false,
+			};
+			let holds = |role: &AdminOrigin<T::PalletsOrigin>| match role {
+				AdminOrigin::AssetOwner => caller_is_owner,
+				AdminOrigin::Origin(origin) => *origin == caller,
+			};
+			let level = if holds(&admin.full_admin) {
 				PsmManagerLevel::Full
-			} else if caller == admin.emergency_admin {
+			} else if holds(&admin.emergency_admin) {
 				PsmManagerLevel::Emergency
 			} else {
 				return Err(DispatchError::BadOrigin);
