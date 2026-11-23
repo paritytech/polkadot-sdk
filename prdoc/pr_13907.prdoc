@@ -3,7 +3,8 @@ doc:
 - audience: Runtime Dev
   description: |-
     Emits `UMPSignal::Provides` from SPMS header digests and synthesizes `UMPSignal::Requires` in `validate_block` via `Config::ConsumptionRecordSource` and `ParachainBlockData::V3`.
-    Every `cumulus_pallet_parachain_system::Config` must set `ConsumptionRecordSource`; `()` if the chain does not use speculative messaging.
+    Every `cumulus_pallet_parachain_system::Config` must set `ConsumptionRecordSource`. Use `()` to disable V3 PoVs.
+    Upgrade parachain nodes to support V3 PoV recovery before enabling the format.
 crates:
 - name: cumulus-primitives-core
   bump: major

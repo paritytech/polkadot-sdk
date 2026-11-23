@@ -170,6 +170,10 @@ where
 		codec::decode_from_bytes::<B::Header>(parachain_head.clone()).expect("Invalid parent head");
 
 	let (blocks, proof, lifts) = block_data.into_inner();
+	assert!(
+		lifts.is_none() || PSC::ConsumptionRecordSource::ENABLED,
+		"ParachainBlockData::V3 requires speculative messaging to be enabled"
+	);
 
 	verify_blocks_form_chain::<B>(&blocks, &parent_header);
 

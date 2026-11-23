@@ -68,8 +68,11 @@ pub use streams_root::{
 };
 
 /// How `parachain-system` reads a block's consumption record without depending on the messaging
-/// pallet. `()` records nothing.
+/// pallet. `()` records nothing and rejects V3 PoVs.
 pub trait ProvideConsumptionRecord {
+	/// Whether the parachain accepts V3 PoVs carrying speculative-messaging lifts.
+	const ENABLED: bool;
+
 	/// The block's consumption record: what the messaging inherent did. The `validate_block`
 	/// wrapper calls it after executing each block of a bundle. It must read only storage the
 	/// block wrote, since the PoV holds no other proof nodes.
@@ -77,6 +80,8 @@ pub trait ProvideConsumptionRecord {
 }
 
 impl ProvideConsumptionRecord for () {
+	const ENABLED: bool = false;
+
 	fn consumption_record() -> ConsumptionRecord {
 		ConsumptionRecord::default()
 	}
