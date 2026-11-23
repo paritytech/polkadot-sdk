@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795431161442,
+  "lastUpdate": 1795441593085,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d803f1b216332a65c20ea78573078a12d88b4eeb",
-          "message": "omni-bencher: expose BLS host functions (#12035)\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2026-05-11T08:36:39Z",
-          "tree_id": "6d7ff3bcb96c5391f8c5fab70565ce350f58aa7e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d803f1b216332a65c20ea78573078a12d88b4eeb"
-        },
-        "date": 1778493546877,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007102386846666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023566462520000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009599030086666642,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.13980521163333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007380052740000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cfbe4ef1c1c32e0e4cdf22249e1071c495add15a",
+          "message": "statement-store: move the v2 DHT path to statement/3 (#13923)\n\n# Description\n\nA node with the v2 DHT flag now speaks statement/3 and falls back to\nstatement/2 and statement/1. A node without the flag does not change.\nThe messages of statement/3 are the messages of statement/2.\n\nUntil now both kinds of nodes shared statement/2, so a node waited ten\nseconds for the filter of a peer and guessed whether the peer ran the\nDHT path. Now the negotiated protocol says it at connect. A full peer\nthat falls back to statement/2 floods: it gets every statement at once\nand no filter. The ten second wait, the state of a peer assumed to want\neverything and the handling of a late filter are removed, and a flood\npeer stays out of the DHT index until its identify answer lists\nstatement/3.\n\nA statement/3 peer gets statements only after the filter of this node\nreaches it. If that one send at connect fails, the node logs a warning\nand the peer gets nothing until the local topics change. The ten second\nwait used to cover this case, but it needs the first notification on a\nfresh substream to fail, so it is left as it is.\n\nNo stable release has shipped the DHT path, so this is the last moment\nto split the protocols without supporting both layouts. statement/3 also\ngives a place for messages that only DHT nodes understand, the first\nbeing the hash announce of\nhttps://github.com/paritytech/polkadot-sdk/issues/12559.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/11938.\n\n**The name \"v2 DHT\" in the code, the flag and the metrics no longer fits\na path on statement/3. It stays here to keep the diff readable, and a\nseparate mechanical PR renames it.**\n\n## Integration\n\nNothing changes for a node without `--statement-v2-dht`. Nodes with the\nflag reach each other over the DHT only when both run this change, and\nflood to each other otherwise, so nothing is lost while a network\nupgrades.\n\nThe counters `substrate_sync_statement_peers_assumed_match_all_total`\nand `substrate_sync_statement_late_affinity_filters_total` are removed.",
+          "timestamp": "2026-11-23T11:26:39Z",
+          "tree_id": "28509883469b337081066da932568cc5ee50fcc8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cfbe4ef1c1c32e0e4cdf22249e1071c495add15a"
+        },
+        "date": 1795441550857,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024307347320000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007621156813333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14148455412666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010023825853333309,
             "unit": "seconds"
           }
         ]
