@@ -16,14 +16,15 @@
 
 //! Upward message signals in a parachain candidate.
 
-use crate::{scheduling::SchedulingSignals, SignedSchedulingInfo};
-use alloc::vec::Vec;
-use codec::Encode;
+use crate::SignedSchedulingInfo;
+use alloc::{vec, vec::Vec};
+use codec::{Decode, Encode};
+use core::mem::discriminant;
 use cumulus_primitives_spec_messaging::{
 	build_requires, streams_root::read_streams_root, ConsumptionRecord, LiftError, LiftsBySource,
 	StreamsRoot,
 };
-use polkadot_primitives::{UMPSignal, UMP_SEPARATOR};
+use polkadot_primitives::{ClaimQueueOffset, UMPSignal, UMP_SEPARATOR};
 use sp_runtime::Digest;
 
 /// Split upward messages at the first `UMP_SEPARATOR`. Drop later separators so they never
@@ -70,6 +71,47 @@ impl core::fmt::Display for SignalError {
 	}
 }
 
+fn scheduling_signals(
+	raw: &[Vec<u8>],
+	signed: Option<&SignedSchedulingInfo>,
+) -> Result<Vec<UMPSignal>, SignalError> {
+	let mut signals = Vec::new();
+	for bytes in raw {
+		let signal =
+			UMPSignal::decode(&mut &bytes[..]).map_err(|_| SignalError::UndecodableSignal)?;
+		let duplicate = signals.iter().any(|seen| discriminant(seen) == discriminant(&signal));
+		match signal {
+			UMPSignal::SelectCore(..) if duplicate => return Err(SignalError::DuplicateSelectCore),
+			UMPSignal::ApprovedPeer(_) if duplicate => {
+				return Err(SignalError::DuplicateApprovedPeer)
+			},
+			UMPSignal::SelectCore(..) | UMPSignal::ApprovedPeer(_) => signals.push(signal),
+			UMPSignal::Provides(_) | UMPSignal::Requires(_) => {
+				return Err(SignalError::BlockEmittedSpecMsgSignal)
+			},
+		}
+	}
+
+	if let Some(signed) = signed {
+		let payload = &signed.payload;
+		let core = UMPSignal::SelectCore(
+			payload.core_selector,
+			ClaimQueueOffset(payload.claim_queue_offset),
+		);
+		let peer = UMPSignal::ApprovedPeer(payload.peer_id.clone());
+		if let [first, second] = signals.as_mut_slice() {
+			(*first, *second) = if matches!(first, UMPSignal::ApprovedPeer(_)) {
+				(peer, core)
+			} else {
+				(core, peer)
+			};
+		} else {
+			signals = vec![core, peer];
+		}
+	}
+	Ok(signals)
+}
+
 /// Build the candidate's UMP tail from the blocks' scheduling signals in order, followed by
 /// `Provides` and `Requires`. A signed override supplies both scheduling values in pallet order
 /// unless the blocks emitted both. An empty tail omits the separator because the relay decoder
@@ -81,15 +123,16 @@ pub fn ump_signal_tail(
 	records: &[ConsumptionRecord],
 	lifts: Option<&LiftsBySource>,
 ) -> Result<Vec<Vec<u8>>, SignalError> {
-	let scheduling = SchedulingSignals::for_candidate(raw, signed)?;
+	let scheduling = scheduling_signals(raw, signed)?;
 	let no_lifts = LiftsBySource::default();
 	let requires = build_requires(records, lifts.unwrap_or(&no_lifts))
 		.map_err(SignalError::RequiresSynthesis)?;
 
-	let mut tail = scheduling.into_ump_messages();
-	if tail.is_empty() && (provides.is_some() || requires.is_some()) {
-		tail.push(UMP_SEPARATOR);
+	if scheduling.is_empty() && provides.is_none() && requires.is_none() {
+		return Ok(Vec::new());
 	}
+	let mut tail = vec![UMP_SEPARATOR];
+	tail.extend(scheduling.iter().map(Encode::encode));
 	if let Some(root) = provides {
 		tail.push(UMPSignal::Provides(root).encode());
 	}
@@ -196,23 +239,53 @@ mod tests {
 		vec![byte; 4].try_into().expect("four bytes fit in a peer ID; qed")
 	}
 
-	fn signed() -> SignedSchedulingInfo {
+	fn signed_with(
+		core_selector: CoreSelector,
+		claim_queue_offset: u8,
+		peer_id: ApprovedPeerId,
+	) -> SignedSchedulingInfo {
 		SignedSchedulingInfo {
 			payload: crate::SchedulingInfoPayload::new(
-				CoreSelector(5),
-				1,
-				peer(2),
+				core_selector,
+				claim_queue_offset,
+				peer_id,
 				Default::default(),
 			),
-			signature: [0; 64],
+			signature: [0u8; 64],
 		}
+	}
+
+	#[test]
+	fn signed_override_takes_every_value_from_the_payload() {
+		let signed = signed_with(CoreSelector(7), 3, peer(0xAA));
+		assert_eq!(
+			ump_signal_tail(&[], Some(&signed), None, &[], None).unwrap(),
+			vec![
+				UMP_SEPARATOR,
+				UMPSignal::SelectCore(CoreSelector(7), ClaimQueueOffset(3)).encode(),
+				UMPSignal::ApprovedPeer(peer(0xAA)).encode(),
+			]
+		);
+	}
+
+	#[test]
+	fn signed_override_emits_an_empty_peer() {
+		let signed = signed_with(CoreSelector(5), 1, ApprovedPeerId::default());
+		assert_eq!(
+			ump_signal_tail(&[], Some(&signed), None, &[], None).unwrap(),
+			vec![
+				UMP_SEPARATOR,
+				UMPSignal::SelectCore(CoreSelector(5), ClaimQueueOffset(1)).encode(),
+				UMPSignal::ApprovedPeer(ApprovedPeerId::default()).encode(),
+			]
+		);
 	}
 
 	#[test]
 	fn scheduling_order_is_preserved_with_or_without_an_override() {
 		let core = select_core().encode();
 		let peer_signal = UMPSignal::ApprovedPeer(peer(1)).encode();
-		let signed = signed();
+		let signed = signed_with(CoreSelector(5), 1, peer(2));
 		let signed_core = UMPSignal::SelectCore(CoreSelector(5), ClaimQueueOffset(1)).encode();
 		let signed_peer = UMPSignal::ApprovedPeer(peer(2)).encode();
 		let provides = UMPSignal::Provides(root(3)).encode();
@@ -240,7 +313,14 @@ mod tests {
 		);
 		for raw in [vec![padded], vec![select_core().encode()], vec![]] {
 			assert_eq!(
-				ump_signal_tail(&raw, Some(&signed()), None, &[], None).unwrap(),
+				ump_signal_tail(
+					&raw,
+					Some(&signed_with(CoreSelector(5), 1, peer(2))),
+					None,
+					&[],
+					None
+				)
+				.unwrap(),
 				vec![
 					UMP_SEPARATOR,
 					UMPSignal::SelectCore(CoreSelector(5), ClaimQueueOffset(1)).encode(),
@@ -272,7 +352,7 @@ mod tests {
 			(vec![UMPSignal::Requires(requires).encode()], SignalError::BlockEmittedSpecMsgSignal),
 			(vec![vec![0xff]], SignalError::UndecodableSignal),
 		] {
-			for signed in [None, Some(&signed())] {
+			for signed in [None, Some(&signed_with(CoreSelector(5), 1, peer(2)))] {
 				assert_eq!(ump_signal_tail(&raw, signed, None, &[], None), Err(error));
 			}
 		}

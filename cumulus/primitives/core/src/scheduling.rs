@@ -15,13 +15,9 @@
 //! `signed_scheduling_info` proving it is the eligible author for the slot at
 //! `internal_scheduling_parent`.
 
-use crate::signals::SignalError;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use polkadot_primitives::{
-	ApprovedPeerId, ClaimQueueOffset, CoreSelector, Header as RelayChainHeader, Slot, UMPSignal,
-	UMP_SEPARATOR,
-};
+use polkadot_primitives::{ApprovedPeerId, CoreSelector, Header as RelayChainHeader, Slot};
 use sp_runtime::traits::{BlakeTwo256, Hash as HashT};
 
 /// Payload a collator signs to resubmit a candidate.
@@ -65,84 +61,6 @@ impl SchedulingInfoPayload {
 		internal_scheduling_parent: polkadot_primitives::Hash,
 	) -> Self {
 		Self { core_selector, claim_queue_offset, peer_id, internal_scheduling_parent }
-	}
-}
-
-/// The scheduling signals in a candidate's UMP tail, in emission order.
-#[derive(Debug, Default, PartialEq, Eq)]
-pub(crate) struct SchedulingSignals {
-	select_core: Option<(CoreSelector, ClaimQueueOffset)>,
-	approved_peer: Option<ApprovedPeerId>,
-	peer_before_core: bool,
-}
-
-impl SchedulingSignals {
-	pub(crate) fn for_candidate(
-		raw: &[Vec<u8>],
-		signed: Option<&SignedSchedulingInfo>,
-	) -> Result<Self, SignalError> {
-		let mut signals = Self::default();
-		for bytes in raw {
-			match UMPSignal::decode(&mut &bytes[..]).map_err(|_| SignalError::UndecodableSignal)? {
-				UMPSignal::SelectCore(selector, offset) => {
-					if signals.select_core.replace((selector, offset)).is_some() {
-						return Err(SignalError::DuplicateSelectCore);
-					}
-					signals.peer_before_core = signals.approved_peer.is_some();
-				},
-				UMPSignal::ApprovedPeer(peer) => {
-					if signals.approved_peer.replace(peer).is_some() {
-						return Err(SignalError::DuplicateApprovedPeer);
-					}
-				},
-				UMPSignal::Requires(_) | UMPSignal::Provides(_) => {
-					return Err(SignalError::BlockEmittedSpecMsgSignal);
-				},
-			}
-		}
-		if let Some(signed) = signed {
-			signals = Self {
-				peer_before_core: signals.peer_before_core,
-				..Self::from_scheduling_info(signed)
-			};
-		}
-		Ok(signals)
-	}
-
-	/// Build the scheduling pair for a resubmission with no block-specified order.
-	fn from_scheduling_info(signed_info: &SignedSchedulingInfo) -> Self {
-		let payload = &signed_info.payload;
-		Self {
-			select_core: Some((
-				payload.core_selector,
-				ClaimQueueOffset(payload.claim_queue_offset),
-			)),
-			approved_peer: Some(payload.peer_id.clone()),
-			peer_before_core: false,
-		}
-	}
-
-	fn is_empty(&self) -> bool {
-		self.select_core.is_none() && self.approved_peer.is_none()
-	}
-
-	/// Emit the scheduling signals with a leading separator when present.
-	pub(crate) fn into_ump_messages(self) -> Vec<Vec<u8>> {
-		if self.is_empty() {
-			return Vec::new();
-		}
-		let mut messages = Vec::with_capacity(3);
-		messages.push(UMP_SEPARATOR);
-		if let Some((selector, offset)) = self.select_core {
-			messages.push(UMPSignal::SelectCore(selector, offset).encode());
-		}
-		if let Some(peer_id) = self.approved_peer {
-			messages.push(UMPSignal::ApprovedPeer(peer_id).encode());
-		}
-		if self.peer_before_core {
-			messages[1..].reverse();
-		}
-		messages
 	}
 }
 
@@ -212,74 +130,5 @@ impl VerifySchedulingSignature for () {
 
 	fn verify(_signed_info: &SignedSchedulingInfo, _relay_slot: Slot) -> bool {
 		true
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::{SchedulingInfoPayload, SchedulingSignals, SignedSchedulingInfo};
-	use alloc::vec;
-	use codec::Encode;
-	use polkadot_primitives::{
-		ApprovedPeerId, ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR,
-	};
-
-	fn peer(byte: u8) -> ApprovedPeerId {
-		ApprovedPeerId::try_from(vec![byte; 4]).expect("4 bytes fits the bound; qed")
-	}
-
-	fn signed_with(
-		core_selector: CoreSelector,
-		claim_queue_offset: u8,
-		peer_id: ApprovedPeerId,
-	) -> SignedSchedulingInfo {
-		SignedSchedulingInfo {
-			payload: SchedulingInfoPayload::new(
-				core_selector,
-				claim_queue_offset,
-				peer_id,
-				Default::default(),
-			),
-			signature: [0u8; 64],
-		}
-	}
-
-	#[test]
-	fn from_scheduling_info_sources_all_fields() {
-		// All three values — `core_selector`, `claim_queue_offset`, `peer_id` — are signed by the
-		// resubmitting collator, so the override sources every field from the signed payload.
-		// Distinct values ensure no field is sourced from the wrong place.
-		let signed = signed_with(CoreSelector(7), 3, peer(0xAA));
-		assert_eq!(
-			SchedulingSignals::from_scheduling_info(&signed).into_ump_messages(),
-			vec![
-				UMP_SEPARATOR,
-				UMPSignal::SelectCore(CoreSelector(7), ClaimQueueOffset(3)).encode(),
-				UMPSignal::ApprovedPeer(peer(0xAA)).encode(),
-			]
-		);
-	}
-
-	#[test]
-	fn from_scheduling_info_emits_peer_verbatim_even_if_empty() {
-		// The payload `peer_id` is a plain (non-`Option`) type → always emitted. An empty peer is
-		// emitted verbatim as `ApprovedPeer([])`, NOT omitted and NOT replaced by the block's peer.
-		let signed = signed_with(CoreSelector(5), 1, ApprovedPeerId::default());
-		assert_eq!(
-			SchedulingSignals::from_scheduling_info(&signed).into_ump_messages(),
-			vec![
-				UMP_SEPARATOR,
-				UMPSignal::SelectCore(CoreSelector(5), ClaimQueueOffset(1)).encode(),
-				UMPSignal::ApprovedPeer(ApprovedPeerId::default()).encode(),
-			]
-		);
-	}
-
-	#[test]
-	fn from_scheduling_info_emits_even_when_block_emitted_nothing() {
-		// The override is authoritative and independent of what the block emitted: a resubmission
-		// always produces its tail.
-		let signed = signed_with(CoreSelector(0), 0, peer(0xCC));
-		assert!(!SchedulingSignals::from_scheduling_info(&signed).into_ump_messages().is_empty());
 	}
 }
