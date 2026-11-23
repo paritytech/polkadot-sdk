@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795448952605,
+  "lastUpdate": 1795463266687,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f2bc410c455ea0a82162d92ce4dcc41ae644c143",
-          "message": "ci: new ci-unified with updated forklift and resolc (#12019)\n\ncc https://github.com/paritytech/devops/issues/5285",
-          "timestamp": "2026-05-08T12:01:00Z",
-          "tree_id": "d8731de162658dcfd33d371c1d0d6ac3aa6a182d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f2bc410c455ea0a82162d92ce4dcc41ae644c143"
-        },
-        "date": 1778246811303,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009491185150000012,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009263725529999989,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026659163800000006,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010558040259999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dharjeezy@gmail.com",
+            "name": "dharjeezy",
+            "username": "dharjeezy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3f06135e662e854fe0573ce962e4a6904c07bac1",
+          "message": "try state check for i'm online pallet (#12632)\n\nThis PR introduces try state hook into the I'm Online Pallet. It also\ndefines the invariants that holds for the pallet.\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/239\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-23T17:16:31Z",
+          "tree_id": "973956b0d4ded0ebea28469b206d1c7f205bb667",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3f06135e662e854fe0573ce962e4a6904c07bac1"
+        },
+        "date": 1795463229565,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00255531758,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009449573949999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010686933490000005,
             "unit": "seconds"
           }
         ]
