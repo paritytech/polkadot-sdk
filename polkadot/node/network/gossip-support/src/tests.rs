@@ -37,7 +37,10 @@ use polkadot_node_network_protocol::{
 	peer_set::ValidationVersion,
 	ObservedRole,
 };
-use polkadot_node_subsystem::messages::{AllMessages, RuntimeApiMessage, RuntimeApiRequest};
+use polkadot_node_subsystem::{
+	errors::RuntimeApiError,
+	messages::{AllMessages, RuntimeApiMessage, RuntimeApiRequest},
+};
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt as _;
 use polkadot_primitives::{GroupIndex, IndexedVec};
@@ -353,7 +356,7 @@ async fn test_neighbors(overseer: &mut VirtualOverseer, expected_session: Sessio
 }
 
 #[test]
-fn issues_a_connection_request_on_new_session() {
+fn issues_connection_requests_on_new_sessions_and_retries_authority_lookup() {
 	let mock_authority_discovery =
 		MockAuthorityDiscovery::new(PAST_PRESENT_FUTURE_AUTHORITIES.clone());
 	let mock_authority_discovery_clone = mock_authority_discovery.clone();
@@ -362,40 +365,49 @@ fn issues_a_connection_request_on_new_session() {
 		make_subsystem_with_authority_discovery(mock_authority_discovery.clone()),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
-			overseer_signal_active_leaves(overseer, hash).await;
-			assert_matches!(
-				overseer_recv(overseer).await,
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					relay_parent,
-					RuntimeApiRequest::SessionIndexForChild(tx),
-				)) => {
-					assert_eq!(relay_parent, hash);
-					tx.send(Ok(1)).unwrap();
-				}
-			);
+			let lookup_error = RuntimeApiError::Execution {
+				runtime_api_name: "Authorities",
+				source: Arc::new(std::io::Error::other("transient authority lookup failure")),
+			};
+			for (leaf, authorities) in
+				[(Hash::repeat_byte(0x99), Err(lookup_error)), (hash, Ok(AUTHORITIES.clone()))]
+			{
+				overseer_signal_active_leaves(overseer, leaf).await;
+				assert_matches!(
+					overseer_recv(overseer).await,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						relay_parent,
+						RuntimeApiRequest::SessionIndexForChild(tx),
+					)) => {
+						assert_eq!(relay_parent, leaf);
+						tx.send(Ok(1)).expect("session index response is received");
+					}
+				);
 
-			assert_matches!(
-				overseer_recv(overseer).await,
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					relay_parent,
-					RuntimeApiRequest::SessionInfo(s, tx),
-				)) => {
-					assert_eq!(relay_parent, hash);
-					assert_eq!(s, 1);
-					tx.send(Ok(Some(make_session_info()))).unwrap();
-				}
-			);
+				assert_matches!(
+					overseer_recv(overseer).await,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						relay_parent,
+						RuntimeApiRequest::SessionInfo(s, tx),
+					)) => {
+						assert_eq!(relay_parent, leaf);
+						assert_eq!(s, 1);
+						tx.send(Ok(Some(make_session_info())))
+							.expect("session info response is received");
+					}
+				);
 
-			assert_matches!(
-				overseer_recv(overseer).await,
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					relay_parent,
-					RuntimeApiRequest::Authorities(tx),
-				)) => {
-					assert_eq!(relay_parent, hash);
-					tx.send(Ok(AUTHORITIES.clone())).unwrap();
-				}
-			);
+				assert_matches!(
+					overseer_recv(overseer).await,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						relay_parent,
+						RuntimeApiRequest::Authorities(tx),
+					)) => {
+						assert_eq!(relay_parent, leaf);
+						tx.send(authorities).expect("authority response is received");
+					}
+				);
+			}
 
 			assert_matches!(
 				overseer_recv(overseer).await,
