@@ -5122,3 +5122,154 @@ mod generated_tests {
 		});
 	}
 }
+
+/// The storage version 0 to 1 migration of the admin roles.
+mod migration {
+	use super::*;
+	use crate::{
+		migrations::v1::{v0, MigrateV0ToV1},
+		PsmAdmin,
+	};
+	use frame_support::traits::{GetStorageVersion, OnRuntimeUpgrade, StorageVersion};
+
+	/// An internal asset owned by BOB, next to the mock's internal asset owned by ALICE.
+	const BOB_ASSET: u32 = 60;
+	/// An internal asset id with no asset behind it.
+	const MISSING_ASSET: u32 = 61;
+
+	fn signed(who: AccountId) -> OriginCaller {
+		frame_system::RawOrigin::<AccountId>::Signed(who).into()
+	}
+
+	fn root() -> OriginCaller {
+		frame_system::RawOrigin::<AccountId>::Root.into()
+	}
+
+	/// Replace the admin records with storage version 0 entries and return the mock PSM's
+	/// creation deposit.
+	fn install_v0_state() -> Option<(AccountId, <Test as crate::Config>::Consideration)> {
+		let deposit = PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).expect("mock PSM").deposit;
+		assert_ok!(Assets::create(RuntimeOrigin::signed(BOB), BOB_ASSET, BOB, 1));
+		v0::PsmAdmin::<Test>::insert(
+			INTERNAL_ASSET_ID,
+			v0::PsmAdminInfo {
+				full_admin: signed(ALICE),
+				emergency_admin: root(),
+				deposit: deposit.clone(),
+			},
+		);
+		v0::PsmAdmin::<Test>::insert(
+			BOB_ASSET,
+			v0::PsmAdminInfo {
+				full_admin: signed(ALICE),
+				emergency_admin: signed(BOB),
+				deposit: None,
+			},
+		);
+		v0::PsmAdmin::<Test>::insert(
+			MISSING_ASSET,
+			v0::PsmAdminInfo {
+				full_admin: signed(ALICE),
+				emergency_admin: signed(ALICE),
+				deposit: None,
+			},
+		);
+		StorageVersion::new(0).put::<crate::Pallet<Test>>();
+		deposit
+	}
+
+	#[test]
+	fn migrates_owner_roles_to_asset_owner() {
+		new_test_ext().execute_with(|| {
+			let deposit = install_v0_state();
+
+			let weight = MigrateV0ToV1::<Test>::on_runtime_upgrade();
+
+			assert_eq!(crate::Pallet::<Test>::on_chain_storage_version(), 1);
+			let db = <Test as frame_system::Config>::DbWeight::get();
+			// Three entries; plus the storage version read and write.
+			assert_eq!(weight, db.reads_writes(2 * 3 + 1, 3) + db.reads_writes(1, 1));
+
+			// ALICE owns the mock's internal asset: her role follows the asset from now on.
+			let alice_asset = PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap();
+			assert_eq!(alice_asset.full_admin, AdminOrigin::AssetOwner);
+			assert_eq!(alice_asset.emergency_admin, AdminOrigin::Origin(root()));
+			assert_eq!(alice_asset.deposit, deposit);
+
+			// BOB owns `BOB_ASSET`, so only his role becomes `AssetOwner`.
+			let bob_asset = PsmAdmin::<Test>::get(BOB_ASSET).unwrap();
+			assert_eq!(bob_asset.full_admin, AdminOrigin::Origin(signed(ALICE)));
+			assert_eq!(bob_asset.emergency_admin, AdminOrigin::AssetOwner);
+
+			// Without an owner, every role stays a fixed origin.
+			let missing = PsmAdmin::<Test>::get(MISSING_ASSET).unwrap();
+			assert_eq!(missing.full_admin, AdminOrigin::Origin(signed(ALICE)));
+			assert_eq!(missing.emergency_admin, AdminOrigin::Origin(signed(ALICE)));
+
+			// The migrated role moves with the internal asset.
+			assert_ok!(Assets::transfer_ownership(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				CHARLIE
+			));
+			assert_ok!(Psm::set_max_debt(RuntimeOrigin::signed(CHARLIE), INTERNAL_ASSET_ID, 1));
+			assert_noop!(
+				Psm::set_max_debt(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID, 1),
+				DispatchError::BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn migration_does_nothing_at_storage_version_1() {
+		new_test_ext().execute_with(|| {
+			StorageVersion::new(1).put::<crate::Pallet<Test>>();
+			let before = PsmAdmin::<Test>::get(INTERNAL_ASSET_ID);
+
+			let weight = MigrateV0ToV1::<Test>::on_runtime_upgrade();
+
+			let db = <Test as frame_system::Config>::DbWeight::get();
+			assert_eq!(weight, db.reads(1));
+			assert_eq!(PsmAdmin::<Test>::get(INTERNAL_ASSET_ID), before);
+		});
+	}
+
+	#[cfg(feature = "try-runtime")]
+	#[test]
+	fn try_runtime_checks_pass() {
+		new_test_ext().execute_with(|| {
+			install_v0_state();
+			assert_ok!(MigrateV0ToV1::<Test>::try_on_runtime_upgrade(true));
+			assert_eq!(crate::Pallet::<Test>::on_chain_storage_version(), 1);
+		});
+	}
+
+	#[cfg(feature = "try-runtime")]
+	#[test]
+	fn post_upgrade_rejects_entries_that_break_the_policy() {
+		use crate::migrations::v1::InnerMigrateV0ToV1;
+		use frame_support::traits::UncheckedOnRuntimeUpgrade;
+
+		// A role that was not the owner's signed origin must not become `AssetOwner`.
+		new_test_ext().execute_with(|| {
+			install_v0_state();
+			let state = InnerMigrateV0ToV1::<Test>::pre_upgrade().unwrap();
+			InnerMigrateV0ToV1::<Test>::on_runtime_upgrade();
+			PsmAdmin::<Test>::mutate(BOB_ASSET, |admin| {
+				admin.as_mut().unwrap().full_admin = AdminOrigin::AssetOwner;
+			});
+			assert!(InnerMigrateV0ToV1::<Test>::post_upgrade(state).is_err());
+		});
+
+		// The owner's signed origin must not stay a fixed `Origin`.
+		new_test_ext().execute_with(|| {
+			install_v0_state();
+			let state = InnerMigrateV0ToV1::<Test>::pre_upgrade().unwrap();
+			InnerMigrateV0ToV1::<Test>::on_runtime_upgrade();
+			PsmAdmin::<Test>::mutate(INTERNAL_ASSET_ID, |admin| {
+				admin.as_mut().unwrap().full_admin = AdminOrigin::Origin(signed(ALICE));
+			});
+			assert!(InnerMigrateV0ToV1::<Test>::post_upgrade(state).is_err());
+		});
+	}
+}

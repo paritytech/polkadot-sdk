@@ -1996,6 +1996,8 @@ pub type Migrations = (
 	pallet_election_provider_multi_block::signed::migrations::v1::MigrateV0ToV1<Runtime>,
 	// Moves `MaxCollators` to `CollatorDraw` and draws the collators again under the default cap.
 	pallet_validator_collators::migrations::v1::MigrateV0ToV1<Runtime>,
+	// Turns PSM admin roles held by the internal asset's owner into `AdminOrigin::AssetOwner`.
+	pallet_psm::migrations::v1::MigrateV0ToV1<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.

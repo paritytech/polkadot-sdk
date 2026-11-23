@@ -133,6 +133,7 @@
 
 extern crate alloc;
 
+pub mod migrations;
 pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -470,7 +471,7 @@ pub mod pallet {
 	}
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
