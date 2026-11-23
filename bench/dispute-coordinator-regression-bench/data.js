@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795394583859,
+  "lastUpdate": 1795431347552,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "180dc75fdd427c8ac17d51b9075ff6b71114f607",
-          "message": "Fix zombienet test throughput flakyness and enable more tests (#12001)\n\nI added waiting for PVF to be compiled before we measure tput. Even if\nwe wit for 1 block to be backed, doesn't mean that all validators in\ntest have compiled PVF. Let's see how stable the numbers get in CI\n\n\nAssetHub Westend ES test should pass with\nhttps://github.com/paritytech/polkadot-sdk/pull/12005 merged\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-07T17:20:51Z",
-          "tree_id": "9c9d47872f9ad434b76aa3e98616422f7c6196b9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/180dc75fdd427c8ac17d51b9075ff6b71114f607"
-        },
-        "date": 1778179593442,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009816107099999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026505887000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009326285989999988,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025603756300000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dharjeezy@gmail.com",
+            "name": "dharjeezy",
+            "username": "dharjeezy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "df3cca7a7d4c4dce3c4c2885dbe7cb43f24ece82",
+          "message": "try state check for mmr pallet (#13105)\n\nThis PR introduces try state hook into the MMR Pallet. It also defines\nthe invariants that holds for the pallet.\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/239\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-23T09:15:28Z",
+          "tree_id": "8775825f1de5b11e465b50691d052dd94c468877",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/df3cca7a7d4c4dce3c4c2885dbe7cb43f24ece82"
+        },
+        "date": 1795431305581,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00251063884,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009336589429999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010274917099999998,
             "unit": "seconds"
           }
         ]
