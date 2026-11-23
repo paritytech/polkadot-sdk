@@ -319,7 +319,7 @@ fn governance_sets_the_era_limit_per_chain_and_service() {
 		// WHEN root sets a limit of 1000
 		// THEN it is stored
 		assert_ok!(set(RuntimeOrigin::root(), 2, Collation, 1_000));
-		assert_eq!(UnitsPerEraLimit::<Test>::get(2, Collation), 1_000);
+		assert_eq!(UnitsPerEraLimit::<Test>::get(2, Collation), Some(1_000));
 
 		// WHEN root sets 30 for chain 2 and both chains report 50 blocks
 		System::reset_events();

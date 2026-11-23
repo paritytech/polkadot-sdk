@@ -21,7 +21,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use sp_runtime::BuildStorage;
+use sp_runtime::{traits::Convert, BuildStorage};
 use sp_staking::{RewardPoints, ServiceKind};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -44,11 +44,41 @@ impl Config for Test {
 	type ReportOrigin = EnsureSignedBy<Reporters, u64>;
 	type PointsOrigin = EnsureRoot<u64>;
 	type RewardPoints = MockRewardPoints;
-	type MaxPointsPerService = ConstU32<10>;
+	type MaxPointsPerService = MaxPointsPerService;
 	type MaxBlocksPerEntry = ConstU32<100>;
-	type DefaultUnitsPerEraLimit = ConstU32<200>;
-	type MaxUnitsPerEraLimit = ConstU32<1_000>;
+	type DefaultUnitsPerEraLimit = DefaultUnitsPerEraLimit;
+	type MaxUnitsPerEraLimit = MaxUnitsPerEraLimit;
 	type WeightInfo = ();
+}
+
+pub struct MaxPointsPerService;
+impl Convert<ServiceKind, u32> for MaxPointsPerService {
+	fn convert(service: ServiceKind) -> u32 {
+		match service {
+			ServiceKind::Collation => 10,
+			ServiceKind::RelayConsensus => 0,
+		}
+	}
+}
+
+pub struct DefaultUnitsPerEraLimit;
+impl Convert<ServiceKind, u32> for DefaultUnitsPerEraLimit {
+	fn convert(service: ServiceKind) -> u32 {
+		match service {
+			ServiceKind::Collation => 200,
+			ServiceKind::RelayConsensus => 0,
+		}
+	}
+}
+
+pub struct MaxUnitsPerEraLimit;
+impl Convert<ServiceKind, u32> for MaxUnitsPerEraLimit {
+	fn convert(service: ServiceKind) -> u32 {
+		match service {
+			ServiceKind::Collation => 1_000,
+			ServiceKind::RelayConsensus => 0,
+		}
+	}
 }
 
 /// Accounts that report as the source of their own id.

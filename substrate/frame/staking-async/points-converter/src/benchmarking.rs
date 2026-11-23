@@ -24,8 +24,8 @@ use crate::Pallet as StakingPointsConverter;
 use alloc::vec::Vec;
 use codec::Decode;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
-use frame_support::traits::{EnsureOrigin, Get};
-use sp_runtime::traits::TrailingZeroInput;
+use frame_support::traits::EnsureOrigin;
+use sp_runtime::traits::{Convert, TrailingZeroInput};
 use sp_staking::{RewardPoints, ServiceKind};
 
 fn any_source<T: Config>() -> T::Source {
@@ -42,7 +42,7 @@ mod benchmarks {
 		let origin =
 			T::PointsOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let source = any_source::<T>();
-		let points = T::MaxPointsPerService::get();
+		let points = T::MaxPointsPerService::convert(ServiceKind::Collation);
 
 		#[extrinsic_call]
 		_(origin as T::RuntimeOrigin, source, ServiceKind::Collation, points);
@@ -56,12 +56,12 @@ mod benchmarks {
 		let origin =
 			T::PointsOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let source = any_source::<T>();
-		let limit = T::MaxUnitsPerEraLimit::get();
+		let limit = T::MaxUnitsPerEraLimit::convert(ServiceKind::Collation);
 
 		#[extrinsic_call]
 		_(origin as T::RuntimeOrigin, source, ServiceKind::Collation, limit);
 
-		assert_eq!(UnitsPerEraLimit::<T>::get(source, ServiceKind::Collation), limit);
+		assert_eq!(UnitsPerEraLimit::<T>::get(source, ServiceKind::Collation), Some(limit));
 		Ok(())
 	}
 

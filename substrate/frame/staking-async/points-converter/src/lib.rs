@@ -68,7 +68,7 @@ pub mod pallet {
 	use alloc::vec::Vec;
 	use frame_support::{pallet_prelude::*, DefaultNoBound};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::{MaybeSerializeDeserialize, SaturatedConversion, Saturating};
+	use sp_runtime::traits::{Convert, MaybeSerializeDeserialize, SaturatedConversion, Saturating};
 	use sp_staking::{EraIndex, RewardPoints, ServiceKind};
 
 	#[pallet::pallet]
@@ -89,12 +89,11 @@ pub mod pallet {
 		/// Credits era points to the validators.
 		type RewardPoints: RewardPoints<Self::AccountId>;
 
-		/// Largest points per service [`Pallet::set_points_per_service`] and the genesis config
-		/// accept, for every service.
+		/// Largest points per unit of a service [`Pallet::set_points_per_service`] and the genesis
+		/// config accept, per service.
 		///
 		/// Crediting also bounds a stored value by it.
-		#[pallet::constant]
-		type MaxPointsPerService: Get<u32>;
+		type MaxPointsPerService: Convert<ServiceKind, u32>;
 
 		/// Largest count of blocks credited for one entry of a report. A larger count is credited
 		/// as this many blocks.
@@ -105,15 +104,13 @@ pub mod pallet {
 		type MaxBlocksPerEntry: Get<u32>;
 
 		/// Units of a service credited to a source per era until governance sets
-		/// [`UnitsPerEraLimit`] for that source and service.
-		#[pallet::constant]
-		type DefaultUnitsPerEraLimit: Get<u32>;
+		/// [`UnitsPerEraLimit`] for that source and service, per service.
+		type DefaultUnitsPerEraLimit: Convert<ServiceKind, u32>;
 
-		/// Largest limit [`Pallet::set_units_per_era_limit`] accepts.
+		/// Largest limit of a service [`Pallet::set_units_per_era_limit`] accepts, per service.
 		///
 		/// Crediting also bounds a stored limit by it.
-		#[pallet::constant]
-		type MaxUnitsPerEraLimit: Get<u32>;
+		type MaxUnitsPerEraLimit: Convert<ServiceKind, u32>;
 
 		/// Weight information for this pallet.
 		type WeightInfo: WeightInfo;
@@ -129,20 +126,13 @@ pub mod pallet {
 		StorageDoubleMap<_, Twox64Concat, T::Source, Twox64Concat, ServiceKind, u32, ValueQuery>;
 
 	/// Units of a service credited to a source per era, bounded by
-	/// [`Config::MaxUnitsPerEraLimit`] when crediting. Zero credits nothing.
+	/// [`Config::MaxUnitsPerEraLimit`] when crediting. Zero credits nothing. Absent means
+	/// [`Config::DefaultUnitsPerEraLimit`] of the service.
 	///
 	/// A unit is the one of [`PointsPerService`].
 	#[pallet::storage]
-	pub type UnitsPerEraLimit<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		T::Source,
-		Twox64Concat,
-		ServiceKind,
-		u32,
-		ValueQuery,
-		T::DefaultUnitsPerEraLimit,
-	>;
+	pub type UnitsPerEraLimit<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, T::Source, Twox64Concat, ServiceKind, u32, OptionQuery>;
 
 	/// The era a source was last credited in for a service, and the units credited to it in
 	/// that era. The units count as zero in any other era.
@@ -175,7 +165,7 @@ pub mod pallet {
 					"the genesis config weights points that come from the relay chain"
 				);
 				assert!(
-					*points <= T::MaxPointsPerService::get(),
+					*points <= T::MaxPointsPerService::convert(*service),
 					"points per service in the genesis config exceed `MaxPointsPerService`"
 				);
 				PointsPerService::<T>::insert(source, service, points);
@@ -221,25 +211,25 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
-			assert!(T::MaxPointsPerService::get() > 0, "`MaxPointsPerService` must not be zero");
-			assert!(T::MaxBlocksPerEntry::get() > 0, "`MaxBlocksPerEntry` must not be zero");
+			// The only service this pallet credits.
+			let service = ServiceKind::Collation;
+			let max_points = T::MaxPointsPerService::convert(service);
+			let default_limit = T::DefaultUnitsPerEraLimit::convert(service);
+			let max_limit = T::MaxUnitsPerEraLimit::convert(service);
+			assert!(max_points > 0, "`MaxPointsPerService` must not be zero");
+			assert!(default_limit > 0, "`DefaultUnitsPerEraLimit` must not be zero");
 			assert!(
-				T::DefaultUnitsPerEraLimit::get() > 0,
-				"`DefaultUnitsPerEraLimit` must not be zero"
-			);
-			assert!(
-				T::DefaultUnitsPerEraLimit::get() <= T::MaxUnitsPerEraLimit::get(),
+				default_limit <= max_limit,
 				"`DefaultUnitsPerEraLimit` must not exceed `MaxUnitsPerEraLimit`"
 			);
 			assert!(
-				T::MaxBlocksPerEntry::get() <= T::DefaultUnitsPerEraLimit::get(),
-				"`MaxBlocksPerEntry` must not exceed `DefaultUnitsPerEraLimit`"
-			);
-			assert!(
-				T::MaxUnitsPerEraLimit::get()
-					.checked_mul(T::MaxPointsPerService::get())
-					.is_some(),
+				max_limit.checked_mul(max_points).is_some(),
 				"`MaxUnitsPerEraLimit` times `MaxPointsPerService` must fit a `u32`"
+			);
+			assert!(T::MaxBlocksPerEntry::get() > 0, "`MaxBlocksPerEntry` must not be zero");
+			assert!(
+				T::MaxBlocksPerEntry::get() <= default_limit,
+				"`MaxBlocksPerEntry` must not exceed `DefaultUnitsPerEraLimit`"
 			);
 		}
 	}
@@ -261,7 +251,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::PointsOrigin::ensure_origin(origin)?;
 			ensure!(service != ServiceKind::RelayConsensus, Error::<T>::RelayConsensusNotWeighted);
-			ensure!(points <= T::MaxPointsPerService::get(), Error::<T>::PointsPerServiceTooHigh);
+			ensure!(
+				points <= T::MaxPointsPerService::convert(service),
+				Error::<T>::PointsPerServiceTooHigh
+			);
 			match points {
 				0 => PointsPerService::<T>::remove(source, service),
 				points => PointsPerService::<T>::insert(source, service, points),
@@ -306,7 +299,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::PointsOrigin::ensure_origin(origin)?;
 			ensure!(service != ServiceKind::RelayConsensus, Error::<T>::RelayConsensusNotWeighted);
-			ensure!(limit <= T::MaxUnitsPerEraLimit::get(), Error::<T>::UnitsPerEraLimitTooHigh);
+			ensure!(
+				limit <= T::MaxUnitsPerEraLimit::convert(service),
+				Error::<T>::UnitsPerEraLimitTooHigh
+			);
 			UnitsPerEraLimit::<T>::insert(source, service, limit);
 			Self::deposit_event(Event::UnitsPerEraLimitSet { source, service, limit });
 			Ok(())
@@ -390,8 +386,8 @@ pub mod pallet {
 			source: T::Source,
 			service: ServiceKind,
 		) -> Option<(EraIndex, u32)> {
-			let points_per_unit =
-				PointsPerService::<T>::get(source, service).min(T::MaxPointsPerService::get());
+			let points_per_unit = PointsPerService::<T>::get(source, service)
+				.min(T::MaxPointsPerService::convert(service));
 			if points_per_unit == 0 {
 				return None;
 			}
@@ -407,8 +403,9 @@ pub mod pallet {
 		) -> (u32, u32) {
 			let (counter_era, counter_units) = CreditedUnits::<T>::get(source, service);
 			let used = if counter_era == era { counter_units } else { 0 };
-			let limit =
-				UnitsPerEraLimit::<T>::get(source, service).min(T::MaxUnitsPerEraLimit::get());
+			let limit = UnitsPerEraLimit::<T>::get(source, service)
+				.unwrap_or_else(|| T::DefaultUnitsPerEraLimit::convert(service))
+				.min(T::MaxUnitsPerEraLimit::convert(service));
 			(used, limit.saturating_sub(used))
 		}
 
