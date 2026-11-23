@@ -366,4 +366,25 @@ on every reconnect shows as a high `bursts_total{route="legacy"}` rate.
   - Compare sync durations as statement store size grows
   - Identify network-level bottlenecks
 
+#### Announced Hashes Sent vs Requested
+- **Metrics:**
+  - `rate(substrate_sync_statement_announced_hashes_sent_total[$__rate_interval])`
+  - `rate(substrate_sync_statement_announced_hashes_requested_total[$__rate_interval])`
+- **Type:** Counter (displayed as rate)
+- **What it measures:** Statement hashes that this node announced to full `statement/3` peers during
+  their initial syncs, and how many of those statements the peers asked for.
+- **Why it matters:** The gap between the two is the share of the initial syncs that the peers already
+  held, so this node never sent those bodies.
+
+#### Announced Hashes Received vs Wanted
+- **Metrics:**
+  - `rate(substrate_sync_statement_announced_hashes_received_total[$__rate_interval])`
+  - `rate(substrate_sync_statement_announced_hashes_wanted_total[$__rate_interval])`
+- **Type:** Counter (displayed as rate)
+- **What it measures:** Statement hashes that full `statement/3` peers announced to this node ahead of
+  the bodies, and how many of them the node lacked and asked for.
+- **Why it matters:** The gap between the two is the share of the announced statements that the node
+  already held, so their bodies were never sent. A wanted count far above the number of new statements
+  means that several peers announce the same statements and each sends its copy.
+
 ---

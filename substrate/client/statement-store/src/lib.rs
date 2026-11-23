@@ -72,9 +72,10 @@ use sp_core::{crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed,
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
 	runtime_api::{StatementSource, StatementStoreExt},
-	AccountId, AdmittedBatch, BlockHash, Channel, DecryptionKey, FilterDecision, Hash,
-	InvalidReason, OptimizedTopicFilter, RejectionReason, Result, SignatureVerificationResult,
-	Statement, StatementAllowance, StatementEvent, SubmitResult,
+	short_hash, AccountId, AdmittedBatch, BlockHash, Channel, DecryptionKey, FilterDecision, Hash,
+	InvalidReason, OptimizedTopicFilter, RejectionReason, Result, ShortHash,
+	SignatureVerificationResult, Statement, StatementAllowance, StatementEvent, SubmitResult,
+	TopicHashesBatch, TopicIndexPosition,
 };
 pub use sp_statement_store::{Error, StatementStore, Topic, MAX_TOPICS};
 use std::{
@@ -261,6 +262,16 @@ fn topic_index_key(topic: &Topic, hash: &Hash) -> Vec<u8> {
 	key.extend_from_slice(&topic[..]);
 	key.extend_from_slice(&hash[..]);
 	key
+}
+
+/// Reverses [`topic_index_key`]; `None` if `key` does not have that layout.
+fn parse_topic_index_key(key: &[u8]) -> Option<(Topic, Hash)> {
+	if key.len() != size_of::<Topic>() + size_of::<Hash>() {
+		log::error!(target: LOG_TARGET, "Corrupt topic index key: {:?}", HexDisplay::from(&key));
+		return None;
+	}
+	let (topic, hash) = key.split_at(size_of::<Topic>());
+	Some((Topic(topic.try_into().ok()?), hash.try_into().ok()?))
 }
 
 fn dec_key_index_prefix(dec_key: &Option<DecryptionKey>) -> Vec<u8> {
@@ -707,6 +718,10 @@ struct QueryIndex {
 	/// skips held statements. A removal keeps the count, as its holders release it even after a
 	/// re-admission.
 	held: HashMap<Hash, usize>,
+	/// Short hashes of the stored statements and of the banned ones, so that an announce is
+	/// answered without a database read. Two statements may share a short hash: removing one
+	/// then drops the entry of both, and the node asks for a statement it holds.
+	known_short: HashSet<ShortHash>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Encode, Decode)]
@@ -773,6 +788,7 @@ impl QueryIndex {
 			recent: HashMap::new(),
 			retention_tracks: HashMap::new(),
 			held: HashMap::new(),
+			known_short: HashSet::new(),
 		}
 	}
 
@@ -790,6 +806,7 @@ impl QueryIndex {
 		if !track.is_persistent() {
 			self.retention_tracks.insert(hash, track);
 		}
+		self.known_short.insert(short_hash(&hash));
 	}
 
 	/// Records a removed statement: decrements cardinalities and drops the hash from `recent`.
@@ -813,6 +830,17 @@ impl QueryIndex {
 		}
 		self.recent.remove(hash);
 		self.retention_tracks.remove(hash);
+		self.known_short.remove(&short_hash(hash));
+	}
+
+	/// Records the ban of a removed statement, called after its [`Self::note_remove`].
+	fn note_banned(&mut self, hash: &Hash) {
+		self.known_short.insert(short_hash(hash));
+	}
+
+	/// Records that the ban of a statement no longer in the store has ended.
+	fn note_ban_lifted(&mut self, hash: &Hash) {
+		self.known_short.remove(&short_hash(hash));
 	}
 
 	/// The track of an already propagated statement, which the retention sweep re-checks.
@@ -1698,12 +1726,19 @@ impl Store {
 
 			let mut evicted_count = 0usize;
 			self.db
-				.iter_column_while(col::EXPIRED, |_| {
+				.iter_column_while(col::EXPIRED, |item| {
 					evicted_count += 1;
+					match <(Hash, u64)>::decode(&mut item.value.as_slice()) {
+						Ok((hash, _)) => query_index.note_banned(&hash),
+						Err(_) => log::error!(target: LOG_TARGET, "Corrupt evicted journal entry"),
+					}
 					true
 				})
 				.map_err(|e| Error::Db(e.to_string()))?;
 			submit_index.evicted_count = evicted_count;
+			for hash in self.enumerate_hashes()? {
+				query_index.known_short.insert(short_hash(&hash));
+			}
 
 			// Read-side cardinality counters, rebuilt from the index keys alone.
 			for (prefix, count) in self.count_index_prefixes(col::INDEX_BY_TOPIC)? {
@@ -2485,6 +2520,7 @@ impl Store {
 	/// many entries were drained.
 	fn drain_due_evicted(&self, current_time: u64) -> Result<usize> {
 		let mut commit: Vec<(u8, Vec<u8>, Option<Vec<u8>>)> = Vec::new();
+		let mut lifted = Vec::new();
 		let mut drained = 0usize;
 		{
 			let mut iter =
@@ -2501,11 +2537,18 @@ impl Store {
 				}
 				commit.push((col::EXPIRED, hash.to_vec(), None));
 				commit.push((col::INDEX_EVICTED, key, None));
+				lifted.push(hash);
 				drained += 1;
 			}
 		}
 		if !commit.is_empty() {
 			self.db.commit(commit).map_err(|e| Error::Db(e.to_string()))?;
+			// A local resubmission brings a banned statement back, and its short hash stays.
+			lifted.retain(|hash| !self.has_statement(hash));
+			let mut query_index = self.query_index.write();
+			for hash in &lifted {
+				query_index.note_ban_lifted(hash);
+			}
 		}
 		Ok(drained)
 	}
@@ -3001,6 +3044,42 @@ impl StatementStore for Store {
 		Ok((result, processed))
 	}
 
+	fn hashes_by_topic(
+		&self,
+		from: &TopicIndexPosition,
+		scan_limit: usize,
+		wanted: &mut dyn FnMut(&Topic) -> bool,
+	) -> Result<TopicHashesBatch> {
+		debug_assert!(scan_limit > 0, "a zero scan limit cannot advance the walk");
+		let mut hashes = Vec::new();
+		let mut scanned = 0usize;
+		let mut wanted_topic = None;
+		let mut iter = self.db.iter(col::INDEX_BY_TOPIC).map_err(|e| Error::Db(e.to_string()))?;
+		iter.seek(&topic_index_key(&from.0, &from.1))
+			.map_err(|e| Error::Db(e.to_string()))?;
+		while let Some((key, _)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+			let Some((topic, hash)) = parse_topic_index_key(&key) else { continue };
+			if scanned == scan_limit {
+				return Ok(TopicHashesBatch { hashes, next: Some((topic, hash)) });
+			}
+			scanned += 1;
+			if wanted_topic != Some(topic) {
+				if !wanted(&topic) {
+					let Some(next_topic) = next_account_id(topic.0) else { break };
+					iter.seek(&next_topic).map_err(|e| Error::Db(e.to_string()))?;
+					continue;
+				}
+				wanted_topic = Some(topic);
+			}
+			hashes.push(hash);
+		}
+		Ok(TopicHashesBatch { hashes, next: None })
+	}
+
+	fn knows_short_hash(&self, short: &ShortHash) -> bool {
+		self.query_index.read().known_short.contains(short)
+	}
+
 	/// Return the `data` of all statements matching all of `match_all_topics` that have no
 	/// decryption key (i.e. public broadcasts).
 	///
@@ -3485,6 +3564,9 @@ impl StatementStore for Store {
 					query_index.note_remove(&evicted_statement.hash(), evicted_statement);
 				}
 				query_index.forget_retention_tracking(plan.evicted.iter().map(|(key, _)| key));
+				for (banned, _) in &plan.banned {
+					query_index.note_banned(banned);
+				}
 				query_index.note_insert(hash, &statement, plan.seq, track);
 			}
 			seq
@@ -3525,7 +3607,7 @@ impl StatementStore for Store {
 
 			let mut commit = Vec::new();
 			let mut removed_statements = Vec::new();
-			let mut banned_count = 0usize;
+			let mut banned = Vec::new();
 			for (key, details) in &entries {
 				commit.push((col::STATEMENTS, key.hash.to_vec(), None));
 				commit.push((
@@ -3549,7 +3631,7 @@ impl StatementStore for Store {
 						evicted_index_key(purge_at, &key.hash),
 						Some(INDEX_EMPTY_VALUE.to_vec()),
 					));
-					banned_count += 1;
+					banned.push(key.hash);
 				}
 				match self.db.get(col::STATEMENTS, &key.hash) {
 					Ok(Some(encoded)) => match Statement::decode(&mut encoded.as_slice()) {
@@ -3591,11 +3673,14 @@ impl StatementStore for Store {
 
 				Error::Db(e.to_string())
 			})?;
-			submit_index.apply_account_removal(&who, totals, banned_count);
+			submit_index.apply_account_removal(&who, totals, banned.len());
 			// Applied under the same lock that ordered the commit (#12624).
 			let mut query_index = self.query_index.write();
 			for (hash, statement) in &removed_statements {
 				query_index.note_remove(hash, statement);
+			}
+			for hash in &banned {
+				query_index.note_banned(hash);
 			}
 			query_index.forget_retention_tracking(entries.iter().map(|(key, _)| key));
 		}
@@ -3776,7 +3861,13 @@ impl Store {
 				data_len,
 				banned,
 			);
-			self.query_index.write().note_remove(hash, &statement);
+			{
+				let mut query_index = self.query_index.write();
+				query_index.note_remove(hash, &statement);
+				if banned {
+					query_index.note_banned(hash);
+				}
+			}
 			log::trace!(target: LOG_TARGET, "Expired statement {:?}", HexDisplay::from(hash));
 		}
 		Ok(true)
@@ -4017,9 +4108,9 @@ mod tests {
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
-		AccountId, Channel, DecryptionKey, FilterDecision, InvalidReason, OptimizedTopicFilter,
-		Proof, RejectionReason, Statement, StatementAllowance, StatementSource, StatementStore,
-		SubmitResult, Topic,
+		short_hash, AccountId, Channel, DecryptionKey, FilterDecision, InvalidReason,
+		OptimizedTopicFilter, Proof, RejectionReason, Statement, StatementAllowance,
+		StatementSource, StatementStore, SubmitResult, Topic, TopicIndexPosition,
 	};
 	use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
@@ -4592,6 +4683,83 @@ mod tests {
 		assert_eq!(batch.statements, vec![(statements[3].hash(), statements[3].clone())]);
 		assert_eq!(batch.cursor, 4);
 		assert!(batch.done);
+	}
+
+	#[test]
+	fn hashes_by_topic_walks_the_wanted_topics_and_resumes() {
+		let (store, _temp) = test_store();
+		let statements = [
+			signed_statement_with_topics(1, &[topic(1)], None),
+			signed_statement_with_topics(2, &[topic(1), topic(3)], None),
+			signed_statement_with_topics(3, &[topic(2)], None),
+			signed_statement_with_topics(4, &[topic(3)], None),
+		];
+		for statement in &statements {
+			assert_eq!(
+				store.submit(statement.clone(), StatementSource::Network),
+				SubmitResult::New
+			);
+		}
+		let hashes: Vec<[u8; 32]> = statements.iter().map(Statement::hash).collect();
+		let sorted = |mut hashes: Vec<[u8; 32]>| {
+			hashes.sort_unstable();
+			hashes
+		};
+		let mut expected = sorted(vec![hashes[0], hashes[1]]);
+		expected.extend(sorted(vec![hashes[1], hashes[3]]));
+		let start = TopicIndexPosition::default();
+
+		let mut asked = Vec::new();
+		let batch = store
+			.hashes_by_topic(&start, usize::MAX, &mut |asked_topic| {
+				asked.push(*asked_topic);
+				*asked_topic != topic(2)
+			})
+			.unwrap();
+		assert_eq!(batch.hashes, expected);
+		assert_eq!(batch.next, None);
+		assert_eq!(asked, vec![topic(1), topic(2), topic(3)], "one question for each topic");
+
+		// A walk stopped by the limit resumes from the first row it left unvisited.
+		let batch = store.hashes_by_topic(&start, 2, &mut |_| true).unwrap();
+		assert_eq!(batch.hashes, expected[..2]);
+		assert_eq!(batch.next, Some((topic(2), hashes[2])));
+		let mut resumed = Vec::new();
+		let mut next = batch.next;
+		while let Some(from) = next {
+			let batch = store.hashes_by_topic(&from, 2, &mut |asked| *asked != topic(2)).unwrap();
+			resumed.extend(batch.hashes);
+			next = batch.next;
+		}
+		assert_eq!(resumed, expected[2..]);
+	}
+
+	#[test]
+	fn known_short_hashes_cover_stored_and_banned_statements() {
+		use super::DEFAULT_PURGE_AFTER_SEC;
+		let (store, temp) = test_store();
+		let (stored, banned) = (signed_statement(1), signed_statement(2));
+		for statement in [&stored, &banned] {
+			assert_eq!(
+				store.submit(statement.clone(), StatementSource::Network),
+				SubmitResult::New
+			);
+		}
+		store.remove(&banned.hash()).unwrap();
+		let (stored, banned) = (short_hash(&stored.hash()), short_hash(&banned.hash()));
+
+		assert!(store.knows_short_hash(&stored));
+		assert!(store.knows_short_hash(&banned));
+		assert!(!store.knows_short_hash(&short_hash(&signed_statement(3).hash())));
+
+		let mut store = reopen(store, &temp);
+		assert!(store.knows_short_hash(&stored), "restored at startup");
+		assert!(store.knows_short_hash(&banned), "restored at startup");
+
+		store.set_time(store.timestamp() + DEFAULT_PURGE_AFTER_SEC + 1);
+		store.maintain();
+		assert!(store.knows_short_hash(&stored));
+		assert!(!store.knows_short_hash(&banned), "the ban has ended");
 	}
 
 	#[test]
