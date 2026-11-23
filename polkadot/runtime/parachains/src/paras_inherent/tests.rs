@@ -2517,9 +2517,8 @@ mod enter {
 		});
 	}
 
-	/// Malformed signals are dropped by the signal check, before the window check reads them.
 	#[test]
-	fn a_malformed_requires_is_dropped_before_the_window_check() {
+	fn candidates_with_malformed_requires_are_dropped() {
 		new_test_ext(default_config()).execute_with(|| {
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
@@ -5436,13 +5435,13 @@ mod speculative_admission_gate {
 	fn candidate(
 		para: u32,
 		provides: Option<StreamsRoot>,
-		requires: Option<RequiresSet>,
+		requires: impl IntoIterator<Item = RequiresSet>,
 	) -> BackedCandidate {
 		let mut builder = TestCandidateBuilder::default();
 		builder.para_id = ParaId::from(para);
 		builder.core_index = Some(CoreIndex(0));
 		let mut ccr = builder.build();
-		if let Some(r) = requires {
+		for r in requires {
 			ccr.commitments.upward_messages.force_push(UMPSignal::Requires(r).encode());
 		}
 		if let Some(p) = provides {
@@ -5463,6 +5462,9 @@ mod speculative_admission_gate {
 				None,
 				Some(requires(source, 0xA)),
 			)));
+			// Duplicate signals are malformed even when the required root matches.
+			let duplicate = candidate(2000, None, [requires(source, 0xA), requires(source, 0xA)]);
+			assert!(!check_speculative_messaging::<Test>(&duplicate));
 			// `Requires` with the wrong root → not in window → dropped.
 			assert!(!check_speculative_messaging::<Test>(&candidate(
 				2000,
