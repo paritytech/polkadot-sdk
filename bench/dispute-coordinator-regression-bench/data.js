@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795446188613,
+  "lastUpdate": 1795448952605,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b18fb34a8ae348df5866e4b718d82871d744e60d",
-          "message": "Improve the sync (#12017)\n\nWe should not panic and handle it more gracefully.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-08T07:25:10Z",
-          "tree_id": "4f8e0ac1191f5681370fde931673c8105e7d75fe",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b18fb34a8ae348df5866e4b718d82871d744e60d"
-        },
-        "date": 1778230102512,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010324510249999991,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00264851018,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00935754494999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009421582349999982,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6a82e3088227a9ad49d04aeb41496d101281a4e7",
+          "message": "frame-support: Allow `cfg`-exclusive pallets to share an index (#13935)\n\nLeave `cfg` evaluation to rustc instead of the runtime macros.\n\nIndex conflicts are reported with `compile_error!` gated on both\npallets' `cfg`s, so only conflicts in the actual build are rejected.\n\n`AllPallets*` are declared per combination of the pallets' `cfg`\nconditions, so any `cfg` predicate is supported, not just `feature` and\n`test`.\n\nPallet `#[cfg]`s are stored as `syn::Attribute` and `cfg-expr` is\ndropped.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-23T13:24:20Z",
+          "tree_id": "b7d76e7901632a3ac73788337a839002e70bda5c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6a82e3088227a9ad49d04aeb41496d101281a4e7"
+        },
+        "date": 1795448914577,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026103806,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009771031399999987,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010558040259999998,
             "unit": "seconds"
           }
         ]
