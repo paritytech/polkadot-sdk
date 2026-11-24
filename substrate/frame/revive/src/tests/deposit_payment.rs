@@ -736,6 +736,30 @@ fn refund_excess_pays_native_up_to_the_credit() {
 		});
 }
 
+/// The native backend releases a refund in full or fails, so no refund leaves funds on the hold.
+/// It pays nothing of what the hold exceeds the recorded deposit by.
+#[test]
+fn native_backend_pays_no_excess() {
+	use frame_support::traits::fungible::MutateHold;
+
+	ExtBuilder::default().build().execute_with(|| {
+		let hold: <Test as Config>::RuntimeHoldReason = HoldReason::StorageDepositReserve.into();
+		Balances::set_balance(&BOB, 1_000);
+		assert_ok!(Balances::hold(&hold, &BOB, 600));
+		let alice_before = Balances::balance(&ALICE);
+
+		let refunded = <() as Deposit<Test>>::refund_excess(
+			HoldReason::StorageDepositReserve,
+			&BOB,
+			&ALICE,
+			100,
+		);
+		assert_eq!(refunded, Ok(0));
+		assert_eq!(Balances::balance_on_hold(&hold, &BOB), 600);
+		assert_eq!(Balances::balance(&ALICE), alice_before);
+	});
+}
+
 /// The slots of the `SharedStorage` at `addr` are written or cleared by `origin`.
 fn shared_storage_call(origin: AccountId32, addr: H160, data: Vec<u8>) {
 	assert_ok!(
@@ -876,6 +900,207 @@ fn unreleased_native_refund_is_not_paid_from_pgas(fixture_type: FixtureType) {
 			assert_eq!(native_held(), base_held);
 			assert_eq!(NativeDepositOf::<Test>::get(&account_id, &BOB), 0);
 			assert_eq!(native_held() + pgas_held(), recorded());
+		});
+}
+
+/// A lock or freeze on the contract account limits what its hold can release. The amount paid on
+/// top of a refund is not part of that refund, so it is limited to what can be released instead
+/// of failing the call. The rest is paid once the lock is gone.
+///
+/// CHARLIE removes the slots BOB paid for, which leaves BOB's deposit on the hold. A lock then
+/// leaves two slot deposits of the hold reducible. BOB removes a slot: one slot deposit is the
+/// refund for it and the other is paid from the deposit left on hold. BOB's next removal is
+/// refunded and nothing more is paid. After the lock is removed, BOB is paid the rest.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn unreleased_refund_is_paid_as_far_as_a_lock_allows(fixture_type: FixtureType) {
+	use frame_support::traits::{LockableCurrency, WithdrawReasons};
+
+	let (code, _) = compile_module_with_type("SharedStorage", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		Balances::set_balance(&ALICE, 100_000_000_000);
+		Balances::set_balance(&BOB, 100_000_000_000);
+		Balances::set_balance(&CHARLIE, 100_000_000_000);
+		let hold: <Test as Config>::RuntimeHoldReason = HoldReason::StorageDepositReserve.into();
+
+		let Contract { addr, account_id } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let held = || Balances::balance_on_hold(&hold, &account_id);
+		let recorded = || get_contract_checked(&addr).unwrap().total_deposit();
+
+		let bob_before = Balances::balance(&BOB);
+		shared_storage_call(BOB, addr, write_slots(0, 4));
+		let bob_deposit = bob_before - Balances::balance(&BOB);
+		shared_storage_call(CHARLIE, addr, clear_slots(0, 4));
+		assert_eq!(held(), recorded() + bob_deposit, "BOB's deposit stays on hold");
+
+		shared_storage_call(BOB, addr, write_slots(0, 1));
+		let slot_deposit = bob_before - bob_deposit - Balances::balance(&BOB);
+		assert!(slot_deposit > 0 && 2 * slot_deposit < bob_deposit);
+
+		let lock = Balances::balance(&account_id) + held() - 2 * slot_deposit;
+		Balances::set_lock(*b"test/lck", &account_id, lock, WithdrawReasons::all());
+		shared_storage_call(BOB, addr, clear_slots(0, 1));
+		assert_eq!(
+			Balances::balance(&BOB),
+			bob_before - bob_deposit + slot_deposit,
+			"BOB is refunded for the slot and paid what the lock leaves reducible",
+		);
+		assert_eq!(held(), recorded() + bob_deposit - slot_deposit);
+		assert_eq!(NativeDepositOf::<Test>::get(&account_id, &BOB), bob_deposit - slot_deposit);
+
+		shared_storage_call(BOB, addr, write_slots(0, 1));
+		shared_storage_call(BOB, addr, clear_slots(0, 1));
+		assert_eq!(
+			Balances::balance(&BOB),
+			bob_before - bob_deposit + slot_deposit,
+			"the lock leaves no more than the refund for the slot reducible",
+		);
+		assert_eq!(held(), recorded() + bob_deposit - slot_deposit);
+
+		Balances::remove_lock(*b"test/lck", &account_id);
+		shared_storage_call(BOB, addr, write_slots(0, 1));
+		shared_storage_call(BOB, addr, clear_slots(0, 1));
+		assert_eq!(Balances::balance(&BOB), bob_before, "BOB gets his whole deposit back");
+		assert_eq!(held(), recorded());
+		assert_eq!(NativeDepositOf::<Test>::get(&account_id, &BOB), 0);
+	});
+}
+
+/// The hold also exceeds the recorded deposit after `Origin::Root` removed storage, since Root is
+/// not refunded. That amount is paid out like an unreleased refund: to the next account that
+/// removes storage and has a [`NativeDepositOf`] credit, up to that credit.
+///
+/// ALICE and BOB pay for slots in native currency and Root removes BOB's slots. ALICE then removes
+/// one of her slots and is paid BOB's deposit with it. Her credit is lowered by the whole payment,
+/// so she still cannot draw more from the hold than she paid into it.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn deposit_of_storage_removed_by_root_is_paid_to_a_native_payer(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("SharedStorage", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		Balances::set_balance(&ALICE, 100_000_000_000);
+		Balances::set_balance(&BOB, 100_000_000_000);
+		let hold: <Test as Config>::RuntimeHoldReason = HoldReason::StorageDepositReserve.into();
+
+		let Contract { addr, account_id } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let held = || Balances::balance_on_hold(&hold, &account_id);
+		let recorded = || get_contract_checked(&addr).unwrap().total_deposit();
+
+		shared_storage_call(ALICE, addr, write_slots(0, 10));
+		let bob_before = Balances::balance(&BOB);
+		shared_storage_call(BOB, addr, write_slots(10, 14));
+		let bob_deposit = bob_before - Balances::balance(&BOB);
+		assert!(bob_deposit > 0);
+		assert_eq!(held(), recorded());
+		let held_before = held();
+
+		assert_ok!(
+			BareCallBuilder::<Test>::bare_call(RuntimeOrigin::root(), addr)
+				.data(clear_slots(10, 14))
+				.build()
+				.result
+		);
+		assert_eq!(held(), held_before, "Root is not refunded");
+		assert_eq!(held(), recorded() + bob_deposit, "BOB's deposit stays on hold");
+
+		let alice_before = Balances::balance(&ALICE);
+		let alice_credit = NativeDepositOf::<Test>::get(&account_id, &ALICE);
+		let recorded_before = recorded();
+		shared_storage_call(ALICE, addr, clear_slots(0, 1));
+		let slot_deposit = recorded_before - recorded();
+		assert!(slot_deposit > 0);
+		assert_eq!(Balances::balance(&ALICE), alice_before + slot_deposit + bob_deposit);
+		assert_eq!(held(), recorded());
+		assert_eq!(
+			NativeDepositOf::<Test>::get(&account_id, &ALICE),
+			alice_credit - slot_deposit - bob_deposit,
+		);
+		assert_eq!(Balances::balance(&BOB), bob_before - bob_deposit, "BOB is not paid");
+	});
+}
+
+/// The amount that stays on hold after `Origin::Root` removed storage is on the PGAS hold when
+/// that storage was paid in PGAS. It is still paid from the native hold, up to the credit of the
+/// account that removes storage next. The storage that account still has is then covered by the
+/// PGAS hold, so the refund for removing it is settled from there at `PGasRefundPercent`.
+///
+/// BOB pays for slots in native currency and DJANGO in PGAS. Root removes DJANGO's slots. BOB
+/// removes one slot and is paid his whole native deposit with it, which uses up his credit. BOB
+/// then removes his other slots and is refunded for them from the PGAS hold. BOB ends with his
+/// native deposit back and a PGAS refund on top.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn deposit_of_pgas_storage_removed_by_root_is_paid_from_the_native_hold(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("SharedStorage", fixture_type).unwrap();
+	ExtBuilder::default()
+		.with_pgas_balances(vec![(DJANGO, 100_000_000_000)])
+		.build()
+		.execute_with(|| {
+			for account in [&ALICE, &BOB, &DJANGO] {
+				Balances::set_balance(account, 100_000_000_000);
+			}
+			let hold: <Test as Config>::RuntimeHoldReason =
+				HoldReason::StorageDepositReserve.into();
+
+			let Contract { addr, account_id } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+			let native_held = || Balances::balance_on_hold(&hold, &account_id);
+			let pgas_held = || AssetsHolder::balance_on_hold(PGAS_ASSET_ID, &hold, &account_id);
+			let recorded = || get_contract_checked(&addr).unwrap().total_deposit();
+			let base_held = native_held();
+
+			let bob_before = Balances::balance(&BOB);
+			shared_storage_call(BOB, addr, write_slots(0, 4));
+			let bob_deposit = bob_before - Balances::balance(&BOB);
+			assert!(bob_deposit > 0);
+			let django_before = Assets::balance(PGAS_ASSET_ID, &DJANGO);
+			shared_storage_call(DJANGO, addr, write_slots(10, 14));
+			let django_deposit = django_before - Assets::balance(PGAS_ASSET_ID, &DJANGO);
+			assert_eq!(django_deposit, bob_deposit, "both pay for four slots");
+			assert_eq!(pgas_held(), django_deposit, "DJANGO pays in PGAS");
+			assert_eq!(native_held() + pgas_held(), recorded());
+
+			assert_ok!(
+				BareCallBuilder::<Test>::bare_call(RuntimeOrigin::root(), addr)
+					.data(clear_slots(10, 14))
+					.build()
+					.result
+			);
+			assert_eq!(pgas_held(), django_deposit, "Root is not refunded");
+			assert_eq!(native_held() + pgas_held(), recorded() + django_deposit);
+
+			let recorded_before = recorded();
+			shared_storage_call(BOB, addr, clear_slots(0, 1));
+			let slot_deposit = recorded_before - recorded();
+			assert!(slot_deposit > 0 && slot_deposit < bob_deposit);
+			assert_eq!(Balances::balance(&BOB), bob_before, "BOB gets his whole deposit back");
+			assert_eq!(NativeDepositOf::<Test>::get(&account_id, &BOB), 0);
+			assert_eq!(native_held(), base_held, "it is paid from the native hold");
+			assert_eq!(pgas_held(), django_deposit, "the PGAS hold is left alone");
+
+			let bob_pgas_before = Assets::balance(PGAS_ASSET_ID, &BOB);
+			let issuance_before = Assets::total_issuance(PGAS_ASSET_ID);
+			let recorded_before = recorded();
+			shared_storage_call(BOB, addr, clear_slots(1, 4));
+			let refund = recorded_before - recorded();
+			assert_eq!(refund, bob_deposit - slot_deposit);
+			let credited = PGasRefundPercent::get().mul_floor(refund);
+			assert!(credited > 0);
+			assert_eq!(Balances::balance(&BOB), bob_before, "BOB's credit is used up");
+			assert_eq!(Assets::balance(PGAS_ASSET_ID, &BOB), bob_pgas_before + credited);
+			assert_eq!(
+				Assets::total_issuance(PGAS_ASSET_ID),
+				issuance_before - (refund - credited)
+			);
+			assert_eq!(native_held(), base_held);
+			assert_eq!(pgas_held(), django_deposit - refund);
+			assert_eq!(
+				native_held() + pgas_held(),
+				recorded() + slot_deposit,
+				"one slot's deposit stays on the PGAS hold above the recorded deposit",
+			);
 		});
 }
 

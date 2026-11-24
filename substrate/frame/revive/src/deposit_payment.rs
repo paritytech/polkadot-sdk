@@ -121,7 +121,11 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 	/// while the contract's recorded deposit was already lowered by the whole refund. The
 	/// backend releases such funds only to an account entitled to them: `PGasDeposit` pays
 	/// them from the native hold, up to the native deposit `to` paid. The refund goes to the
-	/// free balance of `to`.
+	/// free balance of `to`. A backend that never releases a refund in part pays nothing.
+	///
+	/// The hold also exceeds the recorded deposit after `Origin::Root` removed storage, since
+	/// Root is not refunded. A backend cannot tell that amount apart from an unreleased refund,
+	/// so `PGasDeposit` pays it out the same way.
 	///
 	/// # Parameters
 	/// - `reason`: hold reason the funds were placed under.
@@ -270,15 +274,15 @@ impl<T: Config> Deposit<T> for () {
 		Ok(())
 	}
 
-	/// The whole hold is native and refundable to any origin, so the funds go to `to` in full.
+	/// A refund from the native hold is released in full or fails, so no refund leaves funds on
+	/// the hold and nothing is paid.
 	fn refund_excess(
-		reason: HoldReason,
-		from: &T::AccountId,
-		to: &T::AccountId,
-		amount: BalanceOf<T>,
+		_reason: HoldReason,
+		_from: &T::AccountId,
+		_to: &T::AccountId,
+		_amount: BalanceOf<T>,
 	) -> Result<BalanceOf<T>, DispatchError> {
-		<Self as Deposit<T>>::refund_on_hold(reason, from, Funds::Balance(to), amount)?;
-		Ok(amount)
+		Ok(Zero::zero())
 	}
 
 	fn total_on_hold(reason: HoldReason, who: &T::AccountId) -> BalanceOf<T> {
@@ -438,13 +442,22 @@ where
 	}
 
 	/// Only the native hold is paid out, up to the native deposit `to` paid. The PGAS hold is
-	/// left alone: a PGAS refund is never short, so nothing on it is owed to anyone.
+	/// left alone, also when the amount is held there because `Origin::Root` removed storage
+	/// that was paid in PGAS. The payment then lowers the credit of `to` while its storage stays
+	/// in place, so the refund for removing that storage is settled from the PGAS hold:
+	/// `RefundPercent` of it is refunded and the rest is burned.
+	///
+	/// The payment is limited to what the freezes on `from` leave reducible. It is not part of
+	/// the refund of the call it is paid with, so it must not fail that call. The rest is paid
+	/// with a later refund.
 	fn refund_excess(
 		reason: HoldReason,
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> Result<BalanceOf<T>, DispatchError> {
+		let amount =
+			amount.min(T::Currency::reducible_total_balance_on_hold(from, Fortitude::Polite));
 		Self::refund_native(reason, from, Funds::Balance(to), amount)
 	}
 
