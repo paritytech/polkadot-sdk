@@ -33,8 +33,8 @@
 //! * There may not be more than `MAX_TOTAL_STATEMENTS` total statements with `MAX_TOTAL_SIZE` size.
 //!   To satisfy this, statements are removed from the store starting with the lowest
 //!   `global_priority` until a constraint is satisfied.
-//! * On the v2 DHT path, the statements kept for DHT affinity and the transient ones each have
-//!   their own size limit. Statements kept only for explicit affinity have no limit of their own.
+//! * On the DHT path, the statements kept for DHT affinity and the transient ones each have their
+//!   own size limit. Statements kept only for explicit affinity have no limit of their own.
 //!
 //! When a new statement is inserted that would not satisfy constraints in the first place, no
 //! statements are deleted and a `Rejected` result is returned.
@@ -582,17 +582,17 @@ pub const DEFAULT_NETWORK_WORKERS: usize = 1;
 /// Default maximum statements per second per peer before rate limiting kicks in.
 pub use sc_network_statement::config::DEFAULT_STATEMENTS_PER_SECOND as DEFAULT_RATE_LIMIT;
 
-/// Default replication factor (K) for v2 DHT-affinity statement routing.
+/// Default replication factor (K) for DHT-affinity statement routing.
 pub use sc_network_statement::config::DEFAULT_REPLICATION_FACTOR;
 
-/// Default inbound slots for full peers on the v2 DHT statement path.
+/// Default inbound slots for full peers on the DHT statement path.
 pub use sc_network_statement::config::DEFAULT_IN_PEERS;
 
-/// Default gossip target for v2 DHT-affinity statement routing.
+/// Default gossip target for DHT-affinity statement routing.
 pub use sc_network_statement::config::DEFAULT_GOSSIP_TARGET;
 
-/// Parameters of the v2 DHT statement path.
-pub use sc_network_statement::{AffinityTopicsFile, V2DhtConfig};
+/// Parameters of the DHT statement path.
+pub use sc_network_statement::{AffinityTopicsFile, DhtConfig};
 
 /// Default and lowest accepted false-positive rate of the advertised topic-affinity bloom
 /// filter.
@@ -613,8 +613,8 @@ pub struct Config {
 	pub network_workers: usize,
 	/// Maximum statements per second per peer before rate limiting kicks in.
 	pub rate_limit: u32,
-	/// Parameters of the v2 DHT statement path, `None` when the legacy flood path is in use.
-	pub v2dht: Option<V2DhtConfig>,
+	/// Parameters of the DHT statement path, `None` when the legacy flood path is in use.
+	pub dht: Option<DhtConfig>,
 }
 
 impl Config {
@@ -631,7 +631,7 @@ impl Config {
 		if self.network_workers == 0 {
 			return Err(Error::InvalidConfig("network_workers must be greater than zero".into()));
 		}
-		if self.v2dht.as_ref().is_some_and(|cfg| {
+		if self.dht.as_ref().is_some_and(|cfg| {
 			!(cfg.bloom_false_pos_rate >= DEFAULT_BLOOM_FALSE_POS_RATE &&
 				cfg.bloom_false_pos_rate < 1.0)
 		}) {
@@ -656,7 +656,7 @@ impl Config {
 	/// the limit.
 	fn track_max_sizes(&self) -> [Option<usize>; RetentionTrack::COUNT] {
 		let mut max_sizes = [None; RetentionTrack::COUNT];
-		if let Some(cfg) = &self.v2dht {
+		if let Some(cfg) = &self.dht {
 			max_sizes[RetentionTrack::Transient as usize] = cfg.transient_max_size;
 			max_sizes[RetentionTrack::Persistent as usize] = cfg.dht_affinity_max_size;
 		}
@@ -689,7 +689,7 @@ impl Default for Config {
 			purge_after_sec: DEFAULT_PURGE_AFTER_SEC,
 			network_workers: DEFAULT_NETWORK_WORKERS,
 			rate_limit: DEFAULT_RATE_LIMIT,
-			v2dht: None,
+			dht: None,
 		}
 	}
 }
@@ -4010,9 +4010,9 @@ impl Store {
 mod tests {
 
 	use crate::{
-		col, evicted_index_key, parse_time_index_key, AllowanceBlock, Config, Error,
+		col, evicted_index_key, parse_time_index_key, AllowanceBlock, Config, DhtConfig, Error,
 		PrometheusMetrics, PrometheusRegistry, QueryIndex, Resubmission, RetentionReasonMask,
-		RetentionTrack, Store, StoreTotals, V2DhtConfig, INDEX_EMPTY_VALUE, KEY_VERSION,
+		RetentionTrack, Store, StoreTotals, INDEX_EMPTY_VALUE, KEY_VERSION,
 	};
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
@@ -5361,7 +5361,7 @@ mod tests {
 
 	fn transient_max_size(max_size: usize) -> Config {
 		Config {
-			v2dht: Some(V2DhtConfig { transient_max_size: Some(max_size), ..Default::default() }),
+			dht: Some(DhtConfig { transient_max_size: Some(max_size), ..Default::default() }),
 			..Default::default()
 		}
 	}
@@ -5412,7 +5412,7 @@ mod tests {
 	fn explicit_only_statements_take_the_room_the_limited_tracks_leave() {
 		let (store, _temp) = test_store_with_config(Config {
 			max_total_size: 300,
-			v2dht: Some(V2DhtConfig {
+			dht: Some(DhtConfig {
 				dht_affinity_max_size: Some(100),
 				transient_max_size: Some(100),
 				..Default::default()

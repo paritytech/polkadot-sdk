@@ -1,0 +1,17 @@
+title: 'frame-support: Allow `cfg`-exclusive pallets to share an index'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `construct_runtime!` and `#[frame_support::runtime]` now accept two pallets with the same index
+    when their `#[cfg]`s exclude each other, e.g. `#[cfg(debug_assertions)]` and
+    `#[cfg(not(debug_assertions))]`. An index conflict is only reported when both pallets are part
+    of the build, and the error points at both pallet names.
+
+    Pallets can be gated on any `cfg` predicate. Before, only `feature` and `test` were taken into
+    account for `AllPalletsWithSystem` and `AllPalletsWithoutSystem`, so pallets gated on anything
+    else were left out of them. Malformed `#[cfg]`s are now reported by rustc at the attribute.
+crates:
+- name: frame-support-procedural
+  bump: minor
+- name: frame-support
+  bump: minor
