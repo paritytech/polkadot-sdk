@@ -294,6 +294,16 @@ const STATEMENT_PROTOCOL_V1: &str = "statement/1";
 const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 /// Consecutive failed sends that disconnect the peer.
 const STALLED_PEER_FAILED_SENDS: u32 = 2;
+
+/// Why a peer counts as stalled.
+#[derive(Clone, Copy, Debug)]
+enum StallCause {
+	/// Its last [`STALLED_PEER_FAILED_SENDS`] sends failed.
+	FailedSends,
+	/// Its outbox overflowed with a propagation chunk in flight.
+	OutboxOverflow,
+}
+
 /// Interval for sending statement batches during initial sync to new peers.
 const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::from_millis(10);
 
@@ -2429,7 +2439,7 @@ where
 			if self.in_flight_chunks.contains_key(who) &&
 				!self.pending_initial_syncs.contains_key(who)
 			{
-				self.disconnect_stalled_peer(*who, "overflowed its outbox");
+				self.disconnect_stalled_peer(*who, StallCause::OutboxOverflow);
 				return;
 			}
 		}
@@ -2438,12 +2448,16 @@ where
 
 	/// Disconnect a peer that reads too slowly, without a reputation change since it is broken or
 	/// overloaded, not malicious. It is resynced on reconnect.
-	fn disconnect_stalled_peer(&mut self, who: PeerId, cause: &str) {
+	fn disconnect_stalled_peer(&mut self, who: PeerId, cause: StallCause) {
 		let queued = self.propagation_outboxes.remove(&who);
 		if queued > 0 {
 			self.record_abandoned_send(send_failure::DISCONNECTED, queued);
 		}
 
+		let cause = match cause {
+			StallCause::FailedSends => "failed consecutive statement sends",
+			StallCause::OutboxOverflow => "overflowed its outbox",
+		};
 		log::warn!(
 			target: LOG_TARGET,
 			"Peer {who} {cause} with {queued} statements queued. Disconnecting.",
@@ -2685,7 +2699,7 @@ where
 			// Disconnect once, on the send that reaches the limit: results that follow before
 			// the stream closes count past it.
 			if failed_sends == Some(STALLED_PEER_FAILED_SENDS) {
-				self.disconnect_stalled_peer(peer, "failed consecutive statement sends");
+				self.disconnect_stalled_peer(peer, StallCause::FailedSends);
 			}
 		}
 
