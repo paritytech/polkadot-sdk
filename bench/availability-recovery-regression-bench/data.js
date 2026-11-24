@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795463022729,
+  "lastUpdate": 1795528269568,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "37865735+clangenb@users.noreply.github.com",
-            "name": "clangenb",
-            "username": "clangenb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f726bad79dbdb3db8be374cbdb272fe319b5d78c",
-          "message": "emulated integration tests cleanup (#12003)\n\nThis PR mostly consists of minor refactoring like introducing/centralize\nsome helpers and replacing some inlined functions with these helpers.\n\n---------\n\nCo-authored-by: clangenb <clangenb@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-05-14T07:02:34Z",
-          "tree_id": "37e2fa5221c8658d3aa080d2ab6bca210d449023",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f726bad79dbdb3db8be374cbdb272fe319b5d78c"
-        },
-        "date": 1778747086425,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.232838003866668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1277810802,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12996709733333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adel.prokurov@parity.io",
+            "name": "playX18",
+            "username": "playX18"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ec2c79364b093a151ab418ebdafbfea391fe3fd0",
+          "message": "statement-store: release a reserved DHT peer before disconnect (#13896)\n\nCloses #13874\n\nOn DHT path, peers that exceed the statement rate limit are reported and\ndisconnected.\n\n## Changes\n- Rename `release_peer_without_dht` to `release_reserved_peer`. It\nreleases any peer reserved by steering, ensuring the disconnect takes\neffect.\n- Pause the flooding peer for 5 minutes. Steering leaves it unreserved\nand gives its place to the next candidate, and the handler rejects its\ninbound substream. When the pause ends the peer is an ordinary candidate\nagain.\n- Sync recovery releases its peer without a pause, so that peer\nreconnects at once with a fresh initial sync.",
+          "timestamp": "2026-11-24T11:24:07Z",
+          "tree_id": "bbee5565a15fef3efd348e5aab173f6e5cb884dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ec2c79364b093a151ab418ebdafbfea391fe3fd0"
+        },
+        "date": 1795528222219,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.837492061799999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13021611970000002,
             "unit": "seconds"
           }
         ]
