@@ -394,6 +394,16 @@ struct Metrics {
 	announced_hashes_wanted: Counter<U64>,
 	announced_hashes_sent: Counter<U64>,
 	announced_hashes_requested: Counter<U64>,
+	announce_answers_ignored: Counter<U64>,
+	announce_walk_seconds: HistogramVec,
+}
+
+/// Values for the `part` label of the announce walk histogram.
+mod walk_part {
+	/// One whole walk over the index by topic.
+	pub const TOTAL: &str = "total";
+	/// The share of the walk spent on asking whether a topic is due for the peer.
+	pub const DUE_CHECK: &str = "due_check";
 }
 
 mod send_failure {
@@ -648,6 +658,26 @@ impl Metrics {
 				Counter::new(
 					"substrate_sync_statement_announced_hashes_requested_total",
 					"Total statements that peers asked for after this node announced them",
+				)?,
+				r,
+			)?,
+			announce_answers_ignored: register(
+				Counter::new(
+					"substrate_sync_statement_announce_answers_ignored_total",
+					"Total answers to an announce that this node no longer awaited",
+				)?,
+				r,
+			)?,
+			announce_walk_seconds: register(
+				HistogramVec::new(
+					HistogramOpts::new(
+						"substrate_sync_statement_announce_walk_seconds",
+						"Time of one walk over the index by topic for an announce, by part: total (the whole walk) or due_check (its share spent on asking whether a topic is due for the peer)",
+					)
+					.buckets(vec![
+						0.0001, 0.0005, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0,
+					]),
+					&["part"],
 				)?,
 				r,
 			)?,
@@ -2293,6 +2323,7 @@ where
 			// The answer to an announce sent twice after a send timeout, or to a sync that has
 			// ended since.
 			log::debug!(target: LOG_TARGET, "Ignoring the answer of {who} to an announce not awaited");
+			self.metrics.as_ref().map(|metrics| metrics.announce_answers_ignored.inc());
 			return;
 		};
 		if wanted.len() != awaited.hashes.len().div_ceil(8) {
@@ -3455,11 +3486,17 @@ where
 		let filter = peer_data.topic_affinity.as_ref();
 		let already_served = pending.already_served.as_ref();
 		let dht = &self.dht;
+		let mut due_check = Duration::ZERO;
 		let mut is_due = |topic: &Topic| {
+			let started_at = Instant::now();
 			let newly_matched = filter.is_none_or(|filter| filter.contains(topic)) &&
 				already_served.is_none_or(|served| !served.contains(topic));
-			newly_matched || (already_served.is_none() && dht.is_dht_target(*topic, &peer_id))
+			let due =
+				newly_matched || (already_served.is_none() && dht.is_dht_target(*topic, &peer_id));
+			due_check += started_at.elapsed();
+			due
 		};
+		let walk_started_at = Instant::now();
 		let batch =
 			match self.statement_store.hashes_by_topic(&from, MAX_ANNOUNCED_HASHES, &mut is_due) {
 				Ok(batch) => batch,
@@ -3473,6 +3510,17 @@ where
 					return;
 				},
 			};
+		self.metrics.as_ref().map(|metrics| {
+			let walk = walk_started_at.elapsed();
+			let observe = |part, time: Duration| {
+				metrics
+					.announce_walk_seconds
+					.with_label_values(&[part])
+					.observe(time.as_secs_f64())
+			};
+			observe(walk_part::TOTAL, walk);
+			observe(walk_part::DUE_CHECK, due_check);
+		});
 
 		// A statement with several due topics shows up once for each, and the peer has no use
 		// for a statement it supplied.
@@ -7770,6 +7818,11 @@ mod tests {
 		let metrics = handler.metrics.as_ref().unwrap();
 		assert_eq!(metrics.announced_hashes_sent.get(), 3);
 		assert_eq!(metrics.announced_hashes_requested.get(), 1);
+		assert_eq!(metrics.announce_answers_ignored.get(), 0);
+		let walks =
+			|part| metrics.announce_walk_seconds.with_label_values(&[part]).get_sample_count();
+		assert_eq!(walks(walk_part::TOTAL), 1);
+		assert_eq!(walks(walk_part::DUE_CHECK), 1);
 	}
 
 	#[tokio::test]
@@ -7935,6 +7988,7 @@ mod tests {
 		assert!(!network.get_reports().contains(&(peer_id, rep::BAD_MESSAGE)));
 		assert!(notification_service.get_sent_notifications().is_empty());
 		assert!(handler.pending_initial_syncs.contains_key(&peer_id), "the sync still waits");
+		assert_eq!(handler.metrics.as_ref().unwrap().announce_answers_ignored.get(), 1);
 	}
 
 	#[tokio::test]

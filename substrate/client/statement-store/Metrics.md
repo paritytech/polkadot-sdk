@@ -387,4 +387,20 @@ on every reconnect shows as a high `bursts_total{route="legacy"}` rate.
   already held, so their bodies were never sent. A wanted count far above the number of new statements
   means that several peers announce the same statements and each sends its copy.
 
+#### Ignored Announce Answers
+- **Metric:** `rate(substrate_sync_statement_announce_answers_ignored_total[$__rate_interval])`
+- **Type:** Counter (displayed as rate)
+- **What it measures:** Answers to an announce that this node no longer awaited: the announce went out
+  twice after a send timeout, or the sync ended before the answer came.
+- **Why it matters:** The peer asked for statements in such an answer and this node sent none of them.
+
+#### Announce Walk Time
+- **Metric:** `substrate_sync_statement_announce_walk_seconds` (histogram), by `part`
+- **Buckets:** 0.1ms, 0.5ms, 1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s
+- **What it measures:** Time of one walk over the index by topic that collects the hashes of one
+  announce. `total` is the whole walk, `due_check` is its share spent on asking whether a topic is due
+  for the peer.
+- **Why it matters:** The walk runs inside the event loop of the statement handler, so a slow walk
+  delays every other statement message of the node while a sync lasts.
+
 ---
