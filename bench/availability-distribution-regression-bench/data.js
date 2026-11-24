@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795533066052,
+  "lastUpdate": 1795555621181,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "37865735+clangenb@users.noreply.github.com",
-            "name": "clangenb",
-            "username": "clangenb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f726bad79dbdb3db8be374cbdb272fe319b5d78c",
-          "message": "emulated integration tests cleanup (#12003)\n\nThis PR mostly consists of minor refactoring like introducing/centralize\nsome helpers and replacing some inlined functions with these helpers.\n\n---------\n\nCo-authored-by: clangenb <clangenb@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-05-14T07:02:34Z",
-          "tree_id": "37e2fa5221c8658d3aa080d2ab6bca210d449023",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f726bad79dbdb3db8be374cbdb272fe319b5d78c"
-        },
-        "date": 1778747116975,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.00720087966666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14495661652000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023733690080000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00945939503333331,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009768309839999972,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marios@parity.io",
+            "name": "Marios",
+            "username": "mchristou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6e2a57b01923ce441e8dd0f536ac7a064db7ddf6",
+          "message": "cumulus: judge unincluded blocks by their executing runtime (#13783)\n\n# Description\n\n  Fixes part of #13658 \n\nAfter a V2 -> V3 runtime upgrade, the parent search judged every\nunincluded block by the best block's runtime, which is V3. The\nV2-executed upgrade block was then kept and resubmitted under V3 rules\neven after its relay parent had expired under V2 rules, and validators\nrejected the candidates.\n\nThis PR judges each unincluded block by the runtime that executed it,\nits parent's:\n\n- V3-executed blocks need a relay parent known from the scheduling\nparent.\n- V2-executed blocks need a relay parent in the V2 lookahead window. An\nexpired upgrade block is therefore dropped and rebuilt instead of\nresubmitted \"forever\".\n  - V2-executed blocks never enter the V3 resubmittable segment.\n\nThe slot-based collator also ends the slot's core loop after building a\nruntime upgrade.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-24T19:48:24Z",
+          "tree_id": "35b31f6ae8721a193b6436ea50493e4bff75d55f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6e2a57b01923ce441e8dd0f536ac7a064db7ddf6"
+        },
+        "date": 1795555577992,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009965400319999982,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02401665338,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00770324966,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14156373512000012,
             "unit": "seconds"
           }
         ]
