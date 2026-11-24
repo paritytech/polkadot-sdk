@@ -177,7 +177,7 @@ parser_bench.add_argument('--fail-fast', help='Fail fast on first failed benchma
 """
 FMT
 """
-parser_fmt = subparsers.add_parser('fmt', help='Formats code (cargo +nightly-VERSION fmt) and configs (taplo format)')
+parser_fmt = subparsers.add_parser('fmt', help='Formats code (cargo +nightly-VERSION fmt), fixes crate features (zepter) and formats configs (taplo format)')
 for arg, config in common_args.items():
     parser_fmt.add_argument(arg, **config)
 
@@ -471,9 +471,22 @@ def main():
         command = "rustup run nightly cargo-fmt"
         print(f'Formatting with `{command}`')
         nightly_status = os.system(f'{command}')
+
+        # Fix feature propagation in `Cargo.toml` files, see `.config/zepter.yaml`.
+        # `zepter` comes with the CI image (like `taplo`) and runs with `--offline`, so dependencies
+        # have to be fetched first. `rustup run` like `cargo-fmt`, so a PR's `rust-toolchain.toml`
+        # cannot pick the `cargo` binary.
+        zepter_status = os.system("rustup run nightly cargo metadata --format-version=1 --locked > /dev/null")
+        if zepter_status == 0:
+            print(f'Fixing features with `zepter run default`')
+            zepter_status = os.system('rustup run nightly zepter run default')
+        if zepter_status != 0:
+            print_and_log('❌ Zepter failed to fix features, run `zepter` locally to see the issues')
+
+        # Runs after `zepter`, so its `Cargo.toml` changes are formatted too.
         taplo_status = os.system('taplo format --config .config/taplo.toml')
 
-        if (nightly_status != 0 or taplo_status != 0):
+        if (nightly_status != 0 or zepter_status != 0 or taplo_status != 0):
             print_and_log('❌ Failed to format code')
             sys.exit(1)
 

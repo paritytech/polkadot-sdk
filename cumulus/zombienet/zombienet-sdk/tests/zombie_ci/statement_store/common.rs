@@ -536,16 +536,16 @@ pub(super) async fn wait_for_first_block(
 	Ok(())
 }
 
-/// Builds collator CLI args that turn the v2 DHT path on and pin its replication factor `K` and
+/// Builds collator CLI args that turn the DHT path on and pin its replication factor `K` and
 /// gossip target, on top of [`collator_args`].
-pub(super) fn collator_args_v2(
+pub(super) fn collator_args_dht(
 	participant_count: u32,
 	log_filter: &str,
 	replication_factor: u32,
 	gossip_target: u32,
 ) -> Vec<zombienet_sdk::Arg> {
 	let mut args = collator_args(participant_count, log_filter);
-	args.push("--statement-v2-dht".into());
+	args.push("--statement-dht".into());
 	let replication = format!("--statement-replication-factor={replication_factor}");
 	args.push(replication.as_str().into());
 	let gossip = format!("--statement-gossip-target={gossip_target}");
@@ -553,8 +553,8 @@ pub(super) fn collator_args_v2(
 	args
 }
 
-/// Spawns a network on the v2 DHT path with injected allowances, pinning `K` and the gossip target.
-pub(super) async fn spawn_network_with_injected_allowances_v2(
+/// Spawns a network on the DHT path with injected allowances, pinning `K` and the gossip target.
+pub(super) async fn spawn_network_with_injected_allowances_dht(
 	collators: &[&str],
 	participant_count: u32,
 	replication_factor: u32,
@@ -563,7 +563,7 @@ pub(super) async fn spawn_network_with_injected_allowances_v2(
 	assert!(!collators.is_empty());
 	let base_dir = base_dir()?;
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
-	let args = collator_args_v2(
+	let args = collator_args_dht(
 		participant_count,
 		COLLATOR_TRACE_LOG_FILTER,
 		replication_factor,
@@ -579,7 +579,7 @@ pub(super) const LATE_JOINER_TOTAL: usize = 5;
 /// Adds `dave` with `joiner_options` once charlie is past block 10, so it joins in major sync, and
 /// checks its subscription receives every statement submitted on charlie before and during the
 /// sync. Its log must also show `recovery_log`, the step that delivers the statements dropped
-/// during the sync: the deferred-peer drain on v1, the filter advertisement on v2.
+/// during the sync: the deferred-peer drain on v1, the filter advertisement on the DHT path.
 pub(super) async fn assert_late_joiner_receives_backlog(
 	network: &mut Network<LocalFileSystem>,
 	joiner_options: AddCollatorOptions,
