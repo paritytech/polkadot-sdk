@@ -2385,13 +2385,13 @@ impl State {
 			let candidate_bitfield_bits = candidate_bitfield.len();
 
 			// Our bitfield has `Lsb0`.
-			let msb = candidate_bitfield_bits - 1;
+			let msb = candidate_bitfield_bits.checked_sub(1);
 
 			// Ensure bitfields length under hard limit.
 			if cert_bitfield_bits > MAX_BITFIELD_SIZE
 				|| candidate_bitfield_bits > MAX_BITFIELD_SIZE
 				// Ensure minimum bitfield size - MSB needs to be one.
-				|| !candidate_bitfield.bit_at(msb.as_bit_index())
+				|| !msb.is_some_and(|msb| candidate_bitfield.bit_at(msb.as_bit_index()))
 			{
 				// Punish the peer for the invalid message.
 				modify_reputation(&mut self.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
