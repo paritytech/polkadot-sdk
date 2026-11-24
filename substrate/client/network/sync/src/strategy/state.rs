@@ -80,7 +80,7 @@ pub struct StateStrategy<B: BlockT> {
 	succeeded: bool,
 	/// Set once the state sync gave up on its target. No more requests after that.
 	aborted: bool,
-	/// State requests in a row that got no response.
+	/// State requests that failed since the last accepted chunk.
 	failed_requests: u32,
 }
 
@@ -138,15 +138,25 @@ impl<B: BlockT> StateStrategy<B> {
 
 	/// Notify that a peer has disconnected.
 	pub fn remove_peer(&mut self, peer_id: &PeerId) {
-		if let Some(state) = self.peers.remove(peer_id) {
-			if !state.state.is_available() {
-				self.failed_requests += 1;
-				if let Some(bad_peer) =
-					self.disconnected_peers.on_disconnect_during_request(*peer_id)
-				{
-					self.actions.push(SyncingAction::DropPeer(bad_peer));
-				}
-			}
+		// A peer that leaves with a request in flight failed it.
+		self.on_request_failed(peer_id);
+		self.peers.remove(peer_id);
+	}
+
+	/// Notify that the state request sent to a peer failed.
+	///
+	/// The peer is free for another request once its backoff is over. A failed request is usually
+	/// followed by the disconnect of its peer, but a reserved peer stays connected: it would stay
+	/// in `DownloadingState` and no other request would go out.
+	pub fn on_request_failed(&mut self, peer_id: &PeerId) {
+		let Some(peer) = self.peers.get_mut(peer_id) else { return };
+		if peer.state.is_available() {
+			return;
+		}
+		peer.state = PeerState::Available;
+		self.failed_requests += 1;
+		if let Some(bad_peer) = self.disconnected_peers.on_disconnect_during_request(*peer_id) {
+			self.actions.push(SyncingAction::DropPeer(bad_peer));
 		}
 	}
 
@@ -183,7 +193,6 @@ impl<B: BlockT> StateStrategy<B> {
 		peer_id: &PeerId,
 		response: &[u8],
 	) -> Result<(), BadPeer> {
-		self.failed_requests = 0;
 		if let Some(peer) = self.peers.get_mut(&peer_id) {
 			peer.state = PeerState::Available;
 		}
@@ -209,10 +218,15 @@ impl<B: BlockT> StateStrategy<B> {
 
 		match self.state_sync.import(response) {
 			ImportResult::Import(block) => {
+				self.failed_requests = 0;
 				self.queue_target_import(block);
 				Ok(())
 			},
-			ImportResult::Continue => Ok(()),
+			ImportResult::Continue => {
+				// Only an accepted chunk shows that a peer still has the state.
+				self.failed_requests = 0;
+				Ok(())
+			},
 			ImportResult::Abort => {
 				self.abort();
 				Ok(())
@@ -406,8 +420,8 @@ impl<B: BlockT> StateStrategy<B> {
 		self.succeeded
 	}
 
-	/// State requests in a row that got no response: the peer was dropped first. A peer that no
-	/// longer has the state drops the request.
+	/// State requests that failed since the last accepted chunk. A peer that no longer has the
+	/// state drops the request. A bad response neither counts nor resets it.
 	pub(crate) fn failed_requests(&self) -> u32 {
 		self.failed_requests
 	}
@@ -685,9 +699,12 @@ mod test {
 	}
 
 	#[test]
-	fn failed_requests_count_the_peers_dropped_during_a_request_until_a_response() {
+	fn failed_requests_count_until_a_chunk_is_accepted() {
 		let mut state_sync_provider = MockStateSync::<Block>::new();
-		state_sync_provider.expect_import().return_once(|_| ImportResult::Continue);
+		let mut results = vec![ImportResult::Continue, ImportResult::BadResponse];
+		state_sync_provider
+			.expect_import()
+			.returning(move |_| results.pop().expect("two responses are imported"));
 		let [idle, requested, answering] = [(); 3].map(|_| PeerId::random());
 		let mut state_strategy = StateStrategy::new_with_provider(
 			Box::new(state_sync_provider),
@@ -702,9 +719,45 @@ mod test {
 		state_strategy.remove_peer(&requested);
 		assert_eq!(state_strategy.failed_requests(), 1);
 
+		// A response that does not decode and a bad one do not show that a peer still has the
+		// state. Only an accepted chunk does.
+		state_strategy.on_state_response(&answering, vec![0xff]);
+		assert_eq!(state_strategy.failed_requests(), 1);
 		let dummy_response = StateResponse::default().encode_to_vec();
+		state_strategy.on_state_response(&answering, dummy_response.clone());
+		assert_eq!(state_strategy.failed_requests(), 1);
 		state_strategy.on_state_response(&answering, dummy_response);
 		assert_eq!(state_strategy.failed_requests(), 0);
+	}
+
+	/// A reserved peer is not disconnected when its request fails. The failure itself frees the
+	/// peer, backs it off and counts, and removing the peer later counts nothing more.
+	#[test]
+	fn failed_request_frees_a_peer_that_stays_connected() {
+		let mut state_sync_provider = MockStateSync::<Block>::new();
+		state_sync_provider.expect_is_complete().return_const(false);
+		state_sync_provider.expect_has_pending_write().return_const(false);
+		state_sync_provider.expect_target_number().return_const(10u64);
+		state_sync_provider.expect_next_request().returning(StateRequest::default);
+		let [reserved, other] = [(); 2].map(|_| PeerId::random());
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			std::iter::once((reserved, 10)),
+			ProtocolName::Static(""),
+		);
+
+		assert_eq!(state_strategy.state_request().unwrap().0, reserved);
+		state_strategy.on_request_failed(&reserved);
+		assert_eq!(state_strategy.failed_requests(), 1);
+		assert!(state_strategy.peers.get(&reserved).unwrap().state.is_available());
+
+		// The peer is backed off, so the next request goes to another one.
+		assert!(state_strategy.state_request().is_none());
+		state_strategy.add_peer(other, H256::random(), 10);
+		assert_eq!(state_strategy.state_request().unwrap().0, other);
+
+		state_strategy.remove_peer(&reserved);
+		assert_eq!(state_strategy.failed_requests(), 1);
 	}
 
 	#[test]

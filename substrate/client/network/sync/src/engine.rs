@@ -1113,6 +1113,7 @@ where
 			},
 			Ok(Err(e)) => {
 				debug!(target: LOG_TARGET, "Request to peer {peer_id:?} failed: {e:?}.");
+				self.strategy.on_request_failed(&peer_id, key);
 
 				match e {
 					RequestFailure::Network(OutboundFailure::Timeout) => {
@@ -1164,6 +1165,7 @@ where
 					target: LOG_TARGET,
 					"Request to peer {peer_id:?} failed due to oneshot being canceled.",
 				);
+				self.strategy.on_request_failed(&peer_id, key);
 				self.network_service
 					.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 			},

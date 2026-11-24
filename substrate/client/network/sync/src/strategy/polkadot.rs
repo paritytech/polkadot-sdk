@@ -249,6 +249,15 @@ where
 		}
 	}
 
+	fn on_request_failed(&mut self, peer_id: &PeerId, key: StrategyKey) {
+		// `WarpSync` and `ChainSync` only learn of it when the peer is disconnected.
+		if key == StateStrategy::<B>::STRATEGY_KEY {
+			if let Some(state) = &mut self.state {
+				state.on_request_failed(peer_id);
+			}
+		}
+	}
+
 	fn on_blocks_processed(
 		&mut self,
 		imported: usize,
@@ -697,14 +706,22 @@ mod test {
 		assert!(strategy.client.resumable_partial_state().unwrap().is_none(), "abandoned");
 
 		// Without a finalized head the best block of a peer does not count, however far it is.
-		// Each peer is asked for the state and dropped before it answers.
+		// Each peer is asked for the state, its request fails and it is dropped. That counts once.
 		let provider = Arc::new(MockWarpSyncProvider::<Block>::new());
 		let mut strategy = resumed(WarpSyncConfig::WithProvider(provider));
 		for _ in 0..STALE_TARGET_FAILED_REQUESTS {
+			// A bad answer in between does not show that the target is still served.
+			strategy.on_generic_response(
+				&PeerId::random(),
+				StateStrategy::<Block>::STRATEGY_KEY,
+				ProtocolName::from("/state/2"),
+				Box::new(Vec::<u8>::new()),
+			);
 			let peer_id = PeerId::random();
 			strategy.add_peer(peer_id, Default::default(), stale);
 			strategy.actions(&network_handle).unwrap();
 			assert!(strategy.warp.is_none() && strategy.state.is_some(), "still asking");
+			strategy.on_request_failed(&peer_id, StateStrategy::<Block>::STRATEGY_KEY);
 			strategy.remove_peer(&peer_id);
 		}
 		strategy.actions(&network_handle).unwrap();

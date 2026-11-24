@@ -98,6 +98,11 @@ where
 		response: Box<dyn Any + Send>,
 	);
 
+	/// Notify that the request started from a strategy with `key` failed.
+	///
+	/// The default does nothing.
+	fn on_request_failed(&mut self, _peer_id: &PeerId, _key: StrategyKey) {}
+
 	/// A batch of blocks that have been processed, with or without errors.
 	///
 	/// Call this when a batch of blocks that have been processed by the import queue, with or
