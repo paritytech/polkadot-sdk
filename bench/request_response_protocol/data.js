@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795525280324,
+  "lastUpdate": 1795532049372,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -150335,6 +150335,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2765301151,
             "range": "± 36297097",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5b46ac0f96042fd94a303a038c7d2f7650998ff4",
+          "message": "statement-store: restore the retention tracks at startup and check the size limit on a retrack (#13868)\n\n# Description\n\nA node that runs with `--statement-dht` keeps the track of every\ntransient and explicit-only statement in memory, and only admission\nfills that map. After a restart the map was empty, so the retention\nsweep saw nothing. The statements stayed on disk until they expired and\nkept counting toward the size limit of their track. A restarted node\ncould reject new transient statements as \"track full\" while it held\nstatements that it should have dropped.\n\nThe startup code now reads the account index once and restores the map.\nTransient statements also return to the set that waits for propagation,\nbecause nothing records which of them reached a peer. The node sends\nthem again before the sweep may remove them.\n\nThe sweep also moved a statement to another track without a look at the\nsize limit of that track. After a topology change the track of DHT\naffinity could rise above its limit and then reject every new statement.\nThe sweep now leaves the statement on its current track while the target\ntrack is full, and tries again on the next pass.\n\nThe DHT soak passed on commit 7d96d55668a as a regression check, with 40\nnodes, 30 minutes and two node restarts:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/44066239055\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13870.\n\n## Integration\n\nNothing changes for a node without `--statement-dht`.\n\nOn a node with the flag, the first sweep after a restart removes the\nexplicit-only statements that no affinity covers. Statements from a\ndatabase older than version 3 are among them, because the migration\nplaced all of them on the explicit-only track. A peer may receive a\ntransient statement twice when the sender restarts.",
+          "timestamp": "2026-11-24T13:20:58Z",
+          "tree_id": "9ebc504753b553f83ae3933db040b5a42622a234",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5b46ac0f96042fd94a303a038c7d2f7650998ff4"
+        },
+        "date": 1795532006101,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 24197089,
+            "range": "± 470011",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 25657222,
+            "range": "± 486877",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 26507954,
+            "range": "± 593661",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 31877970,
+            "range": "± 584202",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 75036571,
+            "range": "± 1379115",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 494344620,
+            "range": "± 7485971",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 3144562793,
+            "range": "± 228440525",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 20589750,
+            "range": "± 426653",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 23177029,
+            "range": "± 1438167",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 22589750,
+            "range": "± 749789",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 28863222,
+            "range": "± 865284",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 77752167,
+            "range": "± 1584724",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 473679404,
+            "range": "± 10528625",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 3453092270,
+            "range": "± 57004604",
             "unit": "ns/iter"
           }
         ]
