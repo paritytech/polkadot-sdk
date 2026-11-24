@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Peer steering for the v2 DHT gossip path.
+//! Peer steering for the DHT gossip path.
 //!
 //! Implements [#11935](https://github.com/paritytech/polkadot-sdk/issues/11935): the module that
 //! keeps the node connected to the peers it needs: those covering its subscriptions and its

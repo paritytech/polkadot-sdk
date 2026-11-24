@@ -2,7 +2,7 @@ title: 'statement-store: release a reserved DHT peer before disconnect'
 doc:
 - audience: Node Dev
   description: |-
-    On the v2 DHT path a peer that exceeds the statement rate limit is now released from the
+    On the DHT path a peer that exceeds the statement rate limit is now released from the
     statement protocol's reserved set before it is disconnected, whether or not it has the DHT
     path. The litep2p peerset ignores a disconnect of a reserved peer, so a DHT peer that steering
     held reserved stayed connected and the rest of its batch was lost.
