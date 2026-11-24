@@ -32,6 +32,7 @@ use crate::{
 	verifier::{self},
 	CommonError,
 };
+use alloc::{boxed::Box, collections::btree_map::BTreeMap, vec::Vec};
 use codec::Encode;
 use frame_election_provider_support::{ExtendedBalance, NposSolver, Support, VoteWeight};
 use frame_support::{traits::Get, BoundedVec};
@@ -42,7 +43,6 @@ use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageValueRef},
 	traits::{SaturatedConversion, Saturating, Zero},
 };
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 // TODO: we should have a fuzzer for miner that ensures no matter the parameters, it generates a
 // valid solution. Esp. for the trimming.
@@ -154,7 +154,7 @@ pub trait MinerConfig {
 		+ PartialEq
 		+ Eq
 		+ Clone
-		+ sp_std::fmt::Debug
+		+ core::fmt::Debug
 		+ Ord
 		+ NposSolution
 		+ TypeInfo
@@ -209,7 +209,7 @@ pub trait MinerConfig {
 
 /// A base miner that is only capable of mining a new solution and checking it against the state of
 /// this pallet for feasibility, and trimming its length/weight.
-pub struct BaseMiner<T: MinerConfig>(sp_std::marker::PhantomData<T>);
+pub struct BaseMiner<T: MinerConfig>(core::marker::PhantomData<T>);
 
 /// Parameterized `BoundedSupports` for the miner.
 ///
@@ -667,7 +667,7 @@ impl<T: MinerConfig> BaseMiner<T> {
 /// A miner that is suited to work inside offchain worker environment.
 ///
 /// This is parameterized by [`Config`], rather than [`MinerConfig`].
-pub struct OffchainWorkerMiner<T: Config>(sp_std::marker::PhantomData<T>);
+pub struct OffchainWorkerMiner<T: Config>(core::marker::PhantomData<T>);
 
 impl<T: Config> OffchainWorkerMiner<T> {
 	/// Storage key used to store the offchain worker running status.

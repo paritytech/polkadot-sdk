@@ -1,0 +1,16 @@
+title: 'statement-store: move the v2 DHT path to statement/3'
+doc:
+- audience: [Node Operator, Node Dev]
+  description: |-
+    A node with `--statement-v2-dht` now speaks `statement/3` and falls back to `statement/2`
+    and `statement/1`. A node without the flag does not change. The negotiated protocol tells
+    whether a peer runs the DHT path: a full peer that falls back to `statement/2` floods, so it
+    gets every statement from the moment it connects, without the ten second wait for its
+    affinity filter.
+    Nodes that run the flag reach each other over the DHT only when both run this change. A node
+    with the flag on an older build is served as a flood peer.
+    The counters `substrate_sync_statement_peers_assumed_match_all_total` and
+    `substrate_sync_statement_late_affinity_filters_total` are removed.
+crates:
+- name: sc-network-statement
+  bump: patch
