@@ -342,8 +342,7 @@ where
 		<T as Config>::WeightInfo::n_items_proof_is_non_canonical(
 			proof.items.len().saturating_add(proof.prev_peaks.len()).saturated_into(),
 		)
-		// `n_items_proof_is_non_canonical()` uses inflated proofs that contain all the leafs,
-		// where no peak needs to be read. So we need to also add the cost of reading the peaks.
+		// Add the cost of reading the peaks as well.
 		.saturating_add(<T as Config>::WeightInfo::read_peak().saturating_mul(num_peaks))
 	}
 }
