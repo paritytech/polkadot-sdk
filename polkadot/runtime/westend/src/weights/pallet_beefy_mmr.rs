@@ -19,7 +19,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
 //! DATE: 2026-11-24, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `22f19382eb81`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! HOSTNAME: `3cf593d79cae`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: 1024
 
 // Executed Command:
@@ -56,11 +56,11 @@ impl<T: frame_system::Config> pallet_beefy_mmr::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 645_000 picoseconds.
-		Weight::from_parts(1_078_223, 0)
+		// Minimum execution time: 617_000 picoseconds.
+		Weight::from_parts(1_068_988, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			// Standard Error: 7
-			.saturating_add(Weight::from_parts(675, 0).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(668, 0).saturating_mul(n.into()))
 	}
 	/// Storage: `System::BlockHash` (r:1 w:0)
 	/// Proof: `System::BlockHash` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
@@ -70,8 +70,8 @@ impl<T: frame_system::Config> pallet_beefy_mmr::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `215`
 		//  Estimated: `3509`
-		// Minimum execution time: 12_857_000 picoseconds.
-		Weight::from_parts(13_788_000, 0)
+		// Minimum execution time: 12_899_000 picoseconds.
+		Weight::from_parts(13_816_000, 0)
 			.saturating_add(Weight::from_parts(0, 3509))
 			.saturating_add(T::DbWeight::get().reads(2))
 	}
@@ -81,8 +81,8 @@ impl<T: frame_system::Config> pallet_beefy_mmr::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `150`
 		//  Estimated: `3505`
-		// Minimum execution time: 7_000_000 picoseconds.
-		Weight::from_parts(7_593_000, 0)
+		// Minimum execution time: 6_997_000 picoseconds.
+		Weight::from_parts(7_580_000, 0)
 			.saturating_add(Weight::from_parts(0, 3505))
 			.saturating_add(T::DbWeight::get().reads(1))
 	}
@@ -93,11 +93,11 @@ impl<T: frame_system::Config> pallet_beefy_mmr::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `37`
 		//  Estimated: `1493`
-		// Minimum execution time: 9_439_000 picoseconds.
-		Weight::from_parts(9_817_000, 0)
+		// Minimum execution time: 9_492_000 picoseconds.
+		Weight::from_parts(9_842_000, 0)
 			.saturating_add(Weight::from_parts(0, 1493))
-			// Standard Error: 1_733
-			.saturating_add(Weight::from_parts(2_996_230, 0).saturating_mul(n.into()))
+			// Standard Error: 1_790
+			.saturating_add(Weight::from_parts(3_031_071, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 	}
 }
