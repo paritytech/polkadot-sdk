@@ -1,0 +1,5 @@
+title: Upgrade `polkadot-ckb-merkle-mountain-range` to 0.8.4
+doc:
+- audience: Runtime Dev
+  description: Upgrade `polkadot-ckb-merkle-mountain-range` to 0.8.4
+crates: []
