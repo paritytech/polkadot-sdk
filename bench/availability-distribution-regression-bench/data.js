@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795463083774,
+  "lastUpdate": 1795528329804,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bkontur@gmail.com",
-            "name": "Branislav Kontur",
-            "username": "bkontur"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9a802a5269a9d52cf9b0ce49aa199a34aa262ef3",
-          "message": "pallet-transaction-storage: mark publish = false and drop from umbrella (#12059)\n\n## Summary\n- Set `publish = false` on `pallet-transaction-storage` so it is no\nlonger published to crates.io as part of the SDK release.\n- Remove all references to `pallet-transaction-storage` from the\n`polkadot-sdk` umbrella crate\n\nThe pallet remains a normal workspace member and can still be depended\non directly via its path, but it is excluded from the umbrella crate and\nthe published release set.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-13T14:02:16Z",
-          "tree_id": "a23b81bceb0fcaf3062b724629c3b1588fe2834d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9a802a5269a9d52cf9b0ce49aa199a34aa262ef3"
-        },
-        "date": 1778686031869,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02406568582,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14273181740666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009701800426666648,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007293346846666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14259055288666664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adel.prokurov@parity.io",
+            "name": "playX18",
+            "username": "playX18"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ec2c79364b093a151ab418ebdafbfea391fe3fd0",
+          "message": "statement-store: release a reserved DHT peer before disconnect (#13896)\n\nCloses #13874\n\nOn DHT path, peers that exceed the statement rate limit are reported and\ndisconnected.\n\n## Changes\n- Rename `release_peer_without_dht` to `release_reserved_peer`. It\nreleases any peer reserved by steering, ensuring the disconnect takes\neffect.\n- Pause the flooding peer for 5 minutes. Steering leaves it unreserved\nand gives its place to the next candidate, and the handler rejects its\ninbound substream. When the pause ends the peer is an ordinary candidate\nagain.\n- Sync recovery releases its peer without a pause, so that peer\nreconnects at once with a fresh initial sync.",
+          "timestamp": "2026-11-24T11:24:07Z",
+          "tree_id": "bbee5565a15fef3efd348e5aab173f6e5cb884dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ec2c79364b093a151ab418ebdafbfea391fe3fd0"
+        },
+        "date": 1795528293106,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14549913089333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007594301633333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010064029873333317,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024172675426666675,
             "unit": "seconds"
           }
         ]
