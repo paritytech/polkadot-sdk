@@ -15,9 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use frame_support::{derive_impl, dispatch::DispatchClass};
 use sp_runtime::{BuildStorage, Perbill};
+use std::hint::black_box;
 #[frame_support::pallet]
 mod module {
 	use frame_support::pallet_prelude::*;
