@@ -30,8 +30,12 @@ crates:
 - name: bp-runtime
   bump: major
 - name: sc-client-db
-  bump: patch
+  bump: minor
 - name: cumulus-pallet-parachain-system
-  bump: patch
+  bump: minor
 - name: substrate-state-trie-migration-rpc
-  bump: patch
+  bump: minor
+- name: sp-crypto-hashing
+  bump: none
+- name: frame-system
+  bump: none
