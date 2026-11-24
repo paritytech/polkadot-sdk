@@ -18,14 +18,16 @@
 
 use polkadot_primitives::AuthorityDiscoveryId;
 use sc_network_types::PeerId;
-use std::collections::HashSet;
+use std::{collections::HashMap, time::Duration};
 
 /// One measurement = one variant. Fields are the concrete values.
 #[derive(Debug, Clone)]
 pub enum Observation {
 	/// The authorities we hold a validation peer set connection with, a snapshot gossip support
 	/// reports at every active leaf. May contain authorities of past, current and next sessions.
-	ConnectedValidators { authorities: HashSet<AuthorityDiscoveryId> },
+	ConnectedValidators { authorities: HashMap<AuthorityDiscoveryId, PeerId> },
+	/// The latest ping round-trip time of the connected peers, validators or not.
+	PeerRtts { rtts: HashMap<PeerId, Duration> },
 	/// A peer opened a connection to us.
 	InboundConnection { peer: PeerId },
 }

@@ -24,6 +24,7 @@
 mod checks;
 mod observation;
 
+pub use checks::RTT_POLL_INTERVAL;
 pub use observation::Observation;
 
 use checks::{Checks, Event};

@@ -519,7 +519,7 @@ where
 				match result {
 					Ok(b) => b,
 					Err(crate::request_responses::RegisterError::DuplicateProtocol(proto)) => {
-						return Err(Error::DuplicateRequestResponseProtocol { protocol: proto })
+						return Err(Error::DuplicateRequestResponseProtocol { protocol: proto });
 					},
 				}
 			};
@@ -978,6 +978,17 @@ where
 			Err(_) => Err(()),
 		}
 	}
+
+	async fn peer_rtts(&self) -> Result<HashMap<sc_network_types::PeerId, Duration>, ()> {
+		let (tx, rx) = oneshot::channel();
+
+		let _ = self
+			.to_worker
+			.unbounded_send(ServiceToWorkerMsg::PeerRtts { pending_response: tx });
+
+		// The channel can only be closed if the network worker no longer exists.
+		rx.await.map_err(|_| ())
+	}
 }
 
 #[async_trait::async_trait]
@@ -1323,6 +1334,9 @@ enum ServiceToWorkerMsg {
 	NetworkState {
 		pending_response: oneshot::Sender<Result<NetworkState, RequestFailure>>,
 	},
+	PeerRtts {
+		pending_response: oneshot::Sender<HashMap<sc_network_types::PeerId, Duration>>,
+	},
 	DisconnectPeer(PeerId, ProtocolName),
 }
 
@@ -1480,6 +1494,15 @@ where
 			},
 			ServiceToWorkerMsg::NetworkState { pending_response } => {
 				let _ = pending_response.send(Ok(self.network_state()));
+			},
+			ServiceToWorkerMsg::PeerRtts { pending_response } => {
+				let _ = pending_response.send(
+					self.network_service
+						.behaviour()
+						.latest_pings()
+						.map(|(peer, rtt)| (peer.into(), rtt))
+						.collect(),
+				);
 			},
 			ServiceToWorkerMsg::DisconnectPeer(who, protocol_name) => self
 				.network_service
