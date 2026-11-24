@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795528513022,
+  "lastUpdate": 1795533240324,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "52418509+georgepisaltu@users.noreply.github.com",
-            "name": "georgepisaltu",
-            "username": "georgepisaltu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5989c0a8b435447d3197040eb162525c92db80c9",
-          "message": "Extend PGAS filter to allow batches (#12027)\n\n# Description\n\nJust as the title says.\n\n---------\n\nSigned-off-by: georgepisaltu <george.pisaltu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-08T14:58:35Z",
-          "tree_id": "d6c9d3cb684c45a2745fa71e489ca73ba1ef0b86",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5989c0a8b435447d3197040eb162525c92db80c9"
-        },
-        "date": 1778257229833,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010403502659999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026890719100000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009384864779999957,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010405023280000005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5b46ac0f96042fd94a303a038c7d2f7650998ff4",
+          "message": "statement-store: restore the retention tracks at startup and check the size limit on a retrack (#13868)\n\n# Description\n\nA node that runs with `--statement-dht` keeps the track of every\ntransient and explicit-only statement in memory, and only admission\nfills that map. After a restart the map was empty, so the retention\nsweep saw nothing. The statements stayed on disk until they expired and\nkept counting toward the size limit of their track. A restarted node\ncould reject new transient statements as \"track full\" while it held\nstatements that it should have dropped.\n\nThe startup code now reads the account index once and restores the map.\nTransient statements also return to the set that waits for propagation,\nbecause nothing records which of them reached a peer. The node sends\nthem again before the sweep may remove them.\n\nThe sweep also moved a statement to another track without a look at the\nsize limit of that track. After a topology change the track of DHT\naffinity could rise above its limit and then reject every new statement.\nThe sweep now leaves the statement on its current track while the target\ntrack is full, and tries again on the next pass.\n\nThe DHT soak passed on commit 7d96d55668a as a regression check, with 40\nnodes, 30 minutes and two node restarts:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/44066239055\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13870.\n\n## Integration\n\nNothing changes for a node without `--statement-dht`.\n\nOn a node with the flag, the first sweep after a restart removes the\nexplicit-only statements that no affinity covers. Statements from a\ndatabase older than version 3 are among them, because the migration\nplaced all of them on the explicit-only track. A peer may receive a\ntransient statement twice when the sender restarts.",
+          "timestamp": "2026-11-24T13:20:58Z",
+          "tree_id": "9ebc504753b553f83ae3933db040b5a42622a234",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5b46ac0f96042fd94a303a038c7d2f7650998ff4"
+        },
+        "date": 1795533195563,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025352887,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009150288199999973,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010158297120000003,
             "unit": "seconds"
           }
         ]
