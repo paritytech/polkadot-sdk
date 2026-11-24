@@ -168,29 +168,31 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#18 id=18 data-nosnippet>18</a></span><span class="kw">mod </span>mmr;
 <a href=#19 id=19 data-nosnippet>19</a><span class="kw">pub mod </span>storage;
 <a href=#20 id=20 data-nosnippet>20</a>
-<a href=#21 id=21 data-nosnippet>21</a><span class="kw">pub use </span><span class="self">self</span>::mmr::{is_ancestry_proof_optimal, verify_ancestry_proof, verify_leaves_proof, Mmr};
-<a href=#22 id=22 data-nosnippet>22</a><span class="kw">use </span><span class="kw">crate</span>::primitives::{mmr_lib, DataOrHash, FullLeaf};
-<a href=#23 id=23 data-nosnippet>23</a><span class="kw">use </span>frame::traits;
-<a href=#24 id=24 data-nosnippet>24</a>
-<a href=#25 id=25 data-nosnippet>25</a><span class="doccomment">/// Node type for runtime `T`.
-<a href=#26 id=26 data-nosnippet>26</a></span><span class="kw">pub type </span>NodeOf&lt;T, I, L&gt; = Node&lt;&lt;T <span class="kw">as </span><span class="kw">crate</span>::Config&lt;I&gt;&gt;::Hashing, L&gt;;
-<a href=#27 id=27 data-nosnippet>27</a>
-<a href=#28 id=28 data-nosnippet>28</a><span class="doccomment">/// A node stored in the MMR.
-<a href=#29 id=29 data-nosnippet>29</a></span><span class="kw">pub type </span>Node&lt;H, L&gt; = DataOrHash&lt;H, L&gt;;
-<a href=#30 id=30 data-nosnippet>30</a>
-<a href=#31 id=31 data-nosnippet>31</a><span class="doccomment">/// Default Merging &amp; Hashing behavior for MMR.
-<a href=#32 id=32 data-nosnippet>32</a></span><span class="kw">pub struct </span>Hasher&lt;H, L&gt;(core::marker::PhantomData&lt;(H, L)&gt;);
-<a href=#33 id=33 data-nosnippet>33</a>
-<a href=#34 id=34 data-nosnippet>34</a><span class="kw">impl</span>&lt;H: traits::Hash, L: FullLeaf&gt; mmr_lib::Merge <span class="kw">for </span>Hasher&lt;H, L&gt; {
-<a href=#35 id=35 data-nosnippet>35</a>	<span class="kw">type </span>Item = Node&lt;H, L&gt;;
-<a href=#36 id=36 data-nosnippet>36</a>
-<a href=#37 id=37 data-nosnippet>37</a>	<span class="kw">fn </span>merge(left: <span class="kw-2">&amp;</span><span class="self">Self</span>::Item, right: <span class="kw-2">&amp;</span><span class="self">Self</span>::Item) -&gt; mmr_lib::Result&lt;<span class="self">Self</span>::Item&gt; {
-<a href=#38 id=38 data-nosnippet>38</a>		<span class="kw">let </span><span class="kw-2">mut </span>concat = left.hash().as_ref().to_vec();
-<a href=#39 id=39 data-nosnippet>39</a>		concat.extend_from_slice(right.hash().as_ref());
-<a href=#40 id=40 data-nosnippet>40</a>
-<a href=#41 id=41 data-nosnippet>41</a>		<span class="prelude-val">Ok</span>(Node::Hash(&lt;H <span class="kw">as </span>traits::Hash&gt;::hash(<span class="kw-2">&amp;</span>concat)))
-<a href=#42 id=42 data-nosnippet>42</a>	}
-<a href=#43 id=43 data-nosnippet>43</a>}
+<a href=#21 id=21 data-nosnippet>21</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#22 id=22 data-nosnippet>22</a></span><span class="kw">pub use </span><span class="self">self</span>::mmr::generate_synthetic_ancestry_proof;
+<a href=#23 id=23 data-nosnippet>23</a><span class="kw">pub use </span><span class="self">self</span>::mmr::{is_ancestry_proof_optimal, verify_ancestry_proof, verify_leaves_proof, Mmr};
+<a href=#24 id=24 data-nosnippet>24</a><span class="kw">use </span><span class="kw">crate</span>::primitives::{mmr_lib, DataOrHash, FullLeaf};
+<a href=#25 id=25 data-nosnippet>25</a><span class="kw">use </span>frame::traits;
+<a href=#26 id=26 data-nosnippet>26</a>
+<a href=#27 id=27 data-nosnippet>27</a><span class="doccomment">/// Node type for runtime `T`.
+<a href=#28 id=28 data-nosnippet>28</a></span><span class="kw">pub type </span>NodeOf&lt;T, I, L&gt; = Node&lt;&lt;T <span class="kw">as </span><span class="kw">crate</span>::Config&lt;I&gt;&gt;::Hashing, L&gt;;
+<a href=#29 id=29 data-nosnippet>29</a>
+<a href=#30 id=30 data-nosnippet>30</a><span class="doccomment">/// A node stored in the MMR.
+<a href=#31 id=31 data-nosnippet>31</a></span><span class="kw">pub type </span>Node&lt;H, L&gt; = DataOrHash&lt;H, L&gt;;
+<a href=#32 id=32 data-nosnippet>32</a>
+<a href=#33 id=33 data-nosnippet>33</a><span class="doccomment">/// Default Merging &amp; Hashing behavior for MMR.
+<a href=#34 id=34 data-nosnippet>34</a></span><span class="kw">pub struct </span>Hasher&lt;H, L&gt;(core::marker::PhantomData&lt;(H, L)&gt;);
+<a href=#35 id=35 data-nosnippet>35</a>
+<a href=#36 id=36 data-nosnippet>36</a><span class="kw">impl</span>&lt;H: traits::Hash, L: FullLeaf&gt; mmr_lib::Merge <span class="kw">for </span>Hasher&lt;H, L&gt; {
+<a href=#37 id=37 data-nosnippet>37</a>	<span class="kw">type </span>Item = Node&lt;H, L&gt;;
+<a href=#38 id=38 data-nosnippet>38</a>
+<a href=#39 id=39 data-nosnippet>39</a>	<span class="kw">fn </span>merge(left: <span class="kw-2">&amp;</span><span class="self">Self</span>::Item, right: <span class="kw-2">&amp;</span><span class="self">Self</span>::Item) -&gt; mmr_lib::Result&lt;<span class="self">Self</span>::Item&gt; {
+<a href=#40 id=40 data-nosnippet>40</a>		<span class="kw">let </span><span class="kw-2">mut </span>concat = left.hash().as_ref().to_vec();
+<a href=#41 id=41 data-nosnippet>41</a>		concat.extend_from_slice(right.hash().as_ref());
+<a href=#42 id=42 data-nosnippet>42</a>
+<a href=#43 id=43 data-nosnippet>43</a>		<span class="prelude-val">Ok</span>(Node::Hash(&lt;H <span class="kw">as </span>traits::Hash&gt;::hash(<span class="kw-2">&amp;</span>concat)))
+<a href=#44 id=44 data-nosnippet>44</a>	}
+<a href=#45 id=45 data-nosnippet>45</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
