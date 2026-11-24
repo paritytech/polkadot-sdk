@@ -190,7 +190,12 @@ async fn get_address_map(
 fn make_subsystem_with_authority_discovery(
 	mock: MockAuthorityDiscovery,
 ) -> GossipSupport<MockAuthorityDiscovery> {
-	GossipSupport::new(make_ferdie_keystore(), mock, Metrics::new_dummy())
+	GossipSupport::new(
+		make_ferdie_keystore(),
+		mock,
+		Metrics::new_dummy(),
+		HealthHandle::create_dummy_handle(),
+	)
 }
 
 fn test_harness<T: Future<Output = VirtualOverseer>, AD: AuthorityDiscovery>(

@@ -16953,6 +16953,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "parking_lot 0.12.3",
+ "polkadot-node-core-health",
  "polkadot-node-network-protocol",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
@@ -17296,7 +17297,11 @@ dependencies = [
  "futures",
  "futures-timer",
  "polkadot-node-subsystem",
+ "polkadot-node-subsystem-util",
+ "polkadot-primitives",
  "sc-network-types 0.10.0",
+ "sp-application-crypto 30.0.0",
+ "sp-keystore 0.34.0",
  "tracing-gum",
 ]
 
