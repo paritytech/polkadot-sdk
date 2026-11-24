@@ -80,12 +80,10 @@
 //! outbox (`config::MAX_PROPAGATION_OUTBOX_LEN`) refuses new hashes, which are counted in
 //! `undelivered_statements`.
 //!
-//! A stalled peer is disconnected without a reputation change and gets a fresh initial sync when
-//! it reconnects, so it loses nothing. A peer stalls when its last `STALLED_PEER_FAILED_SENDS`
-//! sends failed, or when its outbox overflows while it holds a propagation chunk in flight: it
-//! reads slower than statements arrive. An outbox that overflows with the slot free or during an
-//! initial sync waits on this node, not on the peer, so the peer stays and loses only the refused
-//! hashes.
+//! A peer is stalled when its last `STALLED_PEER_FAILED_SENDS` sends failed or its outbox
+//! overflows with a propagation chunk in flight. It is disconnected without a reputation change
+//! and resynced on reconnect. Overflow with the slot free or during an initial sync is this
+//! node's delay, so the peer stays and loses only the refused hashes.
 //!
 //! In-flight bytes of both kinds are held against the shared
 //! `config::MAX_SEND_IN_FLIGHT_BYTES` budget. A peer that finds the budget full, or whose store
@@ -294,8 +292,7 @@ const STATEMENT_PROTOCOL_V2: &str = "statement/2";
 const STATEMENT_PROTOCOL_V1: &str = "statement/1";
 /// Maximum time we wait for sending a notification to a peer.
 const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
-/// Consecutive failed sends after which the peer is disconnected. Two, so one slow chunk is not
-/// enough.
+/// Consecutive failed sends that disconnect the peer.
 const STALLED_PEER_FAILED_SENDS: u32 = 2;
 /// Interval for sending statement batches during initial sync to new peers.
 const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::from_millis(10);
@@ -1037,8 +1034,7 @@ pub struct Peer {
 	full_replay_requested: bool,
 	/// One past the newest admission covered by the peer's initial syncs.
 	sync_watermark: u64,
-	/// Sends to the peer that failed in a row. The peer is disconnected once this reaches
-	/// [`STALLED_PEER_FAILED_SENDS`].
+	/// Consecutive failed sends, see [`STALLED_PEER_FAILED_SENDS`].
 	failed_sends: u32,
 }
 
@@ -2440,10 +2436,8 @@ where
 		self.try_send_next_chunk(*who);
 	}
 
-	/// Disconnect a peer that reads too slowly, the way a flooding peer is disconnected but
-	/// without a reputation change: the peer is broken or overloaded, not malicious. It gets a
-	/// fresh initial sync when it reconnects, and routing sends new statements to other peers
-	/// meanwhile.
+	/// Disconnect a peer that reads too slowly, without a reputation change since it is broken or
+	/// overloaded, not malicious. It is resynced on reconnect.
 	fn disconnect_stalled_peer(&mut self, who: PeerId, cause: &str) {
 		let queued = self.propagation_outboxes.remove(&who);
 		if queued > 0 {
