@@ -68,6 +68,7 @@ use sc_client_api::{
 	IoInfo, MemoryInfo, MemorySize, TrieCacheContext, UsageInfo,
 };
 use sc_state_db::{IsPruned, LastCanonicalized, StateDb};
+use sp_additional_data::AdditionalData;
 use sp_arithmetic::traits::Saturating;
 use sp_blockchain::{
 	Backend as _, CachedHeaderMetadata, DisplacedLeavesAfterFinalization, Error as ClientError,
@@ -477,6 +478,7 @@ pub(crate) mod columns {
 	/// Transactions
 	pub const TRANSACTION: u32 = 11;
 	pub const BODY_INDEX: u32 = 12;
+	pub const ADDITIONAL_DATA: u32 = 13;
 }
 
 struct PendingBlock<Block: BlockT> {
@@ -864,6 +866,21 @@ impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<B
 			Err(err) => Err(err),
 		}
 	}
+
+	fn block_additional_data(&self, hash: Block::Hash) -> ClientResult<Option<AdditionalData>> {
+		read_db(
+			&*self.db,
+			columns::KEY_LOOKUP,
+			columns::ADDITIONAL_DATA,
+			BlockId::<Block>::Hash(hash),
+		)?
+		.map(|bytes| {
+			AdditionalData::decode(&mut &bytes[..]).map_err(|e| {
+				sp_blockchain::Error::Backend(format!("Failed to decode additional data: {e}"))
+			})
+		})
+		.transpose()
+	}
 }
 
 impl<Block: BlockT> HeaderMetadata<Block> for BlockchainDb<Block> {
@@ -918,6 +935,7 @@ pub struct BlockImportOperation<Block: BlockT> {
 	reset_storage: bool,
 	index_ops: Vec<IndexOperation>,
 	prefetched_indexed_transactions: HashMap<DbHash, Vec<u8>>,
+	additional_data: Option<AdditionalData>,
 }
 
 impl<Block: BlockT> BlockImportOperation<Block> {
@@ -1081,6 +1099,11 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 
 	fn set_create_gap(&mut self, create_gap: bool) {
 		self.create_gap = create_gap;
+	}
+
+	fn set_additional_data(&mut self, data: AdditionalData) -> ClientResult<()> {
+		self.additional_data = Some(data);
+		Ok(())
 	}
 }
 
@@ -1711,6 +1734,9 @@ impl<Block: BlockT> Backend<Block> {
 					justifications.encode(),
 				);
 			}
+			if let Some(data) = &operation.additional_data {
+				transaction.set_from_vec(columns::ADDITIONAL_DATA, &lookup_key, data.encode());
+			}
 
 			if number.is_zero() {
 				transaction.set(columns::META, meta_keys::GENESIS_HASH, hash.as_ref());
@@ -2188,6 +2214,13 @@ impl<Block: BlockT> Backend<Block> {
 			columns::JUSTIFICATIONS,
 			id,
 		)?;
+		utils::remove_from_db(
+			transaction,
+			&*self.storage.db,
+			columns::KEY_LOOKUP,
+			columns::ADDITIONAL_DATA,
+			id,
+		)?;
 		if let Some(index) =
 			read_db(&*self.storage.db, columns::KEY_LOOKUP, columns::BODY_INDEX, id)?
 		{
@@ -2398,6 +2431,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			reset_storage: false,
 			index_ops: Default::default(),
 			prefetched_indexed_transactions: Default::default(),
+			additional_data: None,
 		})
 	}
 
@@ -7579,5 +7613,45 @@ pub(crate) mod tests {
 				"second op",
 			);
 		}
+	}
+
+	#[test]
+	fn additional_data_set_read_and_pruned() {
+		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(1), 0);
+		let data: AdditionalData = [("test".to_string(), vec![42u8, 43, 44])].into();
+
+		let hash0 = {
+			let mut header = Header {
+				number: 0,
+				parent_hash: Default::default(),
+				state_root: Default::default(),
+				digest: Default::default(),
+				extrinsics_root: Default::default(),
+			};
+			let block_hash: H256 = Default::default();
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, block_hash).unwrap();
+			let (root, overlay) = op.old_state.storage_root(
+				vec![(block_hash.as_ref(), Some(block_hash.as_ref()))].into_iter(),
+				StateVersion::V1,
+			);
+			op.update_db_storage(overlay).unwrap();
+			header.state_root = root.into();
+			op.set_block_data(header.clone(), Some(vec![]), None, NewBlockState::Best, true)
+				.unwrap();
+			op.set_additional_data(data.clone()).unwrap();
+			backend.commit_operation(op).unwrap();
+			header.hash()
+		};
+		assert_eq!(backend.blockchain().block_additional_data(hash0).unwrap(), Some(data));
+
+		let hash1 = insert_header(&backend, 1, hash0, None, Default::default());
+		assert_eq!(backend.blockchain().block_additional_data(hash1).unwrap(), None);
+
+		let mut op = backend.begin_operation().unwrap();
+		backend.begin_state_operation(&mut op, hash1).unwrap();
+		op.mark_finalized(hash1, None).unwrap();
+		backend.commit_operation(op).unwrap();
+		assert_eq!(backend.blockchain().block_additional_data(hash0).unwrap(), None);
 	}
 }

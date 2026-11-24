@@ -33,12 +33,13 @@ use sp_runtime::traits::Block as BlockT;
 const VERSION_FILE_NAME: &str = "db_version";
 
 /// Current db version.
-const CURRENT_VERSION: u32 = 4;
+const CURRENT_VERSION: u32 = 5;
 
 /// Number of columns in v1.
 const V1_NUM_COLUMNS: u32 = 11;
 const V2_NUM_COLUMNS: u32 = 12;
 const V3_NUM_COLUMNS: u32 = 12;
+const V4_NUM_COLUMNS: u32 = 13;
 
 /// Database upgrade errors.
 #[derive(Debug)]
@@ -95,13 +96,19 @@ pub fn upgrade_db<Block: BlockT>(db_path: &Path, db_type: DatabaseType) -> Upgra
 			migrate_1_to_2::<Block>(db_path, db_type)?;
 			migrate_2_to_3::<Block>(db_path, db_type)?;
 			migrate_3_to_4::<Block>(db_path, db_type)?;
+			migrate_4_to_5::<Block>(db_path, db_type)?;
 		},
 		2 => {
 			migrate_2_to_3::<Block>(db_path, db_type)?;
 			migrate_3_to_4::<Block>(db_path, db_type)?;
+			migrate_4_to_5::<Block>(db_path, db_type)?;
 		},
 		3 => {
 			migrate_3_to_4::<Block>(db_path, db_type)?;
+			migrate_4_to_5::<Block>(db_path, db_type)?;
+		},
+		4 => {
+			migrate_4_to_5::<Block>(db_path, db_type)?;
 		},
 		CURRENT_VERSION => (),
 		_ => return Err(UpgradeError::FutureDatabaseVersion(db_version)),
@@ -155,6 +162,15 @@ fn migrate_2_to_3<Block: BlockT>(db_path: &Path, _db_type: DatabaseType) -> Upgr
 /// 2) BODY_INDEX column is added;
 fn migrate_3_to_4<Block: BlockT>(db_path: &Path, _db_type: DatabaseType) -> UpgradeResult<()> {
 	let db_cfg = DatabaseConfig::with_columns(V3_NUM_COLUMNS);
+	let mut db = Database::open(&db_cfg, db_path)?;
+	db.add_column().map_err(Into::into)
+}
+
+/// Migration from version4 to version5:
+/// 1) the number of columns has changed from 13 to 14;
+/// 2) ADDITIONAL_DATA column is added;
+fn migrate_4_to_5<Block: BlockT>(db_path: &Path, _db_type: DatabaseType) -> UpgradeResult<()> {
+	let db_cfg = DatabaseConfig::with_columns(V4_NUM_COLUMNS);
 	let mut db = Database::open(&db_cfg, db_path)?;
 	db.add_column().map_err(Into::into)
 }
@@ -253,5 +269,50 @@ mod tests {
 			open_database(&db_path, db_type).unwrap();
 			assert_eq!(current_version(&db_path).unwrap(), CURRENT_VERSION);
 		}
+	}
+
+	#[test]
+	fn upgrade_to_5_works() {
+		let db_type = DatabaseType::Full;
+		for version_from_file in &[None, Some(1), Some(2), Some(3), Some(4)] {
+			let db_dir = tempfile::TempDir::new().unwrap();
+			let db_path = db_dir.path().join(db_type.as_str());
+			create_db(&db_path, *version_from_file);
+			open_database(&db_path, db_type).unwrap();
+			assert_eq!(current_version(&db_path).unwrap(), CURRENT_VERSION);
+		}
+	}
+
+	#[test]
+	fn migrate_4_to_5_preserves_data() {
+		let db_type = DatabaseType::Full;
+		let db_dir = tempfile::TempDir::new().unwrap();
+		let db_path = db_dir.path().join(db_type.as_str());
+		create_db(&db_path, Some(4));
+
+		{
+			let db =
+				Database::open(&DatabaseConfig::with_columns(V4_NUM_COLUMNS), &db_path).unwrap();
+			let mut tx = db.transaction();
+			tx.put(columns::HEADER, b"hdr", b"header_bytes");
+			tx.put(columns::BODY, b"bdy", b"body_bytes");
+			tx.put(columns::JUSTIFICATIONS, b"jst", b"just_bytes");
+			db.write(tx).unwrap();
+		}
+
+		migrate_4_to_5::<Block>(&db_path, db_type).unwrap();
+
+		let db =
+			Database::open(&DatabaseConfig::with_columns(V4_NUM_COLUMNS + 1), &db_path).unwrap();
+		assert_eq!(db.get(columns::HEADER, b"hdr").unwrap(), Some(b"header_bytes".to_vec()));
+		assert_eq!(db.get(columns::BODY, b"bdy").unwrap(), Some(b"body_bytes".to_vec()));
+		assert_eq!(db.get(columns::JUSTIFICATIONS, b"jst").unwrap(), Some(b"just_bytes".to_vec()));
+		let mut tx = db.transaction();
+		tx.put(columns::ADDITIONAL_DATA, b"add", b"additional_bytes");
+		db.write(tx).unwrap();
+		assert_eq!(
+			db.get(columns::ADDITIONAL_DATA, b"add").unwrap(),
+			Some(b"additional_bytes".to_vec())
+		);
 	}
 }

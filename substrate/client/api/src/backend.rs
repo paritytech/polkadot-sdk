@@ -37,6 +37,7 @@ use sp_storage::{ChildInfo, StorageData, StorageKey};
 pub use sp_trie::MerkleValue;
 
 use crate::{blockchain::Backend as BlockchainBackend, UsageInfo};
+use sp_additional_data::AdditionalData;
 
 pub use sp_state_machine::{Backend as StateBackend, BackendTransaction, KeyValueStates};
 
@@ -269,6 +270,11 @@ pub trait BlockImportOperation<Block: BlockT> {
 
 	/// Configure whether to create a block gap if newly imported block is missing parent
 	fn set_create_gap(&mut self, create_gap: bool);
+
+	/// Set the additional data of the block being imported.
+	fn set_additional_data(&mut self, _data: AdditionalData) -> sp_blockchain::Result<()> {
+		Ok(())
+	}
 }
 
 /// Interface for performing operations on the backend.

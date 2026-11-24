@@ -38,7 +38,7 @@ use sp_trie::DBValue;
 
 /// Number of columns in the db. Must be the same for both full && light dbs.
 /// Otherwise RocksDb will fail to open database && check its type.
-pub const NUM_COLUMNS: u32 = 13;
+pub const NUM_COLUMNS: u32 = 14;
 /// Meta column. The set of keys in the column is shared by full && light storages.
 pub const COLUMN_META: u32 = 0;
 
@@ -862,5 +862,57 @@ mod tests {
 			);
 			assert!(db_res.is_ok(), "Existing parity database should be reopened");
 		}
+	}
+
+	#[test]
+	fn test_open_database_paritydb_adds_additional_data_column() {
+		use crate::columns;
+
+		let db_dir = tempfile::TempDir::new().unwrap();
+		let path = db_dir.path().join("paritydb");
+		let key = b"key".to_vec();
+		let value = b"value".to_vec();
+
+		// Write a database with the column layout from before `ADDITIONAL_DATA` existed.
+		{
+			let old_columns = columns::ADDITIONAL_DATA as u8;
+			let mut config = parity_db::Options::with_columns(&path, old_columns);
+			for i in [
+				columns::STATE,
+				columns::HEADER,
+				columns::BODY,
+				columns::BODY_INDEX,
+				columns::TRANSACTION,
+				columns::JUSTIFICATIONS,
+			] {
+				config.columns[i as usize].compression = parity_db::CompressionType::Lz4;
+			}
+			for i in [columns::STATE, columns::TRANSACTION] {
+				let column = &mut config.columns[i as usize];
+				column.ref_counted = true;
+				column.preimage = true;
+				column.uniform = true;
+			}
+			let db = parity_db::Db::open_or_create(&config).unwrap();
+			db.commit([(columns::HEADER as u8, key.clone(), Some(value.clone()))]).unwrap();
+		}
+
+		// A plain open rejects the old layout; `open_database` falls back to a metadata upgrade.
+		assert!(matches!(
+			crate::parity_db::open::<DbHash>(&path, DatabaseType::Full, false, false),
+			Err(parity_db::Error::InvalidConfiguration(_))
+		));
+		let db = open_database::<Block>(
+			&DatabaseSource::ParityDb { path: path.clone() },
+			DatabaseType::Full,
+			false,
+		)
+		.expect("database with fewer columns is upgraded on open");
+
+		assert_eq!(db.get(columns::HEADER, &key), Some(value.clone()));
+		let mut tx = Transaction::new();
+		tx.set(columns::ADDITIONAL_DATA, &key, &value);
+		db.commit(tx).unwrap();
+		assert_eq!(db.get(columns::ADDITIONAL_DATA, &key), Some(value));
 	}
 }

@@ -33,6 +33,7 @@ use crate::{
 	header_metadata::HeaderMetadata,
 	tree_route, CachedHeaderMetadata,
 };
+use sp_additional_data::AdditionalData;
 
 /// Blockchain database header backend. Does not perform any validation.
 pub trait HeaderBackend<Block: BlockT>: Send + Sync {
@@ -260,6 +261,11 @@ pub trait Backend<Block: BlockT>:
 	/// Note that this will only fetch transactions that are indexed by the runtime with
 	/// `storage_index_transaction`.
 	fn block_indexed_body(&self, hash: Block::Hash) -> Result<Option<Vec<Vec<u8>>>>;
+
+	/// The additional data stored for this block, if any.
+	fn block_additional_data(&self, _hash: Block::Hash) -> Result<Option<AdditionalData>> {
+		Ok(None)
+	}
 
 	/// Returns all leaves that will be displaced after the block finalization.
 	fn displaced_leaves_after_finalizing(
