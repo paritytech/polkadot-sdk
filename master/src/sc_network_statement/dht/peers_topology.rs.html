@@ -432,15 +432,15 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#282 id=282 data-nosnippet>282</a>	///
 <a href=#283 id=283 data-nosnippet>283</a>	/// This uses only the locally learned topology, avoiding network lookups that would reveal
 <a href=#284 id=284 data-nosnippet>284</a>	/// explicit-affinity topics, and selects few peers that together cover every topic with a
-<a href=#285 id=285 data-nosnippet>285</a>	/// reachable replica.
+<a href=#285 id=285 data-nosnippet>285</a>	/// usable replica.
 <a href=#286 id=286 data-nosnippet>286</a>	///
-<a href=#287 id=287 data-nosnippet>287</a>	/// A peer that `is_unreachable` is passed over, so another replica of its topic takes its
-<a href=#288 id=288 data-nosnippet>288</a>	/// place. A connected peer goes first, so the replacement keeps the topic when the unreachable
-<a href=#289 id=289 data-nosnippet>289</a>	/// peer is tried again.
+<a href=#287 id=287 data-nosnippet>287</a>	/// A peer that `is_skipped` (unreachable or paused) is passed over, so another replica of its
+<a href=#288 id=288 data-nosnippet>288</a>	/// topic takes its place. A connected peer goes first, so the replacement keeps the topic when
+<a href=#289 id=289 data-nosnippet>289</a>	/// the skipped peer is tried again.
 <a href=#290 id=290 data-nosnippet>290</a>	</span><span class="kw">pub fn </span>peers_for_topics(
 <a href=#291 id=291 data-nosnippet>291</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
 <a href=#292 id=292 data-nosnippet>292</a>		topics: <span class="kw-2">&amp;</span>[Topic],
-<a href=#293 id=293 data-nosnippet>293</a>		is_unreachable: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>PeerId) -&gt; bool,
+<a href=#293 id=293 data-nosnippet>293</a>		is_skipped: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>PeerId) -&gt; bool,
 <a href=#294 id=294 data-nosnippet>294</a>	) -&gt; Vec&lt;PeerId&gt; {
 <a href=#295 id=295 data-nosnippet>295</a>		<span class="kw">if </span>topics.is_empty() {
 <a href=#296 id=296 data-nosnippet>296</a>			<span class="kw">return </span>Vec::new();
@@ -452,7 +452,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#302 id=302 data-nosnippet>302</a>			.iter()
 <a href=#303 id=303 data-nosnippet>303</a>			.map(|topic| {
 <a href=#304 id=304 data-nosnippet>304</a>				<span class="kw">let </span><span class="kw-2">mut </span>pool = <span class="self">self</span>.closest_known_keyed(<span class="kw-2">*</span>topic, pool_size);
-<a href=#305 id=305 data-nosnippet>305</a>				pool.retain(|(peer, <span class="kw">_</span>)| !is_unreachable(peer));
+<a href=#305 id=305 data-nosnippet>305</a>				pool.retain(|(peer, <span class="kw">_</span>)| !is_skipped(peer));
 <a href=#306 id=306 data-nosnippet>306</a>				pool
 <a href=#307 id=307 data-nosnippet>307</a>			})
 <a href=#308 id=308 data-nosnippet>308</a>			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
@@ -486,11 +486,11 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#336 id=336 data-nosnippet>336</a>	/// uncovered buckets are the far ones, holding most of the network. One peer in each gives a
 <a href=#337 id=337 data-nosnippet>337</a>	/// statement for any topic a connected next hop closer to the topic.
 <a href=#338 id=338 data-nosnippet>338</a>	///
-<a href=#339 id=339 data-nosnippet>339</a>	/// A peer that `is_unreachable` is passed over, so the next peer of its bucket takes its place.
+<a href=#339 id=339 data-nosnippet>339</a>	/// A peer that `is_skipped` is passed over, so the next peer of its bucket takes its place.
 <a href=#340 id=340 data-nosnippet>340</a>	/// A bucket also keeps its nearest connected peer until a nearer chosen one connects, and the
 <a href=#341 id=341 data-nosnippet>341</a>	/// `replication_factor` nearest connected peers stay, so a replacement serves until the nearest
 <a href=#342 id=342 data-nosnippet>342</a>	/// peers themselves connect.
-<a href=#343 id=343 data-nosnippet>343</a>	</span><span class="kw">pub fn </span>peers_for_routing(<span class="kw-2">&amp;</span><span class="self">self</span>, is_unreachable: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>PeerId) -&gt; bool) -&gt; Vec&lt;PeerId&gt; {
+<a href=#343 id=343 data-nosnippet>343</a>	</span><span class="kw">pub fn </span>peers_for_routing(<span class="kw-2">&amp;</span><span class="self">self</span>, is_skipped: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>PeerId) -&gt; bool) -&gt; Vec&lt;PeerId&gt; {
 <a href=#344 id=344 data-nosnippet>344</a>		<span class="kw">let </span>nearest = <span class="self">self</span>.config.replication_factor.get();
 <a href=#345 id=345 data-nosnippet>345</a>		<span class="kw">let </span><span class="kw-2">mut </span>routing = Vec::new();
 <a href=#346 id=346 data-nosnippet>346</a>		<span class="kw">let </span><span class="kw-2">mut </span>last_bucket = <span class="prelude-val">None</span>;
@@ -498,7 +498,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#348 id=348 data-nosnippet>348</a>		<span class="kw">let </span><span class="kw-2">mut </span>connected_chosen = <span class="number">0</span>;
 <a href=#349 id=349 data-nosnippet>349</a>		<span class="comment">// Nearest-first order visits each bucket as one run, its first peer being its nearest.
 <a href=#350 id=350 data-nosnippet>350</a>		</span><span class="kw">for </span>(peer, key) <span class="kw">in </span><span class="self">self</span>.discovered_index.closest(<span class="self">self</span>.local_key) {
-<a href=#351 id=351 data-nosnippet>351</a>			<span class="kw">if </span>is_unreachable(<span class="kw-2">&amp;</span>peer) {
+<a href=#351 id=351 data-nosnippet>351</a>			<span class="kw">if </span>is_skipped(<span class="kw-2">&amp;</span>peer) {
 <a href=#352 id=352 data-nosnippet>352</a>				<span class="kw">continue</span>;
 <a href=#353 id=353 data-nosnippet>353</a>			}
 <a href=#354 id=354 data-nosnippet>354</a>			<span class="kw">let </span>bucket = bucket_of(<span class="self">self</span>.local_key, key);
