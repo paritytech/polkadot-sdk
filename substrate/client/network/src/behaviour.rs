@@ -240,6 +240,11 @@ impl<B: BlockT> Behaviour<B> {
 		self.peer_info.node(peer_id)
 	}
 
+	/// The latest ping time of every connected node that was pinged successfully.
+	pub fn latest_pings(&self) -> impl Iterator<Item = (PeerId, Duration)> + '_ {
+		self.peer_info.latest_pings()
+	}
+
 	/// Initiates sending a request.
 	pub fn send_request(
 		&mut self,

@@ -20,12 +20,16 @@
 
 mod reachability;
 mod validator_connectivity;
+mod validator_rtt;
+
+pub use validator_rtt::RTT_POLL_INTERVAL;
 
 use crate::{Observation, LOG_TARGET};
 use polkadot_primitives::AuthorityDiscoveryId;
 use reachability::Reachability;
 use std::collections::HashSet;
 use validator_connectivity::ValidatorConnectivity;
+use validator_rtt::ValidatorRtt;
 
 /// What the subsystem tells the checks.
 pub enum Event {
@@ -43,6 +47,7 @@ pub enum Event {
 pub struct Checks {
 	reachability: Reachability,
 	validator_connectivity: ValidatorConnectivity,
+	validator_rtt: ValidatorRtt,
 }
 
 impl Checks {
@@ -53,8 +58,11 @@ impl Checks {
 
 		match observation {
 			Observation::ConnectedValidators { authorities } => {
-				self.validator_connectivity.on_connected_validators(authorities)
+				self.validator_connectivity
+					.on_connected_validators(authorities.keys().cloned().collect());
+				self.validator_rtt.on_connected_validators(authorities);
 			},
+			Observation::PeerRtts { rtts } => self.validator_rtt.on_peer_rtts(rtts),
 			Observation::InboundConnection { peer } => {
 				self.reachability.on_inbound_connection(peer)
 			},
@@ -65,11 +73,13 @@ impl Checks {
 	pub fn on_event(&mut self, event: Event) {
 		match event {
 			Event::NewSession { validators } => {
-				self.validator_connectivity.on_new_session(validators)
+				self.validator_connectivity.on_new_session(validators.clone());
+				self.validator_rtt.on_new_session(validators);
 			},
 			Event::Tick => {
 				self.reachability.on_tick();
 				self.validator_connectivity.on_tick();
+				self.validator_rtt.on_tick();
 			},
 		}
 	}

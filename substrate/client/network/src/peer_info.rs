@@ -171,6 +171,14 @@ impl PeerInfoBehaviour {
 		self.nodes_info.get(peer_id).map(Node)
 	}
 
+	/// The latest ping time of every connected node that was pinged successfully.
+	pub fn latest_pings(&self) -> impl Iterator<Item = (PeerId, Duration)> + '_ {
+		self.nodes_info
+			.iter()
+			.filter(|(_, node)| node.info_expire.is_none())
+			.filter_map(|(peer, node)| Some((*peer, node.latest_ping?)))
+	}
+
 	/// Inserts a ping time in the cache. Has no effect if we don't have any entry for that node,
 	/// which shouldn't happen.
 	fn handle_ping_report(

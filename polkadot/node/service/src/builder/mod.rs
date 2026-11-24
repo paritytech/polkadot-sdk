@@ -506,11 +506,15 @@ where
 		// routable address (from any address with `--allow-private-ip`) to the health subsystem.
 		if ext_overseer_args.is_some() {
 			use futures::StreamExt;
-			use polkadot_node_core_health::Observation;
-			use sc_network::{utils::is_global_address, Event, NetworkEventStream};
+			use polkadot_node_core_health::{Observation, RTT_POLL_INTERVAL};
+			use sc_network::{
+				utils::{interval, is_global_address},
+				Event, NetworkEventStream, NetworkStatusProvider,
+			};
 
 			let count_private_peers = config.network.allow_non_globals_in_dht;
 			let mut events = network.event_stream("health");
+			let handle = health_handle.clone();
 			task_manager.spawn_handle().spawn(
 				"health-network-observer",
 				Some("health"),
@@ -519,9 +523,25 @@ where
 						if let Event::ConnectionEstablished { peer, inbound: true, address } = event
 						{
 							if count_private_peers || is_global_address(&address) {
-								health_handle.report(Observation::InboundConnection { peer });
+								handle.report(Observation::InboundConnection { peer });
 							}
 						}
+					}
+				}),
+			);
+
+			// Poll the ping round-trip times of the connected peers and report each snapshot to
+			// the health subsystem.
+			let network = network.clone();
+			task_manager.spawn_handle().spawn(
+				"health-rtt-poll",
+				Some("health"),
+				Box::pin(async move {
+					let mut poll = interval(RTT_POLL_INTERVAL);
+					while poll.next().await.is_some() {
+						// An error means the network worker is gone.
+						let Ok(rtts) = network.peer_rtts().await else { return };
+						health_handle.report(Observation::PeerRtts { rtts });
 					}
 				}),
 			);

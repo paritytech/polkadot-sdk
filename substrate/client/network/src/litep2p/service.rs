@@ -55,7 +55,7 @@ use sc_utils::mpsc::TracingUnboundedSender;
 use std::{
 	collections::{HashMap, HashSet},
 	sync::{atomic::Ordering, Arc},
-	time::Instant,
+	time::{Duration, Instant},
 };
 
 /// Logging target for the file.
@@ -123,6 +123,12 @@ pub enum NetworkServiceCommand {
 	Status {
 		/// `oneshot::Sender` for sending the status.
 		tx: oneshot::Sender<NetworkStatus>,
+	},
+
+	/// Query the latest ping round-trip time of the connected peers.
+	PeerRtts {
+		/// `oneshot::Sender` for sending the round-trip times.
+		tx: oneshot::Sender<HashMap<PeerId, Duration>>,
 	},
 
 	/// Add `peers` to `protocol`'s reserved set.
@@ -365,6 +371,15 @@ impl NetworkStatusProvider for Litep2pNetworkService {
 				"Unimplemented. See https://github.com/paritytech/substrate/issues/14160."
 			),
 		})
+	}
+
+	async fn peer_rtts(&self) -> Result<HashMap<PeerId, Duration>, ()> {
+		let (tx, rx) = oneshot::channel();
+		self.cmd_tx
+			.unbounded_send(NetworkServiceCommand::PeerRtts { tx })
+			.map_err(|_| ())?;
+
+		rx.await.map_err(|_| ())
 	}
 }
 
