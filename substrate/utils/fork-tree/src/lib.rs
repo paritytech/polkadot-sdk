@@ -867,23 +867,23 @@ mod node_implementation {
 		}
 	}
 
-	 impl<'a, H, N, V> IntoIterator for &'a Nodes<H, N, V> {
-	         type Item = &'a Node<H, N, V>;
-	         type IntoIter = std::slice::Iter<'a, Node<H, N, V>>;
+	impl<'a, H, N, V> IntoIterator for &'a Nodes<H, N, V> {
+		type Item = &'a Node<H, N, V>;
+		type IntoIter = std::slice::Iter<'a, Node<H, N, V>>;
 
-	         fn into_iter(self) -> Self::IntoIter {
-	                 self.0.iter()
-	         }
-	 }
+		fn into_iter(self) -> Self::IntoIter {
+			self.0.iter()
+		}
+	}
 
-	 impl<'a, H, N, V> IntoIterator for &'a mut Nodes<H, N, V> {
-	         type Item = &'a mut Node<H, N, V>;
-	         type IntoIter = std::slice::IterMut<'a, Node<H, N, V>>;
+	impl<'a, H, N, V> IntoIterator for &'a mut Nodes<H, N, V> {
+		type Item = &'a mut Node<H, N, V>;
+		type IntoIter = std::slice::IterMut<'a, Node<H, N, V>>;
 
-	         fn into_iter(self) -> Self::IntoIter {
-	                 self.0.iter_mut()
-	         }
-	 }
+		fn into_iter(self) -> Self::IntoIter {
+			self.0.iter_mut()
+		}
+	}
 
 	impl<H, N, V> Drop for Nodes<H, N, V> {
 		fn drop(&mut self) {
