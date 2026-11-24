@@ -222,15 +222,7 @@ where
 	type ValidationContext = AncestryValidationContext<MerkleRootOf<T>>;
 
 	fn is_proof_optimal(proof: &Self::Proof) -> bool {
-		let is_proof_optimal = pallet_mmr::Pallet::<T>::is_ancestry_proof_optimal(proof);
-
-		// We don't check the proof size when running benchmarks, since we use mock proofs
-		// which would cause the test to fail.
-		if cfg!(feature = "runtime-benchmarks") {
-			return true;
-		}
-
-		is_proof_optimal
+		pallet_mmr::Pallet::<T>::is_ancestry_proof_optimal(proof)
 	}
 
 	fn extract_validation_context(header: HeaderFor<T>) -> Option<Self::ValidationContext> {
