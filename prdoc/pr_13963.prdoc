@@ -8,6 +8,6 @@ crates:
   - name: pallet-beefy-mmr
     bump: patch
   - name: sp-mmr-primitives
-    bump: patch
+    bump: minor
   - name: cumulus-primitives-spec-messaging
-    bump: patch
+    bump: minor
