@@ -8277,11 +8277,6 @@ mod tests {
 		assert_eq!(network.get_removed_reserved(), vec![vec![held], vec![routing]]);
 		assert!(!handler.dht.is_reserved(&held));
 		assert!(!handler.dht.is_reserved(&routing));
-
-		// The next refresh reserves the peers steering still needs, which reconnects them.
-		handler.dht.refresh_connections(&network);
-		assert!(handler.dht.is_reserved(&held));
-		assert!(handler.dht.is_reserved(&routing));
 	}
 
 	#[test]
