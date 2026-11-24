@@ -1,0 +1,18 @@
+title: Respect HRMP channel byte capacity for opaque XCMP notifications
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fix outbound XCMP capability notifications being exported
+      when the HRMP channel has insufficient byte capacity.
+
+      Notifications are now exported and marked as sent only
+      when their complete encoded size fits the current
+      channel capacity. Otherwise, they remain eligible for
+      a subsequent attempt when capacity becomes available.
+
+      No runtime configuration changes or migrations are required.
+
+crates:
+  - name: cumulus-pallet-xcmp-queue
+    bump: patch
