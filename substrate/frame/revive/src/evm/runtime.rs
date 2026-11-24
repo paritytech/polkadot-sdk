@@ -875,6 +875,7 @@ mod test {
 	#[test]
 	fn check_runtime_pallets_addr_rejects_invalid_calls() {
 		use frame_support::MAX_EXTRINSIC_DEPTH;
+		use sp_runtime::generic::DEFAULT_MAX_CALL_SIZE;
 
 		let check = |data: Vec<u8>| {
 			UncheckedExtrinsicBuilder::call_with(RUNTIME_PALLETS_ADDR)
@@ -911,6 +912,14 @@ mod test {
 				.into();
 		}
 		let data = call.encode();
+		assert_eq!(check(data.clone()), Err(InvalidTransaction::Call.into()));
+		assert!(dry_run(data));
+
+		// A batch that decodes to more than `DEFAULT_MAX_CALL_SIZE` bytes.
+		let len = DEFAULT_MAX_CALL_SIZE / core::mem::size_of::<RuntimeCall>() + 1;
+		let batch: RuntimeCall =
+			pallet_utility::Call::<Test>::batch { calls: vec![remark; len] }.into();
+		let data = batch.encode();
 		assert_eq!(check(data.clone()), Err(InvalidTransaction::Call.into()));
 		assert!(dry_run(data));
 	}
