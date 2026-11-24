@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795533240324,
+  "lastUpdate": 1795555799435,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bcd139f350ac253b4cc0409993e1d070c4bcc396",
-          "message": "Bump WAH spec_version (#12030)",
-          "timestamp": "2026-05-08T15:43:48Z",
-          "tree_id": "399624bb07580079f378d1c4fac02e84281153cc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bcd139f350ac253b4cc0409993e1d070c4bcc396"
-        },
-        "date": 1778259989434,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.011129129460000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00272382145,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00951719936999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010158297120000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marios@parity.io",
+            "name": "Marios",
+            "username": "mchristou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6e2a57b01923ce441e8dd0f536ac7a064db7ddf6",
+          "message": "cumulus: judge unincluded blocks by their executing runtime (#13783)\n\n# Description\n\n  Fixes part of #13658 \n\nAfter a V2 -> V3 runtime upgrade, the parent search judged every\nunincluded block by the best block's runtime, which is V3. The\nV2-executed upgrade block was then kept and resubmitted under V3 rules\neven after its relay parent had expired under V2 rules, and validators\nrejected the candidates.\n\nThis PR judges each unincluded block by the runtime that executed it,\nits parent's:\n\n- V3-executed blocks need a relay parent known from the scheduling\nparent.\n- V2-executed blocks need a relay parent in the V2 lookahead window. An\nexpired upgrade block is therefore dropped and rebuilt instead of\nresubmitted \"forever\".\n  - V2-executed blocks never enter the V3 resubmittable segment.\n\nThe slot-based collator also ends the slot's core loop after building a\nruntime upgrade.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-24T19:48:24Z",
+          "tree_id": "35b31f6ae8721a193b6436ea50493e4bff75d55f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6e2a57b01923ce441e8dd0f536ac7a064db7ddf6"
+        },
+        "date": 1795555756740,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011077729500000015,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009485824909999987,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025176518200000003,
             "unit": "seconds"
           }
         ]
