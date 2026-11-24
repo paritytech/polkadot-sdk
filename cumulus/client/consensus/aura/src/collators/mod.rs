@@ -185,7 +185,22 @@ where
 	let mut runtime_api = client.runtime_api();
 	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
 	let authorities = runtime_api.authorities(parent_hash).ok()?;
-	let author_pub = aura_internal::claim_slot::<P>(para_slot, &authorities, keystore).await?;
+	claim_slot_among::<P>(para_slot, timestamp, &authorities, keystore).await
+}
+
+// Checks if we own the slot under an already fetched authority set.
+async fn claim_slot_among<P>(
+	para_slot: Slot,
+	timestamp: Timestamp,
+	authorities: &[P::Public],
+	keystore: &KeystorePtr,
+) -> Option<SlotClaim<P::Public>>
+where
+	P: Pair,
+	P::Public: Codec,
+	P::Signature: Codec,
+{
+	let author_pub = aura_internal::claim_slot::<P>(para_slot, authorities, keystore).await?;
 	Some(SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp))
 }
 

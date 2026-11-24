@@ -65,37 +65,21 @@ impl<Block: BlockT> ResubmittableSegment<Block> {
 		Self(headers)
 	}
 
-	/// Regroup the (oldest-first) headers into their original bundles: a run of consecutive
-	/// `BlockBundleInfo` indices from 0. Keyed off the index, not `is_last`, which a truncated
-	/// bundle lacks.
+	/// Regroup the headers into their original bundles (see [`group_into_bundles`]).
 	///
 	/// A bundle must start at index 0 (or be a digest-less standalone); a non-zero start is a
 	/// skipped index or a partial leading bundle, i.e. a corrupt sequence, and errors. Completeness
 	/// is not checked: `find_parent` already trims a mid-bundle tail, so the trailing bundle is
 	/// whole.
 	fn into_bundles(self) -> Result<Vec<Vec<Block::Header>>, HydrateError> {
-		let mut bundles = Vec::new();
-		let mut current = Vec::new();
-		let mut prev_index: Option<u8> = None;
-		for header in self.0 {
-			let index =
-				CumulusDigestItem::find_block_bundle_info(header.digest()).map(|info| info.index);
-			let continues = matches!((prev_index, index), (Some(prev), Some(idx)) if prev.checked_add(1) == Some(idx));
-			if !continues {
-				if let Some(idx) = index {
-					if idx != 0 {
-						return Err(HydrateError::MalformedBundleStart(idx));
-					}
-				}
-				if !current.is_empty() {
-					bundles.push(core::mem::take(&mut current));
-				}
+		let bundles = group_into_bundles(self.0);
+		for bundle in &bundles {
+			let first = bundle
+				.first()
+				.and_then(|h| CumulusDigestItem::find_block_bundle_info(h.digest()));
+			if let Some(idx) = first.map(|info| info.index).filter(|idx| *idx != 0) {
+				return Err(HydrateError::MalformedBundleStart(idx));
 			}
-			prev_index = index;
-			current.push(header);
-		}
-		if !current.is_empty() {
-			bundles.push(current);
 		}
 		Ok(bundles)
 	}
@@ -158,6 +142,30 @@ impl<Block: BlockT> ResubmittableSegment<Block> {
 
 		parts
 	}
+}
+
+/// Split oldest-first headers into runs of consecutive `BlockBundleInfo` indices. Keyed off the
+/// index, not `is_last`, which a truncated bundle lacks. A header without a digest is standalone.
+/// Does not validate where a run starts.
+pub(super) fn group_into_bundles<H: HeaderT>(headers: Vec<H>) -> Vec<Vec<H>> {
+	let mut bundles = Vec::new();
+	let mut current = Vec::new();
+	let mut prev_index: Option<u8> = None;
+	for header in headers {
+		let index =
+			CumulusDigestItem::find_block_bundle_info(header.digest()).map(|info| info.index);
+		let next_index = prev_index.and_then(|prev| prev.checked_add(1));
+		let continues = index.is_some() && index == next_index;
+		if !continues && !current.is_empty() {
+			bundles.push(core::mem::take(&mut current));
+		}
+		prev_index = index;
+		current.push(header);
+	}
+	if !current.is_empty() {
+		bundles.push(current);
+	}
+	bundles
 }
 
 /// Rebuild [`CollationParts`] for one bundle: merge the per-block store proofs into one PoV,
