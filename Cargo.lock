@@ -17301,6 +17301,7 @@ dependencies = [
  "polkadot-primitives",
  "sc-network-types 0.10.0",
  "sp-application-crypto 30.0.0",
+ "sp-arithmetic 23.0.0",
  "sp-keystore 0.34.0",
  "tracing-gum",
 ]

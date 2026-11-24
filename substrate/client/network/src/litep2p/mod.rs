@@ -144,6 +144,10 @@ struct ConnectionContext {
 	/// Protocols the peer reported over identify, replayed to an event stream that subscribes
 	/// after the peer was identified.
 	supported_protocols: Option<HashSet<ProtocolName>>,
+
+	/// Round-trip time of the latest successful ping. A failed ping leaves it unchanged: litep2p
+	/// does not report failures.
+	latest_ping: Option<Duration>,
 }
 
 /// Kademlia query we are tracking.
@@ -747,6 +751,16 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								total_bytes_outbound: self.litep2p.bandwidth_sink().outbound() as u64,
 							});
 						}
+						NetworkServiceCommand::PeerRtts { tx } => {
+							let _ = tx.send(
+								self.peers
+									.iter()
+									.filter_map(|(peer, context)| {
+										Some(((*peer).into(), context.latest_ping?))
+									})
+									.collect(),
+							);
+						}
 						NetworkServiceCommand::AddPeersToReservedSet {
 							protocol,
 							peers,
@@ -1194,6 +1208,10 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							target: LOG_TARGET,
 							"ping time with {peer:?}: {rtt:?}",
 						);
+
+						if let Some(context) = self.peers.get_mut(&peer) {
+							context.latest_ping = Some(rtt);
+						}
 					}
 					Some(DiscoveryEvent::IncomingRecord { record: Record { key, value, publisher, expires }} ) => {
 						self.event_streams.send(Event::Dht(
@@ -1244,6 +1262,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 									endpoints: HashMap::from_iter([(endpoint.connection_id(), endpoint)]),
 									num_connections: 1usize,
 									supported_protocols: None,
+									latest_ping: None,
 								});
 								if let Some(metrics) = &self.metrics {
 									metrics.distinct_peers_connections_opened_total.inc();

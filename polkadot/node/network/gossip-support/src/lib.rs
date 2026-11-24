@@ -221,7 +221,7 @@ where
 					// On each new leaf send the currently connected authorities to the health
 					// subsystem
 					self.health.report(Observation::ConnectedValidators {
-						authorities: self.connected_authorities.keys().cloned().collect(),
+						authorities: self.connected_authorities.clone(),
 					});
 				},
 				FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, _number)) => {

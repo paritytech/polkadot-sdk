@@ -43,7 +43,7 @@ pub use sc_network_types::{
 use sp_runtime::traits::Block as BlockT;
 
 use std::{
-	collections::HashSet,
+	collections::{HashMap, HashSet},
 	fmt::Debug,
 	future::Future,
 	pin::Pin,
@@ -330,6 +330,11 @@ pub trait NetworkStatusProvider {
 	///
 	/// Returns an error if the `NetworkWorker` is no longer running.
 	async fn network_state(&self) -> Result<NetworkState, ()>;
+
+	/// The latest ping round-trip time of every connected peer that was pinged successfully.
+	///
+	/// Returns an error if the `NetworkWorker` is no longer running.
+	async fn peer_rtts(&self) -> Result<HashMap<PeerId, Duration>, ()>;
 }
 
 // Manual implementation to avoid extra boxing here
@@ -356,6 +361,16 @@ where
 		Self: 'async_trait,
 	{
 		T::network_state(self)
+	}
+
+	fn peer_rtts<'life0, 'async_trait>(
+		&'life0 self,
+	) -> Pin<Box<dyn Future<Output = Result<HashMap<PeerId, Duration>, ()>> + Send + 'async_trait>>
+	where
+		'life0: 'async_trait,
+		Self: 'async_trait,
+	{
+		T::peer_rtts(self)
 	}
 }
 
