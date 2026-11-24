@@ -645,19 +645,73 @@ where
 
 	/// Unreserve some funds, returning any amount that was unable to be unreserved.
 	///
+	/// Only acts on the part of the reserved balance that does not back a hold or a named reserve.
+	///
 	/// Is a no-op if the value to be unreserved is zero or the account does not exist.
 	///
 	/// NOTE: returns amount value which wasn't successfully unreserved.
 	fn unreserve(who: &T::AccountId, value: Self::Balance) -> Self::Balance {
+		Self::do_unreserve(who, value, None)
+	}
+
+	/// Slash from reserved balance, returning the negative imbalance created,
+	/// and any amount that was unable to be slashed.
+	///
+	/// Only acts on the part of the reserved balance that does not back a hold or a named reserve.
+	///
+	/// Is a no-op if the value to be slashed is zero or the account does not exist.
+	fn slash_reserved(
+		who: &T::AccountId,
+		value: Self::Balance,
+	) -> (Self::NegativeImbalance, Self::Balance) {
+		Self::do_slash_reserved(who, value, None)
+	}
+
+	/// Move the reserved balance of one account into the balance of another, according to `status`.
+	///
+	/// Only acts on the part of `slashed`'s reserved balance that does not back a hold or a named
+	/// reserve.
+	///
+	/// Is a no-op if:
+	/// - the value to be moved is zero; or
+	/// - the `slashed` id equal to `beneficiary` and the `status` is `Reserved`.
+	///
+	/// This is `Polite` and thus will not repatriate any funds which would lead the total balance
+	/// to be less than the frozen amount. Returns `Ok` with the amount that could not be moved,
+	/// which may be non-zero since the operation is done on a `BestEffort` basis.
+	fn repatriate_reserved(
+		slashed: &T::AccountId,
+		beneficiary: &T::AccountId,
+		value: Self::Balance,
+		status: Status,
+	) -> Result<Self::Balance, DispatchError> {
+		Self::do_repatriate_reserved(slashed, beneficiary, value, status, None)
+	}
+}
+
+/// The [`ReservableCurrency`] operations, for both the unnamed and the named reserves.
+///
+/// The unnamed operations pass `None` as `id`, the named ones pass their own reserve.
+impl<T: Config<I>, I: 'static> Pallet<T, I>
+where
+	T::Balance: MaybeSerializeDeserialize + Debug,
+{
+	/// [`ReservableCurrency::unreserve`], acting on at most `max_reserved_touchable(who, id)`.
+	pub(crate) fn do_unreserve(
+		who: &T::AccountId,
+		value: T::Balance,
+		id: Option<&T::ReserveIdentifier>,
+	) -> T::Balance {
 		if value.is_zero() {
 			return Zero::zero();
 		}
-		if Self::total_balance(who).is_zero() {
+		if <Self as Currency<_>>::total_balance(who).is_zero() {
 			return value;
 		}
 
+		let max = Self::max_reserved_touchable(who, id);
 		let actual = match Self::mutate_account_handling_dust(who, false, |account| {
-			let actual = cmp::min(account.reserved, value);
+			let actual = value.min(max).min(account.reserved);
 			account.reserved -= actual;
 			// defensive only: this can never fail since total issuance which is at least
 			// free+reserved fits into the same data type.
@@ -677,26 +731,26 @@ where
 		value - actual
 	}
 
-	/// Slash from reserved balance, returning the negative imbalance created,
-	/// and any amount that was unable to be slashed.
-	///
-	/// Is a no-op if the value to be slashed is zero or the account does not exist.
-	fn slash_reserved(
+	/// [`ReservableCurrency::slash_reserved`], acting on at most
+	/// `max_reserved_touchable(who, id)`.
+	pub(crate) fn do_slash_reserved(
 		who: &T::AccountId,
-		value: Self::Balance,
-	) -> (Self::NegativeImbalance, Self::Balance) {
+		value: T::Balance,
+		id: Option<&T::ReserveIdentifier>,
+	) -> (NegativeImbalance<T, I>, T::Balance) {
 		if value.is_zero() {
 			return (NegativeImbalance::zero(), Zero::zero());
 		}
-		if Self::total_balance(who).is_zero() {
+		if <Self as Currency<_>>::total_balance(who).is_zero() {
 			return (NegativeImbalance::zero(), value);
 		}
 
 		// NOTE: `mutate_account` may fail if it attempts to reduce the balance to the point that an
 		//   account is attempted to be illegally destroyed.
 
+		let max = Self::max_reserved_touchable(who, id);
 		match Self::mutate_account_handling_dust(who, false, |account| {
-			let actual = value.min(account.reserved);
+			let actual = value.min(max).min(account.reserved);
 			account.reserved.saturating_reduce(actual);
 
 			// underflow should never happen, but it if does, there's nothing to be done here.
@@ -709,27 +763,28 @@ where
 				});
 				(imbalance, not_slashed)
 			},
-			Err(_) => (Self::NegativeImbalance::zero(), value),
+			Err(_) => (NegativeImbalance::zero(), value),
 		}
 	}
 
-	/// Move the reserved balance of one account into the balance of another, according to `status`.
-	///
-	/// Is a no-op if:
-	/// - the value to be moved is zero; or
-	/// - the `slashed` id equal to `beneficiary` and the `status` is `Reserved`.
-	///
-	/// This is `Polite` and thus will not repatriate any funds which would lead the total balance
-	/// to be less than the frozen amount. Returns `Ok` with the actual amount of funds moved,
-	/// which may be less than `value` since the operation is done on a `BestEffort` basis.
-	fn repatriate_reserved(
+	/// [`ReservableCurrency::repatriate_reserved`], acting on at most
+	/// `max_reserved_touchable(slashed, id)`.
+	pub(crate) fn do_repatriate_reserved(
 		slashed: &T::AccountId,
 		beneficiary: &T::AccountId,
-		value: Self::Balance,
+		value: T::Balance,
 		status: Status,
-	) -> Result<Self::Balance, DispatchError> {
-		let actual =
-			Self::do_transfer_reserved(slashed, beneficiary, value, BestEffort, Polite, status)?;
+		id: Option<&T::ReserveIdentifier>,
+	) -> Result<T::Balance, DispatchError> {
+		let actual = Self::do_transfer_reserved(
+			slashed,
+			beneficiary,
+			value,
+			BestEffort,
+			Polite,
+			status,
+			id,
+		)?;
 		Ok(value.saturating_sub(actual))
 	}
 }
@@ -797,7 +852,7 @@ where
 					Ok(index) => {
 						let to_change = cmp::min(reserves[index].amount, value);
 
-						let remain = <Self as ReservableCurrency<_>>::unreserve(who, to_change);
+						let remain = Self::do_unreserve(who, to_change, Some(id));
 
 						// remain should always be zero but just to be defensive here.
 						let actual = to_change.defensive_saturating_sub(remain);
@@ -848,8 +903,7 @@ where
 					Ok(index) => {
 						let to_change = cmp::min(reserves[index].amount, value);
 
-						let (imb, remain) =
-							<Self as ReservableCurrency<_>>::slash_reserved(who, to_change);
+						let (imb, remain) = Self::do_slash_reserved(who, to_change, Some(id));
 
 						// remain should always be zero but just to be defensive here.
 						let actual = to_change.defensive_saturating_sub(remain);
@@ -921,13 +975,13 @@ where
 								let actual = match reserves.binary_search_by_key(id, |data| data.id)
 								{
 									Ok(index) => {
-										let remain =
-											<Self as ReservableCurrency<_>>::repatriate_reserved(
-												slashed,
-												beneficiary,
-												to_change,
-												status,
-											)?;
+										let remain = Self::do_repatriate_reserved(
+											slashed,
+											beneficiary,
+											to_change,
+											status,
+											Some(id),
+										)?;
 
 										// remain should always be zero but just to be defensive
 										// here.
@@ -940,13 +994,13 @@ where
 										actual
 									},
 									Err(index) => {
-										let remain =
-											<Self as ReservableCurrency<_>>::repatriate_reserved(
-												slashed,
-												beneficiary,
-												to_change,
-												status,
-											)?;
+										let remain = Self::do_repatriate_reserved(
+											slashed,
+											beneficiary,
+											to_change,
+											status,
+											Some(id),
+										)?;
 
 										// remain should always be zero but just to be defensive
 										// here
@@ -974,11 +1028,12 @@ where
 						)?
 					},
 					Status::Free => {
-						let remain = <Self as ReservableCurrency<_>>::repatriate_reserved(
+						let remain = Self::do_repatriate_reserved(
 							slashed,
 							beneficiary,
 							to_change,
 							status,
+							Some(id),
 						)?;
 
 						// remain should always be zero but just to be defensive here

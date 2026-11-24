@@ -18,6 +18,7 @@
 
 use super::*;
 use crate::bitswap::api::StreamEvent;
+use cid::multibase::Base;
 use jsonrpsee::{
 	core::client::{ClientT, Subscription, SubscriptionClientT},
 	rpc_params,
@@ -248,10 +249,16 @@ async fn valid_cid_data_found_sha256() {
 	let digest = sp_crypto_hashing::sha2_256(&data);
 	mock_client.insert_transaction(H256::from(digest), data.clone());
 
-	let cid_str = make_cid_v1(SHA2_256, &digest);
-	let result: String = ws_client.request("bitswap_v1_get", rpc_params![cid_str]).await.unwrap();
-
-	assert_eq!(result, crate::hex_string(&data));
+	let hash = cid::multihash::Multihash::wrap(SHA2_256, &digest).expect("32-byte digest fits");
+	let cid = cid::Cid::new_v1(DAG_PB_CODEC, hash);
+	for base in [Base::Base32Lower, Base::Base2] {
+		let encoded = cid.to_string_of_base(base).expect("CIDv1 supports both encodings");
+		let result: String = ws_client
+			.request("bitswap_v1_get", rpc_params![encoded])
+			.await
+			.expect("stored CID can be retrieved");
+		assert_eq!(result, crate::hex_string(&data));
+	}
 }
 
 #[tokio::test]
@@ -320,6 +327,24 @@ async fn invalid_cid_string() {
 		.unwrap_err();
 
 	assert_error_code(&err, -32602);
+}
+
+#[tokio::test]
+async fn cid_length_is_checked_before_decoding() {
+	let (ws_client, _handle, _) = setup(false).await;
+	let at_limit = "é".repeat(256); // 512 UTF-8 bytes.
+	let over_limit = format!("{at_limit}!");
+	for (cid, too_long) in [(at_limit, false), (over_limit, true)] {
+		let err = ws_client
+			.request::<String, _>("bitswap_v1_get", rpc_params![cid])
+			.await
+			.expect_err("both inputs are invalid CIDs");
+		let jsonrpsee::core::ClientError::Call(err) = err else {
+			panic!("Expected an RPC error, got {err:?}");
+		};
+		assert_eq!(err.code(), -32602);
+		assert_eq!(err.message() == "Invalid CID: encoded CID exceeds 512 bytes", too_long);
+	}
 }
 
 #[tokio::test]
@@ -629,14 +654,15 @@ async fn stream_distinct_malformed_strings_per_cid_invalid() {
 	// Two different malformed strings — share no identity to dedup against, so each
 	// produces a per-CID StreamItemError instead of a top-level rejection. Stream still
 	// completes with `streamDone`.
-	let cids = vec!["bad-1".to_string(), "bad-2".to_string()];
+	let oversized_cid = "!".repeat(513);
+	let cids = ["bad-1", oversized_cid.as_str()];
 	let mut sub: Subscription<StreamEvent> = ws_client
 		.subscribe("bitswap_unstable_stream", rpc_params![cids], "bitswap_unstable_unstream")
 		.await
 		.unwrap();
 
 	assert_stream_item_error(next_event(&mut sub).await, "bad-1", -32602);
-	assert_stream_item_error(next_event(&mut sub).await, "bad-2", -32602);
+	assert_stream_item_error(next_event(&mut sub).await, &oversized_cid, -32602);
 	assert_stream_done(&mut sub).await;
 	assert_no_more_events(&mut sub).await;
 }

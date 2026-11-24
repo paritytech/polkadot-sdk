@@ -17,8 +17,8 @@
 
 #![cfg(test)]
 use crate::{
-	BalanceOf, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue, ImmutableData,
-	ReentrancyProtection,
+	BalanceOf, Code, CodeRemoved, Config, ContractLogTopics, DispatchResult, ExecReturnValue,
+	ImmutableData, ReentrancyProtection,
 	exec::{
 		AccountIdOf, CallResources, ExecError, Ext, Key, Origin, PrecompileExt,
 		PrecompileWithInfoExt,
@@ -141,7 +141,11 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::minimum_balance")
 	}
 
-	fn deposit_event(&mut self, _topics: Vec<H256>, _data: Vec<u8>) -> Result<(), DispatchError> {
+	fn deposit_event(
+		&mut self,
+		_topics: ContractLogTopics,
+		_data: Vec<u8>,
+	) -> Result<(), DispatchError> {
 		panic!("MockExt::deposit_event")
 	}
 
