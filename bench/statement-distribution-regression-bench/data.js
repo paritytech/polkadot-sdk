@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795463206100,
+  "lastUpdate": 1795528451415,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "52418509+georgepisaltu@users.noreply.github.com",
-            "name": "georgepisaltu",
-            "username": "georgepisaltu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5989c0a8b435447d3197040eb162525c92db80c9",
-          "message": "Extend PGAS filter to allow batches (#12027)\n\n# Description\n\nJust as the title says.\n\n---------\n\nSigned-off-by: georgepisaltu <george.pisaltu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-08T14:58:35Z",
-          "tree_id": "d6c9d3cb684c45a2745fa71e489ca73ba1ef0b86",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5989c0a8b435447d3197040eb162525c92db80c9"
-        },
-        "date": 1778257197705,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.10000000000002,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038630698858,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08621123677599993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.039220618655999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adel.prokurov@parity.io",
+            "name": "playX18",
+            "username": "playX18"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ec2c79364b093a151ab418ebdafbfea391fe3fd0",
+          "message": "statement-store: release a reserved DHT peer before disconnect (#13896)\n\nCloses #13874\n\nOn DHT path, peers that exceed the statement rate limit are reported and\ndisconnected.\n\n## Changes\n- Rename `release_peer_without_dht` to `release_reserved_peer`. It\nreleases any peer reserved by steering, ensuring the disconnect takes\neffect.\n- Pause the flooding peer for 5 minutes. Steering leaves it unreserved\nand gives its place to the next candidate, and the handler rejects its\ninbound substream. When the pause ends the peer is an ordinary candidate\nagain.\n- Sync recovery releases its peer without a pause, so that peer\nreconnects at once with a fresh initial sync.",
+          "timestamp": "2026-11-24T11:24:07Z",
+          "tree_id": "bbee5565a15fef3efd348e5aab173f6e5cb884dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ec2c79364b093a151ab418ebdafbfea391fe3fd0"
+        },
+        "date": 1795528415135,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.104,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0909033737359999,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039376168923999984,
             "unit": "seconds"
           }
         ]
