@@ -445,8 +445,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Generate a synthetic, optimal ancestry proof between `prev_leaf_count` and `leaf_count`,
 	/// together with the MMR root that it is valid against.
-	///
-	/// See [`mmr::generate_synthetic_ancestry_proof`] for details.
 	#[cfg(feature = "runtime-benchmarks")]
 	pub fn generate_synthetic_ancestry_proof(
 		prev_leaf_count: LeafIndex,
