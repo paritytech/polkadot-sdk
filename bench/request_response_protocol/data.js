@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795462169517,
+  "lastUpdate": 1795525280324,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -150227,6 +150227,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2818036130,
             "range": "± 9447340",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adel.prokurov@parity.io",
+            "name": "playX18",
+            "username": "playX18"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ec2c79364b093a151ab418ebdafbfea391fe3fd0",
+          "message": "statement-store: release a reserved DHT peer before disconnect (#13896)\n\nCloses #13874\n\nOn DHT path, peers that exceed the statement rate limit are reported and\ndisconnected.\n\n## Changes\n- Rename `release_peer_without_dht` to `release_reserved_peer`. It\nreleases any peer reserved by steering, ensuring the disconnect takes\neffect.\n- Pause the flooding peer for 5 minutes. Steering leaves it unreserved\nand gives its place to the next candidate, and the handler rejects its\ninbound substream. When the pause ends the peer is an ordinary candidate\nagain.\n- Sync recovery releases its peer without a pause, so that peer\nreconnects at once with a fresh initial sync.",
+          "timestamp": "2026-11-24T11:24:07Z",
+          "tree_id": "bbee5565a15fef3efd348e5aab173f6e5cb884dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ec2c79364b093a151ab418ebdafbfea391fe3fd0"
+        },
+        "date": 1795525247554,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20015303,
+            "range": "± 143430",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20366780,
+            "range": "± 221033",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21714989,
+            "range": "± 187755",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26501533,
+            "range": "± 278129",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59674351,
+            "range": "± 698684",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 358652134,
+            "range": "± 4565501",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2576528903,
+            "range": "± 107730881",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17413648,
+            "range": "± 205621",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17668511,
+            "range": "± 382993",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18600796,
+            "range": "± 199144",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23035685,
+            "range": "± 210125",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62382858,
+            "range": "± 1336577",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 376251273,
+            "range": "± 12227635",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2765301151,
+            "range": "± 36297097",
             "unit": "ns/iter"
           }
         ]
