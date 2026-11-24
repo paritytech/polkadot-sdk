@@ -126,7 +126,10 @@ mod benchmarks {
 					validator_set_id: 0,
 				},
 				proof,
-				Mmr::<T>::mmr_root(),
+				AncestryValidationContext {
+					leaf_count: Mmr::<T>::mmr_leaves(),
+					mmr_root: Mmr::<T>::mmr_root(),
+				},
 			);
 		};
 

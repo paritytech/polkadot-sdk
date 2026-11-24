@@ -28,13 +28,11 @@ use crate::{
 		Def,
 	},
 };
-use cfg_expr::Predicate;
 use frame_support_procedural_tools::{
 	generate_access_from_frame_or_crate, generate_crate_access, generate_hidden_includes,
 };
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use std::collections::HashSet;
 use syn::{Ident, Result};
 
 /// The fixed name of the system pallet.
@@ -149,22 +147,6 @@ fn construct_runtime_final_expansion(
 		));
 	}
 
-	let features = pallets
-		.iter()
-		.filter_map(|decl| {
-			(!decl.cfg_pattern.is_empty()).then(|| {
-				decl.cfg_pattern.iter().flat_map(|attr| {
-					attr.predicates().filter_map(|pred| match pred {
-						Predicate::Feature(feat) => Some(feat),
-						Predicate::Test => Some("test"),
-						_ => None,
-					})
-				})
-			})
-		})
-		.flatten()
-		.collect::<HashSet<_>>();
-
 	let hidden_crate_name = "construct_runtime";
 	let scrate = generate_crate_access(hidden_crate_name, "frame-support");
 	let scrate_decl = generate_hidden_includes(hidden_crate_name, "frame-support");
@@ -231,7 +213,7 @@ fn construct_runtime_final_expansion(
 		}
 	}
 
-	let all_pallets = decl_all_pallets(&name, pallets.iter(), &features);
+	let all_pallets = decl_all_pallets(&name, &pallets);
 	let pallet_to_index = decl_pallet_runtime_setup(&name, &pallets, &scrate);
 
 	let metadata = expand::expand_runtime_metadata(

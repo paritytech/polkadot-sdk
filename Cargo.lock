@@ -3794,15 +3794,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cfg-expr"
-version = "0.15.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03915af431787e6ffdcc74c645077518c6b6e01f80b761e0fbbfa288536311b3"
-dependencies = [
- "smallvec",
-]
-
-[[package]]
 name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7739,7 +7730,6 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-npos-elections",
  "sp-runtime 31.0.1",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -7931,7 +7921,6 @@ name = "frame-support-procedural"
 version = "23.0.0"
 dependencies = [
  "Inflector",
- "cfg-expr",
  "derive-syn-parse",
  "derive-where",
  "docify",
@@ -11255,9 +11244,9 @@ checksum = "78b3ae25bc7c8c38cec158d1f2757ee79e9b3740fbc7ccf0e59e4b08d793fa89"
 
 [[package]]
 name = "linux-raw-sys"
-version = "0.9.4"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd945864f07fe9f5371a27ad7b52a172b4b499999f1d97574c9fa68373937e12"
+checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
 
 [[package]]
 name = "lioness"
@@ -13781,7 +13770,6 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-npos-elections",
  "sp-runtime 31.0.1",
- "sp-std 14.0.0",
  "sp-tracing 16.0.0",
 ]
 
@@ -14920,6 +14908,7 @@ dependencies = [
  "frame-system",
  "futures",
  "git2",
+ "governor",
  "hex",
  "humantime-serde",
  "jsonrpsee 0.24.11",
@@ -21306,14 +21295,14 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "1.0.8"
+version = "1.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11181fbabf243db407ef8df94a6ce0b2f9a733bd8be4ad02b4eda9602296cac8"
+checksum = "e5e76742e5294153d4dde1207dbec5bdd81eef6fabdc0d2118babadabfd858aa"
 dependencies = [
  "bitflags 2.13.2",
  "errno",
  "libc",
- "linux-raw-sys 0.9.4",
+ "linux-raw-sys 0.12.1",
  "windows-sys 0.60.2",
 ]
 
@@ -22358,7 +22347,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.5",
  "paste",
- "rustix 1.0.8",
+ "rustix 1.1.6",
  "sc-allocator 23.0.0",
  "sc-executor-common 0.29.0",
  "sc-runtime-test",
@@ -22379,7 +22368,7 @@ dependencies = [
  "anyhow",
  "log",
  "parking_lot 0.12.5",
- "rustix 1.0.8",
+ "rustix 1.1.6",
  "sc-allocator 39.0.0",
  "sc-executor-common 0.47.0",
  "sp-runtime-interface 37.0.0",
@@ -23147,7 +23136,9 @@ version = "2.0.0"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
+ "async-trait",
  "fdlimit",
+ "frame-system",
  "futures",
  "log",
  "parity-scale-codec",
@@ -23162,9 +23153,11 @@ dependencies = [
  "sc-service",
  "sc-transaction-pool-api 28.0.0",
  "sp-api 26.0.0",
+ "sp-block-builder",
  "sp-blockchain 28.0.0",
  "sp-consensus 0.32.0",
  "sp-core 28.0.0",
+ "sp-inherents 26.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
@@ -28854,7 +28847,7 @@ version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60b8cb979cb11c32ce1603f8137b22262a9d131aaa5c37b5678025f22b8becd0"
 dependencies = [
- "rustix 1.0.8",
+ "rustix 1.1.6",
  "windows-sys 0.60.2",
 ]
 
@@ -30717,7 +30710,7 @@ dependencies = [
  "postcard",
  "pulley-interpreter",
  "rayon",
- "rustix 1.0.8",
+ "rustix 1.1.6",
  "serde",
  "serde_derive",
  "serde_json",
@@ -30784,7 +30777,7 @@ dependencies = [
  "directories-next",
  "log",
  "postcard",
- "rustix 1.0.8",
+ "rustix 1.1.6",
  "serde",
  "serde_derive",
  "sha2 0.10.9",
@@ -30830,7 +30823,7 @@ dependencies = [
  "cc",
  "cfg-if",
  "libc",
- "rustix 1.0.8",
+ "rustix 1.1.6",
  "wasmtime-internal-asm-macros",
  "wasmtime-internal-versioned-export-macros",
  "windows-sys 0.60.2",
@@ -30844,7 +30837,7 @@ checksum = "21d33adf2d1eae36df9b6b033a1d549c7553ea607f4f9a81f75d51627725c354"
 dependencies = [
  "cc",
  "object 0.37.3",
- "rustix 1.0.8",
+ "rustix 1.1.6",
  "wasmtime-internal-versioned-export-macros",
 ]
 
@@ -31841,7 +31834,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32e45ad4206f6d2479085147f02bc2ef834ac85886624a23575ae137c8aa8156"
 dependencies = [
  "libc",
- "rustix 1.0.8",
+ "rustix 1.1.6",
 ]
 
 [[package]]

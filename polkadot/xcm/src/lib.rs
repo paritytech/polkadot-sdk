@@ -108,7 +108,10 @@ macro_rules! versioned_type {
 		$(#[$index5:meta])+
 		V5($v5:ty),
 	}) => {
-		#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+		#[derive(
+			Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen,
+			TypeInfo,
+		)]
 		#[codec(encode_bound())]
 		#[codec(decode_bound())]
 		#[scale_info(replace_segment("staging_xcm", "xcm"))]
@@ -212,11 +215,6 @@ macro_rules! versioned_type {
 					V4(x) => x.try_into().map_err(|_| ()),
 					V5(x) => Ok(x),
 				}
-			}
-		}
-		impl MaxEncodedLen for $n {
-			fn max_encoded_len() -> usize {
-				<$v3>::max_encoded_len()
 			}
 		}
 		impl IdentifyVersion for $n {

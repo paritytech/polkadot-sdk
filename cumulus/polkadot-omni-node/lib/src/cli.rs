@@ -204,7 +204,7 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	#[arg(long, hide = true)]
-	pub statement_v2_dht: bool,
+	pub statement_dht: bool,
 
 	/// Number of concurrent workers for statement validation from the network.
 	///
@@ -253,7 +253,7 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only with `--statement-v2-dht`.
+	/// Hidden: takes effect only with `--statement-dht`.
 	#[arg(long = "statement-affinity-topic", value_name = "TOPIC", hide = true)]
 	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
 
@@ -262,7 +262,7 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only with `--statement-v2-dht`.
+	/// Hidden: takes effect only with `--statement-dht`.
 	#[arg(long = "statement-affinity-topics-file", value_name = "PATH", hide = true)]
 	pub statement_affinity_topics_file: Option<sc_statement_store::AffinityTopicsFile>,
 
@@ -270,7 +270,7 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only with `--statement-v2-dht`.
+	/// Hidden: takes effect only with `--statement-dht`.
 	#[arg(
 		long,
 		value_name = "K",
@@ -284,7 +284,7 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only with `--statement-v2-dht`.
+	/// Hidden: takes effect only with `--statement-dht`.
 	#[arg(
 		long,
 		value_name = "COUNT",
@@ -297,7 +297,7 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only with `--statement-v2-dht`.
+	/// Hidden: takes effect only with `--statement-dht`.
 	#[arg(
 		long,
 		value_name = "N",
@@ -310,7 +310,7 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only with `--statement-v2-dht`.
+	/// Hidden: takes effect only with `--statement-dht`.
 	#[arg(
 		long,
 		value_name = "RATE",
@@ -324,7 +324,7 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only with `--statement-v2-dht`.
+	/// Hidden: takes effect only with `--statement-dht`.
 	#[arg(long, value_name = "SEED", hide = true)]
 	pub statement_bloom_seed: Option<u128>,
 
@@ -333,7 +333,7 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only with `--statement-v2-dht`.
+	/// Hidden: takes effect only with `--statement-dht`.
 	#[arg(long, value_name = "BYTES", hide = true)]
 	pub statement_store_max_dht_affinity_size: Option<usize>,
 
@@ -342,7 +342,7 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only with `--statement-v2-dht`.
+	/// Hidden: takes effect only with `--statement-dht`.
 	#[arg(long, value_name = "BYTES", hide = true)]
 	pub statement_store_max_transient_size: Option<usize>,
 
@@ -402,8 +402,8 @@ impl<Config: CliConfig> Cli<Config> {
 					purge_after_sec: self.statement_store_purge_after_sec,
 					network_workers: self.statement_network_workers,
 					rate_limit: self.statement_rate_limit,
-					v2dht: sc_network_statement::v2dht_enabled().then(|| {
-						sc_statement_store::V2DhtConfig {
+					dht: sc_network_statement::dht_enabled().then(|| {
+						sc_statement_store::DhtConfig {
 							affinity_topics: self.statement_affinity_topics.clone(),
 							affinity_topics_file: self.statement_affinity_topics_file.clone(),
 							bloom_false_pos_rate: self.statement_bloom_false_positive_rate,
