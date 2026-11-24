@@ -209,6 +209,8 @@ async fn v3_dynamic_enablement_test(
 	// Assign 2 extra cores to para 2901 for elastic scaling (3 cores total).
 	assign_cores(&relay_client, 2901, vec![0, 1]).await?;
 
+	wait_for_pvf_prepare(&network, if relay_parent_offset == 0 { 2 } else { 3 }).await?;
+
 	let para_2900 = ParaId::from(2900);
 	let para_2901 = ParaId::from(2901);
 	let para_2902 = ParaId::from(2902);
