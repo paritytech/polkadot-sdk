@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795528451415,
+  "lastUpdate": 1795533182732,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bcd139f350ac253b4cc0409993e1d070c4bcc396",
-          "message": "Bump WAH spec_version (#12030)",
-          "timestamp": "2026-05-08T15:43:48Z",
-          "tree_id": "399624bb07580079f378d1c4fac02e84281153cc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bcd139f350ac253b4cc0409993e1d070c4bcc396"
-        },
-        "date": 1778259958594,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.11799999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03859524213999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08214376474599991,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.039376168923999984,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5b46ac0f96042fd94a303a038c7d2f7650998ff4",
+          "message": "statement-store: restore the retention tracks at startup and check the size limit on a retrack (#13868)\n\n# Description\n\nA node that runs with `--statement-dht` keeps the track of every\ntransient and explicit-only statement in memory, and only admission\nfills that map. After a restart the map was empty, so the retention\nsweep saw nothing. The statements stayed on disk until they expired and\nkept counting toward the size limit of their track. A restarted node\ncould reject new transient statements as \"track full\" while it held\nstatements that it should have dropped.\n\nThe startup code now reads the account index once and restores the map.\nTransient statements also return to the set that waits for propagation,\nbecause nothing records which of them reached a peer. The node sends\nthem again before the sweep may remove them.\n\nThe sweep also moved a statement to another track without a look at the\nsize limit of that track. After a topology change the track of DHT\naffinity could rise above its limit and then reject every new statement.\nThe sweep now leaves the statement on its current track while the target\ntrack is full, and tries again on the next pass.\n\nThe DHT soak passed on commit 7d96d55668a as a regression check, with 40\nnodes, 30 minutes and two node restarts:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/44066239055\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13870.\n\n## Integration\n\nNothing changes for a node without `--statement-dht`.\n\nOn a node with the flag, the first sweep after a restart removes the\nexplicit-only statements that no affinity covers. Statements from a\ndatabase older than version 3 are among them, because the migration\nplaced all of them on the explicit-only track. A peer may receive a\ntransient statement twice when the sender restarts.",
+          "timestamp": "2026-11-24T13:20:58Z",
+          "tree_id": "9ebc504753b553f83ae3933db040b5a42622a234",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5b46ac0f96042fd94a303a038c7d2f7650998ff4"
+        },
+        "date": 1795533137843,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.088,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08770424423399993,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03921161237000002,
             "unit": "seconds"
           }
         ]
