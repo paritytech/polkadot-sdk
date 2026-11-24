@@ -14,12 +14,6 @@ doc:
     `/health` fails once the best block of an instance that is catching up has stayed unchanged
     for more than 60 seconds.
 
-    When a health check query to the node fails or takes longer than 3 seconds, eth-rpc logs a
-    warning and both endpoints fail.
-
-    The `Client is out of sync` warning now shows the block the node is syncing towards, the
-    node's best block and eth-rpc's best block.
-
     The health check has three known limitations, which deployments should take into account.
     - When an instance advances but never gets within 5 blocks of its node, it continues to report
       `isSyncing: true` and to fail `/health/readiness`, while `/health` succeeds. Before this

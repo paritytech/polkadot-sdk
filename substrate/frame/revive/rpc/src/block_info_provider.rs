@@ -277,12 +277,9 @@ pub mod test {
 	use super::*;
 	use crate::BlockInfo;
 	use codec::Decode;
-	use std::{
-		sync::{
-			Mutex,
-			atomic::{AtomicBool, AtomicUsize, Ordering},
-		},
-		time::Duration,
+	use std::sync::{
+		Mutex,
+		atomic::{AtomicBool, AtomicUsize, Ordering},
 	};
 	use subxt::{
 		backend::LegacyBackend,
@@ -461,8 +458,6 @@ pub mod test {
 		report_no_best_block: Arc<AtomicBool>,
 		/// Fail `system_syncState` and `system_health` while set.
 		pub fail_system_queries: Arc<AtomicBool>,
-		/// Answer `system_syncState` and `system_health` only after this delay while set.
-		pub system_query_delay: Arc<Mutex<Option<Duration>>>,
 	}
 
 	impl Default for MockNode {
@@ -478,7 +473,6 @@ pub mod test {
 				fail_block_hash_lookups: Arc::default(),
 				report_no_best_block: Arc::default(),
 				fail_system_queries: Arc::default(),
-				system_query_delay: Arc::default(),
 			}
 		}
 	}
@@ -497,23 +491,14 @@ pub mod test {
 				.await
 		}
 
-		/// Returns the response to a system query, delayed by `system_query_delay`: an error while
-		/// `fail_system_queries` is set, `value` otherwise.
+		/// Returns the response to a system query: an error while `fail_system_queries` is set,
+		/// `value` otherwise.
 		fn system_query_response<T>(
 			&self,
 			value: T,
 		) -> impl Future<Output = Result<Json<T>, RpcError>> + use<T> {
-			let delay = *self.system_query_delay.lock().unwrap();
 			let fail = self.fail_system_queries.load(Ordering::SeqCst);
-			async move {
-				if let Some(delay) = delay {
-					tokio::time::sleep(delay).await;
-				}
-				if fail {
-					return Err(mock_error());
-				}
-				Ok(Json(value))
-			}
+			async move { if fail { Err(mock_error()) } else { Ok(Json(value)) } }
 		}
 
 		/// Build the clients that talk to this mocked node.

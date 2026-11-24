@@ -22,10 +22,9 @@ use sc_rpc_api::system::helpers::Health;
 use std::time::Duration;
 use tokio::time::Instant;
 
-/// Timeout for the health check's queries to the node.
-const HEALTH_QUERY_TIMEOUT: Duration = Duration::from_secs(3);
-
 /// How many blocks eth-rpc's best block may be behind the node's while eth-rpc is synced.
+///
+/// On Asset Hub, a lag of 5 blocks is about 10 seconds.
 const MAX_BLOCKS_BEHIND: SubstrateBlockNumber = 5;
 
 /// How long eth-rpc's best block may stay unchanged while eth-rpc is not synced.
@@ -39,9 +38,9 @@ const MAX_STALL_DURATION: Duration = Duration::from_secs(60);
 enum SyncStatus {
 	/// Within `MAX_BLOCKS_BEHIND` blocks of the node.
 	Synced,
-	/// Further behind, but its best block advanced within `MAX_STALL_DURATION`.
+	/// Further behind, with the same best block for at most `MAX_STALL_DURATION`.
 	CatchingUp,
-	/// Further behind, and its best block has not advanced for more than `MAX_STALL_DURATION`.
+	/// Further behind, with the same best block for more than `MAX_STALL_DURATION`.
 	Stalled,
 }
 
@@ -64,24 +63,25 @@ impl SyncTracker {
 			self.unchanged_since = None;
 			return SyncStatus::Synced;
 		}
-		let first_seen = match self.unchanged_since {
-			Some((previous_best, first_seen)) if previous_best == local_best => first_seen,
+		match self.unchanged_since {
+			Some((previous_best, first_seen)) if previous_best == local_best => {
+				if now.saturating_duration_since(first_seen) > MAX_STALL_DURATION {
+					SyncStatus::Stalled
+				} else {
+					SyncStatus::CatchingUp
+				}
+			},
 			_ => {
 				self.unchanged_since = Some((local_best, now));
-				now
+				SyncStatus::CatchingUp
 			},
-		};
-		if now.saturating_duration_since(first_seen) > MAX_STALL_DURATION {
-			SyncStatus::Stalled
-		} else {
-			SyncStatus::CatchingUp
 		}
 	}
 }
 
 #[rpc(server, client)]
 pub trait SystemHealthRpc {
-	/// Proxy the substrate chain system_health RPC call.
+	/// Returns the node's health, with `isSyncing` also set while eth-rpc is catching up.
 	#[method(name = "system_health")]
 	async fn system_health(&self) -> RpcResult<Health>;
 
@@ -104,35 +104,21 @@ impl SystemHealthRpcServerImpl {
 #[async_trait]
 impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 	async fn system_health(&self) -> RpcResult<Health> {
-		let health_query =
-			async { tokio::try_join!(self.client.sync_state(), self.client.system_health()) };
-		let Ok(health_query_result) =
-			tokio::time::timeout(HEALTH_QUERY_TIMEOUT, health_query).await
-		else {
-			log::warn!(
-				target: LOG_TARGET,
-				"health: node query timed out after {HEALTH_QUERY_TIMEOUT:?}"
-			);
-			return Err(ErrorCode::InternalError.into());
-		};
-		let (sync_state, health) = health_query_result.inspect_err(
-			|err| log::warn!(target: LOG_TARGET, "health: node query failed: {err:?}"),
-		)?;
+		let (sync_state, health) =
+			tokio::try_join!(self.client.sync_state(), self.client.system_health()).inspect_err(
+				|err| log::warn!(target: LOG_TARGET, "health: node query failed: {err:?}"),
+			)?;
 
+		let node_best = sync_state.current_block;
 		let local_best = self.client.latest_block().await.number();
-		let status = self.sync_tracker.lock().await.check(
-			sync_state.current_block,
-			local_best,
-			Instant::now(),
-		);
+		let status = self.sync_tracker.lock().await.check(node_best, local_best, Instant::now());
 
 		match status {
 			SyncStatus::Stalled => {
 				log::warn!(
 					target: LOG_TARGET,
 					"Client is stalled: cache best #{local_best} has not advanced for more than \
-					{MAX_STALL_DURATION:?} while the node best is #{}",
-					sync_state.current_block,
+					{MAX_STALL_DURATION:?} while the node best is #{node_best}"
 				);
 				return Err(ErrorCode::InternalError.into());
 			},
@@ -140,15 +126,15 @@ impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 				target: LOG_TARGET,
 				"Client is out of sync. Network best: #{}, node best: #{}, cache best: #{}",
 				sync_state.highest_block,
-				sync_state.current_block,
+				node_best,
 				local_best,
 			),
 			SyncStatus::Synced => log::trace!(
 				target: LOG_TARGET,
 				"health ok: node best #{}, cache best #{}, behind {}/{}, peers {}, syncing {}",
-				sync_state.current_block,
+				node_best,
 				local_best,
-				sync_state.current_block.saturating_sub(local_best),
+				node_best.saturating_sub(local_best),
 				MAX_BLOCKS_BEHIND,
 				health.peers,
 				health.is_syncing,
@@ -157,8 +143,7 @@ impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 
 		Ok(Health {
 			peers: health.peers,
-			// Fails `/health/readiness` but not `/health`, so an eth-rpc that is catching up is
-			// taken out of service instead of being restarted.
+			// Fails `/health/readiness` but not `/health` while eth-rpc is catching up.
 			is_syncing: health.is_syncing || status == SyncStatus::CatchingUp,
 			should_have_peers: health.should_have_peers,
 		})
@@ -182,7 +167,6 @@ mod tests {
 
 	const NODE_BEST: SubstrateBlockNumber = 1_000;
 	const LAGGING_BEST: SubstrateBlockNumber = NODE_BEST - MAX_BLOCKS_BEHIND - 1;
-	const ONE_SECOND: Duration = Duration::from_secs(1);
 
 	#[test]
 	fn the_stall_duration_resets_when_eth_rpc_is_synced_or_advances() {
@@ -192,18 +176,15 @@ mod tests {
 		// eth-rpc falls behind by more than `MAX_BLOCKS_BEHIND`, which starts the stall duration.
 		assert_eq!(tracker.check(NODE_BEST, LAGGING_BEST, start), SyncStatus::CatchingUp);
 		// The node's best block moves back to eth-rpc's, which resets the stall duration.
-		assert_eq!(
-			tracker.check(LAGGING_BEST, LAGGING_BEST, start + ONE_SECOND),
-			SyncStatus::Synced
-		);
+		assert_eq!(tracker.check(LAGGING_BEST, LAGGING_BEST, start), SyncStatus::Synced);
 		// The node moves ahead again. The stall duration starts at this check, not at the first.
 		assert_eq!(
-			tracker.check(NODE_BEST, LAGGING_BEST, start + MAX_STALL_DURATION + 2 * ONE_SECOND),
+			tracker.check(NODE_BEST, LAGGING_BEST, start + 2 * MAX_STALL_DURATION),
 			SyncStatus::CatchingUp
 		);
 		// eth-rpc's best block advances, which resets the stall duration as well.
 		assert_eq!(
-			tracker.check(NODE_BEST + 1, LAGGING_BEST + 1, start + 3 * MAX_STALL_DURATION),
+			tracker.check(NODE_BEST + 1, LAGGING_BEST + 1, start + 4 * MAX_STALL_DURATION),
 			SyncStatus::CatchingUp
 		);
 	}
@@ -277,7 +258,7 @@ mod tests {
 		assert!(health_api.system_health().await.is_ok(), "/health passes when the lag starts");
 		tokio::time::advance(MAX_STALL_DURATION).await;
 		assert!(health_api.system_health().await.is_ok(), "/health passes up to the stall limit");
-		tokio::time::advance(ONE_SECOND).await;
+		tokio::time::advance(Duration::from_secs(1)).await;
 		assert!(health_api.system_health().await.is_err(), "both probes fail past the stall limit");
 	}
 
@@ -296,24 +277,5 @@ mod tests {
 		let health =
 			health_api.system_health().await.expect("/health passes once the node answers");
 		assert!(!health.is_syncing, "/health/readiness passes once the node answers");
-	}
-
-	#[tokio::test]
-	async fn slow_system_queries_fail_both_probes_at_the_timeout() {
-		let node = MockNode::default();
-		let health_api = health_api_lagging_by(&node, 0).await;
-		tokio::time::pause();
-
-		*node.system_query_delay.lock().unwrap() = Some(2 * HEALTH_QUERY_TIMEOUT);
-		let start = Instant::now();
-		assert!(
-			health_api.system_health().await.is_err(),
-			"both probes fail while the node is slow"
-		);
-		let waited = start.elapsed();
-		assert!(
-			(HEALTH_QUERY_TIMEOUT..2 * HEALTH_QUERY_TIMEOUT).contains(&waited),
-			"the health check waited {waited:?} instead of returning at the timeout"
-		);
 	}
 }
