@@ -448,19 +448,16 @@ impl DhtOrchestrator {
 		self.peer_steering.refresh_connections(network);
 	}
 
-	/// Release `peer` if steering holds it reserved, so that a disconnect sent next closes its
-	/// substream. The litep2p peerset ignores a disconnect of a reserved peer, and it takes both
-	/// commands from one queue, in order. A peer steering still needs is reserved again on the next
-	/// refresh, which reconnects it with a fresh initial sync, unless it is paused.
+	/// Release `peer` from the reserved set so the next disconnect closes its substream: litep2p
+	/// ignores disconnects of reserved peers. Steering re-reserves it on refresh unless paused.
 	pub(crate) fn release_reserved_peer<N: NetworkPeers>(&mut self, network: &N, peer: PeerId) {
 		if self.peer_steering.is_reserved(&peer) {
 			self.peer_steering.release_peer(network, peer);
 		}
 	}
 
-	/// Keep `peer`, about to be disconnected for its behavior, away for
-	/// [`peer_steering::DISCONNECT_PAUSE`]: steering leaves it unreserved and gives its place to
-	/// the next candidate, and the handler rejects its inbound substream.
+	/// Keep `peer` away for [`peer_steering::DISCONNECT_PAUSE`]: steering leaves it unreserved and
+	/// the handler rejects its inbound substream.
 	pub(crate) fn pause_peer(&mut self, peer: PeerId) {
 		self.peer_steering.pause_peer(peer, Instant::now());
 	}

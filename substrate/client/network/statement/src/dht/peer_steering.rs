@@ -33,8 +33,7 @@
 //! The orchestrator supplies the desired set through
 //! [`PeerSteering::update_peers_needing_connections`].
 //!
-//! A peer the handler disconnects for its behavior is paused for [`DISCONNECT_PAUSE`]: steering
-//! leaves it unreserved and the handler rejects its inbound substream, so it stays away.
+//! A peer disconnected for its behavior is paused for [`DISCONNECT_PAUSE`].
 //!
 //! Each connected peer carries a score based on its actions. Undesired peers are
 //! dropped lowest-score first.
@@ -73,8 +72,7 @@ pub(super) const UNREACHABLE_AFTER: Duration = Duration::from_secs(15);
 /// How long an unreachable peer is passed over before it is tried again.
 pub(super) const UNREACHABLE_RETRY_AFTER: Duration = Duration::from_secs(5 * 60);
 
-/// How long a peer disconnected for its behavior stays away. A sooner return would hand it a full
-/// initial sync again.
+/// How long a peer disconnected for its behavior stays away, sparing a repeat initial sync.
 pub(super) const DISCONNECT_PAUSE: Duration = Duration::from_secs(5 * 60);
 
 /// Keeps the statement protocol's reserved set aligned with the peers the node needs connected.
@@ -98,8 +96,7 @@ pub(crate) struct PeerSteering {
 	/// Peers that stayed reserved without a substream for [`UNREACHABLE_AFTER`], each with the
 	/// instant it is tried again.
 	unreachable: HashMap<PeerId, Instant>,
-	/// Peers disconnected for their behavior, each with the instant its pause ends. Unlike an
-	/// unreachable peer, a paused one stays paused when it dials in.
+	/// Paused peers and when each pause ends. A pause holds even when the peer dials in.
 	paused: HashMap<PeerId, Instant>,
 }
 
