@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795532049372,
+  "lastUpdate": 1795554499716,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -150443,6 +150443,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3453092270,
             "range": "± 57004604",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marios@parity.io",
+            "name": "Marios",
+            "username": "mchristou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6e2a57b01923ce441e8dd0f536ac7a064db7ddf6",
+          "message": "cumulus: judge unincluded blocks by their executing runtime (#13783)\n\n# Description\n\n  Fixes part of #13658 \n\nAfter a V2 -> V3 runtime upgrade, the parent search judged every\nunincluded block by the best block's runtime, which is V3. The\nV2-executed upgrade block was then kept and resubmitted under V3 rules\neven after its relay parent had expired under V2 rules, and validators\nrejected the candidates.\n\nThis PR judges each unincluded block by the runtime that executed it,\nits parent's:\n\n- V3-executed blocks need a relay parent known from the scheduling\nparent.\n- V2-executed blocks need a relay parent in the V2 lookahead window. An\nexpired upgrade block is therefore dropped and rebuilt instead of\nresubmitted \"forever\".\n  - V2-executed blocks never enter the V3 resubmittable segment.\n\nThe slot-based collator also ends the slot's core loop after building a\nruntime upgrade.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-24T19:48:24Z",
+          "tree_id": "35b31f6ae8721a193b6436ea50493e4bff75d55f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6e2a57b01923ce441e8dd0f536ac7a064db7ddf6"
+        },
+        "date": 1795554466026,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19327821,
+            "range": "± 163764",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20032870,
+            "range": "± 239421",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21139427,
+            "range": "± 40221",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25367245,
+            "range": "± 197896",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56541228,
+            "range": "± 472546",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 346130088,
+            "range": "± 5386654",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2589800184,
+            "range": "± 132592779",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16962061,
+            "range": "± 132821",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17163499,
+            "range": "± 207348",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17769946,
+            "range": "± 171727",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22084863,
+            "range": "± 263871",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60550370,
+            "range": "± 1268709",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 367058423,
+            "range": "± 8038228",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2741256858,
+            "range": "± 27072823",
             "unit": "ns/iter"
           }
         ]
