@@ -1,0 +1,10 @@
+title: Remove pallet::getter usage from pallet-staking-async-preset-store
+doc:
+- audience: Runtime Dev
+  description: |-
+    Replaces the `#[pallet::getter]` attribute of `pallet-staking-async-preset-store` with an
+    explicit public function on `Pallet<T>`. `preset()` keeps its signature, so no changes are
+    needed downstream.
+crates:
+- name: pallet-staking-async-preset-store
+  bump: minor
