@@ -2,7 +2,7 @@ title: 'statement-store: restore the retention tracks at startup and check the s
 doc:
 - audience: Node Dev
   description: |-
-    A node that runs with `--statement-v2-dht` restores the retention track of every transient
+    A node that runs with `--statement-dht` restores the retention track of every transient
     and explicit-only statement from the account index at startup. Before, the tracks lived only
     in memory, so after a restart the retention sweep saw nothing: the statements stayed on disk
     until they expired and kept counting toward the size limit of their track. Transient

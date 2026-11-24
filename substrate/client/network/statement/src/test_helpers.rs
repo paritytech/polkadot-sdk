@@ -20,7 +20,7 @@
 
 use crate::{
 	affinity::AffinityFilter, config::DEFAULT_BLOOM_FALSE_POS_RATE,
-	v2dht::peers_topology::PeersTopologyConfig,
+	dht::peers_topology::PeersTopologyConfig,
 };
 use sc_network_types::PeerId;
 use sp_statement_store::{Statement, Topic};
