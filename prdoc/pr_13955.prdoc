@@ -18,6 +18,6 @@ crates:
 - name: sp-statement-store
   bump: major
 - name: sc-statement-store
-  bump: patch
+  bump: minor
 - name: sc-network-statement
-  bump: patch
+  bump: minor

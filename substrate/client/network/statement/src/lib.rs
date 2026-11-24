@@ -73,7 +73,7 @@
 //! which needs no body, and announces the hashes under every topic due to the peer. The peer
 //! answers with one bit for each hash, set for a statement it lacks: one neither stored, nor
 //! banned, nor waiting for validation. The sender sends the bodies asked for, then announces the
-//! next hashes. A sync whose announce stays unanswered for [`ANNOUNCE_ANSWER_TIMEOUT`] ends.
+//! next hashes. A sync whose announce stays unanswered for `ANNOUNCE_ANSWER_TIMEOUT` ends.
 //!
 //! The walk follows no admission watermark, so it may announce a statement that propagation
 //! delivers too: the peer then holds it and asks for nothing. Announced hashes have a rate limit
