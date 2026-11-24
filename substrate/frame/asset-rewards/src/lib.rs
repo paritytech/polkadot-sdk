@@ -583,7 +583,6 @@ pub mod pallet {
 				PoolStakers::<T>::get(pool_id, &staker).ok_or(Error::<T>::NonExistentStaker)?;
 			let (pool_info, mut staker_info) =
 				Self::update_pool_and_staker_rewards(&pool_info, &staker_info)?;
-			Pools::<T>::insert(pool_id, &pool_info);
 
 			// Transfer unclaimed rewards from the pool to the staker.
 			T::Assets::transfer(
