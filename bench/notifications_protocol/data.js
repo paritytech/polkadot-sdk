@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795525223163,
+  "lastUpdate": 1795531986705,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -268415,6 +268415,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2360536734,
             "range": "± 14653814",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5b46ac0f96042fd94a303a038c7d2f7650998ff4",
+          "message": "statement-store: restore the retention tracks at startup and check the size limit on a retrack (#13868)\n\n# Description\n\nA node that runs with `--statement-dht` keeps the track of every\ntransient and explicit-only statement in memory, and only admission\nfills that map. After a restart the map was empty, so the retention\nsweep saw nothing. The statements stayed on disk until they expired and\nkept counting toward the size limit of their track. A restarted node\ncould reject new transient statements as \"track full\" while it held\nstatements that it should have dropped.\n\nThe startup code now reads the account index once and restores the map.\nTransient statements also return to the set that waits for propagation,\nbecause nothing records which of them reached a peer. The node sends\nthem again before the sweep may remove them.\n\nThe sweep also moved a statement to another track without a look at the\nsize limit of that track. After a topology change the track of DHT\naffinity could rise above its limit and then reject every new statement.\nThe sweep now leaves the statement on its current track while the target\ntrack is full, and tries again on the next pass.\n\nThe DHT soak passed on commit 7d96d55668a as a regression check, with 40\nnodes, 30 minutes and two node restarts:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/44066239055\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13870.\n\n## Integration\n\nNothing changes for a node without `--statement-dht`.\n\nOn a node with the flag, the first sweep after a restart removes the\nexplicit-only statements that no affinity covers. Statements from a\ndatabase older than version 3 are among them, because the migration\nplaced all of them on the explicit-only track. A peer may receive a\ntransient statement twice when the sender restarts.",
+          "timestamp": "2026-11-24T13:20:58Z",
+          "tree_id": "9ebc504753b553f83ae3933db040b5a42622a234",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5b46ac0f96042fd94a303a038c7d2f7650998ff4"
+        },
+        "date": 1795531943026,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4337687,
+            "range": "± 45422",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 322477,
+            "range": "± 5026",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4468986,
+            "range": "± 47871",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 390814,
+            "range": "± 2224",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5157563,
+            "range": "± 48542",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 963640,
+            "range": "± 15578",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11785811,
+            "range": "± 102985",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5536697,
+            "range": "± 109235",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 50589483,
+            "range": "± 897652",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 43644918,
+            "range": "± 508026",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 436812228,
+            "range": "± 6784022",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 351572097,
+            "range": "± 1857704",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2944924952,
+            "range": "± 34235331",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 3307612140,
+            "range": "± 130178320",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3796562,
+            "range": "± 37110",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 2171510,
+            "range": "± 21560",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3932587,
+            "range": "± 27603",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2244009,
+            "range": "± 10006",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4628525,
+            "range": "± 40403",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2662379,
+            "range": "± 23229",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8961872,
+            "range": "± 114938",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 6178675,
+            "range": "± 137435",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 43214616,
+            "range": "± 533200",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 42539977,
+            "range": "± 385779",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 355742764,
+            "range": "± 3183644",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 324195531,
+            "range": "± 2742771",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2925682170,
+            "range": "± 17501048",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2647277257,
+            "range": "± 28054853",
             "unit": "ns/iter"
           }
         ]
