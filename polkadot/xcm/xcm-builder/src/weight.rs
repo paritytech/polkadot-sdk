@@ -316,7 +316,7 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 		let amount = (units_per_second * (weight.ref_time() as u128) /
 			(WEIGHT_REF_TIME_PER_SECOND as u128)) +
 			(units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128));
-		Ok((id, amount).into())
+		Ok(Asset { id, fun: Fungible(amount) })
 	}
 }
 
@@ -374,6 +374,9 @@ where
 			tracing::debug!(target: "xcm::weight", ?amount, "Weight fee could not be converted");
 			return Err((payment, XcmError::Overflow));
 		};
+		if u128_amount == 0 {
+			return Ok(payment);
+		}
 		let asset_id = AssetId(AssetIdValue::get());
 		let required = Asset { id: asset_id.clone(), fun: Fungible(u128_amount) };
 		if let Ok(mut taken) = payment.try_take(required.into()) {

@@ -306,7 +306,7 @@ impl AssetsInHolding {
 	pub fn contains_asset(&self, asset: &Asset) -> bool {
 		match asset {
 			Asset { fun: Fungible(amount), id } => {
-				self.fungible.get(id).map_or(false, |a| a.amount() >= *amount)
+				*amount == 0 || self.fungible.get(id).map_or(false, |a| a.amount() >= *amount)
 			},
 			Asset { fun: NonFungible(instance), id } => {
 				self.non_fungible.contains(&(id.clone(), *instance))
@@ -319,12 +319,13 @@ impl AssetsInHolding {
 		assets.inner().iter().all(|a| self.contains_asset(a))
 	}
 
-	/// Returns an error unless all `assets` are contained in `self`.
+	/// Returns an error unless all `assets` are contained in `self`. A zero amount is always
+	/// contained.
 	pub fn ensure_contains(&self, assets: &Assets) -> Result<(), TakeError> {
 		for asset in assets.inner().iter() {
 			match asset {
 				Asset { fun: Fungible(amount), id } => {
-					if self.fungible.get(id).map_or(true, |a| a.amount() < *amount) {
+					if *amount > 0 && self.fungible.get(id).map_or(true, |a| a.amount() < *amount) {
 						return Err(TakeError::AssetUnderflow((id.clone(), *amount).into()));
 					}
 				},
@@ -423,7 +424,7 @@ impl AssetsInHolding {
 							if remove {
 								self.fungible.remove(&id);
 							}
-							if let Some(balance) = balance {
+							if let Some(balance) = balance.filter(|balance| balance.amount() > 0) {
 								let other = Self::new_from_fungible_credit(id, balance);
 								taken.subsume_assets(other);
 							}
@@ -900,6 +901,32 @@ mod tests {
 		let taken = assets1.saturating_take(assets2.into());
 		let taken_vec: Vec<_> = taken.assets_iter().collect();
 		assert_eq!(taken_vec, vec![CF(300), CNF(40)]);
+	}
+
+	#[test]
+	fn take_zero_fungible_works() {
+		// Built directly, as `From<u128>` debug-asserts a non-zero amount.
+		let zero_here = Asset { id: Here.into(), fun: Fungible(0) };
+		let zero_parent = Asset { id: Parent.into(), fun: Fungible(0) };
+		let mut assets = test_assets();
+
+		// A zero amount of a held asset takes nothing and leaves holding as it was.
+		let taken = assets.saturating_take(vec![zero_here.clone()].into());
+		assert!(taken.is_empty());
+		let taken = assets.try_take(vec![zero_here.clone()].into()).unwrap();
+		assert!(taken.is_empty());
+		assert_eq!(assets.len(), 2);
+		// Next to another asset, only that asset is taken.
+		let taken = assets.try_take(vec![zero_here, CNF(40)].into()).unwrap();
+		assert_eq!(taken.assets_iter().collect::<Vec<_>>(), vec![CNF(40)]);
+		assert_eq!(assets.assets_iter().collect::<Vec<_>>(), vec![CF(300)]);
+
+		// A zero amount of an asset not held takes nothing.
+		let taken = assets.saturating_take(vec![zero_parent.clone()].into());
+		assert!(taken.is_empty());
+		let taken = assets.try_take(vec![zero_parent].into()).unwrap();
+		assert!(taken.is_empty());
+		assert_eq!(assets.assets_iter().collect::<Vec<_>>(), vec![CF(300)]);
 	}
 
 	#[test]

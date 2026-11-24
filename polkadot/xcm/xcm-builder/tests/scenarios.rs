@@ -16,14 +16,16 @@
 
 mod mock;
 
+use frame_support::weights::IdentityFee;
 use mock::{
-	kusama_like_with_balances, AccountId, Balance, Balances, BaseXcmWeight, System, XcmConfig,
-	CENTS,
+	kusama_like_with_balances, AccountId, Balance, Balances, BaseXcmWeight, KsmLocation, System,
+	XcmConfig, CENTS,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::traits::AccountIdConversion;
+use staging_xcm_builder::UsingComponents;
 use xcm::latest::{prelude::*, Error::UntrustedTeleportLocation};
-use xcm_executor::XcmExecutor;
+use xcm_executor::{traits::WeightTrader, AssetsInHolding, XcmExecutor};
 use xcm_simulator::fake_message_hash;
 
 pub const ALICE: AccountId = AccountId::new([0u8; 32]);
@@ -427,5 +429,21 @@ fn recursive_xcm_execution_fail() {
 				error: InstructionError { index: 0, error: XcmError::Barrier },
 			}
 		);
+	});
+}
+
+/// Scenario:
+/// `UsingComponents` is asked to buy weight that costs nothing, with an empty payment.
+///
+/// Asserts that buying succeeds.
+#[test]
+fn using_components_buys_free_weight() {
+	type Trader = UsingComponents<IdentityFee<Balance>, KsmLocation, AccountId, Balances, ()>;
+	let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+
+	kusama_like_with_balances(vec![]).execute_with(|| {
+		let mut trader = Trader::new();
+		let unused = trader.buy_weight(Weight::zero(), AssetsInHolding::new(), &ctx).unwrap();
+		assert!(unused.is_empty());
 	});
 }
