@@ -33,6 +33,8 @@
 //! The orchestrator supplies the desired set through
 //! [`PeerSteering::update_peers_needing_connections`].
 //!
+//! A peer disconnected for its behavior is paused for [`DISCONNECT_PAUSE`].
+//!
 //! Each connected peer carries a score based on its actions. Undesired peers are
 //! dropped lowest-score first.
 
@@ -70,6 +72,9 @@ pub(super) const UNREACHABLE_AFTER: Duration = Duration::from_secs(15);
 /// How long an unreachable peer is passed over before it is tried again.
 pub(super) const UNREACHABLE_RETRY_AFTER: Duration = Duration::from_secs(5 * 60);
 
+/// How long a peer disconnected for its behavior stays away, sparing a repeat initial sync.
+pub(super) const DISCONNECT_PAUSE: Duration = Duration::from_secs(5 * 60);
+
 /// Keeps the statement protocol's reserved set aligned with the peers the node needs connected.
 ///
 /// The desired set comes from the orchestrator and the connected set from the statement substream
@@ -91,6 +96,8 @@ pub(crate) struct PeerSteering {
 	/// Peers that stayed reserved without a substream for [`UNREACHABLE_AFTER`], each with the
 	/// instant it is tried again.
 	unreachable: HashMap<PeerId, Instant>,
+	/// Paused peers and when each pause ends. A pause holds even when the peer dials in.
+	paused: HashMap<PeerId, Instant>,
 }
 
 /// The state of one connected peer.
@@ -112,6 +119,7 @@ impl PeerSteering {
 			reserved: HashSet::new(),
 			awaiting_substream: HashMap::new(),
 			unreachable: HashMap::new(),
+			paused: HashMap::new(),
 		}
 	}
 
@@ -182,6 +190,22 @@ impl PeerSteering {
 
 	pub(crate) fn unreachable_count(&self) -> usize {
 		self.unreachable.len()
+	}
+
+	/// Keep `peer` away for [`DISCONNECT_PAUSE`] from `now`.
+	pub(crate) fn pause_peer(&mut self, peer: PeerId, now: Instant) {
+		log::debug!(target: LOG_TARGET, "peer_steering: {peer} is paused");
+		self.paused.insert(peer, now + DISCONNECT_PAUSE);
+	}
+
+	/// Clear the pauses that ended by `now`.
+	pub(crate) fn update_paused_peers(&mut self, now: Instant) {
+		self.paused.retain(|_, resume_at| *resume_at > now);
+	}
+
+	/// Whether `peer` was disconnected for its behavior and its pause still runs.
+	pub(crate) fn is_paused(&self, peer: &PeerId) -> bool {
+		self.paused.contains_key(peer)
 	}
 
 	// === Desired set ===
