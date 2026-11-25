@@ -317,6 +317,11 @@ const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::fr
 const PEER_EVICTION_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
 /// Delay before re-adding a peer to the reserved set after a forced disconnect for sync recovery.
 const SYNC_RECOVERY_READD_DELAY: std::time::Duration = std::time::Duration::from_secs(60);
+/// Without the DHT path, how long a stalled peer stays out of the reserved set. Peer steering
+/// pauses such a peer for as long with the DHT path on.
+const STALLED_PEER_READD_DELAY: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+/// Interval between checks for stalled peers whose re-add delay has passed.
+const STALLED_PEER_READD_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
 
 static DHT_ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 
@@ -855,6 +860,8 @@ impl StatementHandlerPrototype {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: self.in_peers_full,
 			in_peers_light: self.in_peers_light,
 			dropped_statements_during_sync: false,
@@ -941,6 +948,11 @@ pub struct StatementHandler<
 	/// Tracks peers that connected while major sync was active and adds them to the reserved set
 	/// once sync ends
 	deferred_peers: HashSet<PeerId>,
+	/// Without the DHT path, stalled peers taken out of the reserved set, each with the time it
+	/// is added back
+	stalled_peers: HashMap<PeerId, Instant>,
+	/// Fires when `stalled_peers` is due a check for peers to add back
+	stalled_peers_readd_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
 	/// Inbound slots for full peers.
 	in_peers_full: u32,
 	/// Inbound slots for light peers.
@@ -1412,6 +1424,8 @@ where
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -1505,6 +1519,9 @@ where
 				_ = &mut self.sync_recovery_readd_timeout => {
 					self.try_readd_sync_recovery_peer();
 					self.sync_recovery_readd_timeout = Box::pin(pending().fuse());
+				},
+				_ = &mut self.stalled_peers_readd_timeout => {
+					self.readd_stalled_peers(Instant::now());
 				},
 				_ = &mut self.peer_eviction_timeout => {
 					self.dht.evict_stale_peers();
@@ -1729,6 +1746,35 @@ where
 		}
 	}
 
+	/// Add back to the reserved set the stalled peers whose delay ended by `now`, and wait for
+	/// the rest.
+	fn readd_stalled_peers(&mut self, now: Instant) {
+		let mut due = HashSet::new();
+		self.stalled_peers.retain(|peer_id, readd_at| {
+			if *readd_at > now {
+				return true;
+			}
+			due.insert(
+				iter::once(multiaddr::Protocol::P2p((*peer_id).into()))
+					.collect::<multiaddr::Multiaddr>(),
+			);
+			false
+		});
+		if !due.is_empty() {
+			log::debug!(target: LOG_TARGET, "Re-adding {} stalled peers", due.len());
+			if let Err(err) =
+				self.network.add_peers_to_reserved_set(self.protocol_name.clone(), due)
+			{
+				log::warn!(target: LOG_TARGET, "Failed to re-add stalled peers: {err}");
+			}
+		}
+		self.stalled_peers_readd_timeout = if self.stalled_peers.is_empty() {
+			Box::pin(pending().fuse())
+		} else {
+			Box::pin(tokio::time::sleep(STALLED_PEER_READD_INTERVAL).fuse())
+		};
+	}
+
 	/// Whether the role's inbound quota has room for one more peer.
 	///
 	/// The protocol controller counts the full and light slots together, so the split by role
@@ -1781,6 +1827,8 @@ where
 				}
 			},
 			SyncEvent::PeerDisconnected(remote) => {
+				// A peer that left is not added back.
+				self.stalled_peers.remove(&remote);
 				if self.deferred_peers.remove(&remote) {
 					return;
 				}
@@ -2465,7 +2513,27 @@ where
 
 		// Initiate peer state cleanup in the `NotificationStreamClosed` handler
 		if dht_enabled() {
+			// The pause keeps steering from reserving the peer again on its next refresh.
+			self.dht.pause_peer(who);
 			self.dht.release_reserved_peer(&self.network, who);
+		} else {
+			// Every peer is reserved here and a reserved peer ignores the disconnect below, so
+			// it leaves the set until the re-add delay passes.
+			match self
+				.network
+				.remove_peers_from_reserved_set(self.protocol_name.clone(), vec![who])
+			{
+				Ok(()) => {
+					if self.stalled_peers.is_empty() {
+						self.stalled_peers_readd_timeout =
+							Box::pin(tokio::time::sleep(STALLED_PEER_READD_INTERVAL).fuse());
+					}
+					self.stalled_peers.insert(who, Instant::now() + STALLED_PEER_READD_DELAY);
+				},
+				Err(err) => {
+					log::warn!(target: LOG_TARGET, "Failed to remove stalled peer {who}: {err}")
+				},
+			}
 		}
 		self.network.disconnect_peer(who, self.protocol_name.clone());
 		if let Some(ref metrics) = self.metrics {
@@ -3850,6 +3918,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -4478,6 +4548,15 @@ mod tests {
 		handler.handle_send_result(result);
 		assert_eq!(network.get_disconnected_peers(), vec![peer_id]);
 		assert!(network.get_reports().is_empty(), "a stalled peer is not punished");
+		// A reserved peer ignores the disconnect, so it leaves the set and is re-added later.
+		assert_eq!(network.get_removed_reserved(), vec![vec![peer_id]]);
+		let readd_at = handler.stalled_peers[&peer_id];
+		assert!(handler.sync_recovery_peer.is_none(), "sync recovery keeps its own slot");
+		handler.readd_stalled_peers(readd_at - std::time::Duration::from_secs(1));
+		assert!(network.get_added_reserved().is_empty(), "the delay still runs");
+		handler.readd_stalled_peers(readd_at);
+		assert_eq!(network.get_added_reserved().len(), 1);
+		assert!(handler.stalled_peers.is_empty());
 
 		// The disconnect drops the backlog, so nothing more goes out before the stream closes.
 		assert!(handler.propagation_outboxes.get(&peer_id).is_none());
@@ -5062,6 +5141,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -5129,6 +5210,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -7816,6 +7899,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -8323,6 +8408,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -8481,6 +8568,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: deferred,
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -8580,6 +8669,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: true,
@@ -8703,6 +8794,8 @@ mod tests {
 					parked_propagations: VecDeque::new(),
 					pending_sends: FuturesUnordered::new(),
 					deferred_peers: HashSet::new(),
+					stalled_peers: HashMap::new(),
+					stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 					in_peers_full: DEFAULT_IN_PEERS,
 					in_peers_light: 0,
 					dropped_statements_during_sync: dropped,
