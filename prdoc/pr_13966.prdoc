@@ -4,7 +4,7 @@ doc:
   description: |-
     A PSM admin role is an `AdminOrigin`: `AssetOwner` or `Origin(origin)`. `AssetOwner` is held by whoever owns the internal asset at the time of each admin call; nobody holds it while the asset has no owner, and if the asset id is recreated, the new owner holds it. `Origin(origin)` is held by that origin. `create_psm`, `set_full_admin` and `set_emergency_admin` take `AdminOrigin` arguments; pass `AdminOrigin::AssetOwner` for a role that follows the asset owner. `PsmCreated`, `FullAdminChanged` and `EmergencyAdminChanged` carry `AdminOrigin`.
 
-    The call indices are unchanged; the argument types change, so runtimes must bump `transaction_version`. Runtimes must also add `pallet_psm::migrations::v1::MigrateV0ToV1`, which turns every stored role into `AdminOrigin::Origin` of the same origin and keeps deposits.
+    The call indices are unchanged; the argument types change, so runtimes must bump `transaction_version`. Calls to these three functions stored in a referendum or the scheduler before the upgrade are decoded with the new argument types when they execute. Runtimes must also add `pallet_psm::migrations::v1::MigrateV0ToV1`, which turns every stored role into `AdminOrigin::Origin` of the same origin and keeps deposits.
 - audience: Runtime User
   description: |-
     PSM admin calls by the signed owner of the internal asset succeed when the PSM's role is `AdminOrigin::AssetOwner`. `create_psm`, `set_full_admin` and `set_emergency_admin` take `AdminOrigin` arguments at their existing call indices.
