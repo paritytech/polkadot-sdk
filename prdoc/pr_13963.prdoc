@@ -9,7 +9,5 @@ crates:
     bump: patch
   - name: sp-mmr-primitives
     bump: minor
-  - name: cumulus-primitives-spec-messaging
-    bump: minor
   - name: westend-runtime
     bump: patch
