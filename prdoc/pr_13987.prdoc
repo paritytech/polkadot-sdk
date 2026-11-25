@@ -1,0 +1,29 @@
+title: Budget treasury spends per origin instead of per spend limit
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `pallet-treasury` limits how much an origin can approve within a single dispatch context, so
+      that an origin cannot split one oversized spend across the calls of a batch. That running
+      total was keyed by the origin's `max_amount` rather than by the origin, so two `SpendOrigin`
+      variants configured with the same limit shared one budget and each reduced what the other
+      could spend. Nothing enforced the assumption that every origin has a distinct limit, and a
+      runtime upgrade could introduce the collision silently.
+
+      The budget is now keyed by the SCALE-encoded origin caller, so each origin draws only on its
+      own allowance. The key is the exact encoded origin, so two origin values that carry the same
+      authority but different payloads, such as `Members(3, 5)` and `Members(4, 5)` from a
+      collective, are budgeted separately. A single motion dispatches one origin value into every
+      sub-call, so this only arises under Root `dispatch_as`.
+
+      The same map was shared by every instance of the pallet, because the dispatch context keys
+      values by type id and `SpendContext<BalanceOf<T, I>>` resolves to the same type for two
+      instances using the same balance type. `SpendContext` is now generic over `T` and `I`, giving
+      each instance its own map.
+
+      No API change, and weights are unchanged: the map already existed and lives in memory for the
+      duration of one dispatch.
+
+crates:
+  - name: pallet-treasury
+    bump: patch
