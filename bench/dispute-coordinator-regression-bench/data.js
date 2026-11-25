@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795621407540,
+  "lastUpdate": 1795637089723,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bkontur@gmail.com",
-            "name": "Branislav Kontur",
-            "username": "bkontur"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9a802a5269a9d52cf9b0ce49aa199a34aa262ef3",
-          "message": "pallet-transaction-storage: mark publish = false and drop from umbrella (#12059)\n\n## Summary\n- Set `publish = false` on `pallet-transaction-storage` so it is no\nlonger published to crates.io as part of the SDK release.\n- Remove all references to `pallet-transaction-storage` from the\n`polkadot-sdk` umbrella crate\n\nThe pallet remains a normal workspace member and can still be depended\non directly via its path, but it is excluded from the umbrella crate and\nthe published release set.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-13T14:02:16Z",
-          "tree_id": "a23b81bceb0fcaf3062b724629c3b1588fe2834d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9a802a5269a9d52cf9b0ce49aa199a34aa262ef3"
-        },
-        "date": 1778686125315,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009167809569999966,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009319675990000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002631291450000001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.002597785720000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jessechejieh@gmail.com",
+            "name": "jessechejieh",
+            "username": "jessechejieh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "94d256ae8ed41109c351a3d57ee3d35129327fec",
+          "message": "(RWF)`pallet-asset-rewards`: fix post-expiry underflow and persist pool on harvest (#13208)\n\n### Description\n\nFixes two accounting bugs in `pallet-asset-rewards`, one of which can\nleave stakes frozen in an expired pool with no way to recover them.\n\n`update_pool_rewards` always sets `last_update_block` to the current\nblock, while `reward_per_token` counts elapsed blocks from\n`last_update_block` up to `min(now, expiry_block)`. Any stake or unstake\nafter expiry therefore stores a block past the expiry, and every later\n`stake`, `unstake`, `harvest_rewards`, `set_pool_expiry_block` and\n`set_pool_reward_rate_per_block` on that pool fails with\n`ArithmeticError::Underflow`. After expiry anyone may unstake on a\nstaker's behalf, so one small delegated unstake is enough, and\n`cleanup_pool` cannot run while stakers remain.\n\n`harvest_rewards` also computes the updated pool but never writes it\nback to `Pools`, unlike `stake` and `unstake`, so the stored accumulator\ngoes stale after every harvest.\n\nRewardable blocks are now counted with `saturating_sub`, so a pool last\nupdated after its expiry accrues nothing instead of underflowing, and\n`harvest_rewards` persists the pool. I chose this over capping\n`last_update_block` at the expiry because:\n\n1. Pools already stuck in this state recover without a migration.\n2. Behaviour after `set_pool_expiry_block` on an expired pool is\nunchanged: rewards restart from the extension rather than paying out the\nexpired gap.\n\nThe two changes need to land together. Persisting the pool on harvest\nwithout the first fix would let a post-expiry harvest trigger the\nunderflow as well.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-25T16:49:42Z",
+          "tree_id": "5fbf59f1af061a256d7e6ed3955fc3e2f6cdad05",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/94d256ae8ed41109c351a3d57ee3d35129327fec"
+        },
+        "date": 1795637046387,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010342626770000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00254938117,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009413807919999979,
             "unit": "seconds"
           }
         ]
