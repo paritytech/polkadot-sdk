@@ -1,0 +1,15 @@
+title: Upgrade `polkadot-ckb-merkle-mountain-range` to 0.8.4
+doc:
+- audience: Runtime Dev
+  description: Upgrade `polkadot-ckb-merkle-mountain-range` to 0.8.4
+crates:
+  - name: pallet-mmr
+    bump: patch
+  - name: pallet-beefy-mmr
+    bump: patch
+  - name: sp-mmr-primitives
+    bump: minor
+  - name: cumulus-primitives-spec-messaging
+    bump: minor
+  - name: westend-runtime
+    bump: patch
