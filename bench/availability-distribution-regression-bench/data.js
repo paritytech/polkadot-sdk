@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795598624460,
+  "lastUpdate": 1795601270380,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f6fe95660ee9819b328aaa7ecb708a07ffff82a2",
-          "message": "ci: build container image for statement-store-tools (#12072)\n\nAdds a `statement-store-tools` docker image bundling the two binaries\nshipped by the `statement-latency-bench` crate\n(`statement-latency-bench` and `setup-allowances`) so the bench tools\ncan be run as a published image instead of building from source.",
-          "timestamp": "2026-05-15T10:59:45Z",
-          "tree_id": "cbf0fb78f19dc8518422b3c69ba5c5822f44c763",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6fe95660ee9819b328aaa7ecb708a07ffff82a2"
-        },
-        "date": 1778847859078,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02367088894666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14386503828666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0072570818866666675,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009918419039999966,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.024100908440000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cd193d6c301eb1d76dfa9a92620bd2bf7dc79946",
+          "message": "pallet-revive: align eth tx decoding and reuse decoded call in dry runs (#13947)\n\nSmall consistency and performance change: Align the decoding of\nsubstrate calls via Eth TX with the decoding of\n`generic::UncheckedExtrinsic`. Also reuse the decoded call in the dry\nrun.\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-25T08:31:09Z",
+          "tree_id": "475b6ed61b8097d932969c7a3f73e862c2e32f16",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cd193d6c301eb1d76dfa9a92620bd2bf7dc79946"
+        },
+        "date": 1795601228290,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009586635766666653,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007759458133333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14191277409333344,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024017923693333332,
             "unit": "seconds"
           }
         ]
