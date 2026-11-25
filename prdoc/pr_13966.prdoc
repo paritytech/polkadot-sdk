@@ -2,12 +2,12 @@ title: 'pallet-psm: resolve admin roles from the internal asset owner'
 doc:
 - audience: Runtime Dev
   description: |-
-    A PSM admin role is an `AdminOrigin`: `AssetOwner` or `Origin(origin)`. `AssetOwner` is held by whoever owns the internal asset at the time of each admin call; `Origin(origin)` is held by that origin. `create_psm` takes an optional admin for each role, and `None` sets it to `AssetOwner`. `set_full_admin` and `set_emergency_admin` take an `AdminOrigin`. `PsmCreated`, `FullAdminChanged` and `EmergencyAdminChanged` carry `AdminOrigin`.
+    A PSM admin role is an `AdminOrigin`: `AssetOwner` or `Origin(origin)`. `AssetOwner` is held by whoever owns the internal asset at the time of each admin call; nobody holds it while the asset has no owner, and if the asset id is recreated, the new owner holds it. `Origin(origin)` is held by that origin. `create_psm`, `set_full_admin` and `set_emergency_admin` take `AdminOrigin` arguments; pass `AdminOrigin::AssetOwner` for a role that follows the asset owner. `PsmCreated`, `FullAdminChanged` and `EmergencyAdminChanged` carry `AdminOrigin`.
 
-    `create_psm`, `set_full_admin` and `set_emergency_admin` use call indices 13, 14 and 15. Runtimes must add `pallet_psm::migrations::v1::MigrateV0ToV1`, which sets a stored role equal to the signed origin of the internal asset's current owner to `AssetOwner` and every other role to `Origin`, and must bump `transaction_version`.
+    The call indices are unchanged; the argument types change, so runtimes must bump `transaction_version`. Runtimes must also add `pallet_psm::migrations::v1::MigrateV0ToV1`, which turns every stored role into `AdminOrigin::Origin` of the same origin and keeps deposits.
 - audience: Runtime User
   description: |-
-    PSM admin calls by the signed owner of the internal asset succeed when the PSM's roles are `AssetOwner`. `create_psm`, `set_full_admin` and `set_emergency_admin` have new call indices and argument types.
+    PSM admin calls by the signed owner of the internal asset succeed when the PSM's role is `AdminOrigin::AssetOwner`. `create_psm`, `set_full_admin` and `set_emergency_admin` take `AdminOrigin` arguments at their existing call indices.
 crates:
 - name: pallet-psm
   bump: major
