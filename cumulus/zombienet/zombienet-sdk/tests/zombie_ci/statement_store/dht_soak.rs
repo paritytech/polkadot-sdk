@@ -1,7 +1,7 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! Soak of the v2 DHT statement path (gate on) under continuous load.
+//! Soak of the DHT statement path (gate on) under continuous load.
 //!
 //! Sizing is the point: `nodes > replication_factor > gossip_target + 1` (12 > 8 > 4) —
 //! defects capping the replica set at `gossip_target + 1` copies are invisible below that.
@@ -19,7 +19,7 @@
 //! Each later wave is followed by another outage or join with odds 1 in 14 each, up to
 //! `MAX_JOINERS` joins.
 //! The soak ends with a scan of every node's log for statement errors.
-//! `STATEMENT_V2_SOAK_NODES` (default 12) and `STATEMENT_V2_SOAK_SECS` (default
+//! `STATEMENT_DHT_SOAK_NODES` (default 12) and `STATEMENT_DHT_SOAK_SECS` (default
 //! 900) size the initial network and the run; both lifecycle steps and an ordinary wave after
 //! each are mandatory even with a zero duration.
 //! Every node keeps at least `replication_factor` statement peers, so the lifecycle checks that
@@ -34,14 +34,14 @@
 //! CUMULUS_IMAGE=docker.io/paritypr/polkadot-parachain-debug:<tag> \
 //! NEXTEST_RETRIES=0 \
 //! cargo nextest run -p cumulus-zombienet-sdk-tests --features zombie-ci --no-capture \
-//!     -- statement_store_v2_dht_soak
+//!     -- statement_store_dht_soak
 //! ```
 //!
 //! or natively, node binaries in `PATH`, without the k8s variables. `NEXTEST_RETRIES=0`
 //! overrides the repo default of 5: retrying a failed network soak wholesale is never useful.
 
 use super::common::{
-	assert_statements_match, base_dir, collator_args_v2, create_chain_spec_with_allowances,
+	assert_statements_match, base_dir, collator_args_dht, create_chain_spec_with_allowances,
 	launch_network_with_commands, submit_at_rate, submit_statement, subscribe_topic,
 	subscribe_topic_filter, wait_for_first_block, Load,
 };
@@ -63,11 +63,11 @@ use zombienet_sdk::{
 	AddCollatorOptions, AssetLocation, LocalFileSystem, Network, NetworkNode,
 };
 
-pub(super) const SOAK_SECS_ENV: &str = "STATEMENT_V2_SOAK_SECS";
+pub(super) const SOAK_SECS_ENV: &str = "STATEMENT_DHT_SOAK_SECS";
 pub(super) const DEFAULT_SOAK_SECS: u64 = 900;
 /// How many statement-store nodes to spawn: the 4 authoring collators plus soak-* full nodes for
 /// the rest.
-pub(super) const NODES_ENV: &str = "STATEMENT_V2_SOAK_NODES";
+pub(super) const NODES_ENV: &str = "STATEMENT_DHT_SOAK_NODES";
 const DEFAULT_NODES: usize = 12;
 pub(super) const STATEMENT_TTL: Duration = Duration::from_secs(900);
 pub(super) const MAX_RECONNECTS: usize = 5;
@@ -81,8 +81,8 @@ pub(super) const RING_SECS: u64 = 45;
 const PROBES_PER_WAVE: usize = 8;
 pub(super) const DELIVERY_TIMEOUT_SECS: u64 = 120;
 pub(super) const PLACEMENT_TIMEOUT_SECS: u64 = 90;
-pub(super) const CONNECTED_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_connected_peers";
-pub(super) const ELIGIBLE_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_eligible_peers";
+pub(super) const CONNECTED_PEERS_METRIC: &str = "substrate_sync_statement_dht_connected_peers";
+pub(super) const ELIGIBLE_PEERS_METRIC: &str = "substrate_sync_statement_dht_eligible_peers";
 const MAX_JOINERS: usize = 4;
 /// Round tag of the join step's statements: waves count from 0, the outage step uses `u64::MAX`.
 const JOIN_ROUND: u64 = u64::MAX - 1;
@@ -174,14 +174,15 @@ fn salt_chain_spec(path: &Path) -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-/// Spawns the statement nodes on the v2 DHT path: the 4 authoring collators and one full node per
+/// Spawns the statement nodes on the DHT path: the 4 authoring collators and one full node per
 /// `full_node_names` entry
 pub(super) async fn launch_soak_network(
 	full_node_names: &[String],
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let chain_spec_path = create_chain_spec_with_allowances(PARTICIPANTS, &base_dir()?)?;
 	salt_chain_spec(&chain_spec_path)?;
-	let args = collator_args_v2(PARTICIPANTS, LOG_FILTER, REPLICATION_FACTOR as u32, GOSSIP_TARGET);
+	let args =
+		collator_args_dht(PARTICIPANTS, LOG_FILTER, REPLICATION_FACTOR as u32, GOSSIP_TARGET);
 	let collators: Vec<(&str, Option<&str>)> =
 		AUTHORING_COLLATORS.iter().map(|&name| (name, None)).collect();
 	let full_nodes: Vec<&str> = full_node_names.iter().map(String::as_str).collect();
@@ -900,7 +901,7 @@ async fn run_node_join(
 	let join_node = async {
 		load_started_rx.await?;
 		info!("Lifecycle join: adding {joiner_name} to {} statement nodes", nodes.len());
-		// The joiner inherits the parachain's default args, the soak's v2 DHT flags among them
+		// The joiner inherits the parachain's default args, the soak's DHT flags among them
 		network.add_collator(&joiner_name, AddCollatorOptions::default(), 1004).await?;
 		let node = network.get_node(&joiner_name)?.clone();
 		let rpc = node.rpc().await?;
@@ -1102,7 +1103,7 @@ async fn run_wave(
 // .github/zombienet-tests/zombienet_statement_store_soak_tests.yml holds the size at 40 until
 // paritytech/litep2p#665 is fixed.
 #[tokio::test(flavor = "multi_thread")]
-async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
+async fn statement_store_dht_soak() -> Result<(), anyhow::Error> {
 	enum Step {
 		ReplicaOutage,
 		NodeJoin,

@@ -143,7 +143,6 @@ impl Def {
 		let mut runtime_struct = None;
 		let mut runtime_types = None;
 
-		let mut indices = HashMap::new();
 		let mut names = HashMap::new();
 
 		let mut pallet_decls = vec![];
@@ -216,17 +215,6 @@ impl Def {
 							disable_unsigned,
 							&bounds,
 						)?;
-
-						if let Some(used_pallet) = indices.insert(pallet.index, pallet.name.clone())
-						{
-							let msg = format!(
-								"Pallet indices are conflicting: Both pallets {} and {} are at index {}",
-								used_pallet, pallet.name, pallet.index,
-							);
-							let mut err = syn::Error::new(used_pallet.span(), &msg);
-							err.combine(syn::Error::new(pallet.name.span(), msg));
-							return Err(err);
-						}
 
 						pallets.push(pallet);
 					},

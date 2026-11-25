@@ -1,6 +1,5 @@
-error: feature(test)
-              ^ expected one of `=`, `,`, `)` here
-  --> tests/construct_runtime_ui/unsupported_meta_structure.rs:24:3
+error[E0537]: invalid predicate `feature`
+  --> tests/construct_runtime_ui/unsupported_meta_structure.rs:39:9
    |
-24 |         #[cfg(feature(test))]
-   |         ^
+39 |         #[cfg(feature(test))]
+   |               ^^^^^^^^^^^^^
