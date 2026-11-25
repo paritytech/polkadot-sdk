@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795605541645,
+  "lastUpdate": 1795609702106,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9a0d118456879b86f6ce87159c0b64d20bd26956",
-          "message": "ci: update image tag for images in master branch (#12056)\n\ncc https://github.com/paritytech/devops/issues/5296",
-          "timestamp": "2026-05-12T13:21:10Z",
-          "tree_id": "57ddd3e007cb82cf91ffab2a671138a5a043c13f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9a0d118456879b86f6ce87159c0b64d20bd26956"
-        },
-        "date": 1778597010069,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.12400000000002,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038713420305999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0863991528659999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03895365734000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adel.prokurov@parity.io",
+            "name": "playX18",
+            "username": "playX18"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ae307bbef1da9ecae3dff57267fa2ce95b6110f",
+          "message": "statement-store: disconnect a peer that reads statements too slowly (#13863)\n\n# Description\n\nA peer that reads statements too slowly is disconnected, and its\nreconnect gets a fresh initial sync. Before, such a peer kept its\nconnection and lost statements: a full outbox dropped its oldest hashes,\nand a failed send was never retried.\n\nA peer is disconnected, with no reputation change when:\n- its last two statement sends timed out, or\n- its propagation outbox overflowed\n\nFull outbox now refuses new hashes instead of dropping oldest, and the\npeer stays connected if the delay is ours: no chunk in flight, or an\ninitial sync running. The refused hashes are counted in\n`substrate_sync_statement_undelivered_total{reason=\"outbox_full\"}`.\n\nEach disconnect is logged with the peer id and counted in\n`substrate_sync_statement_stalled_peers_disconnected`.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13635.",
+          "timestamp": "2026-11-25T10:52:27Z",
+          "tree_id": "d721646cb2499dd71398594d016338f78840cc38",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4ae307bbef1da9ecae3dff57267fa2ce95b6110f"
+        },
+        "date": 1795609664943,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.114,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03814297689800001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.07992756995999989,
             "unit": "seconds"
           }
         ]
