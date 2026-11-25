@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795621275233,
+  "lastUpdate": 1795636969101,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "mail@skunert.dev",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "eafcc55352b027f9ca6f2156aaab3a9f22bccfc8",
-          "message": "ParityDB: Value should still be stored after transaction with store + reference (#12082)\n\nWhenever we would see a store + reference within the same database\ntransaction on a yet unknown value, parityDB would transform the\nreference into a dereference, which would give us invalid DB state.\nIntuitively, the value should be stored in the DB but was actually not\npresent.\n\nIn this PR we fix this by introducing a direct mapping to operations and\nadding test cases for this.\n\nNote: In chains with pallet-transaction-storage, the runtime would\nprevent this because you can not renew a transaction that was not\nalready present in a prior block. But at the low level this should still\nwork.",
-          "timestamp": "2026-05-18T08:09:00Z",
-          "tree_id": "dda373efb3f3a42289a4272c654f020c7bbc13f2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/eafcc55352b027f9ca6f2156aaab3a9f22bccfc8"
-        },
-        "date": 1779096809346,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63630.369999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52945.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000023328740000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.87621002404,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.778522276150001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7667455908099569,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.52986375694994,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.3335076112127755,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.803902338510001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000023906899999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000023906899999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000023328740000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8324785818399993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.466382078549981,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005622867049999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-1",
             "value": 2.6896329207700025,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jessechejieh@gmail.com",
+            "name": "jessechejieh",
+            "username": "jessechejieh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "94d256ae8ed41109c351a3d57ee3d35129327fec",
+          "message": "(RWF)`pallet-asset-rewards`: fix post-expiry underflow and persist pool on harvest (#13208)\n\n### Description\n\nFixes two accounting bugs in `pallet-asset-rewards`, one of which can\nleave stakes frozen in an expired pool with no way to recover them.\n\n`update_pool_rewards` always sets `last_update_block` to the current\nblock, while `reward_per_token` counts elapsed blocks from\n`last_update_block` up to `min(now, expiry_block)`. Any stake or unstake\nafter expiry therefore stores a block past the expiry, and every later\n`stake`, `unstake`, `harvest_rewards`, `set_pool_expiry_block` and\n`set_pool_reward_rate_per_block` on that pool fails with\n`ArithmeticError::Underflow`. After expiry anyone may unstake on a\nstaker's behalf, so one small delegated unstake is enough, and\n`cleanup_pool` cannot run while stakers remain.\n\n`harvest_rewards` also computes the updated pool but never writes it\nback to `Pools`, unlike `stake` and `unstake`, so the stored accumulator\ngoes stale after every harvest.\n\nRewardable blocks are now counted with `saturating_sub`, so a pool last\nupdated after its expiry accrues nothing instead of underflowing, and\n`harvest_rewards` persists the pool. I chose this over capping\n`last_update_block` at the expiry because:\n\n1. Pools already stuck in this state recover without a migration.\n2. Behaviour after `set_pool_expiry_block` on an expired pool is\nunchanged: rewards restart from the extension rather than paying out the\nexpired gap.\n\nThe two changes need to land together. Persisting the pool on harvest\nwithout the first fix would let a post-expiry harvest trigger the\nunderflow as well.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-25T16:49:42Z",
+          "tree_id": "5fbf59f1af061a256d7e6ed3955fc3e2f6cdad05",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/94d256ae8ed41109c351a3d57ee3d35129327fec"
+        },
+        "date": 1795636925039,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63569.65999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005307132040000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.711525342570001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7600015568700016,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001768753,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7274399946100014,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3683175914999968,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8471166067500103,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7377317828599996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.700072429852745,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001768753,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000017904640000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000017904640000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.157440007200012,
             "unit": "seconds"
           }
         ]
