@@ -1607,4 +1607,84 @@ module messaging_test {
         validation_code_matches_outcomes
       }))
   }
+
+  /// A candidate for `para` declaring the `StaleParentHead` sentinel as its
+  /// parent (and new head), so Accumulate rejects it at the parent-head check
+  /// (§5.1 step 4) and none of its upward messages take effect.
+  pure def staleCandidate(
+    s: ParachainServiceState, para: ParaId, msgs: List[UpwardMessage]
+  ): WorkResult = {
+    result: refineCalls(s, para,
+      wellFormedCalls(headHash(StaleParentHead), StaleParentHead, msgs)),
+    authTrace: 0
+  }
+
+  /// `s` with para `p`'s active code forced to `c`, for showing that
+  /// `validation_code_matches_outcomes` rejects a code change no accepted
+  /// candidate claims.
+  pure def withForcedCode(
+    s: ParachainServiceState, p: ParaId, c: ValidationCodeRef
+  ): ParachainServiceState =
+    { ...s, parachains: s.parachains.put(p, { ...s.paraInfo(p), validationCode: Some(c) }) }
+
+  /// §5.1 step 4 / `validation_code_matches_outcomes` part 1: Coretime's
+  /// `parachain_set_validation_code(3, code 4)` rides a stale-parent candidate,
+  /// which Accumulate rejects, so para 3 keeps code 3. A model that applied the
+  /// rejected call anyway (forced below) is caught by part 1 alone: no candidate
+  /// of para 3 follows in the block, so `parent_head_continuity` cannot see it.
+  run staleSetValidationCodeOutcomeTest = {
+    val q = MkParaId(3)
+    val c = { hash: { vchBytes: 4 }, len: FixedCodeLen }
+    initCleanUp
+      .then(applyBlock(List(staleCandidate(svc, CoretimeParaId,
+        List(ParachainSetValidationCode({ paraId: q, newValidationCode: c }))))))
+      .then(expectThat(all {
+        isOkDigest(lastStepWorkResults[0].result),
+        svc.paraInfo(CoretimeParaId).headData == prevSvc.paraInfo(CoretimeParaId).headData,
+        activeCodeOf(svc, q) == Some({ vchBytes: 3 }),
+        validation_code_matches_outcomes,
+        parent_head_continuity
+      }))
+      .then(setSvc(withForcedCode(svc, q, c)))
+      .then(expectThat(and {
+        not(validation_code_matches_outcomes),
+        parent_head_continuity
+      }))
+  }
+
+  /// §5.2 / `validation_code_matches_outcomes` part 1: para 3 announces code `c`
+  /// in a stale-parent candidate, which Accumulate rejects, then applies `c` in an
+  /// accepted candidate of the same block. The announcement never landed, so the
+  /// `Apply` is rejected and para 3 keeps code 3; a model that switched to `c`
+  /// (forced below) must not be excused by the rejected announcement.
+  run staleAnnouncementOutcomeTest = {
+    val q = MkParaId(3)
+    val h: ValidationCodeHash = { vchBytes: 107 }
+    val c = { hash: h, len: FixedCodeLen }
+    initCleanUp
+      .then(applyBlock(List(refinedCandidate(svc, q,
+        List(Solicit({ target: Parachain(q), hash: h.asPreimage(), len: FixedCodeLen })),
+        StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(provide(h.asPreimage(), FixedCodeLen))
+      .then(applyBlock(List(
+        staleCandidate(svc, q,
+          List(RequestCodeUpgrade({ hash: h, len: FixedCodeLen, phase: Announcement }))),
+        refinedCandidate(svc, q,
+          List(RequestCodeUpgrade({ hash: h, len: FixedCodeLen, phase: Apply })),
+          StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(all {
+        isOkDigest(lastStepWorkResults[0].result),
+        isOkDigest(lastStepWorkResults[1].result),
+        svc.paraInfo(q).headData == prevSvc.paraInfo(q).headData + 1,
+        svc.paraInfo(q).announcedUpgrade == None,
+        activeCodeOf(svc, q) == Some({ vchBytes: 3 }),
+        validation_code_matches_outcomes,
+        parent_head_continuity
+      }))
+      .then(setSvc(withForcedCode(svc, q, c)))
+      .then(expectThat(and {
+        not(validation_code_matches_outcomes),
+        parent_head_continuity
+      }))
+  }
 }

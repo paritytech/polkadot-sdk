@@ -278,13 +278,17 @@ module invariants {
   /// the code each `parachain_set_validation_code` of an accepted Coretime
   /// candidate set on a target that was tracked, live and not deregistering,
   /// with the candidate's position in `stepOkDigests` and the call's `MessageId`.
+  /// `enacted` holds the positions in `stepOkDigests` of the candidates the
+  /// replay accepted or could not decide (`markUnknown`): every other candidate
+  /// was rejected, so none of its upward messages took effect.
   type ContinuityReplay = {
     heads: ParaId -> HeadData,
     rings: ParachainServiceState,
     unknown: Set[ParaId],
     frozen: Set[ParaId],
     codes: ParaId -> Option[ValidationCodeHash],
-    codeSets: ParaId -> (int, MessageId, ValidationCodeRef)
+    codeSets: ParaId -> (int, MessageId, ValidationCodeRef),
+    enacted: Set[int]
   }
 
   /// A candidate the replay cannot decide may have enacted, so its own para and
@@ -293,8 +297,9 @@ module invariants {
   /// up: a forced head on it is a no-op either way, and only a clean-up of it
   /// can remove it so that a re-registration gives it a fresh head. Every para
   /// whose code the candidate may change has its code re-derived (`recode`).
+  /// `i` is the candidate's position in `stepOkDigests`.
   pure def markUnknown(
-    acc: ContinuityReplay, ok: ParachainWorkDigestOk,
+    acc: ContinuityReplay, i: int, ok: ParachainWorkDigestOk,
     settled: ParaId -> Option[ValidationCodeHash]
   ): ContinuityReplay = {
     val touched = Set(ok.paraId).union(headTargets(ok))
@@ -307,7 +312,8 @@ module invariants {
       ...acc,
       heads: dropHeads(acc.heads, touched.exclude(kept)),
       unknown: acc.unknown.union(touched),
-      codes: recode(acc.codes, codeTargets(ok), settled)
+      codes: recode(acc.codes, codeTargets(ok), settled),
+      enacted: acc.enacted.union(Set(i))
     }
   }
 
@@ -363,7 +369,8 @@ module invariants {
       frozen: prevSvc.parachains.keys().filter(p => prevSvc.paraInfo(p).isDeregistering),
       codes: prevSvc.parachains.keys().mapBy(p =>
         prevSvc.paraInfo(p).validationCode.optionMap(vc => vc.hash)),
-      codeSets: Map()
+      codeSets: Map(),
+      enacted: Set()
     }
     val settled = okDigests.foldl(Set(), (t, ok) => t.union(codeTargets(ok)))
       .filter(q => codeChangeCount(okDigests, q) == 1 and
@@ -371,16 +378,16 @@ module invariants {
       .mapBy(q => svc.paraInfo(q).validationCode.optionMap(vc => vc.hash))
     val replayed = range(0, okDigests.length()).foldl(initial, (acc, i) => {
       val ok = okDigests[i]
-      if (acc.unknown.contains(ok.paraId)) markUnknown(acc, ok, settled)
+      if (acc.unknown.contains(ok.paraId)) markUnknown(acc, i, ok, settled)
       // Removed or deregistering: Accumulate drops it (step 1).
       else if (not(acc.heads.keys().contains(ok.paraId)) or acc.frozen.contains(ok.paraId)) acc
       // Names a code other than its para's known active code (step 2).
       else if (acc.codes.keys().contains(ok.paraId) and
           acc.codes.get(ok.paraId) != Some(ok.validationCode)) acc
       else if (ok.parentHeadHash != headHash(acc.heads.get(ok.paraId))) acc
-      else if (not(acc.codes.keys().contains(ok.paraId))) markUnknown(acc, ok, settled)
+      else if (not(acc.codes.keys().contains(ok.paraId))) markUnknown(acc, i, ok, settled)
       else if (ok.messagesRequiresRoots.foldl(false, (b, e) => b or acc.unknown.contains(e._1)))
-        markUnknown(acc, ok, settled)
+        markUnknown(acc, i, ok, settled)
       else if (not(settlementCheck(acc.rings, ok.messagesRequiresRoots))) acc
       else {
         // Accepted: write the new head and push the candidate's
@@ -398,7 +405,8 @@ module invariants {
             ...acc,
             heads: acc.heads.put(ok.paraId, ok.headData),
             rings: pushed,
-            codes: recode(acc.codes, codeTargets(ok), settled)
+            codes: recode(acc.codes, codeTargets(ok), settled),
+            enacted: acc.enacted.union(Set(i))
           }, (a, m) =>
           match m._2 {
             | ParachainSetHead(pl) =>
@@ -445,10 +453,12 @@ module invariants {
   /// model that gets a code change's outcome wrong cannot hide it behind
   /// `parent_head_continuity`, which takes that outcome from the end-of-step state.
   /// 1. Every change of a para's `validation_code` over the step (para neither
-  ///    removed nor re-registered) is claimed by an `Ok` digest: a Coretime
-  ///    `parachain_set_validation_code` of exactly that code, or an `Apply` from
-  ///    the para itself of code that was announced, before the step or by an
-  ///    `Announcement` of the para in it (§5.2: an unannounced `Apply` is rejected).
+  ///    removed nor re-registered) is claimed by an `Ok` digest the replay did
+  ///    not reject (`enacted`): a Coretime `parachain_set_validation_code` of
+  ///    exactly that code, or an `Apply` from the para itself of code that was
+  ///    announced, before the step or by an `Announcement` of the para in such a
+  ///    digest (§5.2: an unannounced `Apply` is rejected). A rejected candidate's
+  ///    messages never take effect, so its claims and announcements do not count.
   /// 2. A `parachain_set_validation_code(q, c)` that the replay accepted while q
   ///    was live and not deregistering, and that is q's only code change in the
   ///    block, DID set q's code to c unless its candidate logged
@@ -458,11 +468,13 @@ module invariants {
     // on a removed para).
     def tracked(q: ParaId): bool = svc.parachains.keys().contains(q) and
       not(reRegistered(stepOkDigests, q))
+    val enactedOks = range(0, stepOkDigests.length()).foldl(List(), (l, i) =>
+      if (continuityReplay.enacted.contains(i)) l.append(stepOkDigests[i]) else l)
     and {
       prevSvc.parachains.keys().forall(p =>
         if (not(tracked(p))) true
         else svc.paraInfo(p).validationCode == prevSvc.paraInfo(p).validationCode
-          or codeChangeClaimed(stepOkDigests, prevSvc, p, svc.paraInfo(p).validationCode)),
+          or codeChangeClaimed(enactedOks, prevSvc, p, svc.paraInfo(p).validationCode)),
       continuityReplay.codeSets.keys().forall(q => {
         val cs = continuityReplay.codeSets.get(q)
         if (not(tracked(q)) or codeChangeCount(stepOkDigests, q) != 1) true
@@ -472,7 +484,7 @@ module invariants {
     }
   }
 
-  /// Whether an `Ok` digest of the step claims `p`'s new code `vc` (see
+  /// Whether one of the `Ok` digests `oks` claims `p`'s new code `vc` (see
   /// `validation_code_matches_outcomes`, part 1).
   pure def codeChangeClaimed(
     oks: List[ParachainWorkDigestOk], prev: ParachainServiceState, p: ParaId,
