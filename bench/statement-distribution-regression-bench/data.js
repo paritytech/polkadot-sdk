@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795601388656,
+  "lastUpdate": 1795605541645,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a52bee650106923f0fd0788f967305a2482bec73",
-          "message": "refactor share coretime to 3/4 paras (#12011)\n\n@alindima / @sandreim, from the thread\n[here](https://github.com/paritytech/polkadot-sdk/pull/11914#issuecomment-4371613324).\nFor now let's use 3 paras test and keep the 4 paras disabled until the\nproper fix land to master.\n\nThx!",
-          "timestamp": "2026-05-12T08:00:24Z",
-          "tree_id": "c904338bb9984406fd2482a3f110e58ccd862c53",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a52bee650106923f0fd0788f967305a2482bec73"
-        },
-        "date": 1778579110707,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.13,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08421799155399992,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038190961592,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.039049059296000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "diego2737@gmail.com",
+            "name": "Diego",
+            "username": "dimartiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a512fff0a7a80bac334ae91cf4deb03bda7029ac",
+          "message": "fix(sync): do not ban peers that do not have the requested blocks (#13047)\n\n# Description\n\nCloses #6009\n\nFollow-up to @lexnv's review nit on #12917:\n\n> nit: The `validate_blocks` will adjust the peer reputation/disconnect\nif no blocks are\n> provided. Couldn't this be triggered for normal peers if they don't\nhave the body of\n> last requested block? [...] Maybe we can change the reputation\nadjustment to a lower\n> amount\n\n\nhttps://github.com/paritytech/polkadot-sdk/pull/12917#discussion_r3805837996\n\n#12917 lowered it for gap requests that require bodies\n(`rep::NO_GAP_BODIES`). This does the same for the two paths it did not\ncover: regular block requests, and header-only gap requests.\n\n## The problem\n\nA peer that does not hold the range we asked for answers with an empty\nblock response. In `on_block_data`'s `DownloadingNew` arm the empty vec\nreaches `validate_blocks`, where `blocks.last()` is `None`, so\n`expected_block` is false and we charge `rep::NOT_REQUESTED` — `-(1 <<\n29)`, the same as `BAD_BLOCK` and `VERIFICATION_FAIL`.\n\nWith `BANNED_THRESHOLD = -1_524_713_427`, three such answers ban an\nhonest peer (two do not). At ban time `PeerStore::report_peer` does:\n\n```rust\n// Peer is currently banned, disconnect it from all protocols.\nself.protocols.iter().for_each(|handle| handle.disconnect_peer(peer_id.into()));\n```\n\nso three \"I don't have those blocks\" answers also tear down that peer's\nGRANDPA and transaction substreams, and outgoing_candidates then filters\nit out of slot allocation while it is banned.\n\nWhy an empty response is not misbehavior\n\nThe range is inferred from the peer's announced best number — it is not\nsomething the peer offered. BlockAnnouncesHandshake is exactly { roles,\nbest_number, best_hash, genesis_hash }: there is no\nearliest-retained-block field, no pruning depth, no bodies-retained\nflag. So a high best_number is not a claim to hold the history below it,\nand an empty response contradicts no protocol statement.\n\nTwo honest causes, both in block_request_handler.rs::get_block_response:\n\n- the peer has no header for from (number above its tip, or the hash was\nreorged away), so the loop body never runs;\n- self.client.block_body(hash) is None and the loop breaks with blocks\nstill empty. Bodies are pruned oldest-first, and\nChainSyncMode::Full::required_block_attributes() always sets\nBlockAttributes::BODY — so a node with --blocks-pruning 256 announcing\nheight 1,000,000 answers empty to a request for #64 and gets banned for\nit today.\n\nThe change\n\n- New rep::NO_BLOCKS_IN_RANGE = -(1 << 26), the same magnitude #12917\nchose for the equivalent gap case. 23 responses to ban instead of 3.\n- A blocks.is_empty() guard in the DownloadingNew arm.\n- An else if blocks.is_empty() on #12917's existing gap guard, covering\nthe header-only gap requests its own feature introduced\n(GapSyncBodyPolicy::HeadersOnly, and BodiesWithinWindow below the\ncutoff) — those strip the BODY bit and so fell through to NOT_REQUESTED.\n- New counter substrate_sync_empty_block_responses_total.\n\nThe peer is still disconnected and the in-flight range is still freed,\nso sync behaviour is unchanged; only the ban goes away.\n\nIf you'd prefer this milder still, -(1 << 16) is the natural alternative\n— rep::UNKNOWN_ANCESTOR already charges exactly that for the same fact\non the ancestry search path.\n\nDeliberately left harsh\n\n- Non-empty responses that do not start at the requested block keep\nNOT_REQUESTED (there is a test for this).\n- DownloadingStale (fork targets): requested by hash from a peer that\nannounced that hash, and fork_sync_request skips peers not in r.peers.\n- The gap_sync == None arm: charges a blameless peer when we dropped\ngap_sync while its response was in flight. Real bug, separate PR.\n- Warp sync: warp.rs short-circuits empty responses before\nvalidate_blocks and has its own mod rep, so this PR does not touch it.\nThe warp target is requested by hash from a peer above the median, which\nis more defensible.\n\nWhat this does not fix\n\nTruncated responses. validate_blocks only rejects more blocks than\nrequested, and since every sync request is Direction::Descending with\nthe response reversed in on_block_data, the comparison is against\nblocks.last() — so a short response already passes today\n(can_import_response_with_missing_blocks asserts exactly that).\n\nTesting\n\nFour tests in chain_sync/test.rs:\n\n- empty_response_to_regular_block_request_gets_mild_penalty — the\nreported path, and that peer removal frees the range for the next peer.\n- empty_response_to_header_only_gap_request_gets_mild_penalty — the\n#12917 hole.\n- non_empty_wrong_block_response_still_gets_the_harsh_penalty — no\nregression for genuinely misbehaving peers.\n- empty_response_penalty_does_not_ban_an_honest_peer — pins the\nconstants against peer_store::BANNED_THRESHOLD. Nothing in-tree\nconnected them before, so a later constant cleanup could have silently\nre-merged them.\n\n#12917's gap_sync_empty_body_response_drops_peer_and_frees_range is\nunchanged and still passes.",
+          "timestamp": "2026-11-25T09:37:14Z",
+          "tree_id": "25ddb85c98b96abcf089d4c47c84b971825fd165",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a512fff0a7a80bac334ae91cf4deb03bda7029ac"
+        },
+        "date": 1795605503488,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.14400000000003,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09298147354399998,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03895365734000001,
             "unit": "seconds"
           }
         ]
