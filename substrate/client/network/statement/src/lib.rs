@@ -274,6 +274,15 @@ impl StatementMessage {
 		statements.encode_to(&mut out);
 		out
 	}
+
+	/// Decode a notification from a peer that negotiated `version`. Only a `statement/4` peer may
+	/// send the messages of set reconciliation.
+	fn decode_from(version: PeerProtocolVersion, mut notification: &[u8]) -> Option<Self> {
+		match Self::decode(&mut notification).ok()? {
+			Self::Announce { .. } | Self::Want { .. } if version != PeerProtocolVersion::V4 => None,
+			message => Some(message),
+		}
+	}
 }
 
 /// Future resolving to statement import result.
@@ -2054,7 +2063,7 @@ where
 						target: LOG_TARGET,
 						"{peer}: Ignoring statements while major syncing or offline"
 					);
-					// With the DHT path on, a v3 peer replays on the re-advertised filter; a
+					// With the DHT path on, a v3 or v4 peer replays on the re-advertised filter; a
 					// peer without the DHT path gets no such request and is reconnected once the
 					// sync ends.
 					let from_peer_without_dht =
@@ -2090,7 +2099,10 @@ where
 					},
 					PeerProtocolVersion::V2 | PeerProtocolVersion::V3 | PeerProtocolVersion::V4 => {
 						// V2 and later peers send StatementMessage enum.
-						if let Ok(message) = StatementMessage::decode(&mut notification.as_ref()) {
+						if let Some(message) = StatementMessage::decode_from(
+							peer_data.protocol_version,
+							notification.as_ref(),
+						) {
 							match message {
 								StatementMessage::Statements(statements) => {
 									self.on_statements(peer, statements.into_inner());
@@ -7224,7 +7236,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn an_announce_and_a_want_are_dropped_without_a_report() {
+	async fn only_a_v4_peer_sends_an_announce_and_a_want_without_a_report() {
 		let (mut handler, _statement_store, network, notification_service) =
 			build_handler_no_peers();
 		let peer_id = PeerId::random();
@@ -7240,17 +7252,48 @@ mod tests {
 		let announce =
 			StatementMessage::Announce { id: 1, salt: 0, hashes: vec![[1; 8]].try_into().unwrap() };
 		let want = StatementMessage::Want { id: 1, wanted: vec![1].try_into().unwrap() };
-		for message in [announce, want] {
+		let messages = [announce.encode(), want.encode()];
+
+		handler.peers.get_mut(&peer_id).unwrap().protocol_version = PeerProtocolVersion::V4;
+		for message in messages.clone() {
 			handler
 				.handle_notification_event(NotificationEvent::NotificationReceived {
 					peer: peer_id,
-					notification: message.encode().into(),
+					notification: message.into(),
 				})
 				.await;
 		}
-
 		assert!(network.get_reports().is_empty());
 		assert!(notification_service.get_sent_notifications().is_empty());
+
+		for version in [PeerProtocolVersion::V2, PeerProtocolVersion::V3] {
+			handler.peers.get_mut(&peer_id).unwrap().protocol_version = version;
+			for message in messages.clone() {
+				handler
+					.handle_notification_event(NotificationEvent::NotificationReceived {
+						peer: peer_id,
+						notification: message.into(),
+					})
+					.await;
+			}
+		}
+		assert_eq!(network.get_reports().len(), 4);
+	}
+
+	#[test]
+	fn an_announce_over_the_hash_limit_fails_to_decode() {
+		let announce = |hashes: usize| {
+			let mut bytes = vec![2];
+			bytes.extend([0; 16]);
+			Compact(hashes as u32).encode_to(&mut bytes);
+			bytes.extend(vec![0; hashes * 8]);
+			bytes
+		};
+		let decode =
+			|bytes: Vec<u8>| StatementMessage::decode_from(PeerProtocolVersion::V4, &bytes);
+
+		assert!(decode(announce(MAX_ANNOUNCED_HASHES)).is_some());
+		assert!(decode(announce(MAX_ANNOUNCED_HASHES + 1)).is_none());
 	}
 
 	#[test]

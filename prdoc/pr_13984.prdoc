@@ -6,7 +6,8 @@ doc:
     `statement/2` and `statement/1`. A node without the flag does not change. `statement/4`
     carries the `statement/3` messages and two messages of set reconciliation: an announce of
     short hashes with a salt, and an answer with one bit for each announced hash. The node decodes
-    both and drops them, and nothing sends them yet.
+    both and drops them when a `statement/4` peer sends them, and reports an older peer that sends
+    them. Nothing sends them yet.
     A peer that lists `statement/3` in its identify answer still joins the DHT index, and two
     nodes settle on `statement/3` when one of them runs an older build.
 crates:
