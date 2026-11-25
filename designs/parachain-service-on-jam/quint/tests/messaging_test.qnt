@@ -106,6 +106,29 @@ module messaging_test {
     }
   }
 
+  /// As `applyBlock`, but the invocation runs out of gas at `outOfGas`, which
+  /// restores the last checkpoint (§5.1).
+  action applyBlockOutOfGas(pkgs: List[WorkResult], outOfGas: OutOfGas): bool = {
+    val out = accumulateBlockBudgeted(
+      svc, now + 1, jamStagingSet, solicitedSet, FixedCodeLen, pkgs, foreignServices,
+      FullAssignBudget, outOfGas)
+    all {
+      svc' = out.state,
+      now' = now + 1,
+      jamStagingSet' = out.staging,
+      solicitedSet' = out.solicited,
+      prevSvc' = svc,
+      lastStepWorkResults' = out.results,
+      lastStepAssigns' = out.assigns,
+      lastStepAssignBudget' = FullAssignBudget,
+      lastStepOutOfGas' = outOfGas,
+      lastHeadRoot' = out.headRoot,
+      foreignServices' = out.foreign,
+      logPrunedBelow' = out.logPruned.foldl(logPrunedBelow, (m, pr) => m.put(pr._1, pr._2)),
+      lastStepOkLogs' = out.okLogs
+    }
+  }
+
   /// §4.3 / §8: either messaging host call invoked more than once aborts
   /// the validation code with `MessagesCallRepeated`; called at most once
   /// each, the declarations travel verbatim in the digest, the `StreamsRoot`
@@ -1517,6 +1540,32 @@ module messaging_test {
         svc.paraLog(ct).select(e => e._1 == now).length() == 1,
         coretimeLoggedIsbZero,
         activeCodeOf(svc, q) == Some({ vchBytes: 3 }),
+        validation_code_matches_outcomes
+      }))
+  }
+
+  /// The invocation runs out of gas in Coretime's package, which sets para 3's
+  /// code, after Asset Hub's candidate enacted. Only Asset Hub's candidate takes
+  /// effect: the replay must skip the rolled-back package, neither advancing
+  /// Coretime's head nor expecting para 3's code to be set.
+  run continuityOutOfGasRollbackTest = {
+    val q = MkParaId(3)
+    val c = { hash: { vchBytes: 4 }, len: FixedCodeLen }
+    initCleanUp
+      .then(applyBlockOutOfGas(List(
+        refinedCandidate(svc, AssetHubParaId, List(), StreamsRootUndeclared, RequiresRootsUndeclared),
+        refinedCandidate(svc, CoretimeParaId,
+          List(ParachainSetValidationCode({ paraId: q, newValidationCode: c })),
+          StreamsRootUndeclared, RequiresRootsUndeclared)), InPackage(1)))
+      .then(expectThat(all {
+        // Reached: both refine Ok, only Asset Hub's candidate enacted.
+        isOkDigest(lastStepWorkResults[0].result),
+        isOkDigest(lastStepWorkResults[1].result),
+        svc.paraInfo(AssetHubParaId).headData == prevSvc.paraInfo(AssetHubParaId).headData + 1,
+        svc.paraInfo(CoretimeParaId).headData == prevSvc.paraInfo(CoretimeParaId).headData,
+        activeCodeOf(svc, q) == activeCodeOf(prevSvc, q),
+        head_state_matches_outcomes,
+        parent_head_continuity,
         validation_code_matches_outcomes
       }))
   }

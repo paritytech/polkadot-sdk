@@ -313,7 +313,9 @@ module invariants {
 
   /// Parent-head continuity (§5.1 step 4): replay the block's head-affecting
   /// operations in order and confirm the result matches the stored heads. Start
-  /// from the pre-block heads, with the deregistering paras frozen. For each
+  /// from the pre-block heads, with the deregistering paras frozen. Only the
+  /// step's kept work results count: a package rolled back by running out of
+  /// gas, and every later one, never took effect (§5.1). For each kept
   /// `Ok` work result, apply it ONLY if its para is live and not frozen (step 1,
   /// §6.4), it names its para's active code (step 2), its declared parent matches that para's current head (step 4), and
   /// its `messages_requires_roots` settle against the rings as of that digest
@@ -342,9 +344,11 @@ module invariants {
       if (not(svc.parachains.keys().contains(p))) true
       else continuityReplay.heads.get(p) == svc.paraInfo(p).headData)
 
-  /// The last step's `Ok` digests, in order.
+  /// The `Ok` digests of the last step's kept work results, in order. A package
+  /// rolled back by running out of gas (§5.1) takes no effect, so neither the
+  /// replay nor the code checks see it.
   val stepOkDigests: List[ParachainWorkDigestOk] =
-    lastStepWorkResults.foldl(List(), (l, r) => match r.result {
+    lastStepKeptWorkResults.foldl(List(), (l, r) => match r.result {
       | WorkErr => l
       | WorkOk(d) => match d { | Ok(ok) => l.append(ok) | Err(_) => l }
     })
