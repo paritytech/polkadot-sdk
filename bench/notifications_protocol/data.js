@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795620262095,
+  "lastUpdate": 1795635927667,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -269759,6 +269759,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2403216800,
             "range": "± 25266283",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jessechejieh@gmail.com",
+            "name": "jessechejieh",
+            "username": "jessechejieh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "94d256ae8ed41109c351a3d57ee3d35129327fec",
+          "message": "(RWF)`pallet-asset-rewards`: fix post-expiry underflow and persist pool on harvest (#13208)\n\n### Description\n\nFixes two accounting bugs in `pallet-asset-rewards`, one of which can\nleave stakes frozen in an expired pool with no way to recover them.\n\n`update_pool_rewards` always sets `last_update_block` to the current\nblock, while `reward_per_token` counts elapsed blocks from\n`last_update_block` up to `min(now, expiry_block)`. Any stake or unstake\nafter expiry therefore stores a block past the expiry, and every later\n`stake`, `unstake`, `harvest_rewards`, `set_pool_expiry_block` and\n`set_pool_reward_rate_per_block` on that pool fails with\n`ArithmeticError::Underflow`. After expiry anyone may unstake on a\nstaker's behalf, so one small delegated unstake is enough, and\n`cleanup_pool` cannot run while stakers remain.\n\n`harvest_rewards` also computes the updated pool but never writes it\nback to `Pools`, unlike `stake` and `unstake`, so the stored accumulator\ngoes stale after every harvest.\n\nRewardable blocks are now counted with `saturating_sub`, so a pool last\nupdated after its expiry accrues nothing instead of underflowing, and\n`harvest_rewards` persists the pool. I chose this over capping\n`last_update_block` at the expiry because:\n\n1. Pools already stuck in this state recover without a migration.\n2. Behaviour after `set_pool_expiry_block` on an expired pool is\nunchanged: rewards restart from the extension rather than paying out the\nexpired gap.\n\nThe two changes need to land together. Persisting the pool on harvest\nwithout the first fix would let a post-expiry harvest trigger the\nunderflow as well.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-25T16:49:42Z",
+          "tree_id": "5fbf59f1af061a256d7e6ed3955fc3e2f6cdad05",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/94d256ae8ed41109c351a3d57ee3d35129327fec"
+        },
+        "date": 1795635882033,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4012809,
+            "range": "± 21015",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 306125,
+            "range": "± 3095",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4156836,
+            "range": "± 19748",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 379904,
+            "range": "± 3357",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 4787284,
+            "range": "± 22272",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 893243,
+            "range": "± 9959",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10360358,
+            "range": "± 78417",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5062585,
+            "range": "± 103663",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 45036634,
+            "range": "± 312524",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 37879021,
+            "range": "± 352771",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 360242592,
+            "range": "± 7581975",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 298756085,
+            "range": "± 1631566",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2547463380,
+            "range": "± 15949446",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2312069220,
+            "range": "± 28436507",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3472353,
+            "range": "± 25286",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1925909,
+            "range": "± 14837",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3558500,
+            "range": "± 20491",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2009310,
+            "range": "± 8925",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4309832,
+            "range": "± 40880",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2323995,
+            "range": "± 25138",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7964025,
+            "range": "± 77460",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5500176,
+            "range": "± 53320",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38634880,
+            "range": "± 179440",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 36626026,
+            "range": "± 644006",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 321756082,
+            "range": "± 1803713",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 286397655,
+            "range": "± 2827325",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2579540041,
+            "range": "± 23495761",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2423097770,
+            "range": "± 16198889",
             "unit": "ns/iter"
           }
         ]
