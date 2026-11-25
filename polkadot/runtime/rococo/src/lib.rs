@@ -1455,6 +1455,7 @@ impl pallet_migrations::Config for Runtime {
 	type Migrations = (
 		pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>,
 		parachains_dmp::migration::MigrateV0ToV1<Runtime>,
+		pallet_conviction_voting::migrations::v1::LazyMigrationV0ToV1<Runtime, (), Balances>,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
