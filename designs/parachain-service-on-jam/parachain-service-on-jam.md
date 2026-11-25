@@ -1750,7 +1750,7 @@ Two possible policies on the Coretime chain side:
 
 ## 8. Messaging
 
-Parachains exchange messages off-chain. The message payloads are never written to JAM.
+Parachains exchange messages off-chain. The message payloads are never written to the parachain service state.
 
 The speculative messaging design specifies how these messages travel off-chain and how a receiver
 runtime verifies them against a sender's root.
