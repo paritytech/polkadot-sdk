@@ -63,7 +63,7 @@ module transfer_drain_test {
       validationCode: ahCode,
       parentHeadHash: headHash(seeded.paraInfo(ah).headData),
       headData: seeded.paraInfo(ah).headData + 1,
-      upwardMessages: List(CleanUpBucketsUpTo(1)),
+      upwardMessages: List((0, CleanUpBucketsUpTo(1))),
       lookupAnchor: 5,
       messagesStreamsRoot: None,
       messagesRequiresRoots: List()
@@ -112,7 +112,7 @@ module transfer_drain_test {
       validationCode: ahCode,
       parentHeadHash: headHash(seeded.paraInfo(ah).headData),
       headData: seeded.paraInfo(ah).headData + 1,
-      upwardMessages: List(CleanUpBucketsUpTo(2)),
+      upwardMessages: List((0, CleanUpBucketsUpTo(2))),
       lookupAnchor: 2,
       messagesStreamsRoot: None,
       messagesRequiresRoots: List()
@@ -157,7 +157,7 @@ module transfer_drain_test {
           ah, pi.setTotal(pi.usedStateBalance + preimageFootprint(len) - 1)
         )
       }
-    pure def candidate(msgs: List[UpwardMessage]): ParachainWorkDigestOk = {
+    pure def candidate(msgs: List[(MessageId, UpwardMessage)]): ParachainWorkDigestOk = {
       paraId: ah,
       validationCode: ahCode,
       parentHeadHash: headHash(tight.paraInfo(ah).headData),
@@ -167,17 +167,18 @@ module transfer_drain_test {
       messagesStreamsRoot: None,
       messagesRequiresRoots: List()
     }
-    pure def replay(msgs: List[UpwardMessage]): ParachainServiceState =
+    // Each message keeps its `MessageId` in both orders, so the logs can match.
+    pure def replay(msgs: List[(MessageId, UpwardMessage)]): ParachainServiceState =
       accumulateOnePackage(
         tight, { result: WorkOk(Ok(candidate(msgs))), authTrace: 0 },
         Set(), List(), FixedCodeLen, MaxIncomingTransfers + 1, Map()
       ).state
     val cleanFirst =
-      replay(List(CleanUpBucketsUpTo(MaxIncomingTransfers),
-        Solicit({ target: Parachain(ah), hash: h, len: len })))
+      replay(List((0, CleanUpBucketsUpTo(MaxIncomingTransfers)),
+        (1, Solicit({ target: Parachain(ah), hash: h, len: len }))))
     val solicitFirst =
-      replay(List(Solicit({ target: Parachain(ah), hash: h, len: len }),
-        CleanUpBucketsUpTo(MaxIncomingTransfers)))
+      replay(List((1, Solicit({ target: Parachain(ah), hash: h, len: len })),
+        (0, CleanUpBucketsUpTo(MaxIncomingTransfers))))
     all {
       // The allowance is one short of the solicit, and cleaning up does not help.
       assert(not(tight.paraInfo(ah).hasHeadroom(preimageFootprint(len)))),

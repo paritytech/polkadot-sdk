@@ -122,11 +122,11 @@ module foreign_services {
     if (not(supervisedByUs(fs, s)))
       { services: fs, log: None }
     else if (not(fs.get(s).requests.keys().contains(key)))
-      unchanged(fs, ServiceForgetNotRequested({ service: s, hash: h, len: len }))
+      unchanged(fs, ServiceForgetNotRequested({ hash: h, len: len }))
     else {
       val f = fs.get(s)
       pure def again(due: Timeslot): Option[AccumulateLog] =
-        Some(ForgetAgainAt({ target: Service(s), hash: h, len: len, due: due }))
+        Some(ForgetAgainAt({ hash: h, len: len, due: due }))
       val dropped = {
         services: fs.put(s, { ...f, requests: f.requests.mapRemove(key) }),
         log: None
@@ -167,7 +167,7 @@ module foreign_services {
     if (not(supervisedByUs(fs, s)))
       { services: fs, log: None }
     else if (not(fs.get(s).storage.keys().contains(key)))
-      unchanged(fs, ServiceKeyNotFound({ service: s, keyHash: listHash(key) }))
+      unchanged(fs, ServiceKeyNotFound({ keyHash: listHash(key) }))
     else {
       val f = fs.get(s)
       { services: fs.put(s, { ...f, storage: f.storage.mapRemove(key) }), log: None }
@@ -194,9 +194,9 @@ module foreign_services {
     fs: ForeignServices, s: ServiceId, h: Hash, len: int, now: Timeslot
   ): ForeignOutcome =
     if (not(fs.keys().contains(s)))
-      unchanged(fs, ServiceSolicitFailed({ service: s, error: SolicitUnknownService }))
+      unchanged(fs, ServiceSolicitFailed({ error: SolicitUnknownService }))
     else if (effectiveSupervisor(fs, s) != ParachainServiceId)
-      unchanged(fs, ServiceSolicitFailed({ service: s, error: SolicitNotSupervised }))
+      unchanged(fs, ServiceSolicitFailed({ error: SolicitNotSupervised }))
     else {
       val f = fs.get(s)
       val key = (h, len)
@@ -218,10 +218,10 @@ module foreign_services {
           | _ => None
         }
       match requested {
-        | None => unchanged(fs, ServiceSolicitFailed({ service: s, error: AlreadySolicited }))
+        | None => unchanged(fs, ServiceSolicitFailed({ error: AlreadySolicited }))
         | Some(g) =>
           if (isOverdrawn(g.account, foreignThreshold(g)))
-            unchanged(fs, ServiceSolicitFailed({ service: s, error: TargetCannotAfford }))
+            unchanged(fs, ServiceSolicitFailed({ error: TargetCannotAfford }))
           else { services: fs.put(s, g), log: None }
       }
     }
@@ -242,14 +242,14 @@ module foreign_services {
       else None
     match error {
       | Some(e) =>
-        { state: s, services: fs, log: Some(ServiceEjectFailed({ service: target, error: e })) }
+        { state: s, services: fs, log: Some(ServiceEjectFailed({ error: e })) }
       | None => {
         val a = fs.get(target).account
         val credited = a.balance + a.supervisorBalance
         {
           state: { ...s, jamAccount: s.jamAccount.credit(credited, false) },
           services: fs.mapRemove(target),
-          log: Some(ServiceEjected({ service: target, credited: credited }))
+          log: Some(ServiceEjected({ credited: credited }))
         }
       }
     }
@@ -262,14 +262,11 @@ module foreign_services {
     fs: ForeignServices, s: ServiceId, u: ServiceId
   ): ForeignOutcome =
     if (not(fs.keys().contains(s)))
-      unchanged(fs, ServiceSupervisorFailed({ service: s, error: HandoffUnknownService }))
+      unchanged(fs, ServiceSupervisorFailed({ error: HandoffUnknownService }))
     else if (createdOf(fs, u) == None)
-      unchanged(fs, ServiceSupervisorFailed({
-        service: s,
-        error: HandoffUnknownNewSupervisor
-      }))
+      unchanged(fs, ServiceSupervisorFailed({ error: HandoffUnknownNewSupervisor }))
     else if (effectiveSupervisor(fs, s) != ParachainServiceId)
-      unchanged(fs, ServiceSupervisorFailed({ service: s, error: HandoffNotSupervised }))
+      unchanged(fs, ServiceSupervisorFailed({ error: HandoffNotSupervised }))
     else {
       val f = fs.get(s)
       val newCreated = match createdOf(fs, u) { | Some(c) => c | None => 0 }
@@ -287,7 +284,7 @@ module foreign_services {
     MkServiceId(
       MinPublicServiceIndex.to(MinPublicServiceIndex + 64)
         .filter(i => not(fs.keys().contains(MkServiceId(i))))
-        .fold(MinPublicServiceIndex + 64, (acc, i) => if (i < acc) i else acc)
+        .fold(MinPublicServiceIndex + 64, min)
     )
 
   /// The index a create lands at.
@@ -317,11 +314,19 @@ module foreign_services {
     val cost = foreignThreshold(created)
     val funder = s.jamAccount.debit(cost, c.sourceSupervisorBalance)
     if (isOverdrawn(funder, serviceThreshold(s)))
-      { state: s, services: fs, log: Some(ServiceCreation({ id: c.id, result: CannotAfford })) }
+      {
+        state: s,
+        services: fs,
+        log: Some(ServiceCreation({ result: CannotAfford }))
+      }
     else if (createdOf(fs, fresh) != None)
       // Only reachable for a protected `desiredId`: the allocator never
       // returns a live index.
-      { state: s, services: fs, log: Some(ServiceCreation({ id: c.id, result: IdTaken })) }
+      {
+        state: s,
+        services: fs,
+        log: Some(ServiceCreation({ result: IdTaken }))
+      }
     else
       {
         state: { ...s, jamAccount: funder },
@@ -329,7 +334,7 @@ module foreign_services {
           ...created,
           account: created.account.credit(cost, c.newSupervisorBalance)
         }),
-        log: Some(ServiceCreation({ id: c.id, result: Created(fresh) }))
+        log: Some(ServiceCreation({ result: Created(fresh) }))
       }
   }
 
@@ -338,7 +343,7 @@ module foreign_services {
   pure def transferFailed(
     s: ParachainServiceState, fs: ForeignServices, t: TransferOutArgs, e: TransferError
   ): FundedOutcome =
-    { state: s, services: fs, log: Some(TransferFailed({ id: t.id, error: e })) }
+    { state: s, services: fs, log: Some(TransferFailed({ error: e })) }
 
   /// Replay of a `TransferOut`: JAM's `transfer`, called by this service.
   pure def transferOut(
@@ -359,10 +364,18 @@ module foreign_services {
       })
       transferFailed(s, fs, t, GasBelowDestinationMinimum)
     else {
-      val afterDebit = withAccount(s, fs, source,
-        accountOf(s, fs, source).debit(t.amount, t.sourceSupervisorBalance))
+      val src = accountOf(s, fs, source)
+      val amount = match t.amount {
+        | Exact(a) => a
+        | Max(cap) =>
+          val selectedBalance =
+            if (t.sourceSupervisorBalance) src.supervisorBalance else src.balance
+          val aboveThreshold = src.balance + src.supervisorBalance - thresholdOf(s, fs, source)
+          max(0, min(cap, min(selectedBalance, aboveThreshold)))
+      }
+      val afterDebit = withAccount(s, fs, source, src.debit(amount, t.sourceSupervisorBalance))
       val afterCredit = withAccount(afterDebit._1, afterDebit._2, t.dest,
-        accountOf(afterDebit._1, afterDebit._2, t.dest).credit(t.amount, t.destSupervisorBalance))
+        accountOf(afterDebit._1, afterDebit._2, t.dest).credit(amount, t.destSupervisorBalance))
       // JAM checks `source` after a plain move's credit but before a deferred
       // transfer's, which only matters when `source` is `dest`.
       val checked = if (plainMove) afterCredit else afterDebit
@@ -371,7 +384,14 @@ module foreign_services {
       // JAM credits a deferred transfer when `dest` accumulates later in the
       // block, which the model folds into this step. One to this service is
       // therefore not recorded in `incomingTransfers`.
-      else { state: afterCredit._1, services: afterCredit._2, log: None }
+      else {
+        state: afterCredit._1,
+        services: afterCredit._2,
+        log: match t.amount {
+          | Exact(_) => None
+          | Max(_) => Some(TransferredAmount({ amount: amount }))
+        }
+      }
     }
   }
 }

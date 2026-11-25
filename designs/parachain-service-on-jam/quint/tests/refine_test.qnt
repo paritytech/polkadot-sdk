@@ -16,21 +16,20 @@ module refine_test {
   /// head-declaration check rather than failing the whole invocation earlier.
   run refineInvalidHeadDeclarationTest = {
     val pkg: WorkPackage = {
-      authorizedParas: List(CoretimeParaId),
-      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
+      items: List({ paraId: CoretimeParaId, validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
     }
     val parentOnly =
-      refine(initialState, pkg, false, List(SetParentHeadHash(headHash(0))), 0)[0]
+      refine(initialState, pkg, List(SetParentHeadHash(headHash(0))), 0)[0]
     val headOnly =
-      refine(initialState, pkg, false, List(SetHead(1)), 0)[0]
+      refine(initialState, pkg, List(SetHead(1)), 0)[0]
     val neither =
-      refine(initialState, pkg, false, List(), 0)[0]
+      refine(initialState, pkg, List(), 0)[0]
     val both =
-      refine(initialState, pkg, false, wellFormedCalls(headHash(0), 1, List()), 0)[0]
+      refine(initialState, pkg, wellFormedCalls(headHash(0), 1, List()), 0)[0]
     // Declaring a head twice is as invalid as not declaring it.
-    val headTwice = refine(initialState, pkg, false,
+    val headTwice = refine(initialState, pkg,
       wellFormedCalls(headHash(0), 1, List()).append(SetHead(1)), 0)[0]
-    val parentTwice = refine(initialState, pkg, false,
+    val parentTwice = refine(initialState, pkg,
       wellFormedCalls(headHash(0), 1, List()).append(SetParentHeadHash(headHash(0))), 0)[0]
     val invalidHead = refineCallsErr(initialState, CoretimeParaId, InvalidHeadDeclaration)
     all {
@@ -57,20 +56,19 @@ module refine_test {
 
   /// A Refine invocation emitting more than `MaxUpwardMessages` (1024) upward
   /// messages is rejected with `TooManyUpwardMessages`. Exactly 1024 is accepted.
-  /// Uses `Solicit` (unrestricted, 39 B each) so 1025 stay under the 40 KiB
-  /// budget: the count cap, not the byte budget, must be the reason.
+  /// Uses `RemoveKV` (unrestricted, 7 B each plus its `MessageId`) so 1025 stay
+  /// under the 40 KiB budget: the count cap, not the byte budget, must be the reason.
   run tooManyUpwardMessagesTest = {
     val pkg: WorkPackage = {
-      authorizedParas: List(CoretimeParaId),
-      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
+      items: List({ paraId: CoretimeParaId, validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
     }
-    val msg = Solicit({ target: Parachain(CoretimeParaId), hash: { hashBytes: 7 }, len: 1 })
+    val msg = RemoveKV({ paraId: CoretimeParaId, key: List(1) })
     val over = range(0, MaxUpwardMessages + 1).foldl(List(), (acc, _) => acc.append(msg))
     val atCap = range(0, MaxUpwardMessages).foldl(List(), (acc, _) => acc.append(msg))
     val overOut =
-      refine(initialState, pkg, false, wellFormedCalls(headHash(0), 1, over), 0)[0]
+      refine(initialState, pkg, wellFormedCalls(headHash(0), 1, over), 0)[0]
     val atCapOut =
-      refine(initialState, pkg, false, wellFormedCalls(headHash(0), 1, atCap), 0)[0]
+      refine(initialState, pkg, wellFormedCalls(headHash(0), 1, atCap), 0)[0]
     val tooMany = refineCallsErr(initialState, CoretimeParaId, TooManyUpwardMessages)
     all {
       assert(over.length() == 1025),
@@ -100,21 +98,21 @@ module refine_test {
     val pi0 = initialState.paraInfo(para)
     // 1. Solicit at the code's OWN len: already the active code, so this
     //    changes nothing: no new entry, no charge.
-    val resolicit = applyUpwardMessage(baseAcc, para, FixedCodeLen, 0, 0,
+    val resolicit = applyUpwardMessage(baseAcc, para, FixedCodeLen, 0, 0, 0,
       Solicit({ target: Parachain(para), hash: h, len: FixedCodeLen }))
     // 2. Solicit the SAME hash at a different len: a genuinely distinct entry,
     //    charged, and it must NOT disturb the active code.
-    val sol = applyUpwardMessage({ ...baseAcc, state: resolicit.state }, para, FixedCodeLen, 0, 0,
+    val sol = applyUpwardMessage({ ...baseAcc, state: resolicit.state }, para, FixedCodeLen, 0, 0, 0,
       Solicit({ target: Parachain(para), hash: h, len: otherLen }))
     val pi1 = sol.state.paraInfo(para)
     // 3. Forget that distinct entry: released (never provided -> one-step drop),
     //    and the active code is untouched.
-    val fgt = applyUpwardMessage({ ...baseAcc, state: sol.state }, para, FixedCodeLen, 0, 0,
-      Forget({ target: Parachain(para), hash: h, len: otherLen }))
+    val fgt = applyUpwardMessage({ ...baseAcc, state: sol.state }, para, FixedCodeLen, 0, 0, 0,
+      Forget({ target: Parachain(para), preimages: List((h, otherLen)) }))
     val pi2 = fgt.state.paraInfo(para)
     // 4. Forget at the code's OWN len: it is the active code, so refused.
-    val refused = applyUpwardMessage({ ...baseAcc, state: fgt.state }, para, FixedCodeLen, 0, 0,
-      Forget({ target: Parachain(para), hash: h, len: FixedCodeLen }))
+    val refused = applyUpwardMessage({ ...baseAcc, state: fgt.state }, para, FixedCodeLen, 0, 0, 0,
+      Forget({ target: Parachain(para), preimages: List((h, FixedCodeLen)) }))
     all {
       assert(isValidationCodeOf(pi0, h, FixedCodeLen)),
       // (1) re-soliciting the active code is a no-op: no entry, no charge.
@@ -131,7 +129,7 @@ module refine_test {
       // (4) correct len is refused: nothing changes, and it is logged.
       assert(refused.state == fgt.state),
       assert(refused.logs == List(
-        CanNotRemoveCode({ hash: h, len: FixedCodeLen })
+        (0, CanNotRemoveCode({ hash: h, len: FixedCodeLen }))
       )),
       assert(refused.state.preimageRegistry.keys().contains((h, FixedCodeLen))),
       init
@@ -146,12 +144,11 @@ module refine_test {
   run codeFailureModesTest = {
     val para = CoretimeParaId
     val pkg: WorkPackage = {
-      authorizedParas: List(para),
-      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
+      items: List({ paraId: para, validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
     }
-    val reported = refine(initialState, pkg, false,
+    val reported = refine(initialState, pkg,
       wellFormedCalls(headHash(0), 1, List()).append(ReportError(42)), 0)[0]
-    val panicked = refine(initialState, pkg, false,
+    val panicked = refine(initialState, pkg,
       wellFormedCalls(headHash(0), 1, List()).append(Panic), 0)[0]
     // Accumulating the panicking result must touch nothing at all.
     val accPanic = accumulateOnePackage(
@@ -177,14 +174,13 @@ module refine_test {
   /// the most disposable eviction rank (§5.1).
   run headDataTooLargeTest = {
     val pkg: WorkPackage = {
-      authorizedParas: List(CoretimeParaId),
-      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
+      items: List({ paraId: CoretimeParaId, validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
     }
     val withParent =
-      refine(initialState, pkg, false,
+      refine(initialState, pkg,
         List(SetParentHeadHash(headHash(0)), SetHeadOversized), 0)[0]
     val withoutParent =
-      refine(initialState, pkg, false, List(SetHeadOversized), 0)[0]
+      refine(initialState, pkg, List(SetHeadOversized), 0)[0]
     val tooLarge = refineCallsErr(initialState, CoretimeParaId, HeadDataTooLarge)
     all {
       assert(withParent == tooLarge),
@@ -246,19 +242,19 @@ module refine_test {
     all {
       // Asset Hub reaching for Coretime's state: Refine rejects, for both calls.
       assert(refineWithMsgs(initialState, AssetHubParaId,
-        List(Forget({ target: Parachain(CoretimeParaId), hash: h, len: 1024 })))
+        List(Forget({ target: Parachain(CoretimeParaId), preimages: List((h, 1024)) })))
         == refineCallsErr(initialState, AssetHubParaId, RestrictedHostFunction)),
       assert(refineWithMsgs(initialState, AssetHubParaId,
         List(RemoveKV({ paraId: CoretimeParaId, key: List(0) })))
         == refineCallsErr(initialState, AssetHubParaId, RestrictedHostFunction)),
       // Asset Hub releasing its own state: refines fine.
       assert(isOkDigest(refineWithMsgs(initialState, AssetHubParaId,
-        List(Forget({ target: Parachain(AssetHubParaId), hash: h, len: 1024 }))))),
+        List(Forget({ target: Parachain(AssetHubParaId), preimages: List((h, 1024)) }))))),
       assert(isOkDigest(refineWithMsgs(initialState, AssetHubParaId,
         List(RemoveKV({ paraId: AssetHubParaId, key: List(0) }))))),
       // Coretime may name anyone.
       assert(isOkDigest(refineWithMsgs(initialState, CoretimeParaId,
-        List(Forget({ target: Parachain(AssetHubParaId), hash: h, len: 1024 }))))),
+        List(Forget({ target: Parachain(AssetHubParaId), preimages: List((h, 1024)) }))))),
       init
     }
   }
@@ -271,10 +267,10 @@ module refine_test {
     val pi = initialState.paraInfo(ah)
     val parent = SetParentHeadHash(headHash(pi.headData))
     val setHead = SetHead(pi.headData + 1)
-    val emptyAssign = Send(AssignCore({ core: 0, queue: List(), newAssigner: None, jamSlot: 0 }))
-    val solicit = Solicit({ target: Parachain(ah), hash: { hashBytes: 7 }, len: 1 })
+    val emptyAssign = Send((0, AssignCore({ core: 0, queue: List(), newAssigner: None, jamSlot: 0 })))
+    val removeKV = RemoveKV({ paraId: ah, key: List(1) })
     val tooMany =
-      sends(range(0, MaxUpwardMessages + 1).foldl(List(), (acc, _) => acc.append(solicit)))
+      sends(withIndexIds(range(0, MaxUpwardMessages + 1).foldl(List(), (acc, _) => acc.append(removeKV))))
     val oneKey = SetValidatorKeys({ keys: List(0), isLast: false })
     val overKeys = SetValidatorKeys({
       keys: range(0, SetValidatorKeysMaxKeys + 1).foldl(List(), (acc, _) => acc.append(0)),
@@ -290,7 +286,7 @@ module refine_test {
       assert(refineCalls(initialState, ah, List(parent).concat(tooMany).append(SetHeadOversized))
         == refineCallsErr(initialState, ah, TooManyUpwardMessages)),
       // The chunk size comes before the repetition.
-      assert(refineCalls(initialState, ah, List(parent, setHead, Send(oneKey), Send(overKeys)))
+      assert(refineCalls(initialState, ah, List(parent, setHead, Send((0, oneKey)), Send((1, overKeys))))
         == refineCallsErr(initialState, ah, TooManyValidatorKeys)),
       // `report_error` records its reason only if nothing aborted before it.
       assert(refineCalls(initialState, ah, List(parent, setHead, emptyAssign, ReportError(1)))

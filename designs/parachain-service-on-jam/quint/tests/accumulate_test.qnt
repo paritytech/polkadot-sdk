@@ -55,7 +55,7 @@ module accumulate_test {
       assert(not(solicited.preimageAvailable(newCode, len))),
       // Rejected while unprovided: code hash untouched, rejection logged.
       assert(onlySolicited.state.serviceCodeHash == initialState.serviceCodeHash),
-      assert(onlySolicited.logs == List(ServiceUpgradePreimageMissing({ codeHash: newCode }))),
+      assert(onlySolicited.logs == List((0, ServiceUpgradePreimageMissing))),
       // Accepted once available.
       assert(provided.preimageAvailable(newCode, len)),
       assert(whenProvided.state.serviceCodeHash == newCode),
@@ -89,7 +89,7 @@ module accumulate_test {
       assert(theirs.preimageAvailable(newCode, len)),
       assert(not(theirs.hasReferencer(newCode, len, ah))),
       assert(refused.state.serviceCodeHash == initialState.serviceCodeHash),
-      assert(refused.logs == List(ServiceUpgradePreimageMissing({ codeHash: newCode }))),
+      assert(refused.logs == List((0, ServiceUpgradePreimageMissing))),
       assert(replay(shared, ah, 0, msg).state.serviceCodeHash == newCode),
       init
     }
@@ -189,34 +189,24 @@ module accumulate_test {
     }
   }
 
-  /// §4.1 step 1 / §4.2: every package-level failure panics, because none has an
-  /// authoritative `para_id` to attribute a `RefineLog` to. A work error carries
-  /// no digest, so nothing is logged for any of them.
+  /// §3.2 / §4.2: a package that is not single-item panics, because it has no
+  /// single `para_id` to attribute a `RefineLog` to. A work error carries no
+  /// digest, so nothing is logged for it.
   run packageLevelFailuresPanicTest = {
-    val wi = { validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } }
-    val good: WorkPackage = { authorizedParas: List(CoretimeParaId), items: List(wi) }
-    // Two items: not single-item (§3.2).
-    val twoItems: WorkPackage = {
-      authorizedParas: List(CoretimeParaId, CoretimeParaId),
-      items: List(wi, wi)
+    val wi = {
+      paraId: CoretimeParaId,
+      validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }
     }
-    // Config length disagrees with the item count.
-    val mismatch: WorkPackage = {
-      authorizedParas: List(CoretimeParaId, CoretimeParaId),
-      items: List(wi)
-    }
-    // No para named at all: the old code fabricated `MkParaId(0)` here.
-    val noParas: WorkPackage = { authorizedParas: List(), items: List(wi) }
-    pure def go(pkg: WorkPackage, noPrefix: bool): WorkExecResult =
-      refine(initialState, pkg, noPrefix, wellFormedCalls(headHash(0), 1, List()), 0)[0]
+    val good: WorkPackage = { items: List(wi) }
+    val twoItems: WorkPackage = { items: List(wi, wi) }
+    val noItems: WorkPackage = { items: List() }
+    pure def go(pkg: WorkPackage): WorkExecResult =
+      refine(initialState, pkg, wellFormedCalls(headHash(0), 1, List()), 0)[0]
     all {
-      // Config carries no `Vec<ParaId>` prefix, so no para can be sourced.
-      assert(go(good, true) == WorkErr),
-      assert(go(twoItems, false) == WorkErr),
-      assert(go(mismatch, false) == WorkErr),
-      assert(go(noParas, false) == WorkErr),
-      // The same package without those faults still refines to a digest.
-      assert(isOkDigest(go(good, false))),
+      assert(go(twoItems) == WorkErr),
+      assert(go(noItems) == WorkErr),
+      // The same package with a single item still refines to a digest.
+      assert(isOkDigest(go(good))),
       init
     }
   }
@@ -237,17 +227,22 @@ module accumulate_test {
       serviceCodeHash: ownCode,
       serviceCodeLen: len
     }
-    val forgetOwn = Forget({ target: Parachain(ah), hash: ownCode, len: len })
+    val forgetOwn = Forget({ target: Parachain(ah), preimages: List((ownCode, len)) })
     val own = replay(held, ah, 0, forgetOwn)
     val byCoretime = replay(held, CoretimeParaId, 0, forgetOwn)
-    val other = replay(held, ah, 0, Forget({ target: Parachain(ah), hash: otherCode, len: len }))
+    val other = replay(held, ah, 0, Forget({ target: Parachain(ah), preimages: List((otherCode, len)) }))
     // The active code's hash at another length is a different preimage.
-    val otherLen = replay(held, ah, 0, Forget({ target: Parachain(ah), hash: ownCode, len: 100 }))
+    val otherLen = replay(held, ah, 0, Forget({ target: Parachain(ah), preimages: List((ownCode, 100)) }))
+    // All three in one `Forget`: each entry is handled on its own, in order.
+    val batched = replay(held, ah, 0, Forget({
+      target: Parachain(ah),
+      preimages: List((otherCode, len), (ownCode, len), (ownCode, 100))
+    }))
     all {
       assert(Set(own, byCoretime).forall(out => and {
         out.state == held,
         out.preimageOps == List(),
-        out.logs == List(CanNotRemoveCode({ hash: ownCode, len: len }))
+        out.logs == List((0, CanNotRemoveCode({ hash: ownCode, len: len })))
       })),
       assert(held.hasReferencer(ownCode, len, ah)),
       // Controls: both are released as usual.
@@ -256,6 +251,10 @@ module accumulate_test {
       assert(not(otherLen.state.hasReferencer(ownCode, 100, ah))),
       assert(otherLen.state.hasReferencer(ownCode, len, ah)),
       assert(otherLen.logs == List()),
+      assert(batched.state.hasReferencer(ownCode, len, ah)),
+      assert(batched.logs == List((0, CanNotRemoveCode({ hash: ownCode, len: len })))),
+      assert(batched.preimageOps
+        == List(Forgotten((ah, otherCode, len)), Forgotten((ah, ownCode, 100)))),
       init
     }
   }

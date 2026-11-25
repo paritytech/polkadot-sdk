@@ -39,7 +39,7 @@ module state_balance {
 
   /// Asset Hub additionally owns the service-global state items (staged
   /// validator keys, pending assigns + their dirty-core index, incoming
-  /// transfers). Asset Hub reserves this in its baseline, so those items are
+  /// transfers, `last_accumulate`). Asset Hub reserves this in its baseline, so those items are
   /// pre-provisioned rather than charged to `usedStateBalance` as they grow.
   pure val AssetHubGlobalItemsFootprint: int = {
     val stagedKeys = VecEntryOverhead + MaxStagedValidatorKeys * ValidatorKeySize
@@ -53,11 +53,14 @@ module state_balance {
     // Endpoint pointer: JAM's per-entry overhead + 1 (key) + first_bucket 8 +
     // last_bucket 8 + count 4.
     val transferBuckets = StorageEntryOverhead + 1 + 8 + 8 + 4
-    // Fixed storage items: the two BoundedVecs, the endpoint pointer, and one per
-    // core for pendingAssigns. The transfer buckets are counted per transfer below.
-    val fixedItems = 3 + CoreCount
+    // `last_accumulate`: JAM's per-entry overhead + 1 (key) + Timeslot 4.
+    val lastAccumulate = StorageEntryOverhead + 1 + 4
+    // Fixed storage items: the two BoundedVecs, the endpoint pointer,
+    // `last_accumulate`, and one per core for pendingAssigns. The transfer buckets
+    // are counted per transfer below.
+    val fixedItems = 4 + CoreCount
     val fixed =
-      stagedKeys + pendingAssigns + pendingAssignCores + transferBuckets +
+      stagedKeys + pendingAssigns + pendingAssignCores + transferBuckets + lastAccumulate +
         fixedItems * ItemDeposit
     // Worst case one bucket per transfer, each costing a full bucket.
     fixed + MaxIncomingTransfers * IncomingTransferEntryFootprint
@@ -220,7 +223,7 @@ module state_balance {
         jamSolicit: None,
         jamForget: None,
         retained: false,
-        log: Some(InsufficientStateBalance(FromSolicit({ hash: h, len: len })))
+        log: Some(InsufficientStateBalance)
       }
     } else {
       val wasEmpty = not(s.preimageRegistry.keys().contains((h, len))) or
@@ -327,7 +330,6 @@ module state_balance {
               jamForget: Some(h),
               retained: true,
               log: Some(ForgetAgainAt({
-                target: Parachain(para_id),
                 hash: h,
                 len: len,
                 due: now + ExpungePeriod
@@ -343,7 +345,7 @@ module state_balance {
               jamSolicit: None,
               jamForget: None,
               retained: true,
-              log: Some(ForgetAgainAt({ target: Parachain(para_id), hash: h, len: len, due: due }))
+              log: Some(ForgetAgainAt({ hash: h, len: len, due: due }))
             }
           | Rerequested(r) =>
             // Rescued preimage. JAM gates `forget` against the ORIGINAL
@@ -363,7 +365,6 @@ module state_balance {
               jamForget: Some(h),
               retained: true,
               log: Some(ForgetAgainAt({
-                target: Parachain(para_id),
                 hash: h,
                 len: len,
                 due: now + ExpungePeriod
@@ -373,7 +374,7 @@ module state_balance {
               jamSolicit: None,
               jamForget: None,
               retained: true,
-              log: Some(ForgetAgainAt({ target: Parachain(para_id), hash: h, len: len, due: due }))
+              log: Some(ForgetAgainAt({ hash: h, len: len, due: due }))
             }
         }
       }
@@ -398,7 +399,7 @@ module state_balance {
   }
 
   /// Replay a `SetKV`: upsert `keyValueStorage[(para_id, key)]`, delta-charged
-  /// per §6.1. Rejected (state unchanged, `FromSetKV` logged) when a positive
+  /// per §6.1. Rejected (state unchanged, `InsufficientStateBalance` logged) when a positive
   /// delta exceeds headroom.
   pure def applySetKV(
     s: ParachainServiceState, para_id: ParaId, key: List[int], value: List[int]
@@ -413,9 +414,7 @@ module state_balance {
     if (delta > 0 and not(pi.hasHeadroom(delta))) {
       {
         state: s,
-        log: Some(InsufficientStateBalance(FromSetKV({
-          keyHash: listHash(key)
-        })))
+        log: Some(InsufficientStateBalance)
       }
     } else {
       {

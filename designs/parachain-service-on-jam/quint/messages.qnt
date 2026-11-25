@@ -69,12 +69,10 @@ module messages {
 
   // --- Accumulate-side log payloads ---------------------------------------
 
-  // Why a state-balance reservation failed. `FromSolicit` carries the
-  // preimage hash and length. Distinct constructor name because `Solicit` is
-  // already an `UpwardMessage` label.
-  type InsufficientBalanceReason =
-    | FromSolicit({ hash: Hash, len: int })
-    | FromSetKV({ keyHash: KvKeyHash })
+  /// Caller-supplied identifier passed to `send_upward_message` with every
+  /// upward message, and logged with every `AccumulateLog` the message causes
+  /// (§4.3, §5.1).
+  type MessageId = int
 
   /// Whose preimage a `solicit` or `forget` acts on: a registered parachain, or a
   /// supervised service.
@@ -132,8 +130,8 @@ module messages {
     | DestinationNotSupervised
     // The supplied gas is below dest's `min_memo_gas`.
     | GasBelowDestinationMinimum
-    // The source service cannot cover the amount: the debited balance is too
-    // small, or the transfer would leave it below its threshold balance.
+    // The source service cannot cover an `Exact` amount: the debited balance is
+    // too small, or the transfer would leave it below its threshold balance.
     | InsufficientServiceBalance
 
   /// Why `parachain_set_state_balance` was rejected (§6.1).
@@ -144,14 +142,10 @@ module messages {
     | ParachainIsDeregistering
 
   type AccumulateLog =
-    // Available state balance insufficient; see the reason for the cause.
-    | InsufficientStateBalance(InsufficientBalanceReason)
-    // parachain_set_state_balance(paraId, attempted) rejected; see the reason.
-    | StateBalanceUpdateRejected({
-      paraId: ParaId,
-      attempted: Balance,
-      reason: StateBalanceRejection
-    })
+    // Available state balance insufficient for the operation (§6.1).
+    | InsufficientStateBalance
+    // parachain_set_state_balance rejected; see the reason.
+    | StateBalanceUpdateRejected({ reason: StateBalanceRejection })
     // JAM `designate` rejected the assembled validator-key set (its length is
     // not in `valcount`, i.e. not a multiple of 3 in [6, 1023]); the staging
     // buffer is cleared regardless. `len` is the rejected length. See §5.3.
@@ -162,40 +156,39 @@ module messages {
     | StagedValidatorKeysOverflow
     // An `UpgradeService` whose code Asset Hub does not reference, or that is not
     // available (§5.4).
-    | ServiceUpgradePreimageMissing({ codeHash: Hash })
+    | ServiceUpgradePreimageMissing
     // An `Announcement` whose code is not usable (§5.2).
-    | CodeUpgradeNotAvailable({ hash: Hash, len: int })
+    | CodeUpgradeNotAvailable
     // An `Apply` that does not match the standing announcement (§5.2).
-    | CodeUpgradeNotAnnounced({ hash: Hash, len: int })
+    | CodeUpgradeNotAnnounced
     // A `Forget` naming code in use: the para's active or announced validation
     // code (§5.2), or for Asset Hub the Parachain Service's active code (§5.4).
     | CanNotRemoveCode({ hash: Hash, len: int })
     // JAM rejected an `assign` because this service is no longer the core's
     // assigner (§7.1).
-    | CoreNotAssignable({ core: CoreIndex })
+    | CoreNotAssignable
     // The JAM `transfer` call replaying a `TransferOut` upward message
-    // returned an error. `id` is the caller-supplied identifier from the
-    // `TransferOut`, echoed back so Asset Hub can match the failure to its
-    // request. See §5.1 step 7.
-    | TransferFailed({ id: int, error: TransferError })
+    // returned an error. See §5.1 step 7.
+    | TransferFailed({ error: TransferError })
+    // A `TransferOut` with a `Max` amount went through, moving `amount`. See
+    // §5.1 outgoing transfers.
+    | TransferredAmount({ amount: Balance })
     // A `forget` removed the last referencer without expunging the preimage;
     // the caller must `forget(hash, len)` again after `due` to free it. See §6.1.
-    | ForgetAgainAt({ target: Target, hash: Hash, len: int, due: Timeslot })
+    | ForgetAgainAt({ hash: Hash, len: int, due: Timeslot })
     // Failures of the supervised-service operations, one per operation.
     // A `Service`-targeted forget named a preimage the service never requested.
-    | ServiceForgetNotRequested({ service: ServiceId, hash: Hash, len: int })
+    | ServiceForgetNotRequested({ hash: Hash, len: int })
     // A remove_service_storage named a key the service does not hold; `keyHash`
     // is the hash of that `key`.
-    | ServiceKeyNotFound({ service: ServiceId, keyHash: KvKeyHash })
-    | ServiceSolicitFailed({ service: ServiceId, error: ServiceSolicitError })
-    | ServiceEjectFailed({ service: ServiceId, error: ServiceEjectError })
+    | ServiceKeyNotFound({ keyHash: KvKeyHash })
+    | ServiceSolicitFailed({ error: ServiceSolicitError })
+    | ServiceEjectFailed({ error: ServiceEjectError })
     // An eject succeeded; `credited` is what JAM moved to our regular balance.
-    | ServiceEjected({ service: ServiceId, credited: Balance })
-    | ServiceSupervisorFailed({ service: ServiceId, error: ServiceSupervisorError })
-    // Announces a CreateService outcome to Asset Hub. `id` is the caller-supplied
-    // identifier from the CreateService, echoed back so Asset Hub can match the
-    // outcome to its request.
-    | ServiceCreation({ id: int, result: ServiceCreationResult })
+    | ServiceEjected({ credited: Balance })
+    | ServiceSupervisorFailed({ error: ServiceSupervisorError })
+    // Announces a CreateService outcome to Asset Hub.
+    | ServiceCreation({ result: ServiceCreationResult })
     // `parachain_clean_up` rejected: the parachain still holds state beyond its
     // baseline and validation code(s) and must release the rest first. See §6.4.
     | TooMuchStateHeld
@@ -222,19 +215,23 @@ module messages {
     len: int,
     minItemGas: int,
     minMemoGas: int,
-    id: int,
     // Index to create the service at, in JAM's protected range.
     desiredId: Option[ServiceId],
     sourceSupervisorBalance: bool,
     newSupervisorBalance: bool
   }
 
+  /// How much a `TransferOut` moves (§5.1 outgoing transfers): exactly this
+  /// much or nothing, or as much as `source` can spare up to this much.
+  type TransferAmount =
+    | Exact(Balance)
+    | Max(Balance)
+
   /// `transfer_out`'s arguments (§5.1).
   type TransferOutArgs = {
     source: Option[ServiceId],
     dest: ServiceId,
-    amount: Balance,
-    id: int,
+    amount: TransferAmount,
     sourceSupervisorBalance: bool,
     destSupervisorBalance: bool,
     deferred: Option[(Memo, int)]
@@ -254,31 +251,29 @@ module messages {
     | EjectService({ service: ServiceId })
     // set_service_supervisor(service, newSupervisor).
     | SetServiceSupervisor({ service: ServiceId, newSupervisor: ServiceId })
-    // `id` is a caller-supplied identifier, echoed back in the ServiceCreation
-    // entry so Asset Hub can match the outcome to its request.
+    // The outcome is logged in a ServiceCreation entry.
     | CreateService(CreateServiceArgs)
     // forget(para_id, hash, len). `paraId` names whose reference is released; a
     // para may only name itself, while the Coretime chain may name any para, which
     // is how a para that can no longer produce blocks gets drained (§6.4).
-    // forget(target, hash, len): §6.1 for a Parachain target.
-    | Forget({ target: Target, hash: Hash, len: int })
-    // remove_service_storage(service, key).
-    | RemoveServiceStorage({ service: ServiceId, key: List[int] })
+    // forget(target, hash, len) for each `(hash, len)` in `preimages`, in order:
+    // §6.1 for a Parachain target.
+    | Forget({ target: Target, preimages: List[(Hash, int)] })
+    // remove_service_storage(service, key) for each key in `keys`, in order.
+    | RemoveServiceStorage({ service: ServiceId, keys: List[List[int]] })
     // kv_set(key, value): write to key_value_storage.
     | SetKV({ key: List[int], value: List[int] })
     // kv_remove(para_id, key): remove from key_value_storage. Same `paraId`
     // delegation rule as `Forget`.
     | RemoveKV({ paraId: ParaId, key: List[int] })
-    // transfer_out(source, dest, amount, id, sourceSupervisorBalance,
+    // transfer_out(source, dest, amount, sourceSupervisorBalance,
     // destSupervisorBalance, deferred): Asset Hub only.
     // `deferred` is `None` for a plain move and `Some((memo, gas))` for a deferred
     // transfer; the two are inseparable because JAM ignores the gas limit when no
     // memo is supplied. `source = None` means this service, matching JAM's self
     // sentinel. The two selectors choose the balance on each side: which of
     // source's is debited and which of dest's receives the funds; true means the
-    // supervisor balance (§5.1 outgoing transfers). `id` is a caller-supplied
-    // identifier, echoed back in the TransferFailed entry so Asset Hub can match
-    // a failure to its request.
+    // supervisor balance (§5.1 outgoing transfers).
     | TransferOut(TransferOutArgs)
     // assign_core(core, queue, new_assigner, jam_slot): Coretime only. Mirrors
     // JAM's `assign`, which writes a core's authorizer queue AND its assigner
@@ -333,7 +328,8 @@ module messages {
     validationCode: ValidationCodeHash,
     parentHeadHash: HeadHash,
     headData: HeadData,
-    upwardMessages: List[UpwardMessage],
+    // Each upward message with the `MessageId` it was sent with (§4.3).
+    upwardMessages: List[(MessageId, UpwardMessage)],
     lookupAnchor: Timeslot,
     // §8: the `StreamsRoot` this candidate publishes, `None` when it declared
     // none. Pushed into the parachain's settlement ring on enactment (§5.1
@@ -397,15 +393,29 @@ module messages {
   /// Truncate an auth trace to `StoredAuthTraceCap` before the service stores
   /// it in a `Refine` (design §3.3).
   pure def truncateAuthTrace(t: AuthTrace): AuthTrace =
-    if (t > StoredAuthTraceCap) StoredAuthTraceCap else t
+    min(t, StoredAuthTraceCap)
 
   // --- Per-parachain log entries (design §3.1) ---------------------------
 
   type LogEntry =
     | Refine({ error: RefineLog, authTrace: AuthTrace })
-    | Accumulate(List[AccumulateLog])
+    // Each event with the `MessageId` of the upward message that caused it. One
+    // message can cause several events, e.g. one per preimage of a `Forget`.
+    | Accumulate(List[(MessageId, AccumulateLog)])
 
   // --- Helpers ------------------------------------------------------------
+
+  /// `logs`, each paired with the `MessageId` of the message that caused it.
+  pure def tagLogs(id: MessageId, logs: List[AccumulateLog]): List[(MessageId, AccumulateLog)] =
+    logs.foldl(List(), (acc, e) => acc.append((id, e)))
+
+  /// `log`, if any, paired with the `MessageId` of the message that caused it.
+  pure def tagLog(id: MessageId, log: Option[AccumulateLog]): Option[(MessageId, AccumulateLog)] =
+    log.optionMap(e => (id, e))
+
+  /// `msgs`, each paired with its index as its `MessageId`.
+  pure def withIndexIds(msgs: List[UpwardMessage]): List[(MessageId, UpwardMessage)] =
+    range(0, msgs.length()).foldl(List(), (acc, i) => acc.append((i, msgs[i])))
 
   /// Whether the host function backing this upward message is restricted
   /// to Asset Hub (design §4.3).
@@ -462,13 +472,15 @@ module messages {
   /// naming a foreign `para_id` without the right to.
   /// Refine enforces this as a validation-code-level panic; Accumulate independently
   /// verifies and rejects the work-package as defense-in-depth.
+  pure def violatesParachainRestriction(m: UpwardMessage, para_id: ParaId): bool =
+    (isAssetHubOnly(m) and para_id != AssetHubParaId) or
+      (isCoretimeOnly(m) and para_id != CoretimeParaId) or
+      targetsForeignPara(m, para_id)
+
+  /// `violatesParachainRestriction` for any of `msgs`.
   pure def violatesParachainRestrictions(
-    msgs: List[UpwardMessage],
+    msgs: List[(MessageId, UpwardMessage)],
     para_id: ParaId
   ): bool =
-    msgs.foldl(false, (acc, m) =>
-      acc or
-        (isAssetHubOnly(m) and para_id != AssetHubParaId) or
-        (isCoretimeOnly(m) and para_id != CoretimeParaId) or
-        targetsForeignPara(m, para_id))
+    msgs.foldl(false, (acc, m) => acc or violatesParachainRestriction(m._2, para_id))
 }

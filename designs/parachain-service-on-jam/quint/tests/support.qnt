@@ -47,9 +47,10 @@ module support {
   /// against the pre-block state) and paired with lookup-anchor 0 (prune
   /// nothing). Each element is `(para, codeHash, msgs)`; `codeHash` is what the
   /// collator says it validated against; only the ACTIVE code is accepted by
-  /// `accumulateOkPrefix` (§5.1 step 2).
-  action applyHappyPaths(
-    pkgs: List[(ParaId, ValidationCodeHash, List[UpwardMessage])]
+  /// `accumulateOkPrefix` (§5.1 step 2). Each message is sent with the
+  /// `MessageId` paired with it.
+  action applyHappyPathsSent(
+    pkgs: List[(ParaId, ValidationCodeHash, List[(MessageId, UpwardMessage)])]
   ): bool = {
     // A block advances the clock to its own timeslot.
     val blockNow = now + 1
@@ -58,13 +59,12 @@ module support {
     val packages: List[WorkResult] = pkgs.foldl(List(), (acc, p) => {
       val pi = svc.paraInfo(p._1)
       val pkg: WorkPackage = {
-        authorizedParas: List(p._1),
-        items: List({ validationCode: { hash: p._2, len: FixedCodeLen } })
+        items: List({ paraId: p._1, validationCode: { hash: p._2, len: FixedCodeLen } })
       }
       val wr: WorkResult = {
         result: refine(
-          svc, pkg, false,
-          wellFormedCalls(headHash(pi.headData), pi.headData + 1, p._3), 0
+          svc, pkg,
+          wellFormedSentCalls(headHash(pi.headData), pi.headData + 1, p._3), 0
         )[0],
         authTrace: 0
       }
@@ -84,12 +84,20 @@ module support {
       lastStepWorkResults' = blockOut.results,
       lastStepAssigns' = blockOut.assigns,
       lastStepAssignBudget' = FullAssignBudget,
+      lastStepOutOfGas' = Never,
       lastHeadRoot' = blockOut.headRoot,
       foreignServices' = blockOut.foreign,
       logPrunedBelow' =
         blockOut.logPruned.foldl(logPrunedBelow, (m, pair) => m.put(pair._1, pair._2))
     }
   }
+
+  /// `applyHappyPathsSent` with each message sent with its index as its
+  /// `MessageId`.
+  action applyHappyPaths(
+    pkgs: List[(ParaId, ValidationCodeHash, List[UpwardMessage])]
+  ): bool = applyHappyPathsSent(pkgs.foldl(List(), (acc, p) =>
+    acc.append((p._1, p._2, withIndexIds(p._3)))))
 
   /// Singular convenience wrapper: apply one happy-path work package.
   action applyHappyPath(
@@ -109,12 +117,11 @@ module support {
     val packages: List[WorkResult] = pkgs.foldl(List(), (acc, p) => {
       val pi = svc.paraInfo(p._1)
       val pkg: WorkPackage = {
-        authorizedParas: List(p._1),
-        items: List({ validationCode: { hash: p._2, len: FixedCodeLen } })
+        items: List({ paraId: p._1, validationCode: { hash: p._2, len: FixedCodeLen } })
       }
       val wr: WorkResult = {
         result: refine(
-          svc, pkg, false,
+          svc, pkg,
           wellFormedCalls(headHash(pi.headData), pi.headData + 1, List())
             .concat(messagingCalls(p._3, p._4)),
           0
@@ -135,6 +142,7 @@ module support {
       lastStepWorkResults' = blockOut.results,
       lastStepAssigns' = blockOut.assigns,
       lastStepAssignBudget' = FullAssignBudget,
+      lastStepOutOfGas' = Never,
       lastHeadRoot' = blockOut.headRoot,
       foreignServices' = blockOut.foreign,
       logPrunedBelow' =
@@ -156,13 +164,10 @@ module support {
   ): WorkExecResult = {
     val pi = s.paraInfo(caller)
     val pkg: WorkPackage = {
-      authorizedParas: List(caller),
-      items: List({
-        validationCode: { hash: activeCodeHashOr(pi, NoCodeHash), len: FixedCodeLen }
-      })
+      items: List({ paraId: caller, validationCode: activeCandidateCode(s, caller) })
     }
     refine(
-      s, pkg, false,
+      s, pkg,
       wellFormedCalls(headHash(pi.headData), pi.headData + 1, List())
         .concat(messagingCalls(provides, requires)),
       0
@@ -181,6 +186,7 @@ module support {
     lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
     lastStepAssignBudget' = lastStepAssignBudget,
+    lastStepOutOfGas' = lastStepOutOfGas,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = foreignServices,
     logPrunedBelow' = logPrunedBelow
@@ -196,6 +202,7 @@ module support {
     lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
     lastStepAssignBudget' = lastStepAssignBudget,
+    lastStepOutOfGas' = lastStepOutOfGas,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = foreignServices,
     logPrunedBelow' = logPrunedBelow
@@ -211,6 +218,7 @@ module support {
     lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
     lastStepAssignBudget' = lastStepAssignBudget,
+    lastStepOutOfGas' = lastStepOutOfGas,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = fs,
     logPrunedBelow' = logPrunedBelow
@@ -227,6 +235,7 @@ module support {
     lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
     lastStepAssignBudget' = lastStepAssignBudget,
+    lastStepOutOfGas' = lastStepOutOfGas,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = foreignServices,
     logPrunedBelow' = logPrunedBelow
@@ -275,12 +284,11 @@ module support {
   ): bool = {
     val blockNow = now + 1
     val pkg: WorkPackage = {
-      authorizedParas: List(paraId),
-      items: List({ validationCode: { hash: codeHash, len: FixedCodeLen } })
+      items: List({ paraId: paraId, validationCode: { hash: codeHash, len: FixedCodeLen } })
     }
     val wr: WorkResult = {
       result: refine(
-        svc, pkg, false,
+        svc, pkg,
         wellFormedCalls(headHash(StaleParentHead), StaleParentHead, msgs), 0
       )[0],
       authTrace: 0
@@ -300,6 +308,7 @@ module support {
       lastStepWorkResults' = List(wr),
       lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out.jamAssigns),
       lastStepAssignBudget' = FullAssignBudget,
+      lastStepOutOfGas' = Never,
       lastHeadRoot' = headCommitment(svc, out.state),
       foreignServices' = out.foreign,
       logPrunedBelow' = logPrunedBelow
@@ -324,19 +333,25 @@ module support {
   pure def replay(
     s: ParachainServiceState, caller: ParaId, now: Timeslot, m: UpwardMessage
   ): AccumulateOutcome =
-    applyUpwardMessage(accOver(s), caller, FixedCodeLen, now, now, m)
+    applyUpwardMessage(accOver(s), caller, FixedCodeLen, now, now, 0, m)
 
   /// Replay one upward message against a given set of supervised services.
   pure def replayForeign(
     fs: ForeignServices, caller: ParaId, now: Timeslot, m: UpwardMessage
   ): AccumulateOutcome =
-    applyUpwardMessage(accOverWith(initialState, fs), caller, FixedCodeLen, now, now, m)
+    applyUpwardMessage(accOverWith(initialState, fs), caller, FixedCodeLen, now, now, 0, m)
 
   /// The calls of validation code that declares both heads, then sends `msgs`.
+  pure def wellFormedSentCalls(
+    parent: HeadHash, newHead: HeadData, msgs: List[(MessageId, UpwardMessage)]
+  ): List[CodeCall] =
+    List(SetParentHeadHash(parent), SetHead(newHead)).concat(sends(msgs))
+
+  /// `wellFormedSentCalls` with each message sent with its index as its `MessageId`.
   pure def wellFormedCalls(
     parent: HeadHash, newHead: HeadData, msgs: List[UpwardMessage]
   ): List[CodeCall] =
-    List(SetParentHeadHash(parent), SetHead(newHead)).concat(sends(msgs))
+    wellFormedSentCalls(parent, newHead, withIndexIds(msgs))
 
   /// The code a `refineCalls` candidate for `caller` carries: its active code.
   pure def activeCandidateCode(s: ParachainServiceState, caller: ParaId): ValidationCodeRef =
@@ -347,10 +362,9 @@ module support {
     s: ParachainServiceState, caller: ParaId, calls: List[CodeCall]
   ): WorkExecResult = {
     val pkg: WorkPackage = {
-      authorizedParas: List(caller),
-      items: List({ validationCode: activeCandidateCode(s, caller) })
+      items: List({ paraId: caller, validationCode: activeCandidateCode(s, caller) })
     }
-    refine(s, pkg, false, calls, 0)[0]
+    refine(s, pkg, calls, 0)[0]
   }
 
   /// What `refineCalls` returns when Refine fails with `e`.

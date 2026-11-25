@@ -68,6 +68,7 @@ module main {
     lastStepWorkResults' = List(),
     lastStepAssigns' = List(),
     lastStepAssignBudget' = { flush: 0, end: 0 },
+    lastStepOutOfGas' = Never,
     lastHeadRoot' = None,
     foreignServices' = Map(),
     logPrunedBelow' = Map()
@@ -114,7 +115,6 @@ module main {
   /// (§8), made just before the code exits.
   pure def buildPackage(
     curHead: HeadData,
-    paraId: ParaId,
     candidate: ParachainCandidate,
     m1: UpwardMessage,
     m2: UpwardMessage,
@@ -132,9 +132,9 @@ module main {
       else if (numMsgs == 1) List(m1)
       else List(m1, m2)
     val pkg: WorkPackage =
-      if (itemCount == 0) { authorizedParas: List(paraId), items: List() }
-      else if (itemCount == 1) { authorizedParas: List(paraId), items: List(candidate) }
-      else { authorizedParas: List(paraId, paraId), items: List(candidate, candidate) }
+      if (itemCount == 0) { items: List() }
+      else if (itemCount == 1) { items: List(candidate) }
+      else { items: List(candidate, candidate) }
     val parentCalls =
       if (staleParent) List(SetParentHeadHash(headHash(StaleParentHead)))
       else if (declParent) List(SetParentHeadHash(headHash(curHead)))
@@ -146,7 +146,8 @@ module main {
         | _ => c
       }))
     val body =
-      if (headFirst) headCalls.concat(sends(msgs)) else sends(msgs).concat(headCalls)
+      if (headFirst) headCalls.concat(sends(withIndexIds(msgs)))
+      else sends(withIndexIds(msgs)).concat(headCalls)
     { pkg: pkg, calls: parentCalls.concat(body).concat(messaging).concat(codeEnd) }
   }
 
@@ -178,7 +179,6 @@ module main {
     // §4.2: `report_error` aborts and is logged; a bare panic is not caught and
     // yields a work error with no digest at all.
     nondet wp1CodeEnd = oneOf(Set(List(), List(ReportError(0)), List(Panic)))
-    nondet wp1NoParasPrefix = oneOf(Set(false, true))
     val wp1Pool = arbitraryMessages(
       wp1Para, activeCodeHashOr(svc.paraInfo(wp1Para), NoCodeHash)
     )
@@ -210,7 +210,7 @@ module main {
     // Accumulate (§5.1 step 1) regardless.
     val wp1Head = if (svc.isLive(wp1Para)) svc.paraInfo(wp1Para).headData else 0
     val wp1 = buildPackage(
-      wp1Head, wp1Para, wp1Candidate, wp1M1, wp1M2,
+      wp1Head, wp1Candidate, wp1M1, wp1M2,
       wp1NumMsgs, wp1ItemCount, wp1DeclParent, wp1HeadCall, wp1HeadFirst, wp1CodeEnd,
       wp1StaleParent, messagingCalls(wp1StreamsRoot, wp1RequiresRoots)
     )
@@ -218,7 +218,7 @@ module main {
       result:
         if (wp1IsJamSkip) WorkErr
         else refine(
-          svc, wp1.pkg, wp1NoParasPrefix, wp1.calls, lookupAnchor1
+          svc, wp1.pkg, wp1.calls, lookupAnchor1
         )[0],
       authTrace: wp1AuthTrace
     }
@@ -227,7 +227,6 @@ module main {
     nondet wp2Para = oneOf(svc.parachains.keys())
     nondet wp2Candidate = oneOf(arbitraryCandidates(svc, wp2Para))
     nondet wp2CodeEnd = oneOf(Set(List(), List(ReportError(0)), List(Panic)))
-    nondet wp2NoParasPrefix = oneOf(Set(false, true))
     val wp2Pool = arbitraryMessages(
       wp2Para, activeCodeHashOr(svc.paraInfo(wp2Para), NoCodeHash)
     )
@@ -248,7 +247,7 @@ module main {
       if (wp2Para == wp1Para) wp1Head + 1
       else if (svc.isLive(wp2Para)) svc.paraInfo(wp2Para).headData else 0
     val wp2 = buildPackage(
-      wp2Head, wp2Para, wp2Candidate, wp2M1, wp2M2,
+      wp2Head, wp2Candidate, wp2M1, wp2M2,
       wp2NumMsgs, wp2ItemCount, wp2DeclParent, wp2HeadCall, wp2HeadFirst, wp2CodeEnd,
       wp2StaleParent, messagingCalls(wp2StreamsRoot, wp2RequiresRoots)
     )
@@ -256,7 +255,7 @@ module main {
       result:
         if (wp2IsJamSkip) WorkErr
         else refine(
-          svc, wp2.pkg, wp2NoParasPrefix, wp2.calls, lookupAnchor2
+          svc, wp2.pkg, wp2.calls, lookupAnchor2
         )[0],
       authTrace: wp2AuthTrace
     }
@@ -272,9 +271,18 @@ module main {
       else if (numPkgs == 1) List(wp1Wr)
       else List(wp1Wr, wp2Wr)
     nondet budget = oneOf(AssignBudgets)
+    // The invocation runs out of gas in one of eight samples, so most blocks run
+    // to the end. When it does, it is in one of the packages or in the late due
+    // assigns after them.
+    nondet outOfGasRoll = oneOf(0.to(7))
+    nondet outOfGasIndex = oneOf(0.to(2))
+    val outOfGas =
+      if (outOfGasRoll != 0 or outOfGasIndex > numPkgs) Never
+      else if (outOfGasIndex == numPkgs) InLateAssigns
+      else InPackage(outOfGasIndex)
     val blockOut = accumulateBlockBudgeted(
       svc, blockNow, jamStagingSet, solicitedSet, FixedCodeLen, packages,
-      foreignServices, budget
+      foreignServices, budget, outOfGas
     )
 
     // Fold each candidate's `(para, lookup-anchor)` into the ghost
@@ -291,6 +299,7 @@ module main {
       lastStepWorkResults' = blockOut.results,
       lastStepAssigns' = blockOut.assigns,
       lastStepAssignBudget' = budget,
+      lastStepOutOfGas' = outOfGas,
       lastHeadRoot' = blockOut.headRoot,
       foreignServices' = blockOut.foreign,
       logPrunedBelow' = newLogPrunedBelow
@@ -302,8 +311,8 @@ module main {
   // buckets it opens; a later step's arrivals can never reopen them (§5.1).
 
   /// A transfer-only accumulate invocation at the current timeslot carrying `ts`.
-  /// Due assigns are flushed first, as in every invocation (§5.1), within
-  /// `budget`.
+  /// If it is the timeslot's first invocation, due assigns are flushed first
+  /// (§5.1), within `budget`.
   action incomingTransferInvocation(
     ts: List[IncomingTransfer], budget: AssignBudget
   ): bool = {
@@ -317,6 +326,7 @@ module main {
       lastStepWorkResults' = List(),
       lastStepAssigns' = out.assigns,
       lastStepAssignBudget' = budget,
+      lastStepOutOfGas' = Never,
       // Touches no head, so the commitment is empty (checked by the invariant).
       lastHeadRoot' = None,
       foreignServices' = foreignServices,
@@ -357,6 +367,7 @@ module main {
       lastStepAssigns' = List(),
       // Not an accumulate invocation, so no due assign is applied.
       lastStepAssignBudget' = { flush: 0, end: 0 },
+      lastStepOutOfGas' = Never,
       // Touches no head, so the commitment is empty (checked by the invariant).
       lastHeadRoot' = None,
       foreignServices' = foreignServices,
@@ -403,6 +414,7 @@ module main {
       lastStepWorkResults' = List(),
       lastStepAssigns' = List(),
       lastStepAssignBudget' = { flush: 0, end: 0 },
+      lastStepOutOfGas' = Never,
       lastHeadRoot' = None,
       foreignServices' = Map(),
       logPrunedBelow' = Map()
@@ -425,13 +437,12 @@ module main {
       | None => activeCodeHashOr(pi, NoCodeHash)
     }
     val pkg: WorkPackage = {
-      authorizedParas: List(para),
-      items: List({ validationCode: { hash: code, len: FixedCodeLen } })
+      items: List({ paraId: para, validationCode: { hash: code, len: FixedCodeLen } })
     }
     val calls = List(SetParentHeadHash(headHash(curHead)), SetHead(curHead + 1))
-      .concat(sends(msgs))
+      .concat(sends(withIndexIds(msgs)))
       .concat(messagingCalls(provides, requires))
-    { result: refine(s, pkg, false, calls, t)[0], authTrace: 0 }
+    { result: refine(s, pkg, calls, t)[0], authTrace: 0 }
   }
 
   /// One or two well-formed candidates in one block, usually from live paras:
@@ -545,6 +556,7 @@ module main {
       lastStepWorkResults' = out.results,
       lastStepAssigns' = out.assigns,
       lastStepAssignBudget' = FullAssignBudget,
+      lastStepOutOfGas' = Never,
       lastHeadRoot' = out.headRoot,
       foreignServices' = out.foreign,
       logPrunedBelow' = out.logPruned.foldl(logPrunedBelow, (m, pr) => m.put(pr._1, pr._2))
@@ -566,14 +578,15 @@ module main {
     val pi = s.paraInfo(para_id)
     val base = Set(
       {
+        paraId: para_id,
         validationCode:
           { hash: activeCodeHashOr(pi, NoCodeHash), len: FixedCodeLen }
       },
-      { validationCode: { hash: { vchBytes: 99999 }, len: 999 } }
+      { paraId: para_id, validationCode: { hash: { vchBytes: 99999 }, len: 999 } }
     )
     match pi.announcedUpgrade {
       | None => base
-      | Some(ref) => base.union(Set({ validationCode: ref }))
+      | Some(ref) => base.union(Set({ paraId: para_id, validationCode: ref }))
     }
   }
 
@@ -631,15 +644,15 @@ module main {
     // it is rejected (§5.2).
     Solicit({ target: Parachain(para_id), hash: codeHashA.asPreimage(), len: FixedCodeLen }),
       Solicit({ target: Parachain(para_id), hash: anyHash, len: 1024 }),
-      Forget({ target: Parachain(para_id), hash: anyHash, len: 1024 }),
+      Forget({ target: Parachain(para_id), preimages: List((anyHash, 1024)) }),
     // Solicit/forget of the para's OWN active code, exercising the
     // validation-code path (§5.2).
     Solicit({ target: Parachain(para_id), hash: activeCode.asPreimage(), len: FixedCodeLen }),
-      Forget({ target: Parachain(para_id), hash: activeCode.asPreimage(), len: FixedCodeLen }),
+      Forget({ target: Parachain(para_id), preimages: List((activeCode.asPreimage(), FixedCodeLen)) }),
     // AH-only operations on a supervised service.
-    Forget({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
+    Forget({ target: Service(MkServiceId(4)), preimages: List((anyHash, 1024)) }),
       Solicit({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
-      RemoveServiceStorage({ service: MkServiceId(4), key: List(1, 2) }),
+      RemoveServiceStorage({ service: MkServiceId(4), keys: List(List(1, 2)) }),
       EjectService({ service: MkServiceId(4) }),
       UpgradeService({
         service: Some(MkServiceId(4)),
@@ -656,7 +669,6 @@ module main {
         len: FixedCodeLen,
         minItemGas: 0,
         minMemoGas: 100,
-        id: 1,
         desiredId: None,
         sourceSupervisorBalance: false,
         newSupervisorBalance: false
@@ -667,7 +679,6 @@ module main {
       len: FixedCodeLen,
       minItemGas: 0,
       minMemoGas: 0,
-      id: 2,
       desiredId: Some(MkServiceId(42)),
       sourceSupervisorBalance: false,
       newSupervisorBalance: false
@@ -679,8 +690,7 @@ module main {
     TransferOut({
       source: None,
       dest: created,
-      amount: 100,
-      id: 1,
+      amount: Exact(100),
       sourceSupervisorBalance: false,
       destSupervisorBalance: false,
       deferred: Some((0, 1000))
@@ -688,8 +698,7 @@ module main {
       TransferOut({
         source: None,
         dest: created,
-        amount: 100,
-        id: 2,
+        amount: Exact(100),
         sourceSupervisorBalance: false,
         destSupervisorBalance: false,
         deferred: None
@@ -697,8 +706,7 @@ module main {
       TransferOut({
         source: None,
         dest: ParachainServiceId,
-        amount: 100,
-        id: 3,
+        amount: Exact(100),
         sourceSupervisorBalance: false,
         destSupervisorBalance: true,
         deferred: None
@@ -706,8 +714,7 @@ module main {
       TransferOut({
         source: None,
         dest: ParachainServiceId,
-        amount: 100,
-        id: 4,
+        amount: Exact(100),
         sourceSupervisorBalance: true,
         destSupervisorBalance: false,
         deferred: None
@@ -715,8 +722,7 @@ module main {
       TransferOut({
         source: Some(created),
         dest: MkServiceId(42),
-        amount: 100,
-        id: 5,
+        amount: Exact(100),
         sourceSupervisorBalance: false,
         destSupervisorBalance: false,
         deferred: None
@@ -724,8 +730,7 @@ module main {
       TransferOut({
         source: None,
         dest: MkServiceId(9),
-        amount: 100,
-        id: 6,
+        amount: Exact(100),
         sourceSupervisorBalance: false,
         destSupervisorBalance: false,
         deferred: Some((0, 1000))
@@ -733,8 +738,7 @@ module main {
       TransferOut({
         source: None,
         dest: created,
-        amount: 100,
-        id: 7,
+        amount: Exact(100),
         sourceSupervisorBalance: false,
         destSupervisorBalance: false,
         deferred: Some((0, 10))
@@ -742,8 +746,16 @@ module main {
       TransferOut({
         source: None,
         dest: created,
-        amount: TotalSupply,
-        id: 8,
+        amount: Exact(TotalSupply),
+        sourceSupervisorBalance: false,
+        destSupervisorBalance: false,
+        deferred: Some((0, 1000))
+      }),
+      // Drains everything above the threshold.
+      TransferOut({
+        source: None,
+        dest: created,
+        amount: Max(TotalSupply),
         sourceSupervisorBalance: false,
         destSupervisorBalance: false,
         deferred: Some((0, 1000))
@@ -769,7 +781,7 @@ module main {
         minAccGas: 0,
         minMemoGas: 0
       }),
-    // Assignments of every kind: tiles directly (1), kept and rotated (3),
+    // Assignments of every kind: tiles directly (1), kept and rewritten (3),
     // an empty one and one for an unknown core, both of which Refine rejects,
     // and a hand-off, which requires an exact 80-hash queue (§3.3).
     AssignCore({ core: CoreCount, queue: List(anyAuthHash), newAssigner: None, jamSlot: 100 }),
@@ -809,8 +821,8 @@ module main {
     // Coretime chain, which drains a para that can no longer release its own
     // state, and rejected as `RestrictedHostFunction` from every other caller.
     // Both outcomes are reachable since the emitting para is sampled.
-    Forget({ target: Parachain(MkParaId(3)), hash: anyHash, len: 1024 }),
-      Forget({ target: Parachain(MkParaId(3)), hash: codeHashB.asPreimage(), len: FixedCodeLen }),
+    Forget({ target: Parachain(MkParaId(3)), preimages: List((anyHash, 1024)) }),
+      Forget({ target: Parachain(MkParaId(3)), preimages: List((codeHashB.asPreimage(), FixedCodeLen)) }),
       RemoveKV({ paraId: MkParaId(3), key: List(0) }),
     // KV store operations: exercises SetKV/RemoveKV paths (§6.1).
     // Small keys/values (lengths 0..2, bytes 0..1) keep state-space bounded. The empty

@@ -174,6 +174,14 @@ module invariants {
   val parachain_log_only_for_live: bool =
     svc.parachainLog.keys().forall(para_id => svc.isLive(para_id))
 
+  /// The last step's work results whose effects it kept: those before the
+  /// package during which it ran out of gas (§5.1).
+  val lastStepKeptWorkResults =
+    match lastStepOutOfGas {
+      | InPackage(i) => lastStepWorkResults.slice(0, i)
+      | _ => lastStepWorkResults
+    }
+
   /// Every `headData` change between `prevSvc` and `svc` must be backed
   /// by an `Ok` work result that claims that new head, either directly
   /// (the Ok's own `headData` for its `paraId`) or indirectly via a
@@ -186,14 +194,14 @@ module invariants {
       // would crash on a `ParachainCleanUp`-removed para.
       if (not(svc.parachains.keys().contains(p))) true
       else if (svc.paraInfo(p).headData == prevSvc.paraInfo(p).headData) true
-      else lastStepWorkResults.foldl(false, (acc, r) => match r.result {
+      else lastStepKeptWorkResults.foldl(false, (acc, r) => match r.result {
         | WorkErr => acc
         | WorkOk(digest) =>
           match digest {
             | Ok(ok) =>
               val direct = ok.paraId == p
                 and ok.headData == svc.paraInfo(p).headData
-              val viaMsg = ok.upwardMessages.foldl(false, (a, m) => match m {
+              val viaMsg = ok.upwardMessages.foldl(false, (a, m) => match m._2 {
                 | ParachainSetHead(payload) =>
                   a or (payload.paraId == p
                     and payload.newHead == svc.paraInfo(p).headData)
@@ -206,19 +214,19 @@ module invariants {
 
   /// Helpers for `parent_head_continuity`.
   pure def cleanUpCount(oks: List[ParachainWorkDigestOk], q: ParaId): int =
-    oks.foldl(0, (n, ok) => ok.upwardMessages.foldl(n, (c, m) => match m {
+    oks.foldl(0, (n, ok) => ok.upwardMessages.foldl(n, (c, m) => match m._2 {
       | ParachainCleanUp(x) => if (x == q) c + 1 else c
       | _ => c
     }))
   pure def reRegistered(oks: List[ParachainWorkDigestOk], q: ParaId): bool =
-    oks.foldl(false, (b, ok) => ok.upwardMessages.foldl(b, (c, m) => match m {
+    oks.foldl(false, (b, ok) => ok.upwardMessages.foldl(b, (c, m) => match m._2 {
       | ParachainSetStateBalance(pl) => c or pl.paraId == q
       | _ => c
     }))
   /// The paras whose head or ring a candidate's upward messages can change: the
   /// targets of its `parachain_set_head` and `parachain_clean_up` messages.
   pure def headTargets(ok: ParachainWorkDigestOk): Set[ParaId] =
-    ok.upwardMessages.foldl(Set(), (t, m) => match m {
+    ok.upwardMessages.foldl(Set(), (t, m) => match m._2 {
       | ParachainSetHead(pl) => t.union(Set(pl.paraId))
       | ParachainCleanUp(q) => t.union(Set(q))
       | _ => t
@@ -229,7 +237,7 @@ module invariants {
   /// change: the target of a `parachain_set_validation_code`, and its own para
   /// for an `Apply` (§5.2). An `Announcement` never moves the active code.
   pure def codeTargets(ok: ParachainWorkDigestOk): Set[ParaId] =
-    ok.upwardMessages.foldl(Set(), (t, m) => match m {
+    ok.upwardMessages.foldl(Set(), (t, m) => match m._2 {
       | ParachainSetValidationCode(pl) => t.union(Set(pl.paraId))
       | RequestCodeUpgrade(pl) => match pl.phase {
           | Apply => t.union(Set(ok.paraId))
@@ -238,7 +246,7 @@ module invariants {
       | _ => t
     })
   pure def codeChangeCount(oks: List[ParachainWorkDigestOk], q: ParaId): int =
-    oks.foldl(0, (n, ok) => ok.upwardMessages.foldl(n, (c, m) => match m {
+    oks.foldl(0, (n, ok) => ok.upwardMessages.foldl(n, (c, m) => match m._2 {
       | ParachainSetValidationCode(pl) => if (pl.paraId == q) c + 1 else c
       | RequestCodeUpgrade(pl) => match pl.phase {
           | Apply => if (ok.paraId == q) c + 1 else c
@@ -275,7 +283,7 @@ module invariants {
     unknown: Set[ParaId],
     frozen: Set[ParaId],
     codes: ParaId -> Option[ValidationCodeHash],
-    codeSets: ParaId -> ValidationCodeRef
+    codeSets: ParaId -> (MessageId, ValidationCodeRef)
   }
 
   /// A candidate the replay cannot decide may have enacted, so its own para and
@@ -289,7 +297,7 @@ module invariants {
     settled: ParaId -> Option[ValidationCodeHash]
   ): ContinuityReplay = {
     val touched = Set(ok.paraId).union(headTargets(ok))
-    val cleanedUp = ok.upwardMessages.foldl(Set(), (t, m) => match m {
+    val cleanedUp = ok.upwardMessages.foldl(Set(), (t, m) => match m._2 {
       | ParachainCleanUp(q) => t.union(Set(q))
       | _ => t
     })
@@ -386,7 +394,7 @@ module invariants {
             rings: pushed,
             codes: recode(acc.codes, codeTargets(ok), settled)
           }, (a, m) =>
-          match m {
+          match m._2 {
             | ParachainSetHead(pl) =>
               if (a.heads.keys().contains(pl.paraId) and not(a.frozen.contains(pl.paraId)))
                 { ...a, heads: a.heads.put(pl.paraId, pl.newHead) }
@@ -401,7 +409,7 @@ module invariants {
             | ParachainSetValidationCode(pl) =>
               if (ok.paraId == CoretimeParaId and a.heads.keys().contains(pl.paraId)
                   and not(a.frozen.contains(pl.paraId)))
-                { ...a, codeSets: a.codeSets.put(pl.paraId, pl.newValidationCode) }
+                { ...a, codeSets: a.codeSets.put(pl.paraId, (m._1, pl.newValidationCode)) }
               else a
             | _ => a
           })
@@ -409,22 +417,22 @@ module invariants {
     replayed
   }
 
-  /// Whether a `parachain_set_validation_code(_, c)` may have been rejected for
-  /// lack of headroom (§6.3): Coretime's log got an `InsufficientStateBalance`
-  /// for `c` at `t`. That rejection is the only way the call leaves a live,
-  /// non-deregistering para's code unchanged. The entry cannot have been evicted
-  /// since (§5.1): eviction takes the oldest entry first, so it would take more
-  /// than `ParachainLogByteCap` of entries at `t` alone, while a model block
-  /// logs a few hundred bytes. Pruning keeps it, as no lookup-anchor exceeds `t`.
+  /// Whether the `parachain_set_validation_code` sent with `id` may have been
+  /// rejected for lack of headroom (§6.3): Coretime's log got an
+  /// `InsufficientStateBalance` for `id` at `t`. That rejection is the only way
+  /// the call leaves a live, non-deregistering para's code unchanged. Another
+  /// Coretime candidate of the step may reuse `id`, which only makes the check
+  /// more permissive. The entry cannot have been evicted since (§5.1): eviction
+  /// takes the oldest entry first, so it would take more than
+  /// `ParachainLogByteCap` of entries at `t` alone, while a model block logs a
+  /// few hundred bytes. Pruning keeps it, as no lookup-anchor exceeds `t`.
   pure def setCodeMayHaveFailed(
-    s: ParachainServiceState, t: Timeslot, c: ValidationCodeRef
-  ): bool = {
-    val isb = InsufficientStateBalance(FromSolicit({ hash: c.hash.asPreimage(), len: c.len }))
+    s: ParachainServiceState, t: Timeslot, id: MessageId
+  ): bool =
     s.paraLog(CoretimeParaId).foldl(false, (b, e) => b or (e._1 == t and match e._2 {
-      | Accumulate(ls) => ls.foldl(false, (x, l) => x or l == isb)
+      | Accumulate(ls) => ls.foldl(false, (x, l) => x or l == (id, InsufficientStateBalance))
       | Refine(_) => false
     }))
-  }
 
   /// Validation-code outcomes (§5.1 step 7, §5.2, §6.3), the code counterpart of
   /// `head_state_matches_outcomes`. Checked against the end-of-step state, so a
@@ -450,9 +458,9 @@ module invariants {
         else svc.paraInfo(p).validationCode == prevSvc.paraInfo(p).validationCode
           or codeChangeClaimed(stepOkDigests, prevSvc, p, svc.paraInfo(p).validationCode)),
       continuityReplay.codeSets.keys().forall(q => {
-        val c = continuityReplay.codeSets.get(q)
+        val cs = continuityReplay.codeSets.get(q)
         if (not(tracked(q)) or codeChangeCount(stepOkDigests, q) != 1) true
-        else svc.paraInfo(q).validationCode == Some(c) or setCodeMayHaveFailed(svc, now, c)
+        else svc.paraInfo(q).validationCode == Some(cs._2) or setCodeMayHaveFailed(svc, now, cs._1)
       })
     }
   }
@@ -463,7 +471,7 @@ module invariants {
     oks: List[ParachainWorkDigestOk], prev: ParachainServiceState, p: ParaId,
     vc: Option[ValidationCodeRef]
   ): bool =
-    oks.foldl(false, (b, ok) => ok.upwardMessages.foldl(b, (x, m) => match m {
+    oks.foldl(false, (b, ok) => ok.upwardMessages.foldl(b, (x, m) => match m._2 {
       | ParachainSetValidationCode(pl) =>
         x or (ok.paraId == CoretimeParaId and pl.paraId == p and vc == Some(pl.newValidationCode))
       | RequestCodeUpgrade(pl) => match pl.phase {
@@ -480,7 +488,7 @@ module invariants {
   pure def announcedIn(
     oks: List[ParachainWorkDigestOk], p: ParaId, c: ValidationCodeRef
   ): bool =
-    oks.foldl(false, (b, ok) => ok.upwardMessages.foldl(b, (x, m) => match m {
+    oks.foldl(false, (b, ok) => ok.upwardMessages.foldl(b, (x, m) => match m._2 {
       | RequestCodeUpgrade(pl) => match pl.phase {
           | Announcement => x or (ok.paraId == p and { hash: pl.hash, len: pl.len } == c)
           | Apply => x
@@ -519,7 +527,7 @@ module invariants {
     })
 
   /// A cached assign holds a non-empty queue within JAM's queue length.
-  /// Non-emptiness is what makes `assignQueueFor`'s division well-defined; an
+  /// Non-emptiness is what makes `assignQueueFor`'s modulo well-defined; an
   /// empty queue is a no-op and is never cached (§3.3).
   val pending_authorizer_queue_bounded: bool =
     svc.pendingAssigns.keys().forall(c => {
@@ -534,7 +542,7 @@ module invariants {
     svc.pendingAssignCores.keys() == svc.pendingAssigns.keys()
 
   /// A core whose `assign` fired last step is not left due: firing drops its
-  /// entry or re-schedules a rotating queue 80 blocks out. A due entry may only
+  /// entry or re-arms it 80 slots after its due slot. A due entry may only
   /// remain cached when the gas ran out before reaching it (§5.1).
   val fired_assign_not_left_due: bool =
     lastStepAssigns.foldl(true, (acc, a) =>

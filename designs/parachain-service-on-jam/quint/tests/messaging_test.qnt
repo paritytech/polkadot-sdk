@@ -11,6 +11,7 @@ module messaging_test {
   import state_balance.* from "../state_balance"
   import refine.* from "../refine"
   import accumulate.* from "../accumulate"
+  import foreign_services.* from "../foreign_services"
   import management.* from "../management"
   import invariants.* from "../invariants"
   import state_vars.* from "../state_vars"
@@ -27,6 +28,18 @@ module messaging_test {
   ): ParachainServiceState =
     range(0, n).foldl(s, (acc, i) => settlementRingPush(acc, para, rootNo(i)))
 
+  /// `accumulateAll` without a due-assign flush before it and without running
+  /// out of gas: just the block's packages, in order, from `state`.
+  pure def accumulatePackages(
+    state: ParachainServiceState, solicited: Set[(ParaId, Hash, int)],
+    prevDesignate: List[ValidatorKey], codeLen: int, now: Timeslot,
+    packages: List[WorkResult], foreign: ForeignServices
+  ): MultiPackageOutcome =
+    accumulateAll(
+      { state: state, assigns: List() }, solicited, prevDesignate, codeLen, now, packages,
+      foreign, Never
+    ).current
+
   /// A well-formed `WorkResult` for `para` chaining `parent -> parent + 1`,
   /// carrying the given upward messages and messaging digest fields, for
   /// driving `accumulateAll` / `accumulateOnePackage` blocks directly.
@@ -40,7 +53,7 @@ module messaging_test {
       validationCode: codeHash,
       parentHeadHash: headHash(parent),
       headData: parent + 1,
-      upwardMessages: msgs,
+      upwardMessages: withIndexIds(msgs),
       lookupAnchor: 0,
       messagesStreamsRoot: streamsRoot,
       messagesRequiresRoots: requires
@@ -85,6 +98,7 @@ module messaging_test {
       lastStepWorkResults' = out.results,
       lastStepAssigns' = out.assigns,
       lastStepAssignBudget' = FullAssignBudget,
+      lastStepOutOfGas' = Never,
       lastHeadRoot' = out.headRoot,
       foreignServices' = out.foreign,
       logPrunedBelow' = out.logPruned.foldl(logPrunedBelow, (m, pr) => m.put(pr._1, pr._2))
@@ -524,7 +538,7 @@ module messaging_test {
   run settlementRingKeepsEnactedHistoryTest = {
     val sender = CoretimeParaId
     val senderCode: ValidationCodeHash = { vchBytes: 1 }
-    val out = accumulateAll(
+    val out = accumulatePackages(
       initialState, Set(), List(), FixedCodeLen, 1,
       List(
         mkWork(sender, senderCode, 0, List(), Some(rootNo(1)), List()),
@@ -554,7 +568,7 @@ module messaging_test {
     val rolled = parachainSetHead(seeded, ah, 42).state
     // Same block: Coretime's first candidate resets AH's head, its second
     // consumes from AH's pre-reset ring.
-    val sameBlock = accumulateAll(
+    val sameBlock = accumulatePackages(
       seeded, Set(), List(), FixedCodeLen, 1,
       List(
         mkWork(ct, ctCode, 0, List(ParachainSetHead({ paraId: ah, newHead: 7 })), None, List()),
@@ -676,13 +690,13 @@ module messaging_test {
       parachainSetStateBalance(initialState, doomed, InitialParaBalance).state,
       doomed, rootS)
     val cleanUp = List(ParachainCleanUp(doomed))
-    val cleanUpFirst = accumulateAll(
+    val cleanUpFirst = accumulatePackages(
       seeded, Set(), List(), FixedCodeLen, 1,
       List(
         mkWork(ct, ctCode, 0, cleanUp, None, List()),
         mkWork(ct, ctCode, 1, List(), None, List((doomed, rootS)))),
       Map())
-    val receiverFirst = accumulateAll(
+    val receiverFirst = accumulatePackages(
       seeded, Set(), List(), FixedCodeLen, 1,
       List(
         mkWork(ct, ctCode, 0, List(), None, List((doomed, rootS))),
@@ -725,12 +739,12 @@ module messaging_test {
       markProvided(withCode, doomedCode.asPreimage(), FixedCodeLen), doomed, rootOld)
     val doomedCand = mkWork(doomed, doomedCode, 0, List(), Some(rootNew), List())
     val receiver = mkWork(ct, ctCode, 1, List(), None, List((doomed, rootOld)))
-    val partialFirst = accumulateAll(
+    val partialFirst = accumulatePackages(
       seeded, Set(), List(), FixedCodeLen, 1,
       List(mkWork(ct, ctCode, 0, List(ParachainCleanUp(doomed)), None, List()),
         doomedCand, receiver),
       Map())
-    val control = accumulateAll(
+    val control = accumulatePackages(
       seeded, Set(), List(), FixedCodeLen, 1, List(doomedCand), Map())
     all {
       // Control: without the clean-up the doomed candidate enacts and pushes.
@@ -1039,8 +1053,8 @@ module messaging_test {
   pure def candidateWithCode(s: ParachainServiceState, para: ParaId, code: ValidationCodeHash): WorkResult = {
     val pi = s.paraInfo(para)
     {
-      result: refine(s, { authorizedParas: List(para), items: List({ validationCode: { hash: code, len: FixedCodeLen } }) },
-        false, wellFormedCalls(headHash(pi.headData), pi.headData + 1, List()), 0)[0],
+      result: refine(s, { items: List({ paraId: para, validationCode: { hash: code, len: FixedCodeLen } }) },
+        wellFormedCalls(headHash(pi.headData), pi.headData + 1, List()), 0)[0],
       authTrace: 0
     }
   }
@@ -1198,8 +1212,8 @@ module messaging_test {
   ): WorkResult = {
     val parent = s.paraInfo(para).headData + k
     {
-      result: refine(s, { authorizedParas: List(para), items: List({ validationCode: { hash: code, len: FixedCodeLen } }) },
-        false, wellFormedCalls(headHash(parent), parent + 1, msgs)
+      result: refine(s, { items: List({ paraId: para, validationCode: { hash: code, len: FixedCodeLen } }) },
+        wellFormedCalls(headHash(parent), parent + 1, msgs)
           .concat(messagingCalls(provides, requires)), 0)[0],
       authTrace: 0
     }
@@ -1257,7 +1271,7 @@ module messaging_test {
           StreamsRootUndeclared, RequiresRootsUndeclared),
         refinedCandidate(svc, ct, List(
             ParachainSetValidationCode({ paraId: q, newValidationCode: { hash: x, len: FixedCodeLen } }),
-            Forget({ target: Parachain(q), hash: c3.asPreimage(), len: FixedCodeLen })),
+            Forget({ target: Parachain(q), preimages: List((c3.asPreimage(), FixedCodeLen)) })),
           StreamsRootUndeclared, RequiresRootsUndeclared),
         chainedCandidateOnCode(svc, q, 0, x, List(),
           StreamsRootDeclared(StreamsRootB), RequiresRootsUndeclared),
@@ -1393,7 +1407,9 @@ module messaging_test {
   run setValidationCodeInsufficientBalanceTest = {
     val q = MkParaId(3)
     val c = { hash: { vchBytes: 4 }, len: FixedCodeLen }
-    val isb = InsufficientStateBalance(FromSolicit({ hash: c.hash.asPreimage(), len: c.len }))
+    // The `parachain_set_validation_code` is Coretime's first message, so it is
+    // sent with `MessageId` 0.
+    val isb = (0, InsufficientStateBalance)
     initCleanUp
       .then(applyBlock(List(refinedCandidate(svc, CoretimeParaId,
         List(ParachainSetStateBalance({ paraId: q, newTotal: svc.paraInfo(q).usedStateBalance })),
@@ -1412,7 +1428,7 @@ module messaging_test {
           | Accumulate(ls) => ls.foldl(false, (x, l) => x or l == isb)
           | Refine(_) => false
         })),
-        continuityReplay.codeSets.get(q) == c,
+        continuityReplay.codeSets.get(q) == (0, c),
         activeCodeOf(svc, q) == Some({ vchBytes: 3 }),
         svc.paraInfo(q).headData == prevSvc.paraInfo(q).headData + 1,
         validation_code_matches_outcomes,

@@ -4,6 +4,7 @@ module head_commitment_test {
   import messages.* from "../messages"
   import state.* from "../state"
   import head_commitment.* from "../head_commitment"
+  import accumulate.* from "../accumulate"
   import state_vars.* from "../state_vars"
   import main.* from "../main"
   import support.* from "./support"
@@ -79,6 +80,63 @@ module head_commitment_test {
       // A step that moves no head contributes no entry for that block.
       .then(provisionPreimage)
       .then(expectThat(lastHeadRoot == None))
+  }
+
+  /// §5.1, §5.5: running out of gas restores the last `checkpoint` together with
+  /// the root `yield`ed before it. Out of gas in the second package keeps the
+  /// first package's head and commits to exactly that head. Out of gas in the
+  /// first keeps neither head and outputs nothing. Out of gas in the due assigns
+  /// after both keeps both heads, and the root yielded by the second package
+  /// still covers the first package's head. A second package rejected for a
+  /// stale parent leaves its head unchanged, so its root covers only the first.
+  run headCommitmentFollowsCheckpointTest = {
+    val packages = List(
+      { result: refineWithMsgs(initialState, CoretimeParaId, List()), authTrace: 0 },
+      { result: refineWithMsgs(initialState, AssetHubParaId, List()), authTrace: 0 }
+    )
+    pure def outOfGasAt(o: OutOfGas): BlockOutcome =
+      accumulateBlockBudgeted(
+        initialState, 1, List(), Set(), FixedCodeLen, packages, Map(), FullAssignBudget, o
+      )
+    val inSecond = outOfGasAt(InPackage(1))
+    val inFirst = outOfGasAt(InPackage(0))
+    val afterBoth = outOfGasAt(InLateAssigns)
+    pure def leaf(p: ParaId): MerkleHash =
+      merkleHash(Leaf({ paraId: p, headHash: leafHeadHash(1) }))
+    val staleSecond = accumulateBlock(
+      initialState, 1, List(), Set(), FixedCodeLen,
+      List(
+        packages[0],
+        {
+          result: refineCalls(
+            initialState, AssetHubParaId,
+            wellFormedCalls(headHash(StaleParentHead), StaleParentHead, List())
+          ),
+          authTrace: 0
+        }
+      ),
+      Map()
+    )
+    all {
+      assert(inSecond.state.paraInfo(CoretimeParaId).headData == 1),
+      assert(inSecond.state.paraInfo(AssetHubParaId).headData == 0),
+      assert(inSecond.headRoot == Some(merkleHash(Leaf({
+        paraId: CoretimeParaId,
+        headHash: leafHeadHash(1)
+      })))),
+      assert(inFirst.state.paraInfo(CoretimeParaId).headData == 0),
+      assert(inFirst.state.paraInfo(AssetHubParaId).headData == 0),
+      assert(inFirst.headRoot == None),
+      assert(afterBoth.state.paraInfo(CoretimeParaId).headData == 1),
+      assert(afterBoth.state.paraInfo(AssetHubParaId).headData == 1),
+      assert(afterBoth.headRoot == Some(merkleHash(Node({
+        left: leaf(CoretimeParaId),
+        right: leaf(AssetHubParaId)
+      })))),
+      assert(staleSecond.state.paraInfo(AssetHubParaId).headData == 0),
+      assert(staleSecond.headRoot == Some(leaf(CoretimeParaId))),
+      init
+    }
   }
 
   /// Parent-head check (§5.1 step 4): a candidate declaring a stale parent head

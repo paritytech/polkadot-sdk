@@ -44,8 +44,9 @@ module accumulate {
     // JAM `assign` calls that took effect while replaying upward messages (a
     // rejected call is only logged).
     jamAssigns: List[AssignCall],
-    // Log entries to append against the para's `parachain_log`.
-    logs: List[AccumulateLog],
+    // Events the replayed messages caused, each with its message's `MessageId`,
+    // to append to the para's `parachain_log`.
+    logs: List[(MessageId, AccumulateLog)],
     // Supervised JAM services, which the §6.5 operations mutate.
     foreign: ForeignServices
   }
@@ -75,7 +76,9 @@ module accumulate {
     // Each candidate-bearing package's `(para, lookup-anchor)` prune record, in
     // order; the caller folds these into the ghost `logPrunedBelow`.
     logPruned: List[(ParaId, Timeslot)],
-    foreign: ForeignServices
+    foreign: ForeignServices,
+    // The head-commitment root last `yield`ed (§5.5).
+    headRoot: Option[MerkleHash]
   }
 
   /// Outcome of a whole block's Accumulate (`accumulateBlock`): the new state
@@ -91,13 +94,57 @@ module accumulate {
     logPruned: List[(ParaId, Timeslot)],
     // The block's work results, in order (for `lastStepWorkResults`).
     results: List[WorkResult],
-    // The 32-byte value this accumulate invocation returns: the head
-    // commitment (§5.5). `None` when no head changed and nothing is returned.
+    // The 32-byte value this accumulate invocation outputs: the head-commitment
+    // root last `yield`ed (§5.5). `None` when no head changed.
     headRoot: Option[MerkleHash],
     foreign: ForeignServices
   }
 
   // ---- Replay a single upward message -----------------------------------
+
+  /// Releases one `(h, len)` entry of a `Forget`.
+  pure def forgetPreimage(
+    acc: AccumulateOutcome,
+    messageId: MessageId,
+    target: Target,
+    h: Hash,
+    len: int,
+    now: Timeslot
+  ): AccumulateOutcome = {
+    match target {
+      | Service(s) =>
+        val o = foreignForget(acc.foreign, s, h, len, now)
+        { ...acc, foreign: o.services, logs: acc.logs.appendOption(tagLog(messageId, o.log)) }
+      | Parachain(para) =>
+        // §5.4: Asset Hub holds the service's own active code, which must never
+        // be expunged.
+        if (para == AssetHubParaId and h == acc.state.serviceCodeHash and
+            len == acc.state.serviceCodeLen)
+          { ...acc, logs: acc.logs.append((messageId, CanNotRemoveCode({ hash: h, len: len }))) }
+        else if (not(acc.state.isLive(para))) acc
+        else {
+          val pi = acc.state.paraInfo(para)
+          val isActive =
+            match pi.validationCode { | Some(vc) => refIs(vc, h, len) | None => false }
+          val isAnnounced =
+            match pi.announcedUpgrade { | Some(vc) => refIs(vc, h, len) | None => false }
+          if (isActive or isAnnounced)
+            // The target's active or announced code: refused, so the referencer
+            // and the balance both stay (§5.2). This is what stops a forced call
+            // from stripping running validation code.
+            { ...acc, logs: acc.logs.append((messageId, CanNotRemoveCode({ hash: h, len: len }))) }
+          else {
+            val d = acc.state.removeReferencer(para, h, len, now)
+            {
+              ...acc,
+              state: d.state,
+              preimageOps: acc.preimageOps.append(Forgotten((para, h, len))),
+              logs: acc.logs.appendOption(tagLog(messageId, d.log))
+            }
+          }
+        }
+    }
+  }
 
   pure def applyUpwardMessage(
     acc: AccumulateOutcome,
@@ -105,6 +152,7 @@ module accumulate {
     codeLen: int,
     now: Timeslot,
     lookupAnchor: Timeslot,
+    messageId: MessageId,
     m: UpwardMessage
   ): AccumulateOutcome = {
     match m {
@@ -123,14 +171,14 @@ module accumulate {
           jamDesignate: acc.jamDesignate,
           preimageOps: acc.preimageOps,
           jamAssigns: acc.jamAssigns,
-          logs: acc.logs.appendOption(d.log),
+          logs: acc.logs.appendOption(tagLog(messageId, d.log)),
           foreign: acc.foreign
         }
       | Solicit(payload) =>
         match payload.target {
           | Service(s) =>
             val o = foreignSolicit(acc.foreign, s, payload.hash, payload.len, now)
-            { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+            { ...acc, foreign: o.services, logs: acc.logs.appendOption(tagLog(messageId, o.log)) }
           | Parachain(target) =>
             // §3.3: no-op for a target that is not registered or is deregistering
             // (§6.4), so a Coretime-delegated solicit cannot add state to a
@@ -147,72 +195,35 @@ module accumulate {
                     acc.preimageOps.append(Solicited((target, payload.hash, payload.len)))
                   else acc.preimageOps,
                 jamAssigns: acc.jamAssigns,
-                logs: acc.logs.appendOption(d.log),
+                logs: acc.logs.appendOption(tagLog(messageId, d.log)),
                 foreign: acc.foreign
               }
             }
         }
       | EjectService(payload) =>
         val o = foreignEject(acc.state, acc.foreign, payload.service, now)
-        { ...acc, state: o.state, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+        {
+          ...acc,
+          state: o.state,
+          foreign: o.services,
+          logs: acc.logs.appendOption(tagLog(messageId, o.log))
+        }
       | CreateService(payload) =>
         val o = foreignCreate(acc.state, acc.foreign, payload, now)
-        { ...acc, state: o.state, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+        {
+          ...acc,
+          state: o.state,
+          foreign: o.services,
+          logs: acc.logs.appendOption(tagLog(messageId, o.log))
+        }
       | SetServiceSupervisor(payload) =>
         val o = foreignSetSupervisor(
           acc.foreign, payload.service, payload.newSupervisor
         )
-        { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+        { ...acc, foreign: o.services, logs: acc.logs.appendOption(tagLog(messageId, o.log)) }
       | Forget(payload) =>
-        match payload.target {
-          | Service(s) =>
-            val o = foreignForget(acc.foreign, s, payload.hash, payload.len, now)
-            { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
-          | Parachain(target) =>
-            // §5.4: Asset Hub holds the service's own active code, which must never
-            // be expunged.
-            if (target == AssetHubParaId and payload.hash == acc.state.serviceCodeHash and
-                payload.len == acc.state.serviceCodeLen)
-              {
-                ...acc,
-                logs: acc.logs.append(
-                  CanNotRemoveCode({ hash: payload.hash, len: payload.len })
-                )
-              }
-            else if (not(acc.state.isLive(target))) acc
-            else {
-              val pi = acc.state.paraInfo(target)
-              val activeVc = pi.validationCode
-              val isActive =
-                match activeVc { | Some(vc) => refIs(vc, payload.hash, payload.len) | None => false }
-              val isAnnounced =
-                match pi.announcedUpgrade {
-                  | None => false
-                  | Some(vc) => refIs(vc, payload.hash, payload.len)
-                }
-              if (isActive or isAnnounced) {
-                // The target's active or announced code: refused, so the referencer
-                // and the balance both stay (§5.2). This is what stops a forced call
-                // from stripping running validation code.
-                {
-                  ...acc,
-                  logs: acc.logs.append(
-                    CanNotRemoveCode({ hash: payload.hash, len: payload.len })
-                  )
-                }
-              } else {
-                val d = acc.state.removeReferencer(target, payload.hash, payload.len, now)
-                {
-                  state: d.state,
-                  jamDesignate: acc.jamDesignate,
-                  preimageOps: acc.preimageOps.append(Forgotten((target, payload.hash, payload.len))),
-                  jamAssigns: acc.jamAssigns,
-                  logs: acc.logs.appendOption(d.log),
-                  foreign: acc.foreign
-                }
-              }
-            }
-        }
+        payload.preimages.foldl(acc, (a, p) =>
+          forgetPreimage(a, messageId, payload.target, p._1, p._2, now))
       | SetValidatorKeys(payload) =>
         // Both Refine and `accumulateOkPrefix`'s service-restriction check
         // (§4.3) reject upward messages from non-Asset-Hub paras before we
@@ -224,7 +235,7 @@ module accumulate {
             if (o.designate == List()) acc.jamDesignate else o.designate,
           preimageOps: acc.preimageOps,
           jamAssigns: acc.jamAssigns,
-          logs: acc.logs.appendOption(o.log),
+          logs: acc.logs.appendOption(tagLog(messageId, o.log)),
           foreign: acc.foreign
         }
       | ParachainSetStateBalance(payload) =>
@@ -236,7 +247,7 @@ module accumulate {
           jamDesignate: acc.jamDesignate,
           preimageOps: acc.preimageOps,
           jamAssigns: acc.jamAssigns,
-          logs: acc.logs.concat(o.logs),
+          logs: acc.logs.concat(tagLogs(messageId, o.logs)),
           foreign: acc.foreign
         }
       | ParachainSetHead(payload) =>
@@ -252,7 +263,7 @@ module accumulate {
           jamDesignate: acc.jamDesignate,
           preimageOps: acc.preimageOps,
           jamAssigns: acc.jamAssigns,
-          logs: acc.logs.concat(o.logs),
+          logs: acc.logs.concat(tagLogs(messageId, o.logs)),
           foreign: acc.foreign
         }
       | ParachainCleanUp(paraId) =>
@@ -262,12 +273,17 @@ module accumulate {
           jamDesignate: acc.jamDesignate,
           preimageOps: acc.preimageOps,
           jamAssigns: acc.jamAssigns,
-          logs: acc.logs.concat(o.logs),
+          logs: acc.logs.concat(tagLogs(messageId, o.logs)),
           foreign: acc.foreign
         }
       | TransferOut(payload) =>
         val o = transferOut(acc.state, acc.foreign, payload)
-        { ...acc, state: o.state, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+        {
+          ...acc,
+          state: o.state,
+          foreign: o.services,
+          logs: acc.logs.appendOption(tagLog(messageId, o.log))
+        }
       | AssignCore(payload) =>
         // §5.1 step 7 (replay). Caches the entry for its `jamSlot`. The inline
         // case exists because always-accumulate ran before this replay, so a
@@ -282,10 +298,11 @@ module accumulate {
         else if (payload.jamSlot <= now)
           if (not(acc.state.isAssignerOf(payload.core)))
             // The core was handed away, so JAM rejects the `assign` (§7.1), and
-            // any entry cached for it is dropped.
+            // any entry cached for it is dropped. Only this replay-time rejection
+            // is logged (§3.3).
             {
               ...acc,
-              logs: acc.logs.append(CoreNotAssignable({ core: payload.core })),
+              logs: acc.logs.append((messageId, CoreNotAssignable)),
               state: {
                 ...acc.state,
                 pendingAssigns: acc.state.pendingAssigns.mapRemove(payload.core),
@@ -298,7 +315,7 @@ module accumulate {
               jamAssigns: acc.jamAssigns.append({
                 core: payload.core,
                 assigner: payload.newAssigner.optionGetOr(ParachainServiceId),
-                queue: assignQueueFor(payload.queue)
+                queue: assignQueueFor(payload.queue, now)
               }),
               state: {
                 ...acc.state.recordAssigner(
@@ -307,13 +324,13 @@ module accumulate {
                 pendingAssigns:
                   if (fillsDirectly(queueLen)) acc.state.pendingAssigns.mapRemove(payload.core)
                   else acc.state.pendingAssigns.put(payload.core, {
-                    queue: advanceAssignQueue(payload.queue),
+                    queue: payload.queue,
                     assigner: payload.newAssigner
                   }),
                 pendingAssignCores:
                   if (fillsDirectly(queueLen)) acc.state.pendingAssignCores.mapRemove(payload.core)
                   else acc.state.pendingAssignCores.put(
-                    payload.core, now + AuthorizerQueueLength
+                    payload.core, payload.jamSlot + AuthorizerQueueLength
                   )
               }
             }
@@ -366,7 +383,7 @@ module accumulate {
             else
               {
                 ...acc,
-                logs: acc.logs.append(ServiceUpgradePreimageMissing({ codeHash: payload.codeHash }))
+                logs: acc.logs.append((messageId, ServiceUpgradePreimageMissing))
               }
         }
       | SetKV(payload) =>
@@ -379,12 +396,14 @@ module accumulate {
           {
             ...acc,
             state: d.state,
-            logs: acc.logs.appendOption(d.log)
+            logs: acc.logs.appendOption(tagLog(messageId, d.log))
           }
         }
       | RemoveServiceStorage(payload) =>
-        val o = foreignRemoveStorage(acc.foreign, payload.service, payload.key)
-        { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+        payload.keys.foldl(acc, (a, key) => {
+          val o = foreignRemoveStorage(a.foreign, payload.service, key)
+          { ...a, foreign: o.services, logs: a.logs.appendOption(tagLog(messageId, o.log)) }
+        })
       | RemoveKV(payload) =>
         // No-op for an unregistered or deregistering para (§6.4).
         if (not(acc.state.isLive(payload.paraId))
@@ -394,7 +413,7 @@ module accumulate {
           {
             ...acc,
             state: d.state,
-            logs: acc.logs.appendOption(d.log)
+            logs: acc.logs.appendOption(tagLog(messageId, d.log))
           }
         }
     }
@@ -413,13 +432,12 @@ module accumulate {
     state: ParachainServiceState,
     rejected: bool,
     jamSolicit: Set[Hash],
-    jamForget: Set[Hash],
-    logs: List[AccumulateLog]
+    jamForget: Set[Hash]
   } = {
     // Step 1: registration check. A candidate of a not-registered OR
     // deregistering para (§6.4) is rejected: silently drop, no log.
     if (not(s.isLive(r.paraId)) or s.paraInfo(r.paraId).isDeregistering) {
-      { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
+      { state: s, rejected: true, jamSolicit: Set(), jamForget: Set() }
     } else {
       val pi0 = s.paraInfo(r.paraId)
       // Step 2: authoritative validation-code check. Only the ACTIVE code is
@@ -428,22 +446,22 @@ module accumulate {
       val codeOk =
         match pi0.validationCode { | Some(vc) => r.validationCode == vc.hash | None => false }
       if (not(codeOk)) {
-        { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
+        { state: s, rejected: true, jamSolicit: Set(), jamForget: Set() }
       } else {
         // Step 4: parent head check.
         if (r.parentHeadHash != headHash(pi0.headData)) {
-          { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
+          { state: s, rejected: true, jamSolicit: Set(), jamForget: Set() }
         } else if (violatesParachainRestrictions(r.upwardMessages, r.paraId)) {
           // §4.3 defense-in-depth: even if Refine should already have
           // rejected this, Accumulate independently verifies and refuses
           // to apply a work-package whose upward messages include
           // restricted host calls from the wrong parachain.
-          { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
+          { state: s, rejected: true, jamSolicit: Set(), jamForget: Set() }
         } else if (not(settlementCheck(s, r.messagesRequiresRoots))) {
           // Settlement check (§5.1 step 5, §8). Positioned as the final gate
           // before the head write to ensure rejected consumers cannot publish
           // their own roots. Silently rejects if any requirement is missing.
-          { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
+          { state: s, rejected: true, jamSolicit: Set(), jamForget: Set() }
         } else {
           // §5.1: the candidate is accepted, so its lookup-anchor prune runs before
           // any of its own effects are applied. Doing it first also frees space that
@@ -466,8 +484,7 @@ module accumulate {
             state: pushed,
             rejected: false,
             jamSolicit: Set(),
-            jamForget: Set(),
-            logs: List()
+            jamForget: Set()
           }
         }
       }
@@ -547,11 +564,11 @@ module accumulate {
                 jamDesignate: prevDesignate,
                 preimageOps: List(),
                 jamAssigns: List(),
-                logs: pre.logs,
+                logs: List(),
                 foreign: foreign
               }
               val acc = ok.upwardMessages.foldl(baseAcc, (a, m) =>
-                applyUpwardMessage(a, ok.paraId, codeLen, now, ok.lookupAnchor, m))
+                applyUpwardMessage(a, ok.paraId, codeLen, now, ok.lookupAnchor, m._1, m._2))
               // The lookup-anchor prune already ran inside `accumulateOkPrefix`,
               // ahead of every effect of this candidate.
               {
@@ -567,38 +584,56 @@ module accumulate {
     }
   }
 
-  /// Accumulate a block's work packages in order (§5.1).
+  /// Accumulate a block's work packages in order (§5.1), starting from the state
+  /// and `assign` calls the due-assign flush left. The flush and every package
+  /// that reaches the steps end with a `checkpoint`; a package first `yield`s the
+  /// root over the heads changed so far (§5.5). When the invocation runs out of
+  /// gas in a package, neither that package nor any later one takes effect.
   pure def accumulateAll(
-    state: ParachainServiceState,
+    flushed: { state: ParachainServiceState, assigns: List[AssignCall] },
     solicited: Set[(ParaId, Hash, int)],
     prevDesignate: List[ValidatorKey],
     codeLen: int,
     now: Timeslot,
     packages: List[WorkResult],
-    foreign: ForeignServices
-  ): MultiPackageOutcome = {
-    packages.foldl(
-      {
-        state: state,
-        solicited: solicited,
-        jamDesignate: prevDesignate,
-        jamAssigns: List(),
-        logPruned: List(),
-        foreign: foreign
-      },
-      (acc, p) => {
-        val out = accumulateOnePackage(
-          acc.state, p, acc.solicited, acc.jamDesignate, codeLen, now, acc.foreign
-        )
-        {
-          state: out.state,
-          solicited: out.solicited,
-          jamDesignate: out.jamDesignate,
-          jamAssigns: acc.jamAssigns.concat(out.jamAssigns),
-          logPruned: acc.logPruned.appendOption(out.logPruned),
-          foreign: out.foreign
+    foreign: ForeignServices,
+    outOfGas: OutOfGas
+  ): { current: MultiPackageOutcome, checkpoint: MultiPackageOutcome, ranOut: bool } = {
+    val initial: MultiPackageOutcome = {
+      state: flushed.state,
+      solicited: solicited,
+      jamDesignate: prevDesignate,
+      jamAssigns: flushed.assigns,
+      logPruned: List(),
+      foreign: foreign,
+      headRoot: None
+    }
+    range(0, packages.length()).foldl(
+      { current: initial, checkpoint: initial, ranOut: false },
+      (soFar, i) =>
+        if (soFar.ranOut or outOfGas == InPackage(i)) { ...soFar, ranOut: true }
+        else {
+          val acc = soFar.current
+          val out = accumulateOnePackage(
+            acc.state, packages[i], acc.solicited, acc.jamDesignate, codeLen, now, acc.foreign
+          )
+          val after = {
+            state: out.state,
+            solicited: out.solicited,
+            jamDesignate: out.jamDesignate,
+            jamAssigns: acc.jamAssigns.concat(out.jamAssigns),
+            logPruned: acc.logPruned.appendOption(out.logPruned),
+            foreign: out.foreign,
+            headRoot: acc.headRoot
+          }
+          match packages[i].result {
+            // Never reaches the steps, so it neither yields nor checkpoints.
+            | WorkErr => { ...soFar, current: after }
+            | WorkOk(_) =>
+              val done = { ...after, headRoot: headCommitment(flushed.state, out.state) }
+              { current: done, checkpoint: done, ranOut: false }
+          }
         }
-      }
     )
   }
 
@@ -627,34 +662,32 @@ module accumulate {
     budget: int
   ): {
     state: ParachainServiceState,
-    assigns: List[AssignCall],
-    // Logged against the Coretime chain, the only para that may `AssignCore`.
-    logs: List[AccumulateLog]
+    assigns: List[AssignCall]
   } = {
     val due = s.pendingAssignCores.keys().filter(c => s.pendingAssignCores.get(c) <= now)
-    val n = if (budget < due.size()) budget else due.size()
+    val n = min(budget, due.size())
     // The cores to fire, in firing order, paired with the same cores as a set.
     val fired = range(0, n).foldl((List(), Set()), (sel, _) => {
       val c = firstDueCore(s, due.exclude(sel._2))
       (sel._1.append(c), sel._2.union(Set(c)))
     })._1
     fired.foldl(
-      { state: s, assigns: List(), logs: List() },
+      { state: s, assigns: List() },
       (acc, c) => {
         if (not(acc.state.isAssignerOf(c)))
           // The core was handed away since this entry was cached, so JAM rejects
-          // the `assign`: drop the entry and log the rejection (§7.1).
+          // the `assign`: drop the entry without a log entry (§5.1).
           {
             ...acc,
             state: {
               ...acc.state,
               pendingAssigns: acc.state.pendingAssigns.mapRemove(c),
               pendingAssignCores: acc.state.pendingAssignCores.mapRemove(c)
-            },
-            logs: acc.logs.append(CoreNotAssignable({ core: c }))
+            }
           }
         else {
           val pending = s.pendingAssigns.get(c)
+          val dueAt = s.pendingAssignCores.get(c)
           val queueLen = pending.queue.length()
           {
             state: {
@@ -663,20 +696,16 @@ module accumulate {
               ),
               pendingAssigns:
                 if (fillsDirectly(queueLen)) acc.state.pendingAssigns.mapRemove(c)
-                else acc.state.pendingAssigns.put(c, {
-                  ...pending,
-                  queue: advanceAssignQueue(pending.queue)
-                }),
+                else acc.state.pendingAssigns,
               pendingAssignCores:
                 if (fillsDirectly(queueLen)) acc.state.pendingAssignCores.mapRemove(c)
-                else acc.state.pendingAssignCores.put(c, now + AuthorizerQueueLength)
+                else acc.state.pendingAssignCores.put(c, dueAt + AuthorizerQueueLength)
             },
             assigns: acc.assigns.append({
               core: c,
               assigner: pending.assigner.optionGetOr(ParachainServiceId),
-              queue: assignQueueFor(pending.queue)
-            }),
-            logs: acc.logs
+              queue: assignQueueFor(pending.queue, now)
+            })
           }
         }
       }
@@ -687,11 +716,8 @@ module accumulate {
   pure def applyAlwaysAccumulate(
     s: ParachainServiceState,
     now: Timeslot
-  ): {
-    state: ParachainServiceState,
-    assigns: List[AssignCall],
-    logs: List[AccumulateLog]
-  } = applyDueAssigns(s, now, CoreCount)
+  ): { state: ParachainServiceState, assigns: List[AssignCall] } =
+    applyDueAssigns(s, now, CoreCount)
 
   /// §5.1: admit one transfer into `open`, the bucket the current accumulate
   /// invocation is filling (`None` before it has opened one). Returns the new
@@ -761,39 +787,54 @@ module accumulate {
     t: IncomingTransfer
   ): ParachainServiceState = applyIncomingTransfers(s, List(t))
 
-  /// §5.1: fire up to `budget` due `assign`s, logging rejections against the
-  /// Coretime chain, the only para that may `AssignCore`.
+  /// §5.1: fire up to `budget` due `assign`s.
   pure def flushDueAssigns(
     s: ParachainServiceState,
     now: Timeslot,
     budget: int
+  ): { state: ParachainServiceState, assigns: List[AssignCall] } =
+    applyDueAssigns(s, now, budget)
+
+  /// §5.1: only the first Accumulate invocation of a timeslot carries the
+  /// always-accumulate allowance. It is detected by `now` being past
+  /// `lastAccumulate`, and flushes up to `budget` due assigns and records `now`.
+  /// Later invocations in the same timeslot flush nothing here. The result is
+  /// what the invocation `checkpoint`s, so running out of gas later keeps it.
+  pure def alwaysAccumulateFlush(
+    s: ParachainServiceState,
+    now: Timeslot,
+    budget: int
   ): { state: ParachainServiceState, assigns: List[AssignCall] } = {
-    val flushed = applyDueAssigns(s, now, budget)
-    {
-      state: flushed.state.appendAccumulateLogs(CoretimeParaId, now, flushed.logs),
-      assigns: flushed.assigns
-    }
+    val isAlwaysAccumulate =
+      match s.lastAccumulate { | None => true | Some(last) => now > last }
+    if (isAlwaysAccumulate) {
+      val flushed = flushDueAssigns(s, now, budget)
+      { ...flushed, state: { ...flushed.state, lastAccumulate: Some(now) } }
+    } else { state: s, assigns: List() }
   }
 
   /// An accumulate invocation carrying incoming transfers and no work reports
-  /// (§5.1). Due assigns are still flushed before the transfers are recorded,
-  /// and any left over after them while `budget.end` lasts.
+  /// (§5.1). As the always-accumulate invocation it flushes due assigns before
+  /// the transfers are recorded, and any due ones left after them are flushed
+  /// while `budget.end` lasts.
   pure def accumulateTransfers(
     s: ParachainServiceState,
     now: Timeslot,
     ts: List[IncomingTransfer],
     budget: AssignBudget
   ): { state: ParachainServiceState, assigns: List[AssignCall] } = {
-    val flushed = flushDueAssigns(s, now, budget.flush)
+    val flushed = alwaysAccumulateFlush(s, now, budget.flush)
     val late = flushDueAssigns(applyIncomingTransfers(flushed.state, ts), now, budget.end)
     { state: late.state, assigns: flushed.assigns.concat(late.assigns) }
   }
 
   /// The full per-block Accumulate pipeline (§5.1): first run always-accumulate
-  /// (flush due authorizer queues), then accumulate the block's work packages.
+  /// (flush due authorizer queues) if this is the timeslot's first invocation,
+  /// then accumulate the block's work packages.
   /// `budget.flush` due assigns fit into the always-accumulate allowance; any due
   /// ones left over are fired after the work packages while `budget.end` lasts,
-  /// and otherwise carried over to the next block.
+  /// and otherwise carried over to the next block. `outOfGas` is where the
+  /// invocation runs out of gas, which restores the last `checkpoint` (§5.1).
   pure def accumulateBlockBudgeted(
     state: ParachainServiceState,
     now: Timeslot,
@@ -802,21 +843,29 @@ module accumulate {
     codeLen: int,
     packages: List[WorkResult],
     foreign: ForeignServices,
-    budget: AssignBudget
+    budget: AssignBudget,
+    outOfGas: OutOfGas
   ): BlockOutcome = {
-    val flushed = flushDueAssigns(state, now, budget.flush)
-    val acc =
-      accumulateAll(flushed.state, solicited, List(), codeLen, now, packages, foreign)
-    val late = flushDueAssigns(acc.state, now, budget.end)
+    val flushed = alwaysAccumulateFlush(state, now, budget.flush)
+    val pkgs =
+      accumulateAll(flushed, solicited, List(), codeLen, now, packages, foreign, outOfGas)
+    val late = flushDueAssigns(pkgs.current.state, now, budget.end)
+    val out =
+      if (pkgs.ranOut or outOfGas == InLateAssigns) pkgs.checkpoint
+      else {
+        ...pkgs.current,
+        state: late.state,
+        jamAssigns: pkgs.current.jamAssigns.concat(late.assigns)
+      }
     {
-      state: late.state,
-      staging: if (acc.jamDesignate == List()) staging else acc.jamDesignate,
-      solicited: acc.solicited,
-      assigns: flushed.assigns.concat(acc.jamAssigns).concat(late.assigns),
-      logPruned: acc.logPruned,
+      state: out.state,
+      staging: if (out.jamDesignate == List()) staging else out.jamDesignate,
+      solicited: out.solicited,
+      assigns: out.jamAssigns,
+      logPruned: out.logPruned,
       results: packages,
-      headRoot: headCommitment(state, late.state),
-      foreign: acc.foreign
+      headRoot: out.headRoot,
+      foreign: out.foreign
     }
   }
 
@@ -831,6 +880,6 @@ module accumulate {
     foreign: ForeignServices
   ): BlockOutcome =
     accumulateBlockBudgeted(
-      state, now, staging, solicited, codeLen, packages, foreign, FullAssignBudget
+      state, now, staging, solicited, codeLen, packages, foreign, FullAssignBudget, Never
     )
 }

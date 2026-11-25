@@ -4,8 +4,8 @@
 // deterministic producer of `ParachainWorkDigest`s subject to the
 // structural rules from §4.1–§4.3:
 //
-// - The `paraId` of each work-item is sourced from the authorizer config's
-// `authorized_paras` prefix, not from the extrinsic.
+// - The `paraId` of each work-item is taken from its `ParachainCandidate`. The
+//   authorizer checks it (§7.2), the service does not.
 // - The validation code must call `set_parent_head_hash` and `set_head` exactly once.
 // - Refine returns `Err(ValidationCodeLookupFailed)` iff `historical_lookup` for the
 // candidate's `validation_code` returns None.
@@ -23,12 +23,11 @@ module refine {
 
   /// The work-item payload: one parachain candidate per item (design §3.2).
   type ParachainCandidate = {
+    paraId: ParaId,
     validationCode: ValidationCodeRef
   }
 
   type WorkPackage = {
-    // Authorizer config prefix binding work-item index → ParaId (design §3.2, §7.1).
-    authorizedParas: List[ParaId],
     // One candidate per work item. Currently `length(items) == 1` per design §3.2.
     items: List[ParachainCandidate]
   }
@@ -51,26 +50,30 @@ module refine {
       | EjectService(_) => 4
       // service 4 + newSupervisor 4.
       | SetServiceSupervisor(_) => 8
-      // codeHash 32 + Compact<u32> len + two u64 gas limits 16 + id Compact<u64>
+      // codeHash 32 + Compact<u32> len + two u64 gas limits 16
       // + Option<ServiceId> desiredId (1 tag + 4 when Some)
       // + two balance selectors 2.
       | CreateService(p) =>
-        50 + compactLen(p.len) + compactLen(p.id)
-          + (match p.desiredId { | Some(_) => 5 | None => 1 })
-      // Target (1 tag + 4 id) + hash 32 + Compact<u32> len.
-      | Forget(p) => 37 + compactLen(p.len)
-      // service 4 + Vec<u8> key (compact len prefix + bytes).
-      | RemoveServiceStorage(p) => 4 + compactLen(p.key.length()) + p.key.length()
+        50 + compactLen(p.len) + (match p.desiredId { | Some(_) => 5 | None => 1 })
+      // Target (1 tag + 4 id) + Vec<(hash 32, Compact<u32> len)>.
+      | Forget(p) =>
+        5 + compactLen(p.preimages.length())
+          + p.preimages.foldl(0, (sum, e) => sum + 32 + compactLen(e._2))
+      // service 4 + Vec<Vec<u8>> keys (compact len prefix + per key compact
+      // len prefix + bytes).
+      | RemoveServiceStorage(p) =>
+        4 + compactLen(p.keys.length())
+          + p.keys.foldl(0, (sum, k) => sum + compactLen(k.length()) + k.length())
       | SetKV(p) =>
         compactLen(p.key.length()) + p.key.length()
           + compactLen(p.value.length()) + p.value.length()
       // paraId 4 + Vec<u8> key (compact len prefix + bytes).
       | RemoveKV(p) => 4 + compactLen(p.key.length()) + p.key.length()
-      // dest 4 + two balance selectors 2 + amount Compact<u64> + id Compact<u64>
+      // dest 4 + two balance selectors 2 + amount (1 tag + Compact<u64>)
       // + Option<ServiceId> source (1 tag + 4 when Some)
       // + Option<(Memo, gas)> (1 tag + 128 memo + 8 gas when Some).
       | TransferOut(p) =>
-        6 + compactLen(p.amount) + compactLen(p.id)
+        7 + compactLen(match p.amount { | Exact(a) => a | Max(a) => a })
           + (match p.source { | Some(_) => 5 | None => 1 })
           + (match p.deferred { | Some(_) => 137 | None => 1 })
       // core 4 + jamSlot 4 + Vec<AuthorizerHash> (compact len + 32 per entry)
@@ -94,17 +97,22 @@ module refine {
         48 + compactLen(p.len) + (match p.service { | Some(_) => 5 | None => 1 })
     }
 
-  /// Summed SCALE-encoded size of the upward messages themselves, excluding the
-  /// enclosing vector's length prefix.
-  pure def upwardMessagesTotalSize(msgs: List[UpwardMessage]): int =
-    msgs.foldl(0, (acc, m) => acc + upwardMessageSize(m))
+  /// SCALE-encoded size of one `(message_id, message)` pair: the
+  /// `Compact<u64>` id plus the message.
+  pure def sentMessageSize(id: MessageId, m: UpwardMessage): int =
+    compactLen(id) + upwardMessageSize(m)
+
+  /// Summed SCALE-encoded size of the `(message_id, message)` pairs themselves,
+  /// excluding the enclosing vector's length prefix.
+  pure def upwardMessagesTotalSize(msgs: List[(MessageId, UpwardMessage)]): int =
+    msgs.foldl(0, (acc, m) => acc + sentMessageSize(m._1, m._2))
 
   /// `true` iff the whole Refine output (`paraId` + `vch` + `parentHeadHash` +
   /// worst-case `head_data` + upward messages) plus a worst-case auth trace
   /// would exceed `MaxReportVarSize`. Backstop on the 48 KiB Gray Paper limit:
   /// `MaxUpwardMessagesSize` is chosen so this cannot trigger, so it fires only
   /// if that budget or one of the sizes below is ever set inconsistently.
-  pure def refineOutputExceedsBudget(msgs: List[UpwardMessage]): bool = {
+  pure def refineOutputExceedsBudget(msgs: List[(MessageId, UpwardMessage)]): bool = {
     val headDataMax = 4098 // BoundedVec<u8, 4096> worst case
     val authTraceMax = 256
     val resultBase = 4 + 32 + 32 + headDataMax
@@ -133,7 +141,7 @@ module refine {
     codeHash: ValidationCodeHash,
     parentHead: HeadHash,
     newHead: HeadData,
-    msgs: List[UpwardMessage],
+    msgs: List[(MessageId, UpwardMessage)],
     lookupAnchor: Timeslot,
     provides: Option[StreamsRoot],
     requires: List[(ParaId, StreamsRoot)]
@@ -175,14 +183,15 @@ module refine {
     | SetParentHeadHash(HeadHash)
     | SetHead(HeadData)
     | SetHeadOversized
-    | Send(UpwardMessage)
+    // `send_upward_message(message_id, msg)`.
+    | Send((MessageId, UpwardMessage))
     | SetMessagesStreamsRoot(StreamsRoot)
     | SetMessagesRequiresRoots(List[(ParaId, StreamsRoot)])
     | ReportError(int)
     | Panic
 
   /// `Send` for each of `msgs`, in order.
-  pure def sends(msgs: List[UpwardMessage]): List[CodeCall] =
+  pure def sends(msgs: List[(MessageId, UpwardMessage)]): List[CodeCall] =
     msgs.foldl(List(), (acc, m) => acc.append(Send(m)))
 
   // --- Messaging declarations (§4.3, §8) --------------------------------
@@ -260,7 +269,7 @@ module refine {
   type RefineRun = {
     parent: Option[HeadHash],
     head: Option[HeadData],
-    msgs: List[UpwardMessage],
+    msgs: List[(MessageId, UpwardMessage)],
     msgsSize: int,
     keysSent: bool,
     streamsRoot: Option[StreamsRoot],
@@ -279,10 +288,12 @@ module refine {
     stop: Running
   }
 
-  /// The rule `send_upward_message(m)` breaks, checked in the §4.3 order: the
+  /// The rule `send_upward_message(id, m)` breaks, checked in the §4.3 order: the
   /// para restrictions, the variant's own requirements, the 40 KiB budget, the
   /// message count.
-  pure def sendViolation(r: RefineRun, para_id: ParaId, m: UpwardMessage): Option[RefineLog] = {
+  pure def sendViolation(
+    r: RefineRun, para_id: ParaId, id: MessageId, m: UpwardMessage
+  ): Option[RefineLog] = {
     val variantViolation: Option[RefineLog] = match m {
       | AssignCore(p) =>
         if (not(wellFormedAssignQueue(p.queue, p.newAssigner))) Some(InvalidAuthorizerQueue)
@@ -297,9 +308,9 @@ module refine {
       | RemoveKV(p) => if (p.key == List()) Some(EmptyKVKeyOrValue) else None
       | _ => None
     }
-    if (violatesParachainRestrictions(List(m), para_id)) Some(RestrictedHostFunction)
+    if (violatesParachainRestriction(m, para_id)) Some(RestrictedHostFunction)
     else if (variantViolation != None) variantViolation
-    else if (r.msgsSize + upwardMessageSize(m) > MaxUpwardMessagesSize)
+    else if (r.msgsSize + sentMessageSize(id, m) > MaxUpwardMessagesSize)
       Some(UpwardMessagesTooLarge)
     else if (r.msgs.length() >= MaxUpwardMessages) Some(TooManyUpwardMessages)
     else None
@@ -320,14 +331,14 @@ module refine {
       | SetHeadOversized =>
         if (r.head != None) { ...r, stop: Aborted(InvalidHeadDeclaration) }
         else { ...r, stop: Aborted(HeadDataTooLarge) }
-      | Send(m) =>
-        match sendViolation(r, para_id, m) {
+      | Send(sent) =>
+        match sendViolation(r, para_id, sent._1, sent._2) {
           | Some(e) => { ...r, stop: Aborted(e) }
           | None => {
             ...r,
-            msgs: r.msgs.append(m),
-            msgsSize: r.msgsSize + upwardMessageSize(m),
-            keysSent: r.keysSent or (match m { | SetValidatorKeys(_) => true | _ => false })
+            msgs: r.msgs.append(sent),
+            msgsSize: r.msgsSize + sentMessageSize(sent._1, sent._2),
+            keysSent: r.keysSent or (match sent._2 { | SetValidatorKeys(_) => true | _ => false })
           }
         }
       | SetMessagesStreamsRoot(root) =>
@@ -391,35 +402,23 @@ module refine {
 
   /// Per-work-package Refine entry point (§4.1).
   ///
-  /// Every package-level failure panics, because `para_id` is only authoritative
-  /// from §4.1 step 2 onward and a `RefineLog` with no para to land in is
-  /// useless. Otherwise each item is refined via `refineItem`, with its
-  /// `para_id` sourced from `authorized_paras`.
+  /// A package that is not single-item (§3.2) panics, because it has no single
+  /// `para_id` to attribute a `RefineLog` to. Otherwise the item is refined via
+  /// `refineItem` with its own `para_id`.
   ///
   /// Single-item packages only (per §3.2): `calls` are the host calls of that
   /// item's validation code.
   pure def refine(
     s: ParachainServiceState,
     pkg: WorkPackage,
-  // The config parsed for the authorizer but carries no `Vec<ParaId>` prefix,
-  // so the service cannot source a `para_id` from it (§4.1 step 1).
-  authParasPrefixMissing: bool,
     calls: List[CodeCall],
     lookupAnchor: Timeslot
   ): List[WorkExecResult] = {
-    // Package-level failures are settled before §4.1 step 2 fixes an
-    // authoritative `para_id`, so none can name a para to log against and all
-    // panic (§4.2): a missing `Vec<ParaId>` prefix, a package that is not
-    // single-item (§3.2), and an `authorized_paras` length that disagrees with
-    // the item count. A config that will not decode at all never gets here:
-    // `is_authorized` fails on it first, so it never becomes a work report (§7).
-    if (authParasPrefixMissing
-        or pkg.items.length() != 1
-        or pkg.authorizedParas.length() != pkg.items.length())
+    if (pkg.items.length() != 1)
       List(WorkErr)
     else
       match refineItem(
-        s, pkg.authorizedParas[0], pkg.items[0],
+        s, pkg.items[0].paraId, pkg.items[0],
         calls, lookupAnchor
       ) {
         | Some(d) => List(WorkOk(d))
