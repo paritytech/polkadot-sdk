@@ -1,0 +1,18 @@
+title: 'statement-store: rename the v2 DHT path to the DHT path'
+doc:
+- audience: [Node Operator, Node Dev]
+  description: |-
+    A rename with no change of behaviour. The flag `--statement-v2-dht` becomes
+    `--statement-dht`, and the metrics `substrate_sync_statement_v2dht_*` become
+    `substrate_sync_statement_dht_*`. In the code `v2dht_enabled`, `set_v2dht_enabled` and
+    `V2DhtConfig` become `dht_enabled`, `set_dht_enabled` and `DhtConfig`, and the `v2dht` field
+    of the statement store configuration becomes `dht`.
+crates:
+- name: sc-network-statement
+  bump: major
+- name: sc-statement-store
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
+- name: staging-node-cli
+  bump: major

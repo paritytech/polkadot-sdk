@@ -413,8 +413,22 @@ class TestCmd(unittest.TestCase):
             import cmd
             cmd.main()
             mock_exit.assert_not_called()
-            mock_system.assert_any_call('rustup run nightly cargo-fmt')
+            mock_system.assert_has_calls([
+                call('rustup run nightly cargo-fmt'),
+                call('rustup run nightly cargo metadata --format-version=1 --locked > /dev/null'),
+                call('rustup run nightly zepter run default'),
+                call('taplo format --config .config/taplo.toml'),
+            ])
+
+    @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='fmt'), []))
+    @patch('os.system', side_effect=lambda command: 1 if command == 'rustup run nightly zepter run default' else 0)
+    def test_fmt_command_zepter_fails(self, mock_system, mock_parse_args):
+        with patch('sys.exit') as mock_exit:
+            import cmd
+            cmd.main()
+            # taplo still runs, but the command fails
             mock_system.assert_any_call('taplo format --config .config/taplo.toml')
+            mock_exit.assert_called_once_with(1)
 
     @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='update-ui'), []))
     @patch('os.system', return_value=0)

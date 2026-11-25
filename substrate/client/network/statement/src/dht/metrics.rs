@@ -16,11 +16,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Prometheus metrics for the v2 DHT gossip path.
+//! Prometheus metrics for the DHT gossip path.
 
 use prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
 
-pub(crate) struct V2DhtMetrics {
+pub(crate) struct DhtMetrics {
 	/// Statement-store peers known to the topology, including peers without confirmed protocol
 	/// support.
 	known_peers: Gauge<U64>,
@@ -35,40 +35,40 @@ pub(crate) struct V2DhtMetrics {
 	unreachable_peers: Gauge<U64>,
 }
 
-impl V2DhtMetrics {
+impl DhtMetrics {
 	pub(crate) fn register(r: &Registry) -> Result<Self, PrometheusError> {
 		Ok(Self {
 			known_peers: register(
 				Gauge::new(
-					"substrate_sync_statement_v2dht_known_peers",
-					"Statement-store peers known to the v2 DHT topology, including peers without confirmed protocol support",
+					"substrate_sync_statement_dht_known_peers",
+					"Statement-store peers known to the DHT topology, including peers without confirmed protocol support",
 				)?,
 				r,
 			)?,
 			connected_peers: register(
 				Gauge::new(
-					"substrate_sync_statement_v2dht_connected_peers",
+					"substrate_sync_statement_dht_connected_peers",
 					"Statement-store peers with an open statement notification substream",
 				)?,
 				r,
 			)?,
 			eligible_peers: register(
 				Gauge::new(
-					"substrate_sync_statement_v2dht_eligible_peers",
+					"substrate_sync_statement_dht_eligible_peers",
 					"Known statement-store peers with confirmed protocol support, the DHT storage, affinity and forwarding candidates",
 				)?,
 				r,
 			)?,
 			desired_unconnected_peers: register(
 				Gauge::new(
-					"substrate_sync_statement_v2dht_desired_unconnected_peers",
+					"substrate_sync_statement_dht_desired_unconnected_peers",
 					"Desired peers without an open statement substream, sampled on the pending-affinity tick",
 				)?,
 				r,
 			)?,
 			unreachable_peers: register(
 				Gauge::new(
-					"substrate_sync_statement_v2dht_unreachable_peers",
+					"substrate_sync_statement_dht_unreachable_peers",
 					"Peers passed over as unreachable, sampled on the pending-affinity tick",
 				)?,
 				r,

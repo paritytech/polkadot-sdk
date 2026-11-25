@@ -72,6 +72,10 @@ pub use bridge_hub_test_utils;
 #[cfg(feature = "bridge-runtime-common")]
 pub use bridge_runtime_common;
 
+/// AURA authorization types, signing payloads, and collator proofs for JAM parachains.
+#[cfg(feature = "cumulus-aura-authorizer-utils")]
+pub use cumulus_aura_authorizer_utils;
+
 /// Parachain bootnodes registration and discovery.
 #[cfg(feature = "cumulus-client-bootnodes")]
 pub use cumulus_client_bootnodes;

@@ -78,6 +78,7 @@ members = [
 	"cumulus/client/relay-chain-streams",
 	"cumulus/client/resubmission-store",
 	"cumulus/client/service",
+	"cumulus/jam/aura-authorizer-utils",
 	"cumulus/pallets/ah-ops",
 	"cumulus/pallets/aura-ext",
 	"cumulus/pallets/collator-selection",
@@ -776,6 +777,7 @@ coretime-westend-emulated-chain = { path = "cumulus/parachains/integration-tests
 coretime-westend-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-westend" }
 cpu-time = { version = "1.0.0" }
 criterion = { version = "0.5.1", default-features = false }
+cumulus-aura-authorizer-utils = { path = "cumulus/jam/aura-authorizer-utils", default-features = false }
 cumulus-client-bootnodes = { path = "cumulus/client/bootnodes", default-features = false }
 cumulus-client-cli = { path = "cumulus/client/cli", default-features = false }
 cumulus-client-collator = { path = "cumulus/client/collator", default-features = false }
@@ -914,6 +916,8 @@ ip_network = { version = "0.4.1" }
 is-terminal = { version = "0.4.9" }
 is_executable = { version = "1.0.1" }
 itertools = { version = "0.11" }
+jam-codec = { version = "0.1.1", default-features = false }
+jam-types = { version = "=0.1.29", default-features = false }
 jobserver = { version = "0.1.26" }
 jsonrpsee = { version = "0.24.11" }
 jsonrpsee-core = { version = "0.24.11" }
@@ -949,7 +953,7 @@ milagro-bls = { version = "1.5.4", default-features = false, package = "snowbrid
 minimal-template-runtime = { path = "templates/minimal/runtime" }
 mixnet = { version = "0.7.0" }
 mmr-gadget = { path = "substrate/client/merkle-mountain-range", default-features = false }
-mmr-lib = { version = "0.8.3", package = "polkadot-ckb-merkle-mountain-range", default-features = false }
+mmr-lib = { version = "0.8.4", package = "polkadot-ckb-merkle-mountain-range", default-features = false }
 mmr-rpc = { path = "substrate/client/merkle-mountain-range/rpc", default-features = false }
 mockall = { version = "0.13.1" }
 multiaddr = { version = "0.18.1" }
