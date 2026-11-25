@@ -2305,14 +2305,18 @@ impl<T: Config> Pallet<T> {
 				// A contract call.
 				Some(dest) => {
 					if dest == RUNTIME_PALLETS_ADDR {
-						let Ok(dispatch_call) = <CallOf<T>>::decode(&mut &input[..]) else {
-							return Err(EthTransactError::Message(format!(
-								"Failed to decode pallet-call {input:?}"
-							)));
+						let Some(Call::<T>::eth_substrate_call { call: dispatch_call, .. }) =
+							call_info.call.is_sub_type()
+						else {
+							return Err(EthTransactError::Message(
+								"Unexpected call for the runtime pallets address".into(),
+							));
 						};
 
-						if let Err(result) =
-							dispatch_call.clone().dispatch(RawOrigin::Signed(origin).into())
+						if let Err(result) = dispatch_call
+							.as_ref()
+							.clone()
+							.dispatch(RawOrigin::Signed(origin).into())
 						{
 							return Err(EthTransactError::Message(format!(
 								"Failed to dispatch call: {:?}",
