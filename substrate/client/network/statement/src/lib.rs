@@ -655,10 +655,10 @@ fn protocol_names(
 /// Whether a peer whose identify answer lists `supported` runs the DHT path: it offers the main
 /// protocol `statement/4`, or `statement/3` of the same chain.
 fn lists_dht_protocol(supported: &HashSet<ProtocolName>, main: &ProtocolName) -> bool {
-	let chain = main.strip_suffix(STATEMENT_PROTOCOL_V4);
-	supported.iter().any(|name| {
-		name == main || (chain.is_some() && name.strip_suffix(STATEMENT_PROTOCOL_V3) == chain)
-	})
+	supported.contains(main) ||
+		main.strip_suffix(STATEMENT_PROTOCOL_V4).is_some_and(|chain| {
+			supported.contains(format!("{chain}{STATEMENT_PROTOCOL_V3}").as_str())
+		})
 }
 
 /// Prototype for a [`StatementHandler`].
@@ -7152,7 +7152,10 @@ mod tests {
 			peer: remote,
 			supported_protocols: fallbacks.clone(),
 		});
-		assert!(handler.dht.is_replica_for(&[topic]), "a peer without statement/3 is not indexed");
+		assert!(
+			handler.dht.is_replica_for(&[topic]),
+			"a peer without a DHT protocol is not indexed"
+		);
 
 		let mut with_main = fallbacks.clone();
 		with_main.insert(main);
