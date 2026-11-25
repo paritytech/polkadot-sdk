@@ -21,7 +21,7 @@ use crate::{
 };
 use frame_support_procedural_tools::get_doc_literals;
 use quote::ToTokens;
-use syn::{punctuated::Punctuated, spanned::Spanned, token, Error};
+use syn::{punctuated::Punctuated, token, Error};
 
 impl Pallet {
 	pub fn try_from(
@@ -83,11 +83,8 @@ impl Pallet {
 			.iter()
 			.filter(|attr| attr.path().segments.first().map_or(false, |s| s.ident == "cfg"))
 			.map(|attr| {
-				attr.parse_args_with(|input: syn::parse::ParseStream| {
-					let input = input.parse::<proc_macro2::TokenStream>()?;
-					cfg_expr::Expression::parse(&input.to_string())
-						.map_err(|e| syn::Error::new(attr.span(), e.to_string()))
-				})
+				attr.meta.require_list()?;
+				Ok(attr.clone())
 			})
 			.collect::<syn::Result<Vec<_>>>()?;
 

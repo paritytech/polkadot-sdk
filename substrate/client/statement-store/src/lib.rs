@@ -33,8 +33,8 @@
 //! * There may not be more than `MAX_TOTAL_STATEMENTS` total statements with `MAX_TOTAL_SIZE` size.
 //!   To satisfy this, statements are removed from the store starting with the lowest
 //!   `global_priority` until a constraint is satisfied.
-//! * On the v2 DHT path, the statements kept for DHT affinity and the transient ones each have
-//!   their own size limit. Statements kept only for explicit affinity have no limit of their own.
+//! * On the DHT path, the statements kept for DHT affinity and the transient ones each have their
+//!   own size limit. Statements kept only for explicit affinity have no limit of their own.
 //!
 //! When a new statement is inserted that would not satisfy constraints in the first place, no
 //! statements are deleted and a `Rejected` result is returned.
@@ -582,17 +582,17 @@ pub const DEFAULT_NETWORK_WORKERS: usize = 1;
 /// Default maximum statements per second per peer before rate limiting kicks in.
 pub use sc_network_statement::config::DEFAULT_STATEMENTS_PER_SECOND as DEFAULT_RATE_LIMIT;
 
-/// Default replication factor (K) for v2 DHT-affinity statement routing.
+/// Default replication factor (K) for DHT-affinity statement routing.
 pub use sc_network_statement::config::DEFAULT_REPLICATION_FACTOR;
 
-/// Default inbound slots for full peers on the v2 DHT statement path.
+/// Default inbound slots for full peers on the DHT statement path.
 pub use sc_network_statement::config::DEFAULT_IN_PEERS;
 
-/// Default gossip target for v2 DHT-affinity statement routing.
+/// Default gossip target for DHT-affinity statement routing.
 pub use sc_network_statement::config::DEFAULT_GOSSIP_TARGET;
 
-/// Parameters of the v2 DHT statement path.
-pub use sc_network_statement::{AffinityTopicsFile, V2DhtConfig};
+/// Parameters of the DHT statement path.
+pub use sc_network_statement::{AffinityTopicsFile, DhtConfig};
 
 /// Default and lowest accepted false-positive rate of the advertised topic-affinity bloom
 /// filter.
@@ -613,8 +613,8 @@ pub struct Config {
 	pub network_workers: usize,
 	/// Maximum statements per second per peer before rate limiting kicks in.
 	pub rate_limit: u32,
-	/// Parameters of the v2 DHT statement path, `None` when the legacy flood path is in use.
-	pub v2dht: Option<V2DhtConfig>,
+	/// Parameters of the DHT statement path, `None` when the legacy flood path is in use.
+	pub dht: Option<DhtConfig>,
 }
 
 impl Config {
@@ -631,7 +631,7 @@ impl Config {
 		if self.network_workers == 0 {
 			return Err(Error::InvalidConfig("network_workers must be greater than zero".into()));
 		}
-		if self.v2dht.as_ref().is_some_and(|cfg| {
+		if self.dht.as_ref().is_some_and(|cfg| {
 			!(cfg.bloom_false_pos_rate >= DEFAULT_BLOOM_FALSE_POS_RATE &&
 				cfg.bloom_false_pos_rate < 1.0)
 		}) {
@@ -656,7 +656,7 @@ impl Config {
 	/// the limit.
 	fn track_max_sizes(&self) -> [Option<usize>; RetentionTrack::COUNT] {
 		let mut max_sizes = [None; RetentionTrack::COUNT];
-		if let Some(cfg) = &self.v2dht {
+		if let Some(cfg) = &self.dht {
 			max_sizes[RetentionTrack::Transient as usize] = cfg.transient_max_size;
 			max_sizes[RetentionTrack::Persistent as usize] = cfg.dht_affinity_max_size;
 		}
@@ -689,7 +689,7 @@ impl Default for Config {
 			purge_after_sec: DEFAULT_PURGE_AFTER_SEC,
 			network_workers: DEFAULT_NETWORK_WORKERS,
 			rate_limit: DEFAULT_RATE_LIMIT,
-			v2dht: None,
+			dht: None,
 		}
 	}
 }
@@ -1721,10 +1721,39 @@ impl Store {
 				let Some(dec_key) = parse_dec_key_index_prefix(&prefix) else { continue };
 				query_index.dec_key_counts.insert(dec_key, count);
 			}
+			if submit_index.config.dht.is_some() {
+				self.restore_retention_tracking(&mut query_index)?;
+			}
 		}
 
 		self.known_accounts_count.store(self.count_accounts()?, AtomicOrdering::Relaxed);
 		self.maintain();
+		Ok(())
+	}
+
+	/// Restores the track of every transient and explicit-only statement from the account index.
+	fn restore_retention_tracking(&self, query_index: &mut QueryIndex) -> Result<()> {
+		let mut iter = self.db.iter(col::INDEX_BY_ACCOUNT).map_err(|e| Error::Db(e.to_string()))?;
+		iter.seek_to_first().map_err(|e| Error::Db(e.to_string()))?;
+		while let Some((key, value)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+			let Some((_, _, hash)) = parse_account_index_key(&key) else { continue };
+			let Ok(details) = EntryDetails::decode(&mut value.as_slice()) else {
+				log::error!(
+					target: LOG_TARGET,
+					"Corrupt account index entry for statement {:?}",
+					HexDisplay::from(&hash)
+				);
+				continue;
+			};
+			if details.track.is_persistent() {
+				continue;
+			}
+			query_index.retention_tracks.insert(hash, details.track);
+			// Nothing records which transient statements reached a peer, so all are sent again.
+			if details.track == RetentionTrack::Transient {
+				query_index.recent.insert(hash, details.admission_seq);
+			}
+		}
 		Ok(())
 	}
 
@@ -2511,7 +2540,8 @@ impl Store {
 	}
 
 	/// Re-check the retention of the tracked statements once they are propagated: the
-	/// resolver's verdict becomes their track, and a statement no affinity covers is removed.
+	/// resolver's verdict becomes their track while that track has room, and a statement no
+	/// affinity covers is removed.
 	fn sweep_retention(&self) {
 		let Some(resolver) = self.retention_fn.get() else { return };
 		let candidates: Vec<(Hash, RetentionTrack)> = {
@@ -2563,7 +2593,7 @@ impl Store {
 								query_index.retention_tracks.insert(hash, verdict);
 							}
 						},
-						// Logged where found, left tracked so the next sweep reports it again.
+						// Logged where found, left tracked so the next sweep tries again.
 						Ok(false) => {},
 						Err(e) => log::warn!(
 							target: LOG_TARGET,
@@ -3095,25 +3125,26 @@ impl StatementStore for Store {
 	///    (`SubmitResult::Invalid(InvalidReason::AlreadyExpired)`).
 	/// 2. **Encoding size check** — reject if the encoded statement exceeds [`MAX_STATEMENT_SIZE`]
 	///    (`InvalidReason::EncodingTooLarge`).
-	/// 3. **Duplicate check** — a statement already in the store is reported `Known`: the hash
+	/// 3. **Topics check** — reject a statement without topics (`InvalidReason::NoTopics`).
+	/// 4. **Duplicate check** — a statement already in the store is reported `Known`: the hash
 	///    covers the whole content, so a duplicate carries nothing to renew. A recently evicted
 	///    statement may be resubmitted (renewed) by `Chain` and `Local` sources but not by
 	///    `Network` (`SubmitResult::KnownExpired`).
-	/// 4. **Proof & signature** — extract the account from the proof and verify the signature
+	/// 5. **Proof & signature** — extract the account from the proof and verify the signature
 	///    (`InvalidReason::NoProof` / `InvalidReason::BadProof`).
-	/// 5. **Allowance** — read the account's allowance (`StatementAllowance`: max count and size)
+	/// 6. **Allowance** — read the account's allowance (`StatementAllowance`: max count and size)
 	///    directly from chain state at the best block (via the `statement_allowance_key` storage
 	///    key — not a runtime call); reject with `SubmitResult::Rejected(NoAllowance)` if none is
 	///    set. The best block is used for responsiveness. Limit enforcement takes the larger of the
 	///    best and the finalized allowance, so a statement accepted here outlives the finality lag;
 	///    it is evicted later if the allowance it relied on leaves the best chain or a lower
 	///    allowance is finalized.
-	/// 6. **Constraint check & eviction** — check the account's record, enforcing per-account
+	/// 7. **Constraint check & eviction** — check the account's record, enforcing per-account
 	///    limits (count, size, one statement per channel, higher priority replaces lower) and
 	///    global limits ([`DEFAULT_MAX_TOTAL_STATEMENTS`], [`DEFAULT_MAX_TOTAL_SIZE`]), evicting
 	///    lower-priority statements of the same account as needed (`SubmitResult::Rejected` if it
 	///    still does not fit).
-	/// 7. **Persist** — commit the statement, its index rows, any evictions and the refreshed
+	/// 8. **Persist** — commit the statement, its index rows, any evictions and the refreshed
 	///    counters atomically, then update the caches and the in-memory query index.
 	///
 	/// Returns `SubmitResult::New` on success.
@@ -3152,6 +3183,18 @@ impl StatementStore for Store {
 				submitted_size: encoded_size,
 				max_size: MAX_STATEMENT_SIZE,
 			};
+			self.metrics.report(|metrics| {
+				metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
+			});
+			return SubmitResult::Invalid(reason);
+		}
+		if statement.topics().is_empty() {
+			log::debug!(
+				target: LOG_TARGET,
+				"Statement has no topics: {:?}",
+				HexDisplay::from(&hash),
+			);
+			let reason = InvalidReason::NoTopics;
 			self.metrics.report(|metrics| {
 				metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
 			});
@@ -3770,7 +3813,8 @@ impl Store {
 	}
 
 	/// Moves a stored statement onto `track` by rewriting its account index row and the totals
-	/// under the submit-index write lock, `false` when the statement cannot be tied to its row.
+	/// under the submit-index write lock, `false` when the statement cannot be tied to its row or
+	/// `track` has no room for it.
 	fn retrack_statement_locked(
 		&self,
 		submit_index: &mut SubmitIndex,
@@ -3804,6 +3848,15 @@ impl Store {
 		let mut totals = submit_index.totals;
 		totals.sub(details.track, details.data_len);
 		totals.add(track, details.data_len);
+		if submit_index.exceeded_limit(&totals, track) == Some(RejectionReason::TrackFull) {
+			log::debug!(
+				target: LOG_TARGET,
+				"No room to move statement {:?} to {:?}",
+				HexDisplay::from(&hash),
+				track
+			);
+			return Ok(false);
+		}
 		self.db
 			.commit([
 				(
@@ -3997,9 +4050,9 @@ impl Store {
 mod tests {
 
 	use crate::{
-		col, evicted_index_key, parse_time_index_key, AllowanceBlock, Config, Error,
+		col, evicted_index_key, parse_time_index_key, AllowanceBlock, Config, DhtConfig, Error,
 		PrometheusMetrics, PrometheusRegistry, QueryIndex, Resubmission, RetentionReasonMask,
-		RetentionTrack, Store, StoreTotals, V2DhtConfig, INDEX_EMPTY_VALUE, KEY_VERSION,
+		RetentionTrack, Store, StoreTotals, INDEX_EMPTY_VALUE, KEY_VERSION,
 	};
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
@@ -4216,13 +4269,17 @@ mod tests {
 
 	/// Closes `store` and opens the database in `temp` again with the default config.
 	fn reopen(store: Store, temp: &tempfile::TempDir) -> Store {
+		reopen_with_config(store, temp, Default::default())
+	}
+
+	fn reopen_with_config(store: Store, temp: &tempfile::TempDir, config: Config) -> Store {
 		let keystore = store.keystore.clone();
 		drop(store);
 		let mut path: std::path::PathBuf = temp.path().into();
 		path.push("db");
 		Store::new::<Block, TestClient, TestBackend>(
 			&path,
-			Default::default(),
+			config,
 			std::sync::Arc::new(TestClient),
 			keystore,
 			None,
@@ -4232,7 +4289,7 @@ mod tests {
 	}
 
 	pub fn signed_statement(data: u8) -> Statement {
-		signed_statement_with_topics(data, &[], None)
+		signed_statement_with_topics(data, &[default_topic()], None)
 	}
 
 	fn signed_statement_with_topics(
@@ -4253,6 +4310,11 @@ mod tests {
 		let kp = sp_core::ed25519::Pair::from_string("//Alice", None).unwrap();
 		statement.sign_ed25519_private(&kp);
 		statement
+	}
+
+	/// The topic of test statements that need none in particular.
+	fn default_topic() -> Topic {
+		Topic::from([0xff; 32])
 	}
 
 	fn topic(data: u64) -> Topic {
@@ -4314,6 +4376,7 @@ mod tests {
 		data.resize(data_len, 0);
 		statement.set_plain_data(data);
 		statement.set_expiry_from_parts(u32::MAX, priority);
+		statement.set_topic(0, default_topic());
 		if let Some(c) = c {
 			statement.set_channel(channel(c));
 		}
@@ -5225,6 +5288,41 @@ mod tests {
 		assert_eq!(store.submit_index.read().totals, StoreTotals::default());
 	}
 
+	#[test]
+	fn sweep_keeps_a_statement_on_its_track_while_the_new_track_is_full() {
+		let (store, _temp) = test_store_with_config(Config {
+			dht: Some(DhtConfig { dht_affinity_max_size: Some(15), ..Default::default() }),
+			..Default::default()
+		});
+		let (resolver, transient) =
+			switchable_resolver(RetentionReasonMask::TRANSIENT, RetentionReasonMask::DHT_AFFINITY);
+		store.set_retention_resolver(resolver);
+		let source = StatementSource::Network;
+		let moving = statement(5, 1, None, 10);
+		let hash = moving.hash();
+		assert_eq!(store.submit(moving, source), SubmitResult::New);
+		transient.store(false, Ordering::Relaxed);
+		let persistent = statement(5, 2, None, 10);
+		assert_eq!(store.submit(persistent.clone(), source), SubmitResult::New);
+		propagate(&store);
+
+		// Two statements of 10 bytes exceed the 15 of the persistent track.
+		store.maintain();
+		assert!(store.has_statement(&hash));
+		assert_eq!(
+			store.query_index.read().retention_tracks.get(&hash),
+			Some(&RetentionTrack::Transient)
+		);
+		assert_eq!(track_size(&store, RetentionTrack::Transient), 10);
+		assert_eq!(track_size(&store, RetentionTrack::Persistent), 10);
+
+		store.remove(&persistent.hash()).unwrap();
+		store.maintain();
+		assert!(store.query_index.read().retention_tracks.is_empty());
+		assert_eq!(track_size(&store, RetentionTrack::Transient), 0);
+		assert_eq!(track_size(&store, RetentionTrack::Persistent), 10);
+	}
+
 	fn submit_one_statement_per_track(store: &Store) -> Vec<Statement> {
 		let phase = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
 		store.set_retention_resolver(Box::new({
@@ -5342,7 +5440,7 @@ mod tests {
 
 	fn transient_max_size(max_size: usize) -> Config {
 		Config {
-			v2dht: Some(V2DhtConfig { transient_max_size: Some(max_size), ..Default::default() }),
+			dht: Some(DhtConfig { transient_max_size: Some(max_size), ..Default::default() }),
 			..Default::default()
 		}
 	}
@@ -5393,7 +5491,7 @@ mod tests {
 	fn explicit_only_statements_take_the_room_the_limited_tracks_leave() {
 		let (store, _temp) = test_store_with_config(Config {
 			max_total_size: 300,
-			v2dht: Some(V2DhtConfig {
+			dht: Some(DhtConfig {
 				dht_affinity_max_size: Some(100),
 				transient_max_size: Some(100),
 				..Default::default()
@@ -5674,19 +5772,63 @@ mod tests {
 	}
 
 	#[test]
-	fn sweep_skips_statements_admitted_before_a_restart() {
-		let (store, temp) = test_store();
+	fn sweep_drops_a_lapsed_statement_admitted_before_a_restart() {
+		let (store, temp) = test_store_with_config(dht_config());
 		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::EXPLICIT_AFFINITY));
 		let statement = signed_statement(0);
 		let hash = statement.hash();
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
-		let store = reopen(store, &temp);
+		let store = reopen_with_config(store, &temp, dht_config());
 		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::TRANSIENT));
 
-		// Affinity tracking is in-memory: a statement admitted before a restart escapes the
-		// sweep and is kept until natural expiry.
 		store.maintain();
-		assert!(store.has_statement(&hash));
+		assert!(!store.has_statement(&hash));
+	}
+
+	fn dht_config() -> Config {
+		Config { dht: Some(Default::default()), ..Default::default() }
+	}
+
+	fn resolver_by_data_len() -> Box<dyn Fn(&Statement) -> RetentionReasonMask + Send + Sync> {
+		Box::new(|statement| match statement.data_len() {
+			1 => RetentionReasonMask::TRANSIENT,
+			2 => RetentionReasonMask::EXPLICIT_AFFINITY,
+			_ => RetentionReasonMask::persistent(),
+		})
+	}
+
+	#[test]
+	fn restart_restores_the_retention_tracks() {
+		let (store, temp) = test_store_with_config(dht_config());
+		store.set_retention_resolver(resolver_by_data_len());
+		let transient = statement(5, 1, None, 1).hash();
+		for data_len in 1..=3 {
+			let statement = statement(5, data_len as u32, None, data_len);
+			assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
+		}
+		let transient_seq = store.query_index.read().recent[&transient];
+		propagate(&store);
+		let tracks = store.query_index.read().retention_tracks.clone();
+		assert_eq!(tracks.len(), 2);
+
+		let store = reopen_with_config(store, &temp, dht_config());
+		store.set_retention_resolver(resolver_by_data_len());
+		assert_eq!(store.query_index.read().retention_tracks, tracks);
+
+		// The transient statement waits for propagation again, so the sweep keeps it.
+		store.maintain();
+		let recent: Vec<_> = store
+			.take_recent_statements()
+			.unwrap()
+			.into_iter()
+			.map(|(seq, hash, _)| (seq, hash))
+			.collect();
+		assert_eq!(recent, vec![(transient_seq, transient)]);
+
+		// Without the DHT config nothing is tracked.
+		let store = reopen(store, &temp);
+		assert!(store.query_index.read().retention_tracks.is_empty());
+		assert!(store.take_recent_statements().unwrap().is_empty());
 	}
 
 	#[test]
@@ -5927,8 +6069,8 @@ mod tests {
 	fn broadcasts_stmt_returns_encoded_statements() {
 		let (store, _tmp) = test_store();
 
-		// no key, no topic
-		let s0 = signed_statement_with_topics(0, &[], None);
+		// no key, a topic other than 42
+		let s0 = signed_statement_with_topics(0, &[topic(7)], None);
 		// same, but with a topic = 42
 		let s1 = signed_statement_with_topics(1, &[topic(42)], None);
 		// has a decryption key -> must NOT be returned by broadcasts_stmt
@@ -6949,6 +7091,7 @@ mod tests {
 		let mut base = Statement::new();
 		base.set_expiry(u64::MAX);
 		base.set_plain_data(vec![1]);
+		base.set_topic(0, default_topic());
 
 		let ed_kp = sp_core::ed25519::Pair::from_string("//Alice", None).unwrap();
 		let sr_kp = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
@@ -6985,6 +7128,20 @@ mod tests {
 			store.submit(wrong_signer, StatementSource::Network),
 			SubmitResult::Invalid(InvalidReason::BadProof)
 		);
+	}
+
+	#[test]
+	fn submit_rejects_statement_without_topics() {
+		let (store, _temp) = test_store();
+
+		for source in [StatementSource::Network, StatementSource::Local, StatementSource::Chain] {
+			let statement = signed_statement_with_topics(1, &[], None);
+			assert_eq!(
+				store.submit(statement, source),
+				SubmitResult::Invalid(InvalidReason::NoTopics)
+			);
+		}
+		assert_eq!(store.statements().unwrap().len(), 0);
 	}
 
 	#[test]

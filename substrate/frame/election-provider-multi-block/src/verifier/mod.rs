@@ -76,6 +76,8 @@ mod tests;
 // internal imports
 pub use crate::weights::traits::pallet_election_provider_multi_block_verifier::*;
 
+use alloc::{boxed::Box, vec, vec::Vec};
+use core::fmt::Debug;
 use frame_election_provider_support::PageIndex;
 use frame_support::weights::WeightMeter;
 use impls::SupportsOfVerifier;
@@ -83,7 +85,6 @@ pub use impls::{feasibility_check_page_inner_with_snapshot, pallet::*, Status};
 use sp_core::Get;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::Weight;
-use sp_std::{fmt::Debug, prelude::*};
 
 /// Errors that can happen in the feasibility check.
 #[derive(

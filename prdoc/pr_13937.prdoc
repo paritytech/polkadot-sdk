@@ -1,0 +1,10 @@
+title: Limit encoded CID length in Bitswap RPC requests
+doc:
+- audience: Node Dev
+  description: |-
+    The Bitswap RPC checks the 512-byte limit on each encoded CID before decoding it.
+    Get requests with an oversized CID return `-32602`. Streams report the same error for
+    the oversized item and continue processing the remaining CIDs.
+crates:
+- name: sc-rpc-spec-v2
+  bump: patch

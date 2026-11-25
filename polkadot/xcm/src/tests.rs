@@ -52,6 +52,15 @@ fn new_remote_transact(call: TestCall) -> latest::Instruction<()> {
 }
 
 #[test]
+fn versioned_location_max_encoded_len_includes_tag_and_all_versions() {
+	let largest_payload = v3::MultiLocation::max_encoded_len()
+		.max(v4::Location::max_encoded_len())
+		.max(v5::Location::max_encoded_len());
+
+	assert_eq!(VersionedLocation::max_encoded_len(), 1 + largest_payload);
+}
+
+#[test]
 fn encode_decode_versioned_asset_id_v3() {
 	let asset_id = VersionedAssetId::V3(v3::AssetId::Abstract([1; 32]));
 	let encoded = asset_id.encode();

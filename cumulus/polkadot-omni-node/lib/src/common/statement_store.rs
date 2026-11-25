@@ -48,7 +48,7 @@ pub(crate) fn new_statement_handler_proto<
 			metrics.clone(),
 			Arc::clone(&net_config.peer_store_handle()),
 			&net_config.network_config,
-			statement_store_config.v2dht.as_ref(),
+			statement_store_config.dht.as_ref(),
 		);
 	net_config.add_notification_protocol(statement_config);
 	statement_handler_proto
@@ -70,7 +70,7 @@ pub(crate) fn build_statement_store<
 ) -> sc_service::error::Result<Arc<Store>> {
 	let network_workers = config.network_workers;
 	let rate_limit = config.rate_limit;
-	let v2dht_config = config.v2dht.clone();
+	let dht_config = config.dht.clone();
 
 	let statement_store = sc_statement_store::Store::new_shared(
 		&parachain_config.data_path,
@@ -95,9 +95,9 @@ pub(crate) fn build_statement_store<
 		statement_protocol_executor,
 		network_workers,
 		rate_limit,
-		v2dht_config,
+		dht_config,
 	)?;
-	if sc_network_statement::v2dht_enabled() {
+	if sc_network_statement::dht_enabled() {
 		if let Some(resolver) = statement_handler.retention_resolver() {
 			statement_store.set_retention_resolver(resolver);
 		}

@@ -106,9 +106,13 @@ where
 	RA: ProvideRuntimeApi<Block>,
 	RA::Api: CollectCollationInfo<Block>,
 {
+	/// Split a block's upward messages at the first `UMP_SEPARATOR`, dropping any further
+	/// separators from the signal tail, as `validate_block` does.
 	fn split_at_separator(messages: Vec<Vec<u8>>) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
-		let mut parts = messages.splitn(2, |m: &Vec<u8>| m.is_empty());
-		(parts.next().unwrap_or(&[]).to_vec(), parts.next().unwrap_or(&[]).to_vec())
+		let mut iter = messages.into_iter();
+		let messages = iter.by_ref().take_while(|m| !m.is_empty()).collect();
+		let signals = iter.filter(|m| !m.is_empty()).collect();
+		(messages, signals)
 	}
 
 	/// Create a new instance.
@@ -411,5 +415,45 @@ where
 			proof,
 			scheduling_proof,
 		)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::CollatorService;
+
+	type Service = CollatorService<
+		cumulus_test_runtime::Block,
+		cumulus_test_client::Client,
+		cumulus_test_client::Client,
+	>;
+
+	#[test]
+	fn split_at_separator_matches_validate_block() {
+		let (a, b, c) = (vec![1u8], vec![2u8], vec![3u8]);
+		// No separator: everything is a message.
+		assert_eq!(
+			Service::split_at_separator(vec![a.clone(), b.clone()]),
+			(vec![a.clone(), b.clone()], vec![])
+		);
+		// Messages before the first separator, signals after it.
+		assert_eq!(
+			Service::split_at_separator(vec![a.clone(), vec![], b.clone(), c.clone()]),
+			(vec![a.clone()], vec![b.clone(), c.clone()]),
+		);
+		// Every further separator is dropped, as `validate_block` drops it, not kept as a signal.
+		assert_eq!(
+			Service::split_at_separator(vec![
+				a.clone(),
+				vec![],
+				b.clone(),
+				vec![],
+				vec![],
+				c.clone()
+			]),
+			(vec![a], vec![b, c]),
+		);
+		// A separator with nothing after it yields no signals.
+		assert_eq!(Service::split_at_separator(vec![vec![]]), (vec![], vec![]));
 	}
 }

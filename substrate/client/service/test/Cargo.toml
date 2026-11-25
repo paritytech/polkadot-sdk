@@ -44,3 +44,9 @@ substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 tempfile = { workspace = true }
 tokio = { features = ["time"], workspace = true, default-features = true }
+
+[dev-dependencies]
+async-trait = { workspace = true }
+frame-system = { workspace = true, default-features = true }
+sp-block-builder = { workspace = true, default-features = true }
+sp-inherents = { workspace = true, default-features = true }
