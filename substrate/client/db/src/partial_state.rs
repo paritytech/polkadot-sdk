@@ -31,10 +31,12 @@ use log::{info, warn};
 use parking_lot::{Mutex, MutexGuard, RwLock};
 use sc_client_api::partial_state::{PartialStateStore, PartialStateTarget, ResumablePartialState};
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
+use sp_core::storage::{ChildInfo, ChildType, PrefixedStorageKey};
 use sp_database::Transaction;
 use sp_runtime::traits::{
 	Block as BlockT, HashingFor, Header as HeaderT, NumberFor, PartialStateFor,
 };
+use sp_state_machine::{Backend as StateBackend, IterArgs};
 use sp_trie::partial_state::{chunk_nodes, TrieNodeInfo};
 use std::sync::Arc;
 
@@ -429,6 +431,27 @@ impl<Block: BlockT> DbPartialState<Block> {
 		}
 		Ok(removed)
 	}
+
+	/// Reads every key and value of the state at `state_root`, child tries included, from what
+	/// `STATE` holds. Fails on the first missing node.
+	fn check_trie_complete(&self, state_root: Block::Hash) -> ClientResult<()> {
+		let state = crate::DbStateBuilder::new(self.storage.clone(), state_root).build();
+		// Pairs, not keys: under state version 1 a large value is a node of its own, which only a
+		// value read fetches.
+		for kv in state.pairs(IterArgs::default()).map_err(ClientError::Storage)? {
+			let (key, _value) = kv.map_err(ClientError::Storage)?;
+			let child_info = match ChildType::from_prefixed_key(PrefixedStorageKey::new_ref(&key)) {
+				Some((ChildType::ParentKeyId, key)) => ChildInfo::new_default(key),
+				None => continue,
+			};
+			let mut iter_args = IterArgs::default();
+			iter_args.child_info = Some(child_info);
+			for kv in state.pairs(iter_args).map_err(ClientError::Storage)? {
+				let _ = kv.map_err(ClientError::Storage)?;
+			}
+		}
+		Ok(())
+	}
 }
 
 impl<Block: BlockT> PartialStateStore<Block> for DbPartialState<Block> {
@@ -582,8 +605,7 @@ impl<Block: BlockT> PartialStateStore<Block> for DbPartialState<Block> {
 		// Held across the walk, so no discard can run in between.
 		let mut status = self.status.lock();
 		Self::ensure_syncing(&status, state_root)?;
-		let state = crate::DbStateBuilder::new(self.storage.clone(), state_root).build();
-		if let Err(e) = sc_client_api::partial_state::check_trie_complete(state) {
+		if let Err(e) = self.check_trie_complete(state_root) {
 			// Every chunk was written and still a node is missing. The attempt cannot complete,
 			// so its nodes go now, before anything else writes `STATE`.
 			self.discard(&mut status).map_err(|discard| {
@@ -607,10 +629,8 @@ mod tests {
 		backend::{Backend as BTrait, BlockImportOperation as Op, NewBlockState},
 		TrieCacheContext,
 	};
-	use sp_core::storage::ChildInfo;
 	use sp_database::Database;
 	use sp_runtime::{testing::Header, StateVersion, Storage};
-	use sp_state_machine::Backend as StateBackend;
 	use sp_trie::{partial_state::PartialState, LayoutV0, MemoryDB, TrieDBMutBuilder, TrieMut};
 
 	/// A backend on a fresh in-memory database that records every write to `STATE`.

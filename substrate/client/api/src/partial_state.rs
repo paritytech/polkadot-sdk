@@ -22,13 +22,10 @@
 
 use codec::{Decode, Encode};
 use futures::channel::oneshot;
-use sp_core::Hasher;
 use sp_runtime::{
 	traits::{Block as BlockT, PartialStateFor},
 	Justifications,
 };
-use sp_state_machine::{Backend, IterArgs};
-use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey};
 
 /// The block a state sync downloads the state of. Enough to import the block once its state is
 /// complete, and to resume the download after a restart.
@@ -141,28 +138,4 @@ pub trait PartialStateStore<Block: BlockT>: Send + Sync {
 	/// still incomplete after the last chunk will never complete. Marking the target's import
 	/// operation presumes this passed; the mark itself walks nothing.
 	fn check_complete(&self, state_root: Block::Hash) -> sp_blockchain::Result<()>;
-}
-
-/// Walks the whole state trie at `state`, child tries included. Errors on the first missing node.
-pub fn check_trie_complete<H, B>(state: B) -> sp_blockchain::Result<()>
-where
-	H: Hasher,
-	B: Backend<H>,
-{
-	let map_err = |e| sp_blockchain::Error::Storage(format!("{e}"));
-	// Pairs, not keys: under state version 1 a large value is a node of its own, which only a
-	// value read fetches.
-	for kv in state.pairs(IterArgs::default()).map_err(map_err)? {
-		let (key, _value) = kv.map_err(map_err)?;
-		let child_info = match ChildType::from_prefixed_key(PrefixedStorageKey::new_ref(&key)) {
-			Some((ChildType::ParentKeyId, key)) => ChildInfo::new_default(key),
-			None => continue,
-		};
-		let mut iter_args = IterArgs::default();
-		iter_args.child_info = Some(child_info);
-		for kv in state.pairs(iter_args).map_err(map_err)? {
-			let _ = kv.map_err(map_err)?;
-		}
-	}
-	Ok(())
 }
