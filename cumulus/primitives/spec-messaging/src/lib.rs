@@ -71,6 +71,8 @@ pub use streams_root::{
 /// pallet. `()` records nothing and rejects V3 PoVs.
 pub trait ProvideConsumptionRecord {
 	/// Whether the parachain accepts V3 PoVs carrying speculative-messaging lifts.
+	/// If a candidate records consumption, its collator must supply matching lifts in a V3 PoV.
+	/// `validate_block` rejects the candidate if those lifts are missing or invalid.
 	const ENABLED: bool;
 
 	/// The block's consumption record: what the messaging inherent did. The `validate_block`
