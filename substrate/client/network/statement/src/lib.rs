@@ -250,12 +250,16 @@ enum StatementMessage {
 	#[codec(index = 1)]
 	ExplicitTopicAffinity(AffinityFilter),
 	/// Short hashes of statements the sender holds for this peer, sent ahead of their bodies.
-	/// The sender mixes `salt` into every hash.
+	/// The sender mixes `salt` into every hash, and sets `last` on the final announce of a sync.
 	#[codec(index = 2)]
-	Announce { id: u64, salt: u64, hashes: AnnouncedHashes },
+	Announce { id: u64, salt: u64, last: bool, hashes: AnnouncedHashes },
 	/// The answer to the announce `id`: a set bit asks for the body of the hash at that position.
 	#[codec(index = 3)]
 	Want { id: u64, wanted: WantedBitmap },
+	/// Asks the peer to announce the statements it admitted in the last `window_secs` seconds of
+	/// its own clock, or all of them without a window.
+	#[codec(index = 4)]
+	AnnounceRequest { window_secs: Option<u32> },
 }
 
 /// Codec variant index for `StatementMessage::Statements`, kept in sync with `#[codec(index)]`.
@@ -279,7 +283,11 @@ impl StatementMessage {
 	/// send the messages of set reconciliation.
 	fn decode_from(version: PeerProtocolVersion, mut notification: &[u8]) -> Option<Self> {
 		match Self::decode(&mut notification).ok()? {
-			Self::Announce { .. } | Self::Want { .. } if version != PeerProtocolVersion::V4 => None,
+			Self::Announce { .. } | Self::Want { .. } | Self::AnnounceRequest { .. }
+				if version != PeerProtocolVersion::V4 =>
+			{
+				None
+			},
 			message => Some(message),
 		}
 	}
@@ -2157,6 +2165,12 @@ where
 								},
 								StatementMessage::Want { id, .. } => {
 									log::trace!(target: LOG_TARGET, "Dropping want {id} from {peer}");
+								},
+								StatementMessage::AnnounceRequest { window_secs } => {
+									log::trace!(
+										target: LOG_TARGET,
+										"Dropping announce request for {window_secs:?} seconds from {peer}",
+									);
 								},
 							}
 						} else {
@@ -7221,22 +7235,27 @@ mod tests {
 	}
 
 	#[test]
-	fn announce_and_want_encoding_snapshot() {
+	fn reconciliation_messages_encoding_snapshot() {
 		let announce = StatementMessage::Announce {
 			id: 1,
 			salt: 2,
+			last: true,
 			hashes: vec![[0xAA; 8]].try_into().unwrap(),
 		};
-		let mut expected = vec![2, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 4];
+		let mut expected = vec![2, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 4];
 		expected.extend([0xAA; 8]);
 		assert_eq!(announce.encode(), expected);
 
 		let want = StatementMessage::Want { id: 1, wanted: vec![0b101].try_into().unwrap() };
 		assert_eq!(want.encode(), vec![3, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0b101]);
+
+		let request = |window_secs| StatementMessage::AnnounceRequest { window_secs }.encode();
+		assert_eq!(request(Some(300)), vec![4, 1, 0x2C, 1, 0, 0]);
+		assert_eq!(request(None), vec![4, 0]);
 	}
 
 	#[tokio::test]
-	async fn only_a_v4_peer_sends_an_announce_and_a_want_without_a_report() {
+	async fn only_a_v4_peer_sends_the_reconciliation_messages_without_a_report() {
 		let (mut handler, _statement_store, network, notification_service) =
 			build_handler_no_peers();
 		let peer_id = PeerId::random();
@@ -7249,10 +7268,15 @@ mod tests {
 			})
 			.await;
 
-		let announce =
-			StatementMessage::Announce { id: 1, salt: 0, hashes: vec![[1; 8]].try_into().unwrap() };
+		let announce = StatementMessage::Announce {
+			id: 1,
+			salt: 0,
+			last: false,
+			hashes: vec![[1; 8]].try_into().unwrap(),
+		};
+		let request = StatementMessage::AnnounceRequest { window_secs: Some(60) };
 		let want = StatementMessage::Want { id: 1, wanted: vec![1].try_into().unwrap() };
-		let messages = [announce.encode(), want.encode()];
+		let messages = [announce.encode(), want.encode(), request.encode()];
 
 		handler.peers.get_mut(&peer_id).unwrap().protocol_version = PeerProtocolVersion::V4;
 		for message in messages.clone() {
@@ -7277,14 +7301,14 @@ mod tests {
 					.await;
 			}
 		}
-		assert_eq!(network.get_reports().len(), 4);
+		assert_eq!(network.get_reports().len(), 6);
 	}
 
 	#[test]
 	fn an_announce_over_the_hash_limit_fails_to_decode() {
 		let announce = |hashes: usize| {
 			let mut bytes = vec![2];
-			bytes.extend([0; 16]);
+			bytes.extend([0; 17]);
 			Compact(hashes as u32).encode_to(&mut bytes);
 			bytes.extend(vec![0; hashes * 8]);
 			bytes

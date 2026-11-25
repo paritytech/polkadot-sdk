@@ -4,9 +4,10 @@ doc:
   description: |-
     A node with `--statement-dht` now offers `statement/4` and falls back to `statement/3`,
     `statement/2` and `statement/1`. A node without the flag does not change. `statement/4`
-    carries the `statement/3` messages and two messages of set reconciliation: an announce of
-    short hashes with a salt, and an answer with one bit for each announced hash. The node decodes
-    both and drops them when a `statement/4` peer sends them, and reports an older peer that sends
+    carries the `statement/3` messages and three messages of set reconciliation: a request to
+    announce the statements of a time window, an announce of short hashes with a salt and a mark
+    on the last one, and an answer with one bit for each announced hash. The node decodes them
+    and drops them when a `statement/4` peer sends them, and reports an older peer that sends
     them. Nothing sends them yet.
     A peer that lists `statement/3` in its identify answer still joins the DHT index, and two
     nodes settle on `statement/3` when one of them runs an older build.
