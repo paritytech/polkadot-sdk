@@ -16522,15 +16522,9 @@ dependencies = [
 
 [[package]]
 name = "polkadot-ckb-merkle-mountain-range"
-<<<<<<< HEAD
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f70a16374b7a26b74bfb4788254f8fd64c3406034e81694142cf93f1dd59368f"
-=======
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7981f73d570c8a4ef66f433f0b2060827f31130e2b9dbb8ac3f0983d3778d93"
->>>>>>> f69272d (Upgrade `polkadot-ckb-merkle-mountain-range` to 0.8.4 (#13963))
 dependencies = [
  "cfg-if",
  "itertools 0.10.5",
