@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795555621181,
+  "lastUpdate": 1795598624460,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "evgeny@parity.io",
-            "name": "Evgeny Snitko",
-            "username": "AndWeHaveAPlan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6e063cc8b622c26fd0198d9ab45bba5c468cda2f",
-          "message": "node-bench-regression-guard condition fix (#12079)\n\njob has `needs: cargo-check-benches`, but `if: always()` overrides it",
-          "timestamp": "2026-05-14T16:17:23Z",
-          "tree_id": "6bb523684d61cbeedba6e9881cd82303977d48aa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6e063cc8b622c26fd0198d9ab45bba5c468cda2f"
-        },
-        "date": 1778780489305,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0070245519066666675,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02357971681333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14374729372000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00957173925333331,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14156373512000012,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "79002163+gab8i@users.noreply.github.com",
+            "name": "gab",
+            "username": "gab8i"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d8d0859a9c72aeeeabcd4d1f53ae5e28b810e943",
+          "message": "fix: fork-tree, do not overflow the stack on deep trees (#13804)\n\n### Description\n\nA `ForkTree` gains one level for every node imported on top of another,\nuntil an ancestor is finalized. `Clone`, `PartialEq`, `Debug`, `Encode`,\n`Decode` and `Drop` were derived, so each used one stack frame per\nlevel.\n\nWhen finality stalled on Paseo, the BABE epoch tree grew by one level\nper epoch. BABE clones that tree at every epoch boundary, and the clone\noverflowed the 2 MiB worker stack, crashing the node. Encoding, decoding\nat startup and dropping the tree recurse the same way.\n\n### Integration\n\nThe roots and the children of a node are now held in a wrapper, `Nodes`,\naround `Vec<Node>`. It implements the six traits with a heap-allocated\nstack utilizing a pre-order listing of the nodes.\n\n- `Node` and `ForkTree` keep their derives on top of it.\n- The encoding is unchanged. \n\nCloses #12062",
+          "timestamp": "2026-11-25T07:48:02Z",
+          "tree_id": "4a8eb99dcb20189cc120c22462dd390ad9c76a6a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d8d0859a9c72aeeeabcd4d1f53ae5e28b810e943"
+        },
+        "date": 1795598585645,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007863492633333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14152881596,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009805686006666647,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024100908440000002,
             "unit": "seconds"
           }
         ]
