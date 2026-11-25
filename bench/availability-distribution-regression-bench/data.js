@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795609578553,
+  "lastUpdate": 1795621210163,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "evgeny@parity.io",
-            "name": "Evgeny Snitko",
-            "username": "AndWeHaveAPlan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a72afe70b1c1a98169a5571287c3796a35cd10b8",
-          "message": "Update ci-unified image version in .github/env (#12085)",
-          "timestamp": "2026-05-18T09:38:00Z",
-          "tree_id": "f597e751b53e7f01ad513f466286596d290acab5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a72afe70b1c1a98169a5571287c3796a35cd10b8"
-        },
-        "date": 1779102071471,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14471012735333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009762708306666638,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007348113653333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023846224913333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007849032539999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0bd30416e7934a99719fa568d0153e267e8723b4",
+          "message": "[JAM] Upstream AURA Authorizer (#13453)\n\nAdds the `cumulus-aura-authorizer` crate from the parachain-service\nrepository.\n\n### Assumptions\n\nSome things need clarification in the spec before this can be finalized:\n\n- https://github.com/paritytech/parachain-service/issues/57\n- https://github.com/paritytech/parachain-service/issues/58\n- https://github.com/paritytech/parachain-service/issues/59\n- https://github.com/paritytech/parachain-service/issues/60\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2026-11-25T14:03:52Z",
+          "tree_id": "7a8c9cdc7776dd746ef04a2d342e2914480261ae",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0bd30416e7934a99719fa568d0153e267e8723b4"
+        },
+        "date": 1795621169058,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007755405919999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1483396138,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009973934419999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02426411296666666,
             "unit": "seconds"
           }
         ]
