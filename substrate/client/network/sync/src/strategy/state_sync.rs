@@ -26,13 +26,13 @@ use codec::{Decode, Encode};
 use futures::channel::oneshot;
 use log::{debug, error, info, warn};
 use sc_client_api::{
-	partial_state::{PartialStateTarget, ResumablePartialState},
+	partial_state::{PartialStateFor, PartialStateTarget, ResumablePartialState},
 	CompactProof, PartialStateImport, ProofProvider,
 };
 use sc_consensus::{ImportedState, IncomingBlock};
 use smallvec::SmallVec;
 use sp_runtime::{
-	traits::{Block as BlockT, Header, NumberFor, PartialStateFor},
+	traits::{Block as BlockT, Header, NumberFor},
 	Justifications,
 };
 use std::{fmt, sync::Arc};

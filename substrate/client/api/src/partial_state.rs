@@ -23,9 +23,13 @@
 use codec::{Decode, Encode};
 use futures::channel::oneshot;
 use sp_runtime::{
-	traits::{Block as BlockT, PartialStateFor},
+	traits::{Block as BlockT, HashingFor},
 	Justifications,
 };
+
+/// The state sync chunk of a block, the verified nodes of one range of its state and the range
+/// they cover, over the block's hashing.
+pub type PartialStateFor<Block> = sp_trie::partial_state::PartialState<HashingFor<Block>>;
 
 /// The block a state sync downloads the state of. Enough to import the block once its state is
 /// complete, and to resume the download after a restart.

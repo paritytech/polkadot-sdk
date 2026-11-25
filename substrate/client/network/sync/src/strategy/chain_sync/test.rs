@@ -26,14 +26,13 @@ use crate::{
 use futures::{channel::oneshot::Canceled, executor::block_on};
 use rstest::rstest;
 use sc_block_builder::BlockBuilderBuilder;
-use sc_client_api::partial_state::PartialStateTarget;
+use sc_client_api::partial_state::{PartialStateFor, PartialStateTarget};
 use sc_consensus::{
 	BlockImport, BlockImportParams, ForkChoiceStrategy, ImportedState, StateAction, StorageChanges,
 };
 use sc_network::RequestFailure;
 use sc_network_common::sync::message::{BlockAnnounce, BlockData, BlockState, FromBlock};
 use sp_blockchain::HeaderBackend;
-use sp_runtime::traits::PartialStateFor;
 use std::sync::Mutex;
 use substrate_test_runtime_client::{
 	runtime::{Block, Hash, Header},

@@ -29,13 +29,13 @@ use codec::{Decode, Encode};
 use hash_db::EMPTY_PREFIX;
 use log::{info, warn};
 use parking_lot::{Mutex, MutexGuard, RwLock};
-use sc_client_api::partial_state::{PartialStateStore, PartialStateTarget, ResumablePartialState};
+use sc_client_api::partial_state::{
+	PartialStateFor, PartialStateStore, PartialStateTarget, ResumablePartialState,
+};
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
 use sp_core::storage::{ChildInfo, ChildType, PrefixedStorageKey};
 use sp_database::Transaction;
-use sp_runtime::traits::{
-	Block as BlockT, HashingFor, Header as HeaderT, NumberFor, PartialStateFor,
-};
+use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, NumberFor};
 use sp_state_machine::{Backend as StateBackend, IterArgs};
 use sp_trie::partial_state::{chunk_nodes, TrieNodeInfo};
 use std::sync::Arc;

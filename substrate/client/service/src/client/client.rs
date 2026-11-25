@@ -71,7 +71,7 @@ use sp_core::{
 use sp_runtime::{
 	generic::{BlockId, SignedBlock},
 	traits::{
-		Block as BlockT, BlockIdTo, HashingFor, Header as HeaderT, NumberFor, One, PartialStateFor,
+		Block as BlockT, BlockIdTo, HashingFor, Header as HeaderT, NumberFor, One,
 		SaturatedConversion, Zero,
 	},
 	Justification, Justifications, StateVersion,
@@ -1411,7 +1411,7 @@ where
 
 	fn import_partial_state(
 		&self,
-		partial_state: &PartialStateFor<Block>,
+		partial_state: &sc_client_api::partial_state::PartialStateFor<Block>,
 	) -> sp_blockchain::Result<()> {
 		let store = partial_state_store(&*self.backend)?;
 		let _import_lock = self.backend.get_import_lock().write();
