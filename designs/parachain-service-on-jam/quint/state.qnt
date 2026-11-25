@@ -141,7 +141,7 @@ module state {
     // (ParaId, user_key); each entry is billed under the sole-user rule.
     keyValueStorage: (ParaId, List[int]) -> List[int],
     // §8.1 settlement ring, a singly linked list mirroring the two storage
-    // maps under tags `0x09` and `0x0a`. `messagesCursor` holds the list's
+    // maps under tags `0x0a` and `0x0b`. `messagesCursor` holds the list's
     // ends and length, absent until the parachain's first push and never
     // read by the settlement check. `messagesMember` is present iff the root
     // is in the sender's ring: at most `MaxSettlementRingCapacity` distinct
