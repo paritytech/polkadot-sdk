@@ -113,6 +113,22 @@ fn first_block_epoch_zero_start() {
 }
 
 #[test]
+fn partial_segment_contributes_to_next_epoch_randomness() {
+	new_test_ext(1).execute_with(|| {
+		let vrf_output = [1; RANDOMNESS_LENGTH];
+		Babe::deposit_randomness(&vrf_output);
+		let previous = NextRandomness::<Test>::get();
+
+		Babe::randomness_change_epoch(1);
+
+		assert_eq!(
+			NextRandomness::<Test>::get(),
+			compute_randomness(previous, 1, core::iter::once(vrf_output), None),
+		);
+	})
+}
+
+#[test]
 fn current_slot_is_processed_on_initialization() {
 	build_and_execute_with_pairs(1, |pairs| {
 		let genesis_slot = Slot::from(10);

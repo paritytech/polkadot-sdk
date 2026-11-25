@@ -1,0 +1,10 @@
+title: 'pallet-babe: include the partially filled segment in the next epoch randomness'
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    The next epoch randomness was computed only from completely filled 256-entry segments of VRF
+    outputs, so an epoch with fewer than 256 primary blocks contributed nothing. The partially
+    filled segment is now included. This changes the epoch randomness of chains using `pallet-babe`.
+crates:
+- name: pallet-babe
+  bump: patch
