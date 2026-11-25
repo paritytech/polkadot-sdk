@@ -103,19 +103,13 @@ fn scheduling_signals(
 		}
 	}
 
-	if let Some(core) = signed_core {
-		signals.insert(0, core);
-	}
-	if let Some(peer) = signed_peer {
-		signals.push(peer);
-	}
 	Ok(signals)
 }
 
 /// Build the candidate's UMP tail from the blocks' scheduling signals in order, followed by
-/// `Provides` and `Requires`. A signed override supplies both scheduling values in pallet order
-/// unless the blocks emitted both. An empty tail omits the separator because the relay decoder
-/// reads signals after the first `UMP_SEPARATOR`.
+/// `Provides` and `Requires`. A signed override replaces only the scheduling signals the blocks
+/// emitted. An empty tail omits the separator because the relay decoder reads signals after the
+/// first `UMP_SEPARATOR`.
 pub fn ump_signal_tail(
 	raw: &[Vec<u8>],
 	signed: Option<&SignedSchedulingInfo>,
@@ -281,8 +275,9 @@ mod tests {
 	#[test]
 	fn signed_override_takes_every_value_from_the_payload() {
 		let signed = signed_with(CoreSelector(7), 3, peer(0xAA));
+		let raw = [select_core().encode(), UMPSignal::ApprovedPeer(peer(1)).encode()];
 		assert_eq!(
-			ump_signal_tail(&[], Some(&signed), None, &[], None).unwrap(),
+			ump_signal_tail(&raw, Some(&signed), None, &[], None).unwrap(),
 			vec![
 				UMP_SEPARATOR,
 				UMPSignal::SelectCore(CoreSelector(7), ClaimQueueOffset(3)).encode(),
@@ -294,13 +289,10 @@ mod tests {
 	#[test]
 	fn signed_override_emits_an_empty_peer() {
 		let signed = signed_with(CoreSelector(5), 1, ApprovedPeerId::default());
+		let raw = [UMPSignal::ApprovedPeer(peer(1)).encode()];
 		assert_eq!(
-			ump_signal_tail(&[], Some(&signed), None, &[], None).unwrap(),
-			vec![
-				UMP_SEPARATOR,
-				UMPSignal::SelectCore(CoreSelector(5), ClaimQueueOffset(1)).encode(),
-				UMPSignal::ApprovedPeer(ApprovedPeerId::default()).encode(),
-			]
+			ump_signal_tail(&raw, Some(&signed), None, &[], None).unwrap(),
+			vec![UMP_SEPARATOR, UMPSignal::ApprovedPeer(ApprovedPeerId::default()).encode()]
 		);
 	}
 
@@ -326,7 +318,7 @@ mod tests {
 	}
 
 	#[test]
-	fn partial_or_empty_scheduling_signals_get_the_full_signed_pair() {
+	fn signed_override_replaces_only_emitted_scheduling_signals() {
 		let clean = UMPSignal::ApprovedPeer(peer(1)).encode();
 		let mut padded = clean.clone();
 		padded.push(0xff);
@@ -334,22 +326,19 @@ mod tests {
 			ump_signal_tail(&[padded.clone()], None, None, &[], None).unwrap(),
 			vec![UMP_SEPARATOR, clean]
 		);
-		for raw in [vec![padded], vec![select_core().encode()], vec![]] {
-			assert_eq!(
-				ump_signal_tail(
-					&raw,
-					Some(&signed_with(CoreSelector(5), 1, peer(2))),
-					None,
-					&[],
-					None
-				)
-				.unwrap(),
+		let signed = signed_with(CoreSelector(5), 1, peer(2));
+		for (raw, expected) in [
+			(vec![padded], vec![UMP_SEPARATOR, UMPSignal::ApprovedPeer(peer(2)).encode()]),
+			(
+				vec![select_core().encode()],
 				vec![
 					UMP_SEPARATOR,
 					UMPSignal::SelectCore(CoreSelector(5), ClaimQueueOffset(1)).encode(),
-					UMPSignal::ApprovedPeer(peer(2)).encode(),
-				]
-			);
+				],
+			),
+			(vec![], vec![]),
+		] {
+			assert_eq!(ump_signal_tail(&raw, Some(&signed), None, &[], None).unwrap(), expected);
 		}
 	}
 
