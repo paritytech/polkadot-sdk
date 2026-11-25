@@ -78,6 +78,13 @@ fn scheduling_signals(
 	raw: &[Vec<u8>],
 	signed: Option<&SignedSchedulingInfo>,
 ) -> Result<Vec<UMPSignal>, SignalError> {
+	let mut signed_core = signed.map(|info| {
+		UMPSignal::SelectCore(
+			info.payload.core_selector,
+			ClaimQueueOffset(info.payload.claim_queue_offset),
+		)
+	});
+	let mut signed_peer = signed.map(|info| UMPSignal::ApprovedPeer(info.payload.peer_id.clone()));
 	let mut signals = Vec::new();
 	for bytes in raw {
 		let signal =
@@ -88,29 +95,19 @@ fn scheduling_signals(
 			UMPSignal::ApprovedPeer(_) if duplicate => {
 				return Err(SignalError::DuplicateApprovedPeer)
 			},
-			UMPSignal::SelectCore(..) | UMPSignal::ApprovedPeer(_) => signals.push(signal),
+			UMPSignal::SelectCore(..) => signals.push(signed_core.take().unwrap_or(signal)),
+			UMPSignal::ApprovedPeer(_) => signals.push(signed_peer.take().unwrap_or(signal)),
 			UMPSignal::Provides(_) | UMPSignal::Requires(_) => {
 				return Err(SignalError::BlockEmittedSpecMsgSignal)
 			},
 		}
 	}
 
-	if let Some(signed) = signed {
-		let payload = &signed.payload;
-		let core = UMPSignal::SelectCore(
-			payload.core_selector,
-			ClaimQueueOffset(payload.claim_queue_offset),
-		);
-		let peer = UMPSignal::ApprovedPeer(payload.peer_id.clone());
-		if let [first, second] = signals.as_mut_slice() {
-			(*first, *second) = if matches!(first, UMPSignal::ApprovedPeer(_)) {
-				(peer, core)
-			} else {
-				(core, peer)
-			};
-		} else {
-			signals = vec![core, peer];
-		}
+	if let Some(core) = signed_core {
+		signals.insert(0, core);
+	}
+	if let Some(peer) = signed_peer {
+		signals.push(peer);
 	}
 	Ok(signals)
 }
