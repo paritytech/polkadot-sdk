@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795598577957,
+  "lastUpdate": 1795601210191,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "mail@skunert.dev",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "eafcc55352b027f9ca6f2156aaab3a9f22bccfc8",
-          "message": "ParityDB: Value should still be stored after transaction with store + reference (#12082)\n\nWhenever we would see a store + reference within the same database\ntransaction on a yet unknown value, parityDB would transform the\nreference into a dereference, which would give us invalid DB state.\nIntuitively, the value should be stored in the DB but was actually not\npresent.\n\nIn this PR we fix this by introducing a direct mapping to operations and\nadding test cases for this.\n\nNote: In chains with pallet-transaction-storage, the runtime would\nprevent this because you can not renew a transaction that was not\nalready present in a prior block. But at the low level this should still\nwork.",
-          "timestamp": "2026-05-18T08:09:00Z",
-          "tree_id": "dda373efb3f3a42289a4272c654f020c7bbc13f2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/eafcc55352b027f9ca6f2156aaab3a9f22bccfc8"
-        },
-        "date": 1779096749342,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12503789596666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.327988698300004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.905007345166666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cd193d6c301eb1d76dfa9a92620bd2bf7dc79946",
+          "message": "pallet-revive: align eth tx decoding and reuse decoded call in dry runs (#13947)\n\nSmall consistency and performance change: Align the decoding of\nsubstrate calls via Eth TX with the decoding of\n`generic::UncheckedExtrinsic`. Also reuse the decoded call in the dry\nrun.\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-25T08:31:09Z",
+          "tree_id": "475b6ed61b8097d932969c7a3f73e862c2e32f16",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cd193d6c301eb1d76dfa9a92620bd2bf7dc79946"
+        },
+        "date": 1795601167512,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1266825254,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.082217086366665,
             "unit": "seconds"
           }
         ]
