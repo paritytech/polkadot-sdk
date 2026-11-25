@@ -256,6 +256,25 @@ where
 	}
 }
 
+impl<Balance: Default + PartialEq, AccountId, BlockNumber: Zero, PollIndex, MaxVotes>
+	Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes>
+where
+	MaxVotes: Get<u32>,
+{
+	/// Whether this value equals the voting state returned for an absent storage entry.
+	pub fn is_default(&self) -> bool {
+		match self {
+			Self::Casting(Casting { votes, delegations, prior: PriorLock(until, balance) }) => {
+				votes.is_empty() &&
+					*delegations == Delegations::default() &&
+					until.is_zero() &&
+					*balance == Balance::default()
+			},
+			Self::Delegating(_) => false,
+		}
+	}
+}
+
 impl<Balance, AccountId, BlockNumber, PollIndex, MaxVotes> AsMut<PriorLock<BlockNumber, Balance>>
 	for Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes>
 where
@@ -281,20 +300,6 @@ where
 {
 	pub fn rejig(&mut self, now: BlockNumber) {
 		AsMut::<PriorLock<BlockNumber, Balance>>::as_mut(self).rejig(now);
-	}
-
-	/// Whether this is equal to the default value: no votes, no delegations and no prior lock.
-	pub fn is_default(&self) -> bool {
-		match self {
-			Voting::Casting(Casting { votes, delegations, prior }) => {
-				votes.is_empty() &&
-					delegations.votes.is_zero() &&
-					delegations.capital.is_zero() &&
-					prior.0.is_zero() &&
-					prior.1.is_zero()
-			},
-			Voting::Delegating(_) => false,
-		}
 	}
 
 	/// The amount of this account's balance that must currently be locked due to voting.
