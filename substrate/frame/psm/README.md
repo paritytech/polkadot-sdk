@@ -126,8 +126,8 @@ Each PSM instance stores two admin roles, set on `create_psm` and reassignable b
 `full_admin`. Each role is an `AdminOrigin`:
 
 - `AssetOwner`: the signed origin of whoever owns the internal asset at the time of the
-  call. The role moves with the asset when its owner changes, and nobody holds it while
-  the asset has no owner.
+  call. The role moves with the asset when its owner changes. Nobody holds it while the
+  asset has no owner; if the asset id is recreated, the new owner holds it.
 - `Origin(origin)`: one fixed origin, such as a governance track or an account. It stays
   with that origin when the internal asset changes owner.
 

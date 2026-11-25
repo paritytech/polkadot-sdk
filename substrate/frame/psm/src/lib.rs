@@ -234,7 +234,7 @@ pub mod pallet {
 	pub enum AdminOrigin<PalletsOrigin> {
 		/// The signed origin of the internal asset's current owner, as reported by
 		/// [`Config::Fungibles`] at the time of the check. Nobody holds the role while the asset
-		/// has no owner.
+		/// has no owner; if the asset id is recreated, the new owner holds it.
 		#[codec(index = 0)]
 		AssetOwner,
 		/// A fixed origin, independent of who owns the internal asset.
