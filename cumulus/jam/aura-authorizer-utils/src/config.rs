@@ -15,9 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::ParachainCandidate;
 use alloc::vec::Vec;
-use codec::{Decode, DecodeAll, Encode};
+use codec::{Decode, Encode};
 use core::num::NonZero;
 use jam_types::{ServiceId, Slot, WorkItem};
 use polkadot_parachain_primitives::primitives::Id as ParaId;
@@ -37,7 +36,7 @@ pub enum ConfigError {
 /// Invalid candidate payload or parachain identity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CandidateError {
-	/// The payload does not fully decode as a parachain candidate.
+	/// The payload does not start with a decodable para ID.
 	Undecodable,
 	/// The candidate's para ID does not match its assignment.
 	InvalidParaId,
@@ -70,7 +69,7 @@ pub struct AuthConfig {
 }
 
 impl AuthConfig {
-	/// Check the count, service, and decoded candidate para ID of every work item.
+	/// Check the count, service, and leading candidate para ID of every work item.
 	pub fn check_work_items(&self, items: &[WorkItem]) -> Result<(), ConfigError> {
 		if items.len() != self.para_ids.len() {
 			return Err(ConfigError::InvalidWorkItemCount);
@@ -81,9 +80,9 @@ impl AuthConfig {
 		}
 
 		for (item, expected_para_id) in items.iter().zip(&self.para_ids) {
-			let candidate = ParachainCandidate::decode_all(&mut &item.payload.0[..])
+			let para_id = ParaId::decode(&mut &item.payload.0[..])
 				.map_err(|_| ConfigError::Candidate(CandidateError::Undecodable))?;
-			if candidate.para_id != *expected_para_id {
+			if para_id != *expected_para_id {
 				return Err(ConfigError::Candidate(CandidateError::InvalidParaId));
 			}
 		}
@@ -103,6 +102,7 @@ impl AuthConfig {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::ParachainCandidate;
 	use alloc::vec;
 	use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 
@@ -165,24 +165,21 @@ mod tests {
 			);
 		}
 
-		// A truncated candidate cannot be decoded.
-		{
+		// A payload shorter than a para ID cannot be decoded.
+		for payload in [vec![], vec![0; 3]] {
 			let mut items = items.clone();
-			items[0].payload = vec![0; 4].into();
+			items[0].payload = payload.into();
 			assert_eq!(
 				config.check_work_items(&items),
 				Err(ConfigError::Candidate(CandidateError::Undecodable))
 			);
 		}
 
-		// Valid candidate bytes followed by extra data are also rejected.
+		// Only the leading para ID is decoded, so trailing candidate bytes are ignored.
 		{
 			let mut items = items.clone();
 			items[0].payload.0.push(0);
-			assert_eq!(
-				config.check_work_items(&items),
-				Err(ConfigError::Candidate(CandidateError::Undecodable))
-			);
+			assert_eq!(config.check_work_items(&items), Ok(()));
 		}
 
 		// Each item must match its own assignment, not merely any authorized para.
@@ -210,6 +207,24 @@ mod tests {
 			let mut items = items.clone();
 			items[0].service += 1;
 			assert_eq!(config.check_work_items(&items), Err(ConfigError::InvalidWorkItemCount));
+		}
+	}
+
+	/// `check_work_items` decodes only the leading `ParaId` (a `u32`), so `ParachainCandidate`
+	/// must always start with its SCALE-encoded `ParaId`.
+	#[test]
+	fn candidate_prefix_is_para_id_works() {
+		for raw_id in [0u32, 1, 1000, 2000, u32::MAX] {
+			let para_id = ParaId::new(raw_id);
+			let candidate = ParachainCandidate {
+				para_id,
+				validation_code: ValidationCodeHash::from([0xab; 32]),
+			};
+			let encoded = candidate.encode();
+
+			assert_eq!(&encoded[..4], &raw_id.encode()[..]);
+			assert_eq!(u32::decode(&mut &encoded[..]), Ok(raw_id));
+			assert_eq!(ParaId::decode(&mut &encoded[..]), Ok(para_id));
 		}
 	}
 

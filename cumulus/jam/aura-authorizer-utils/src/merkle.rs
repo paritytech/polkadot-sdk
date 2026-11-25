@@ -38,7 +38,6 @@ impl hash_db::Hasher for CollatorHasher {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CollatorProofError {
 	EmptySet,
-	TooManyCollators,
 	InvalidCollatorIndex,
 }
 
@@ -47,7 +46,7 @@ pub enum CollatorProofError {
 /// Keys are hashed as leaves; unpaired nodes are promoted to the next level.
 /// Construction takes O(n) hashing work for n keys.
 ///
-/// Returns an error for an empty set, more than `u32::MAX` keys, or an invalid index.
+/// Returns an error for an empty set or an invalid index.
 pub fn build_collator_proof(
 	keys: &[CollatorKey],
 	collator_index: u32,
@@ -55,7 +54,6 @@ pub fn build_collator_proof(
 	if keys.is_empty() {
 		return Err(CollatorProofError::EmptySet);
 	}
-	u32::try_from(keys.len()).map_err(|_| CollatorProofError::TooManyCollators)?;
 	if collator_index as usize >= keys.len() {
 		return Err(CollatorProofError::InvalidCollatorIndex);
 	}
