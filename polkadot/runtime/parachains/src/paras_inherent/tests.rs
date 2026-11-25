@@ -5451,6 +5451,34 @@ mod speculative_admission_gate {
 	}
 
 	#[test]
+	fn receiver_requires_matches_until_sender_offboarding_takes_effect() {
+		use crate::{
+			inclusion::tests::{genesis_config, run_to_block_default_notifications},
+			mock::{ParaInclusion, Paras, System},
+			paras::ParaKind,
+			runtime_api_impl::vstaging::newest_included_provides,
+		};
+
+		let source = ParaId::from(1000);
+		new_test_ext(genesis_config(vec![(source, ParaKind::Parachain)])).execute_with(|| {
+			ParaInclusion::record_provides(source, sr(0xA));
+			let receiver = candidate(2000, None, Some(requires(1000, 0xA)));
+			assert_eq!(newest_included_provides::<Test>(source), Some(sr(0xA)));
+
+			Paras::schedule_para_cleanup(source).unwrap();
+			assert_eq!(newest_included_provides::<Test>(source), None);
+			for _ in 0..crate::shared::SESSION_DELAY {
+				assert!(check_speculative_messaging::<Test>(&receiver));
+				let next_block = System::block_number() + 1;
+				run_to_block_default_notifications(next_block, vec![next_block]);
+			}
+
+			assert!(!check_speculative_messaging::<Test>(&receiver));
+			assert!(check_speculative_messaging::<Test>(&candidate(2000, None, None)));
+		});
+	}
+
+	#[test]
 	fn matches_requires_against_window() {
 		new_test_ext(default_config()).execute_with(|| {
 			let source = 1000;

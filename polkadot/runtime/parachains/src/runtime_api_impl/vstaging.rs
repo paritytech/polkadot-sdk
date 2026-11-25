@@ -53,6 +53,7 @@ pub fn ancestor_relay_parent_info<T: shared::Config>(
 
 /// Implementation of `newest_included_provides` runtime API.
 pub fn newest_included_provides<T: inclusion::Config>(para_id: ParaId) -> Option<StreamsRoot> {
+	// Stop advertising roots, but let in-flight candidates match them until session cleanup.
 	if paras::Pallet::<T>::is_offboarding(para_id) {
 		return None;
 	}
