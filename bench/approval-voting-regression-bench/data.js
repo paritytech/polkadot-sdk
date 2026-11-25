@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795555680756,
+  "lastUpdate": 1795598670118,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "mail@skunert.dev",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "18b7361aed92d7ee8c24ed9fdd0f1e9bd2941477",
-          "message": "Network: Add bitswap client (#12038)\n\nAdds a public Bitswap client API to `sc-network`, centered around the\n`request_bitswap_*` helpers for fetching CID-addressed blocks and\nWANT-HAVE responses.\n\nThe API includes unverified variants for cases where the caller uses\nCID-shaped locators but cannot yet prove that the returned bytes hash to\nthe requested CID. These variants preserve request/response correlation\nwhile leaving the hash checking to the caller.\n\nThis also wires outbound Bitswap requests through the litep2p backend,\nincluding WANT-BLOCK/WANT-HAVE handling and local invalid-request\nreporting.\n\n`BitswapService` now handles both directions: serving inbound Bitswap\nrequests and coordinating outbound Bitswap client requests.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>",
-          "timestamp": "2026-05-13T15:18:09Z",
-          "tree_id": "b5f061ac05c8f1b299b7175adeada8a53a5e8752",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/18b7361aed92d7ee8c24ed9fdd0f1e9bd2941477"
-        },
-        "date": 1778690517088,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52936.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63625.75,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002254898,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.7803920083,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002194365,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002194365,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4591272886700057,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005230508630000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.890979628879999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.508723489029965,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.33679536957273,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002254898,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8434249402699994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.770162888759999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7594062255199627,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.595784524232786,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "79002163+gab8i@users.noreply.github.com",
+            "name": "gab",
+            "username": "gab8i"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d8d0859a9c72aeeeabcd4d1f53ae5e28b810e943",
+          "message": "fix: fork-tree, do not overflow the stack on deep trees (#13804)\n\n### Description\n\nA `ForkTree` gains one level for every node imported on top of another,\nuntil an ancestor is finalized. `Clone`, `PartialEq`, `Debug`, `Encode`,\n`Decode` and `Drop` were derived, so each used one stack frame per\nlevel.\n\nWhen finality stalled on Paseo, the BABE epoch tree grew by one level\nper epoch. BABE clones that tree at every epoch boundary, and the clone\noverflowed the 2 MiB worker stack, crashing the node. Encoding, decoding\nat startup and dropping the tree recurse the same way.\n\n### Integration\n\nThe roots and the children of a node are now held in a wrapper, `Nodes`,\naround `Vec<Node>`. It implements the six traits with a heap-allocated\nstack utilizing a pre-order listing of the nodes.\n\n- `Node` and `ForkTree` keep their derives on top of it.\n- The encoding is unchanged. \n\nCloses #12062",
+          "timestamp": "2026-11-25T07:48:02Z",
+          "tree_id": "4a8eb99dcb20189cc120c22462dd390ad9c76a6a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d8d0859a9c72aeeeabcd4d1f53ae5e28b810e943"
+        },
+        "date": 1795598631026,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63551.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005336513450000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020161569999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.365045147609994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000018433149999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.138865438379963,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.534404073442864,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7063112392399993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020161569999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8003209471699722,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000018433149999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.76170994041,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.722572088639999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.77756956186,
             "unit": "seconds"
           }
         ]
