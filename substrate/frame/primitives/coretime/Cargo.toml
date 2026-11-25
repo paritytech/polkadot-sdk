@@ -1,6 +1,6 @@
 [package]
 name = "fp-coretime"
-version = "0.1.0"
+version = "0.3.0"
 description = "Primitives for Polkadot Coretime"
 authors.workspace = true
 homepage.workspace = true
@@ -17,8 +17,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-runtime = { workspace = true }
-sp-weights = { workspace = true }
+sp-runtime.workspace = true
+sp-weights.workspace = true
 
 [features]
 default = ["std"]

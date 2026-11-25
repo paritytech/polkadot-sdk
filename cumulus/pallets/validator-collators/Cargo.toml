@@ -6,7 +6,7 @@ homepage.workspace = true
 license = "Apache-2.0"
 name = "pallet-validator-collators"
 repository.workspace = true
-version = "0.1.0"
+version = "0.2.0"
 
 [lints]
 workspace = true
@@ -20,26 +20,24 @@ log = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-
-cumulus-pallet-parachain-system = { workspace = true }
-cumulus-primitives-core = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-authorship = { workspace = true }
-pallet-session = { workspace = true }
-sp-runtime = { workspace = true }
-sp-staking = { workspace = true }
-
+cumulus-pallet-parachain-system.workspace = true
+cumulus-primitives-core.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-authorship.workspace = true
+pallet-session.workspace = true
+sp-runtime.workspace = true
+sp-staking.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 sp-trie = { optional = true, workspace = true }
 
 [dev-dependencies]
-pallet-balances = { workspace = true, default-features = true }
-pallet-collator-selection = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-sp-trie = { workspace = true, default-features = true }
+pallet-balances = { default-features = true, path = "../../../substrate/frame/balances" }
+pallet-collator-selection = { default-features = true, path = "../collator-selection" }
+sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
+sp-runtime = { default-features = true, path = "../../../substrate/primitives/runtime" }
+sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
+sp-trie = { default-features = true, path = "../../../substrate/primitives/trie" }
 
 [features]
 default = ["std"]
@@ -49,8 +47,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
@@ -78,8 +74,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-authorship/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-collator-selection/try-runtime",
 	"pallet-session/try-runtime",
 	"sp-runtime/try-runtime",
 ]

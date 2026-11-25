@@ -12,14 +12,14 @@ description = "UI tests for pallet-revive."
 [dependencies]
 alloy-core = { workspace = true, features = ["rlp", "sol-types"] }
 codec = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-revive = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-balances.workspace = true
+pallet-revive.workspace = true
 scale-info = { workspace = true }
 
 [dev-dependencies]
-pallet-revive = { workspace = true, features = ["trybuild"] }
+pallet-revive = { features = ["trybuild"], path = "..", default-features = false }
 trybuild = { workspace = true }
 
 [features]

@@ -1,6 +1,6 @@
 [package]
 name = "parachains-common-types"
-version = "0.1.0"
+version = "0.6.0"
 authors.workspace = true
 edition.workspace = true
 description = "Common types for parachains"
@@ -12,9 +12,9 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-sp-consensus-aura = { workspace = true }
-sp-core = { workspace = true }
-sp-runtime = { workspace = true }
+sp-consensus-aura.workspace = true
+sp-core.workspace = true
+sp-runtime.workspace = true
 
 [features]
 default = ["std"]

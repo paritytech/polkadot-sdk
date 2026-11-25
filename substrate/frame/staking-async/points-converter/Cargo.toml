@@ -6,7 +6,7 @@ homepage.workspace = true
 license = "Apache-2.0"
 name = "pallet-staking-async-points-converter"
 repository.workspace = true
-version = "0.1.0"
+version = "0.2.0"
 
 [lints]
 workspace = true
@@ -17,17 +17,15 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-runtime = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-runtime.workspace = true
 sp-staking = { features = ["serde"], workspace = true }
-
 frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
-sp-io = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
+sp-io = { default-features = true, path = "../../../primitives/io" }
+sp-runtime = { default-features = true, path = "../../../primitives/runtime" }
 
 [features]
 default = ["std"]
