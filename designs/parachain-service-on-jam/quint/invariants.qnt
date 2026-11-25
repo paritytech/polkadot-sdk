@@ -5,6 +5,7 @@
 // any of them directly.
 module invariants {
   import types.* from "./types"
+  import messages.* from "./messages"
   import state.* from "./state"
   import state_balance.* from "./state_balance"
   import state_vars.* from "./state_vars"
@@ -203,56 +204,289 @@ module invariants {
           }
       }))
 
+  /// Helpers for `parent_head_continuity`.
+  pure def cleanUpCount(oks: List[ParachainWorkDigestOk], q: ParaId): int =
+    oks.foldl(0, (n, ok) => ok.upwardMessages.foldl(n, (c, m) => match m {
+      | ParachainCleanUp(x) => if (x == q) c + 1 else c
+      | _ => c
+    }))
+  pure def reRegistered(oks: List[ParachainWorkDigestOk], q: ParaId): bool =
+    oks.foldl(false, (b, ok) => ok.upwardMessages.foldl(b, (c, m) => match m {
+      | ParachainSetStateBalance(pl) => c or pl.paraId == q
+      | _ => c
+    }))
+  /// The paras whose head or ring a candidate's upward messages can change: the
+  /// targets of its `parachain_set_head` and `parachain_clean_up` messages.
+  pure def headTargets(ok: ParachainWorkDigestOk): Set[ParaId] =
+    ok.upwardMessages.foldl(Set(), (t, m) => match m {
+      | ParachainSetHead(pl) => t.union(Set(pl.paraId))
+      | ParachainCleanUp(q) => t.union(Set(q))
+      | _ => t
+    })
+  pure def dropHeads(h: ParaId -> HeadData, qs: Set[ParaId]): ParaId -> HeadData =
+    h.keys().exclude(qs).mapBy(k => h.get(k))
+  /// The paras whose active validation code a candidate's upward messages can
+  /// change: the target of a `parachain_set_validation_code`, and its own para
+  /// for an `Apply` (§5.2). An `Announcement` never moves the active code.
+  pure def codeTargets(ok: ParachainWorkDigestOk): Set[ParaId] =
+    ok.upwardMessages.foldl(Set(), (t, m) => match m {
+      | ParachainSetValidationCode(pl) => t.union(Set(pl.paraId))
+      | RequestCodeUpgrade(pl) => match pl.phase {
+          | Apply => t.union(Set(ok.paraId))
+          | Announcement => t
+        }
+      | _ => t
+    })
+  pure def codeChangeCount(oks: List[ParachainWorkDigestOk], q: ParaId): int =
+    oks.foldl(0, (n, ok) => ok.upwardMessages.foldl(n, (c, m) => match m {
+      | ParachainSetValidationCode(pl) => if (pl.paraId == q) c + 1 else c
+      | RequestCodeUpgrade(pl) => match pl.phase {
+          | Apply => if (ok.paraId == q) c + 1 else c
+          | Announcement => c
+        }
+      | _ => c
+    }))
+  /// Re-derive the known code of each of `qs` after a candidate that may change
+  /// it: `settled` holds the end-of-step code of every para whose code only one
+  /// message in the block can change; any other target's code is forgotten.
+  pure def recode(
+    c: ParaId -> Option[ValidationCodeHash], qs: Set[ParaId],
+    settled: ParaId -> Option[ValidationCodeHash]
+  ): ParaId -> Option[ValidationCodeHash] =
+    qs.fold(c, (m, q) =>
+      if (settled.keys().contains(q)) m.put(q, settled.get(q))
+      else m.keys().exclude(Set(q)).mapBy(k => m.get(k)))
+
+  /// The replay state of `parent_head_continuity`. `heads` holds the heads it
+  /// still tracks and `rings` the settlement rings. `unknown` holds the paras
+  /// whose head and ring it can no longer predict: their heads are dropped, and
+  /// whether their candidates, or candidates requiring one of their roots,
+  /// enact is unknown. `frozen` holds the paras known to be deregistering at
+  /// this point of the block. `codes` holds the active validation code hashes
+  /// it still knows (§5.1 step 2). A code change is classified from the
+  /// end-of-step code when it is the target's only one in the block and the
+  /// target is neither removed nor re-registered; any other leaves the target
+  /// missing from `codes`. `codeSets` records, for `validation_code_matches_outcomes`,
+  /// the code each `parachain_set_validation_code` of an accepted Coretime
+  /// candidate set on a target that was tracked, live and not deregistering.
+  type ContinuityReplay = {
+    heads: ParaId -> HeadData,
+    rings: ParachainServiceState,
+    unknown: Set[ParaId],
+    frozen: Set[ParaId],
+    codes: ParaId -> Option[ValidationCodeHash],
+    codeSets: ParaId -> ValidationCodeRef
+  }
+
+  /// A candidate the replay cannot decide may have enacted, so its own para and
+  /// every para it forces a head on or cleans up become unknown, and their heads
+  /// are dropped. A frozen para keeps its head unless the candidate cleans it
+  /// up: a forced head on it is a no-op either way, and only a clean-up of it
+  /// can remove it so that a re-registration gives it a fresh head. Every para
+  /// whose code the candidate may change has its code re-derived (`recode`).
+  pure def markUnknown(
+    acc: ContinuityReplay, ok: ParachainWorkDigestOk,
+    settled: ParaId -> Option[ValidationCodeHash]
+  ): ContinuityReplay = {
+    val touched = Set(ok.paraId).union(headTargets(ok))
+    val cleanedUp = ok.upwardMessages.foldl(Set(), (t, m) => match m {
+      | ParachainCleanUp(q) => t.union(Set(q))
+      | _ => t
+    })
+    val kept = acc.frozen.exclude(cleanedUp)
+    {
+      ...acc,
+      heads: dropHeads(acc.heads, touched.exclude(kept)),
+      unknown: acc.unknown.union(touched),
+      codes: recode(acc.codes, codeTargets(ok), settled)
+    }
+  }
+
   /// Parent-head continuity (§5.1 step 4): replay the block's head-affecting
   /// operations in order and confirm the result matches the stored heads. Start
-  /// from the pre-block heads; for each `Ok` work result, apply it ONLY if its
-  /// para is live, its declared parent matches that para's current head
-  /// (step 4), and its `messages_requires_roots` settle against the rings as
-  /// of that digest (step 5, §8). If accepted, write its new
-  /// head and push its `messages_streams_root` (step 6), then replay its
-  /// `parachain_set_head` messages (step 7), which move heads only and leave
-  /// every ring alone (§8.1). A rejected candidate (stale parent or missed
-  /// settlement) is ignored entirely (its head update, its push, AND its
-  /// upward messages), just as Accumulate never applies a rejected candidate.
-  /// This is what lets a forced `parachain_set_head` survive a same-block
-  /// candidate built on a superseded head, while a candidate legitimately
-  /// continuing the current head is allowed.
-  val parent_head_continuity: bool = {
-    val initialHeads = prevSvc.parachains.keys().mapBy(p => prevSvc.paraInfo(p).headData)
-    val replayed =
-      lastStepWorkResults.foldl((initialHeads, prevSvc), (acc, r) => match r.result {
-        | WorkErr => acc
-        | WorkOk(digest) => match digest {
-          | Err(_) => acc
-          | Ok(ok) =>
-            if (not(acc._1.keys().contains(ok.paraId))) acc
-            else if (ok.parentHeadHash != headHash(acc._1.get(ok.paraId))) acc
-            else if (not(settlementCheck(acc._2, ok.messagesRequiresRoots))) acc
-            else {
-              // Accepted: write the new head and push the candidate's
-              // `messages_streams_root` (step 6), then replay its forced
-              // `parachain_set_head` messages (step 7), each a no-op for a
-              // non-live target and none touching a ring (§8.1).
-              val pushed = match ok.messagesStreamsRoot {
-                | Some(root) => settlementRingPush(acc._2, ok.paraId, root)
-                | None => acc._2
-              }
-              val heads = ok.upwardMessages.foldl(
-                acc._1.put(ok.paraId, ok.headData), (h, m) =>
-                match m {
-                  | ParachainSetHead(pl) =>
-                    if (h.keys().contains(pl.paraId)) h.put(pl.paraId, pl.newHead)
-                    else h
-                  | _ => h
-                })
-              (heads, pushed)
-            }
-        }
-      })
-    prevSvc.parachains.keys().forall(p =>
+  /// from the pre-block heads, with the deregistering paras frozen. For each
+  /// `Ok` work result, apply it ONLY if its para is live and not frozen (step 1,
+  /// §6.4), it names its para's active code (step 2), its declared parent matches that para's current head (step 4), and
+  /// its `messages_requires_roots` settle against the rings as of that digest
+  /// (step 5, §8). If accepted, write its new head and push its
+  /// `messages_streams_root` (step 6), then replay its upward messages (step 7):
+  /// a `parachain_set_head` moves its para's head unless that para is frozen,
+  /// and leaves every ring alone (§8.1). A rejected candidate is ignored
+  /// entirely (its head update, its push, AND its upward messages), just as
+  /// Accumulate never applies a rejected candidate. This is what lets a forced
+  /// `parachain_set_head` survive a same-block candidate built on a superseded
+  /// head, while a candidate legitimately continuing the current head is allowed.
+  /// A `parachain_clean_up(q)` is classified from the end-of-step state when it
+  /// is q's only clean-up in the block and nothing re-registers q: q gone means
+  /// fully removed (drop its head and delete its ring, §8.1 "Ring Cleanup"), q
+  /// deregistering means partial (freeze q, keep its head and ring), q still
+  /// live means rejected (no change). Any other clean-up makes q unknown. A
+  /// candidate the replay would otherwise apply, but whose para is unknown, whose
+  /// para's code is no longer known (one of several code changes to it this
+  /// block), or which requires a root of an unknown para, goes
+  /// through `markUnknown`.
+  /// Frozen paras stay in the end-of-step comparison, so nothing may move a
+  /// deregistering para's head before it is removed; one removed and
+  /// re-registered (§6.2) in this step is a fresh entry, and unknown.
+  val parent_head_continuity: bool =
+    continuityReplay.heads.keys().forall(p =>
       if (not(svc.parachains.keys().contains(p))) true
-      else replayed._1.get(p) == svc.paraInfo(p).headData)
+      else continuityReplay.heads.get(p) == svc.paraInfo(p).headData)
+
+  /// The last step's `Ok` digests, in order.
+  val stepOkDigests: List[ParachainWorkDigestOk] =
+    lastStepWorkResults.foldl(List(), (l, r) => match r.result {
+      | WorkErr => l
+      | WorkOk(d) => match d { | Ok(ok) => l.append(ok) | Err(_) => l }
+    })
+
+  /// The replay behind `parent_head_continuity` (documented there).
+  val continuityReplay: ContinuityReplay = {
+    val okDigests = stepOkDigests
+    val initial: ContinuityReplay = {
+      heads: prevSvc.parachains.keys().mapBy(p => prevSvc.paraInfo(p).headData),
+      rings: prevSvc,
+      unknown: Set(),
+      frozen: prevSvc.parachains.keys().filter(p => prevSvc.paraInfo(p).isDeregistering),
+      codes: prevSvc.parachains.keys().mapBy(p =>
+        prevSvc.paraInfo(p).validationCode.optionMap(vc => vc.hash)),
+      codeSets: Map()
+    }
+    val settled = okDigests.foldl(Set(), (t, ok) => t.union(codeTargets(ok)))
+      .filter(q => codeChangeCount(okDigests, q) == 1 and
+        svc.parachains.keys().contains(q) and not(reRegistered(okDigests, q)))
+      .mapBy(q => svc.paraInfo(q).validationCode.optionMap(vc => vc.hash))
+    val replayed = okDigests.foldl(initial, (acc, ok) =>
+      if (acc.unknown.contains(ok.paraId)) markUnknown(acc, ok, settled)
+      // Removed or deregistering: Accumulate drops it (step 1).
+      else if (not(acc.heads.keys().contains(ok.paraId)) or acc.frozen.contains(ok.paraId)) acc
+      // Names a code other than its para's known active code (step 2).
+      else if (acc.codes.keys().contains(ok.paraId) and
+          acc.codes.get(ok.paraId) != Some(ok.validationCode)) acc
+      else if (ok.parentHeadHash != headHash(acc.heads.get(ok.paraId))) acc
+      else if (not(acc.codes.keys().contains(ok.paraId))) markUnknown(acc, ok, settled)
+      else if (ok.messagesRequiresRoots.foldl(false, (b, e) => b or acc.unknown.contains(e._1)))
+        markUnknown(acc, ok, settled)
+      else if (not(settlementCheck(acc.rings, ok.messagesRequiresRoots))) acc
+      else {
+        // Accepted: write the new head and push the candidate's
+        // `messages_streams_root` (step 6), then replay its upward messages
+        // (step 7): forced heads, which leave every ring alone (§8.1), and
+        // clean-ups, classified as above.
+        val pushed = match ok.messagesStreamsRoot {
+          | Some(root) => settlementRingPush(acc.rings, ok.paraId, root)
+          | None => acc.rings
+        }
+        // Its code changes (step 7) are re-derived up front: only the
+        // candidate-level checks read `codes`.
+        ok.upwardMessages.foldl(
+          {
+            ...acc,
+            heads: acc.heads.put(ok.paraId, ok.headData),
+            rings: pushed,
+            codes: recode(acc.codes, codeTargets(ok), settled)
+          }, (a, m) =>
+          match m {
+            | ParachainSetHead(pl) =>
+              if (a.heads.keys().contains(pl.paraId) and not(a.frozen.contains(pl.paraId)))
+                { ...a, heads: a.heads.put(pl.paraId, pl.newHead) }
+              else a
+            | ParachainCleanUp(q) =>
+              if (cleanUpCount(okDigests, q) != 1 or reRegistered(okDigests, q))
+                { ...a, heads: dropHeads(a.heads, Set(q)), unknown: a.unknown.union(Set(q)) }
+              else if (not(svc.parachains.keys().contains(q)))
+                { ...a, heads: dropHeads(a.heads, Set(q)), rings: settlementRingDelete(a.rings, q) }
+              else if (svc.paraInfo(q).isDeregistering) { ...a, frozen: a.frozen.union(Set(q)) }
+              else a
+            | ParachainSetValidationCode(pl) =>
+              if (ok.paraId == CoretimeParaId and a.heads.keys().contains(pl.paraId)
+                  and not(a.frozen.contains(pl.paraId)))
+                { ...a, codeSets: a.codeSets.put(pl.paraId, pl.newValidationCode) }
+              else a
+            | _ => a
+          })
+      })
+    replayed
   }
+
+  /// Whether a `parachain_set_validation_code(_, c)` may have been rejected for
+  /// lack of headroom (§6.3): Coretime's log got an `InsufficientStateBalance`
+  /// for `c` at `t`. That rejection is the only way the call leaves a live,
+  /// non-deregistering para's code unchanged. The entry cannot have been evicted
+  /// since (§5.1): eviction takes the oldest entry first, so it would take more
+  /// than `ParachainLogByteCap` of entries at `t` alone, while a model block
+  /// logs a few hundred bytes. Pruning keeps it, as no lookup-anchor exceeds `t`.
+  pure def setCodeMayHaveFailed(
+    s: ParachainServiceState, t: Timeslot, c: ValidationCodeRef
+  ): bool = {
+    val isb = InsufficientStateBalance(FromSolicit({ hash: c.hash.asPreimage(), len: c.len }))
+    s.paraLog(CoretimeParaId).foldl(false, (b, e) => b or (e._1 == t and match e._2 {
+      | Accumulate(ls) => ls.foldl(false, (x, l) => x or l == isb)
+      | Refine(_) => false
+    }))
+  }
+
+  /// Validation-code outcomes (§5.1 step 7, §5.2, §6.3), the code counterpart of
+  /// `head_state_matches_outcomes`. Checked against the end-of-step state, so a
+  /// model that gets a code change's outcome wrong cannot hide it behind
+  /// `parent_head_continuity`, which takes that outcome from the end-of-step state.
+  /// 1. Every change of a para's `validation_code` over the step (para neither
+  ///    removed nor re-registered) is claimed by an `Ok` digest: a Coretime
+  ///    `parachain_set_validation_code` of exactly that code, or an `Apply` from
+  ///    the para itself of code that was announced, before the step or by an
+  ///    `Announcement` of the para in it (§5.2: an unannounced `Apply` is rejected).
+  /// 2. A `parachain_set_validation_code(q, c)` that the replay accepted while q
+  ///    was live and not deregistering, and that is q's only code change in the
+  ///    block, DID set q's code to c unless Coretime's log shows it hit
+  ///    `InsufficientStateBalance` (§6.3).
+  val validation_code_matches_outcomes: bool = {
+    // Guarded explicitly because Quint's `or` is eager (`svc.paraInfo` crashes
+    // on a removed para).
+    def tracked(q: ParaId): bool = svc.parachains.keys().contains(q) and
+      not(reRegistered(stepOkDigests, q))
+    and {
+      prevSvc.parachains.keys().forall(p =>
+        if (not(tracked(p))) true
+        else svc.paraInfo(p).validationCode == prevSvc.paraInfo(p).validationCode
+          or codeChangeClaimed(stepOkDigests, prevSvc, p, svc.paraInfo(p).validationCode)),
+      continuityReplay.codeSets.keys().forall(q => {
+        val c = continuityReplay.codeSets.get(q)
+        if (not(tracked(q)) or codeChangeCount(stepOkDigests, q) != 1) true
+        else svc.paraInfo(q).validationCode == Some(c) or setCodeMayHaveFailed(svc, now, c)
+      })
+    }
+  }
+
+  /// Whether an `Ok` digest of the step claims `p`'s new code `vc` (see
+  /// `validation_code_matches_outcomes`, part 1).
+  pure def codeChangeClaimed(
+    oks: List[ParachainWorkDigestOk], prev: ParachainServiceState, p: ParaId,
+    vc: Option[ValidationCodeRef]
+  ): bool =
+    oks.foldl(false, (b, ok) => ok.upwardMessages.foldl(b, (x, m) => match m {
+      | ParachainSetValidationCode(pl) =>
+        x or (ok.paraId == CoretimeParaId and pl.paraId == p and vc == Some(pl.newValidationCode))
+      | RequestCodeUpgrade(pl) => match pl.phase {
+          | Apply =>
+            val c = { hash: pl.hash, len: pl.len }
+            x or (ok.paraId == p and vc == Some(c) and
+              (prev.paraInfo(p).announcedUpgrade == Some(c) or announcedIn(oks, p, c)))
+          | Announcement => x
+        }
+      | _ => x
+    }))
+
+  /// Whether one of `p`'s `Ok` digests announces `c` (§5.2).
+  pure def announcedIn(
+    oks: List[ParachainWorkDigestOk], p: ParaId, c: ValidationCodeRef
+  ): bool =
+    oks.foldl(false, (b, ok) => ok.upwardMessages.foldl(b, (x, m) => match m {
+      | RequestCodeUpgrade(pl) => match pl.phase {
+          | Announcement => x or (ok.paraId == p and { hash: pl.hash, len: pl.len } == c)
+          | Apply => x
+        }
+      | _ => x
+    }))
 
   /// The maintained `count` equals the transfers actually held across the buckets.
   /// It is incremented on append and decremented on clean-up rather than derived,
@@ -428,6 +662,7 @@ module invariants {
     foreign_supervisor_is_us_or_self,
     foreign_excludes_self,
     parent_head_continuity,
+    validation_code_matches_outcomes,
     incoming_transfer_count_consistent,
     incoming_transfers_buckets_consistent,
     incoming_transfer_bucket_bounded,

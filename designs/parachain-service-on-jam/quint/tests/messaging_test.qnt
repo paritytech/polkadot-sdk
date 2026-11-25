@@ -48,6 +48,49 @@ module messaging_test {
     authTrace: 0
   }
 
+  /// A well-formed candidate for `para` continuing its current head in `s`,
+  /// refined against its active code: sends `msgs`, then makes the given
+  /// messaging declarations. For driving `initCleanUp` scenarios as one block.
+  pure def refinedCandidate(
+    s: ParachainServiceState, para: ParaId, msgs: List[UpwardMessage],
+    provides: StreamsRootDeclaration, requires: RequiresRootsDeclaration
+  ): WorkResult = chainedCandidate(s, para, 0, msgs, provides, requires)
+
+  /// As `refinedCandidate`, but continuing the head `k` candidates past `para`'s
+  /// current one, for chaining several of its candidates in one block.
+  pure def chainedCandidate(
+    s: ParachainServiceState, para: ParaId, k: int, msgs: List[UpwardMessage],
+    provides: StreamsRootDeclaration, requires: RequiresRootsDeclaration
+  ): WorkResult = {
+    val parent = s.paraInfo(para).headData + k
+    {
+      result: refineCalls(s, para,
+        wellFormedCalls(headHash(parent), parent + 1, msgs)
+          .concat(messagingCalls(provides, requires))),
+      authTrace: 0
+    }
+  }
+
+  /// Accumulate `pkgs` as one block at `now + 1`, the same `accumulateBlock`
+  /// pipeline as the model step.
+  action applyBlock(pkgs: List[WorkResult]): bool = {
+    val out = accumulateBlock(
+      svc, now + 1, jamStagingSet, solicitedSet, FixedCodeLen, pkgs, foreignServices)
+    all {
+      svc' = out.state,
+      now' = now + 1,
+      jamStagingSet' = out.staging,
+      solicitedSet' = out.solicited,
+      prevSvc' = svc,
+      lastStepWorkResults' = out.results,
+      lastStepAssigns' = out.assigns,
+      lastStepAssignBudget' = FullAssignBudget,
+      lastHeadRoot' = out.headRoot,
+      foreignServices' = out.foreign,
+      logPrunedBelow' = out.logPruned.foldl(logPrunedBelow, (m, pr) => m.put(pr._1, pr._2))
+    }
+  }
+
   /// §4.3 / §8: either messaging host call invoked more than once aborts
   /// the validation code with `MessagesCallRepeated`; called at most once
   /// each, the declarations travel verbatim in the digest, the `StreamsRoot`
@@ -474,7 +517,7 @@ module messaging_test {
     }
   }
 
-  /// §8 / §8.1: the ring holds the last `MaxSettlementRingCapacity` ENACTED
+  /// §8 / §8.1: the ring holds the last `MaxSettlementRingCapacity` distinct ENACTED
   /// roots, not just the latest one. A sender chaining two candidates in one
   /// block leaves both roots settleable: a receiver one root behind is not
   /// cut off until `MaxSettlementRingCapacity` newer pushes evict it.
@@ -533,7 +576,7 @@ module messaging_test {
   }
 
   /// §6.4 / §8.1: `parachain_clean_up` deletes the ring with the rest of the
-  /// per-para state on the first accepted call. Rings of OTHER paras are
+  /// per-para state once everything is expunged. Rings of OTHER paras are
   /// untouched.
   run cleanUpDeletesRingTest = {
     val doomed = MkParaId(3)
@@ -556,11 +599,10 @@ module messaging_test {
     }
   }
 
-  /// §6.4 / §8.1: the ring is deleted on the PARTIAL clean-up branch too. A
-  /// para whose validation code enters forget-limbo stays live with
-  /// `isDeregistering` set, but its ring is already gone: the ring is plain
-  /// storage, not a preimage, so it needs no two-step release.
-  run cleanUpPartialStillDeletesRingTest = {
+  /// §6.4 / §8.1: the ring survives the PARTIAL clean-up branch. A para whose
+  /// validation code enters forget-limbo stays live with `isDeregistering` set
+  /// and keeps its ring until the call that expunges everything.
+  run cleanUpPartialKeepsRingTest = {
     val doomed = MkParaId(3)
     val code: ValidationCodeHash = { vchBytes: 77 }
     val registered =
@@ -577,10 +619,42 @@ module messaging_test {
       // Partial branch taken: still live, awaiting the expunging forget.
       assert(out.isLive(doomed)),
       assert(out.paraInfo(doomed).isDeregistering),
-      // The ring is nonetheless gone already.
-      assert(not(out.messagesCursor.keys().contains(doomed))),
-      assert(out.messagesMember.keys().filter(k => k._1 == doomed) == Set()),
-      assert(not(out.settlementCheck(List((doomed, rootNo(5)))))),
+      // The ring is still in place.
+      assert(out.messagesCursor.keys().contains(doomed)),
+      assert(out.settlementCheck(List((doomed, rootNo(5))))),
+      init
+    }
+  }
+
+  /// §6.4 / §8.1: the RETRY of a partial clean-up deletes the ring. Once the
+  /// code is expungeable (`now > due`), the second `parachain_clean_up` takes
+  /// the all-expunged branch: the para and its ring go together, leaving no
+  /// ring for a removed para (`settlement_ring_only_for_live`).
+  run cleanUpRetryDeletesRingTest = {
+    val doomed = MkParaId(3)
+    val bystander = CoretimeParaId
+    val code: ValidationCodeHash = { vchBytes: 77 }
+    val registered =
+      parachainSetStateBalance(initialState, doomed, InitialParaBalance).state
+    val withCode =
+      parachainSetValidationCode(registered, doomed, code, FixedCodeLen, 0).state
+    val provided = markProvided(withCode, code.asPreimage(), FixedCodeLen)
+    val seeded = pushMany(settlementRingPush(provided, doomed, rootNo(5)), bystander, 1)
+    // First call: the forget only unrequests, so the ring stays.
+    val partial = parachainCleanUp(seeded, doomed, 0).state
+    // Retry strictly past the deadline: the forget expunges, para removed.
+    val retried = parachainCleanUp(partial, doomed, ExpungePeriod + 1).state
+    all {
+      assert(partial.paraInfo(doomed).isDeregistering),
+      assert(partial.settlementCheck(List((doomed, rootNo(5))))),
+      assert(not(retried.isLive(doomed))),
+      assert(not(retried.preimageStatus.keys().contains((code.asPreimage(), FixedCodeLen)))),
+      // The ring is gone with the para...
+      assert(not(retried.messagesCursor.keys().contains(doomed))),
+      assert(retried.messagesMember.keys().filter(k => k._1 == doomed) == Set()),
+      assert(not(retried.settlementCheck(List((doomed, rootNo(5)))))),
+      // ...while the bystander's ring still settles.
+      assert(retried.settlementCheck(List((bystander, rootNo(0))))),
       init
     }
   }
@@ -627,6 +701,238 @@ module messaging_test {
       assert(not(receiverFirst.state.settlementCheck(List((doomed, rootS))))),
       init
     }
+  }
+
+  /// §5.1 step 1 / §6.4 / §8.1: a PARTIAL clean-up in the same block. The
+  /// code enters forget-limbo, so the para stays live with `isDeregistering`
+  /// set and its ring intact. A later candidate of the deregistering para
+  /// itself is dropped at step 1 and pushes nothing; a later receiver naming
+  /// one of its roots still settles and enacts. The control shows the same
+  /// doomed candidate enacts and pushes when no clean-up precedes it.
+  run sameBlockPartialCleanUpTest = {
+    val ct = CoretimeParaId
+    val ctCode: ValidationCodeHash = { vchBytes: 1 }
+    val doomed = MkParaId(3)
+    val doomedCode: ValidationCodeHash = { vchBytes: 77 }
+    val rootOld = rootNo(5)
+    val rootNew = rootNo(6)
+    val registered =
+      parachainSetStateBalance(initialState, doomed, InitialParaBalance).state
+    val withCode =
+      parachainSetValidationCode(registered, doomed, doomedCode, FixedCodeLen, 0).state
+    // Provided code: the clean-up's forget only unrequests, so it is partial.
+    val seeded = settlementRingPush(
+      markProvided(withCode, doomedCode.asPreimage(), FixedCodeLen), doomed, rootOld)
+    val doomedCand = mkWork(doomed, doomedCode, 0, List(), Some(rootNew), List())
+    val receiver = mkWork(ct, ctCode, 1, List(), None, List((doomed, rootOld)))
+    val partialFirst = accumulateAll(
+      seeded, Set(), List(), FixedCodeLen, 1,
+      List(mkWork(ct, ctCode, 0, List(ParachainCleanUp(doomed)), None, List()),
+        doomedCand, receiver),
+      Map())
+    val control = accumulateAll(
+      seeded, Set(), List(), FixedCodeLen, 1, List(doomedCand), Map())
+    all {
+      // Control: without the clean-up the doomed candidate enacts and pushes.
+      assert(control.state.paraInfo(doomed).headData == 1),
+      assert(control.state.settlementCheck(List((doomed, rootNew)))),
+      // Partial branch taken: live, deregistering, ring kept.
+      assert(partialFirst.state.isLive(doomed)),
+      assert(partialFirst.state.paraInfo(doomed).isDeregistering),
+      assert(partialFirst.state.messagesCursor.get(doomed) ==
+        seeded.messagesCursor.get(doomed)),
+      // (i) The deregistering para's own candidate is dropped: no head write,
+      // no push.
+      assert(partialFirst.state.paraInfo(doomed).headData == 0),
+      assert(not(partialFirst.state.settlementCheck(List((doomed, rootNew))))),
+      // (ii) The receiver settles against the surviving ring and enacts.
+      assert(partialFirst.state.paraInfo(ct).headData == 2),
+      init
+    }
+  }
+
+  /// `parent_head_continuity` regression (§5.1 step 4, §6.4, §8.1): Coretime
+  /// fully removes deregistering para 4 (`initCleanUp`, `now > due`) and, later
+  /// in the same block, para 3 requires `(4, StreamsRootA)`. The ring went with
+  /// para 4, so para 3 misses settlement and keeps its head; the replay must
+  /// delete the ring too rather than settle para 3 against `prevSvc`'s rings.
+  run cleanUpThenReceiverContinuityTest = {
+    val gone = MkParaId(4)
+    val receiver = MkParaId(3)
+    initCleanUp
+      .then(applyBlock(List(
+        refinedCandidate(svc, CoretimeParaId, List(ParachainCleanUp(gone)),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        refinedCandidate(svc, receiver, List(),
+          StreamsRootUndeclared, RequiresRootsDeclared(List((gone, StreamsRootA))))
+      )))
+      .then(expectThat(all {
+        // Reached: 4 and its ring removed, the receiver rejected, Coretime enacted.
+        prevSvc.parachains.keys().contains(gone),
+        prevSvc.messagesCursor.keys().contains(gone),
+        not(svc.parachains.keys().contains(gone)),
+        not(svc.messagesCursor.keys().contains(gone)),
+        svc.paraInfo(receiver).headData == prevSvc.paraInfo(receiver).headData,
+        svc.paraInfo(CoretimeParaId).headData == prevSvc.paraInfo(CoretimeParaId).headData + 1,
+        parent_head_continuity
+      }))
+  }
+
+  /// `parent_head_continuity` regression (§6.2, §6.4, §8.1): one Coretime
+  /// candidate fully removes para 4 and re-registers it; para 3 then requires
+  /// `(4, StreamsRootA)`. The fresh registration has no ring, so para 3 misses
+  /// settlement. Para 4 is present at the end of the step, so the replay must
+  /// not read that as a rejected clean-up that kept the old ring.
+  run cleanUpReRegisterThenReceiverContinuityTest = {
+    val gone = MkParaId(4)
+    val receiver = MkParaId(3)
+    initCleanUp
+      .then(applyBlock(List(
+        refinedCandidate(svc, CoretimeParaId,
+          List(ParachainCleanUp(gone),
+            ParachainSetStateBalance({ paraId: gone, newTotal: InitialParaBalance })),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        refinedCandidate(svc, receiver, List(),
+          StreamsRootUndeclared, RequiresRootsDeclared(List((gone, StreamsRootA))))
+      )))
+      .then(expectThat(all {
+        // Reached: 4 re-registered fresh (no longer deregistering, no ring),
+        // the receiver rejected.
+        prevSvc.paraInfo(gone).isDeregistering,
+        svc.parachains.keys().contains(gone),
+        not(svc.paraInfo(gone).isDeregistering),
+        not(svc.messagesCursor.keys().contains(gone)),
+        svc.paraInfo(receiver).headData == prevSvc.paraInfo(receiver).headData,
+        svc.paraInfo(CoretimeParaId).headData == prevSvc.paraInfo(CoretimeParaId).headData + 1,
+        parent_head_continuity
+      }))
+  }
+
+  /// `parent_head_continuity` regression (§6.4, §8.1): para 3 first stores a
+  /// KV entry, so Coretime's `parachain_clean_up(3)` in the next block is
+  /// rejected with `TooMuchStateHeld`. Para 3 stays live, enacts later in that
+  /// block and pushes `StreamsRootB`, which Asset Hub then requires. The replay
+  /// must keep para 3 (head and ring) across the rejected clean-up.
+  run rejectedCleanUpThenPushContinuityTest = {
+    val kept = MkParaId(3)
+    val ah = AssetHubParaId
+    initCleanUp
+      .then(applyBlock(List(
+        refinedCandidate(svc, kept, List(SetKV({ key: List(1), value: List(1) })),
+          StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(svc.keyValueStorage.keys().exists(k => k._1 == kept)))
+      .then(applyBlock(List(
+        refinedCandidate(svc, CoretimeParaId, List(ParachainCleanUp(kept)),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        refinedCandidate(svc, kept, List(),
+          StreamsRootDeclared(StreamsRootB), RequiresRootsUndeclared),
+        refinedCandidate(svc, ah, List(),
+          StreamsRootUndeclared, RequiresRootsDeclared(List((kept, StreamsRootB))))
+      )))
+      .then(expectThat(all {
+        // Reached: the clean-up's carrier enacted but 3 survived untouched,
+        // then 3 pushed B and Asset Hub settled against it.
+        svc.paraInfo(CoretimeParaId).headData == prevSvc.paraInfo(CoretimeParaId).headData + 1,
+        svc.parachains.keys().contains(kept),
+        not(svc.paraInfo(kept).isDeregistering),
+        svc.paraInfo(kept).headData == prevSvc.paraInfo(kept).headData + 1,
+        svc.settlementCheck(List((kept, StreamsRootB))),
+        svc.paraInfo(ah).headData == prevSvc.paraInfo(ah).headData + 1,
+        parent_head_continuity
+      }))
+  }
+
+  /// `parent_head_continuity` regression (§5.1 step 1, §6.4): Coretime
+  /// partially cleans up para 3, whose own candidate follows in the same block,
+  /// and para 4, deregistering since `initCleanUp`, submits one too. Both are
+  /// dropped and keep their heads; the replay freezes 3 at its clean-up, so an
+  /// Accumulate that let either candidate enact would fail it.
+  run partialCleanUpThenOwnCandidateContinuityTest = {
+    val q = MkParaId(3)
+    val old = MkParaId(4)
+    initCleanUp
+      .then(applyBlock(List(
+        refinedCandidate(svc, CoretimeParaId, List(ParachainCleanUp(q)),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        refinedCandidate(svc, q, List(), StreamsRootUndeclared, RequiresRootsUndeclared),
+        refinedCandidate(svc, old, List(), StreamsRootUndeclared, RequiresRootsUndeclared)
+      )))
+      .then(expectThat(all {
+        // Reached: 3 now deregistering, 4 still is, both heads untouched.
+        not(prevSvc.paraInfo(q).isDeregistering),
+        svc.paraInfo(q).isDeregistering,
+        svc.paraInfo(old).isDeregistering,
+        svc.paraInfo(q).headData == prevSvc.paraInfo(q).headData,
+        svc.paraInfo(old).headData == prevSvc.paraInfo(old).headData,
+        svc.paraInfo(CoretimeParaId).headData == prevSvc.paraInfo(CoretimeParaId).headData + 1,
+        parent_head_continuity
+      }))
+  }
+
+  /// `parent_head_continuity` regression (§6.3, §6.4): one Coretime candidate
+  /// partially cleans up para 3, then forces heads on 3 and on para 4,
+  /// deregistering since `initCleanUp`. Both forced heads no-op; the replay
+  /// freezes 3 at its clean-up, so an Accumulate that applied either would fail
+  /// it.
+  run partialCleanUpThenSetHeadContinuityTest = {
+    val q = MkParaId(3)
+    val old = MkParaId(4)
+    initCleanUp
+      .then(applyBlock(List(
+        refinedCandidate(svc, CoretimeParaId,
+          List(ParachainCleanUp(q),
+            ParachainSetHead({ paraId: q, newHead: 7 }),
+            ParachainSetHead({ paraId: old, newHead: 7 })),
+          StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(all {
+        // Reached: 3 now deregistering, 4 still is, both heads untouched.
+        not(prevSvc.paraInfo(q).isDeregistering),
+        svc.paraInfo(q).isDeregistering,
+        svc.paraInfo(old).isDeregistering,
+        svc.paraInfo(q).headData == prevSvc.paraInfo(q).headData,
+        svc.paraInfo(old).headData == prevSvc.paraInfo(old).headData,
+        parent_head_continuity
+      }))
+  }
+
+  /// `parent_head_continuity` regression (§6.3, §6.4, §8.1): two clean-ups of
+  /// para 3 in one block make its ring unknown to the replay, so a Coretime
+  /// candidate requiring `(3, StreamsRootA)` may or may not enact. Here it does
+  /// (both clean-ups are partial and keep the ring), and so do the forced head
+  /// on Asset Hub it carries, or that a later Coretime candidate built on it
+  /// carries. The replay must treat Asset Hub's head as unknown rather than
+  /// drop those forced heads with the candidate.
+  run unknownSettlementThenSetHeadContinuityTest = {
+    val q = MkParaId(3)
+    val ah = AssetHubParaId
+    val forceAh = ParachainSetHead({ paraId: ah, newHead: 7 })
+    val requiresQ = RequiresRootsDeclared(List((q, StreamsRootA)))
+    // Reached: 3 deregistering with its ring, Coretime enacted all `n` of its
+    // candidates, Asset Hub forced to 7.
+    def enacted(n: int): bool = all {
+      svc.paraInfo(q).isDeregistering,
+      svc.settlementCheck(List((q, StreamsRootA))),
+      svc.paraInfo(CoretimeParaId).headData == prevSvc.paraInfo(CoretimeParaId).headData + n,
+      svc.paraInfo(ah).headData == 7,
+    }
+    initCleanUp
+      // The requiring candidate forces the head itself.
+      .then(applyBlock(List(
+        refinedCandidate(svc, CoretimeParaId, List(ParachainCleanUp(q), ParachainCleanUp(q)),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        chainedCandidate(svc, CoretimeParaId, 1, List(forceAh),
+          StreamsRootUndeclared, requiresQ))))
+      .then(expectThat(enacted(2) and parent_head_continuity))
+      .then(initCleanUp)
+      // A later candidate of the now unknown Coretime forces it.
+      .then(applyBlock(List(
+        refinedCandidate(svc, CoretimeParaId, List(ParachainCleanUp(q), ParachainCleanUp(q)),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        chainedCandidate(svc, CoretimeParaId, 1, List(),
+          StreamsRootUndeclared, requiresQ),
+        chainedCandidate(svc, CoretimeParaId, 2, List(forceAh),
+          StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(enacted(3) and parent_head_continuity))
   }
 
   /// `settlement_ring_coherent` rejects corrupted rings:
@@ -718,6 +1024,399 @@ module messaging_test {
         svc.paraInfo(receiver).headData == 0,
         svc.settlementCheck(List((sender, StreamsRootB))),
         settlement_ring_coherent
+      }))
+  }
+
+
+  // ===== parent_head_continuity: §5.1 step 2 (validation code) =====
+
+  /// The digest's active code hash of `p`, as stored.
+  pure def activeCodeOf(s: ParachainServiceState, p: ParaId): Option[ValidationCodeHash] =
+    s.paraInfo(p).validationCode.optionMap(vc => vc.hash)
+
+  /// A candidate for `para` refined with code `code` instead of its active one;
+  /// Refine only asks that the code be referenced by some para (`codeAvailable`).
+  pure def candidateWithCode(s: ParachainServiceState, para: ParaId, code: ValidationCodeHash): WorkResult = {
+    val pi = s.paraInfo(para)
+    {
+      result: refine(s, { authorizedParas: List(para), items: List({ validationCode: { hash: code, len: FixedCodeLen } }) },
+        false, wellFormedCalls(headHash(pi.headData), pi.headData + 1, List()), 0)[0],
+      authTrace: 0
+    }
+  }
+
+  /// Coretime sets its own code, then a chained Coretime candidate refined
+  /// with the pre-block code follows in the same block: step 2 rejects it, and
+  /// the replay must too rather than expect its head.
+  run continuityOwnCodeChangeTest = {
+    val ct = CoretimeParaId
+    val newCode: ValidationCodeHash = { vchBytes: 101 }
+    initCleanUp
+      .then(applyBlock(List(
+        refinedCandidate(svc, ct, List(ParachainSetValidationCode({ paraId: ct, newValidationCode: { hash: newCode, len: FixedCodeLen } })),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        chainedCandidate(svc, ct, 1, List(), StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(all {
+        // Reached: both refine Ok, the code moved, only the first enacted.
+        isOkDigest(lastStepWorkResults[1].result),
+        activeCodeOf(svc, ct) == Some(newCode),
+        svc.paraInfo(ct).headData == prevSvc.paraInfo(ct).headData + 1,
+        parent_head_continuity
+      }))
+  }
+
+  /// As above, but Coretime sets para 3's code and para 3's candidate, refined
+  /// with its pre-block code, follows.
+  run continuityOtherCodeChangeTest = {
+    val ct = CoretimeParaId
+    val q = MkParaId(3)
+    val newCode: ValidationCodeHash = { vchBytes: 102 }
+    initCleanUp
+      .then(applyBlock(List(
+        refinedCandidate(svc, ct, List(ParachainSetValidationCode({ paraId: q, newValidationCode: { hash: newCode, len: FixedCodeLen } })),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        refinedCandidate(svc, q, List(), StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(all {
+        isOkDigest(lastStepWorkResults[1].result),
+        activeCodeOf(svc, q) == Some(newCode),
+        svc.paraInfo(q).headData == prevSvc.paraInfo(q).headData,
+        parent_head_continuity
+      }))
+  }
+
+  /// An Asset Hub candidate refined with para 3's code: Refine accepts it (the
+  /// code is referenced), step 2 rejects it, and so must the replay.
+  run continuityForeignCodeTest = {
+    val ah = AssetHubParaId
+    initCleanUp
+      .then(applyBlock(List(candidateWithCode(svc, ah, { vchBytes: 3 }))))
+      .then(expectThat(all {
+        isOkDigest(lastStepWorkResults[0].result),
+        activeCodeOf(prevSvc, ah) != Some({ vchBytes: 3 }),
+        svc.paraInfo(ah).headData == prevSvc.paraInfo(ah).headData,
+        parent_head_continuity
+      }))
+  }
+
+  /// An undecidable Coretime candidate (it requires a root of para 3, made
+  /// unknown by a double clean-up) sets Asset Hub's code to para 3's, then an
+  /// Asset Hub candidate with that code follows and enacts. The replay must
+  /// forget Asset Hub's code in `markUnknown` rather than reject the candidate.
+  run continuityUnknownCodeChangeTest = {
+    val ah = AssetHubParaId
+    val q = MkParaId(3)
+    val c3: ValidationCodeHash = { vchBytes: 3 }
+    initCleanUp
+      .then(applyBlock(List(
+        refinedCandidate(svc, CoretimeParaId, List(ParachainCleanUp(q), ParachainCleanUp(q)),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        chainedCandidate(svc, CoretimeParaId, 1,
+          List(ParachainSetValidationCode({ paraId: ah, newValidationCode: { hash: c3, len: FixedCodeLen } })),
+          StreamsRootUndeclared, RequiresRootsDeclared(List((q, StreamsRootA)))),
+        candidateWithCode(svc, ah, c3))))
+      .then(expectThat(all {
+        activeCodeOf(svc, ah) == Some(c3),
+        svc.paraInfo(ah).headData == prevSvc.paraInfo(ah).headData + 1,
+        parent_head_continuity
+      }))
+  }
+
+  /// Two code changes to para 3 in one block: the replay cannot classify them
+  /// from the end state, so it forgets para 3's code and para 3's candidate,
+  /// refined with the pre-block code (rejected), goes through `markUnknown`.
+  run continuityDoubleCodeChangeTest = {
+    val q = MkParaId(3)
+    val x: ValidationCodeHash = { vchBytes: 103 }
+    val y: ValidationCodeHash = { vchBytes: 104 }
+    initCleanUp
+      .then(applyBlock(List(
+        refinedCandidate(svc, CoretimeParaId, List(
+            ParachainSetValidationCode({ paraId: q, newValidationCode: { hash: x, len: FixedCodeLen } }),
+            ParachainSetValidationCode({ paraId: q, newValidationCode: { hash: y, len: FixedCodeLen } })),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        refinedCandidate(svc, q, List(), StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(all {
+        isOkDigest(lastStepWorkResults[1].result),
+        activeCodeOf(svc, q) == Some(y),
+        svc.paraInfo(q).headData == prevSvc.paraInfo(q).headData,
+        parent_head_continuity
+      }))
+  }
+
+
+  /// An undecidable Coretime candidate (it requires a root of para 3, which a
+  /// double clean-up made unknown) forces a head on para 4, deregistering
+  /// since `initCleanUp`. Whether or not it enacts, the forced head is a no-op,
+  /// so the replay keeps para 4's head and still checks it: a model where the
+  /// forced head moves a deregistering para must break the invariant here.
+  run frozenTargetOfUndecidableCandidateKeepsHeadTest = {
+    val q = MkParaId(3)
+    val old = MkParaId(4)
+    initCleanUp
+      .then(applyBlock(List(
+        refinedCandidate(svc, CoretimeParaId, List(ParachainCleanUp(q), ParachainCleanUp(q)),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        chainedCandidate(svc, CoretimeParaId, 1, List(ParachainSetHead({ paraId: old, newHead: 7 })),
+          StreamsRootUndeclared, RequiresRootsDeclared(List((q, StreamsRootA)))))))
+      .then(expectThat(all {
+        svc.paraInfo(CoretimeParaId).headData == prevSvc.paraInfo(CoretimeParaId).headData + 2,
+        svc.paraInfo(old).isDeregistering,
+        parent_head_continuity
+      }))
+  }
+
+  /// The converse: an undecidable candidate cleans up the frozen para 4, which
+  /// completes its removal, and the next one re-registers it and forces a fresh
+  /// head. A clean-up target leaves the replay, frozen or not.
+  run frozenCleanUpTargetReRegisteredTest = {
+    val q = MkParaId(3)
+    val old = MkParaId(4)
+    initCleanUp
+      .then(applyBlock(List(
+        refinedCandidate(svc, CoretimeParaId, List(ParachainCleanUp(q), ParachainCleanUp(q)),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        chainedCandidate(svc, CoretimeParaId, 1, List(ParachainCleanUp(old)),
+          StreamsRootUndeclared, RequiresRootsDeclared(List((q, StreamsRootA)))),
+        chainedCandidate(svc, CoretimeParaId, 2, List(
+          ParachainSetStateBalance({ paraId: old, newTotal: BaselineFootprint * 2 }),
+          ParachainSetHead({ paraId: old, newHead: 9 })),
+          StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(all {
+        svc.paraInfo(CoretimeParaId).headData == prevSvc.paraInfo(CoretimeParaId).headData + 3,
+        not(svc.paraInfo(old).isDeregistering),
+        svc.paraInfo(old).headData == 9,
+        parent_head_continuity
+      }))
+  }
+
+  /// A candidate for `para` continuing the head `k` candidates past its current
+  /// one, refined with code `code` and making the given messaging declarations.
+  pure def chainedCandidateOnCode(
+    s: ParachainServiceState, para: ParaId, k: int, code: ValidationCodeHash,
+    msgs: List[UpwardMessage],
+    provides: StreamsRootDeclaration, requires: RequiresRootsDeclaration
+  ): WorkResult = {
+    val parent = s.paraInfo(para).headData + k
+    {
+      result: refine(s, { authorizedParas: List(para), items: List({ validationCode: { hash: code, len: FixedCodeLen } }) },
+        false, wellFormedCalls(headHash(parent), parent + 1, msgs)
+          .concat(messagingCalls(provides, requires)), 0)[0],
+      authTrace: 0
+    }
+  }
+
+  /// Two code changes to para 3 in separate candidates, with para 3's candidate
+  /// on the first new code between them: Coretime sets it to X (para 4's code,
+  /// so Refine accepts it), para 3 enacts on X, then a chained Coretime
+  /// candidate sets it to Y. The replay must not take Y, the end-of-step code,
+  /// as para 3's code at its candidate: two changes leave it unknown, and the
+  /// candidate goes through `markUnknown`.
+  run continuitySplitDoubleCodeChangeTest = {
+    val ct = CoretimeParaId
+    val q = MkParaId(3)
+    val x: ValidationCodeHash = { vchBytes: 4 }
+    val y: ValidationCodeHash = { vchBytes: 105 }
+    initCleanUp
+      .then(applyBlock(List(
+        refinedCandidate(svc, ct,
+          List(ParachainSetValidationCode({ paraId: q, newValidationCode: { hash: x, len: FixedCodeLen } })),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        candidateWithCode(svc, q, x),
+        chainedCandidate(svc, ct, 1,
+          List(ParachainSetValidationCode({ paraId: q, newValidationCode: { hash: y, len: FixedCodeLen } })),
+          StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(all {
+        // Reached: both Coretime candidates and para 3's enacted, 3 ends on Y.
+        isOkDigest(lastStepWorkResults[1].result),
+        svc.paraInfo(ct).headData == prevSvc.paraInfo(ct).headData + 2,
+        svc.paraInfo(q).headData == prevSvc.paraInfo(q).headData + 1,
+        activeCodeOf(svc, q) == Some(y),
+        parent_head_continuity
+      }))
+  }
+
+  /// One code change to para 3, after which it runs, and is then fully removed
+  /// and re-registered in the same block. Asset Hub first solicits para 3's
+  /// pre-block code, so Coretime's forget of it releases at once; Coretime sets
+  /// para 3's code to Asset Hub's; para 3 enacts on it and pushes
+  /// `StreamsRootB`; Asset Hub settles against B; a chained Coretime candidate
+  /// cleans up para 3 (nothing retained: full removal) and re-registers it with
+  /// no code. The end-of-step code is the fresh entry's, not the one para 3 ran
+  /// on, so the replay must forget para 3's code rather than reject its
+  /// candidate and, with it, Asset Hub's.
+  run continuityCodeChangeThenReRegisterTest = {
+    val ct = CoretimeParaId
+    val ah = AssetHubParaId
+    val q = MkParaId(3)
+    val c3: ValidationCodeHash = { vchBytes: 3 }
+    val x: ValidationCodeHash = { vchBytes: 2 }
+    initCleanUp
+      .then(applyBlock(List(
+        refinedCandidate(svc, ah,
+          List(Solicit({ target: Parachain(ah), hash: c3.asPreimage(), len: FixedCodeLen })),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        refinedCandidate(svc, ct, List(
+            ParachainSetValidationCode({ paraId: q, newValidationCode: { hash: x, len: FixedCodeLen } }),
+            Forget({ target: Parachain(q), hash: c3.asPreimage(), len: FixedCodeLen })),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        chainedCandidateOnCode(svc, q, 0, x, List(),
+          StreamsRootDeclared(StreamsRootB), RequiresRootsUndeclared),
+        chainedCandidate(svc, ah, 1, List(),
+          StreamsRootUndeclared, RequiresRootsDeclared(List((q, StreamsRootB)))),
+        chainedCandidate(svc, ct, 1, List(
+            ParachainCleanUp(q),
+            ParachainSetStateBalance({ paraId: q, newTotal: InitialParaBalance })),
+          StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(all {
+        // Reached: every candidate enacted; 3 re-registered fresh, with no
+        // code and no ring.
+        svc.paraInfo(ct).headData == prevSvc.paraInfo(ct).headData + 2,
+        svc.paraInfo(ah).headData == prevSvc.paraInfo(ah).headData + 2,
+        not(prevSvc.paraInfo(q).isDeregistering),
+        svc.parachains.keys().contains(q),
+        not(svc.paraInfo(q).isDeregistering),
+        activeCodeOf(svc, q) == None,
+        not(svc.messagesCursor.keys().contains(q)),
+        parent_head_continuity
+      }))
+  }
+
+  /// A Coretime candidate built on a stale head (Accumulate rejects it, §5.1
+  /// step 4) carries `parachain_set_validation_code(3, X)`. A rejected candidate
+  /// changes nothing, so para 3's code stays put and para 3's candidate on its
+  /// old code enacts in the same block; the replay must agree.
+  run continuityRejectedCodeChangeTest = {
+    val ct = CoretimeParaId
+    val q = MkParaId(3)
+    val x: ValidationCodeHash = { vchBytes: 105 }
+    initCleanUp
+      .then(applyBlock(List(
+        chainedCandidate(svc, ct, 5,
+          List(ParachainSetValidationCode({ paraId: q, newValidationCode: { hash: x, len: FixedCodeLen } })),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        refinedCandidate(svc, q, List(), StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(all {
+        // Reached: both refine Ok, Coretime's is rejected, para 3's enacts.
+        isOkDigest(lastStepWorkResults[0].result),
+        isOkDigest(lastStepWorkResults[1].result),
+        svc.paraInfo(ct).headData == prevSvc.paraInfo(ct).headData,
+        activeCodeOf(svc, q) == Some({ vchBytes: 3 }),
+        svc.paraInfo(q).headData == prevSvc.paraInfo(q).headData + 1,
+        parent_head_continuity
+      }))
+  }
+
+  /// Para 3 solicits and announces code Y (§5.2) but never applies it. A
+  /// candidate refined with Y passes Refine (the code is referenced), but §5.1
+  /// step 2 accepts only the active code, so it does not enact.
+  run continuityAnnouncedCodeRejectedTest = {
+    val q = MkParaId(3)
+    val y: ValidationCodeHash = { vchBytes: 107 }
+    initCleanUp
+      .then(applyBlock(List(refinedCandidate(svc, q,
+        List(Solicit({ target: Parachain(q), hash: y.asPreimage(), len: FixedCodeLen })),
+        StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(provide(y.asPreimage(), FixedCodeLen))
+      .then(applyBlock(List(refinedCandidate(svc, q,
+        List(RequestCodeUpgrade({ hash: y, len: FixedCodeLen, phase: Announcement })),
+        StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(svc.paraInfo(q).announcedUpgrade == Some({ hash: y, len: FixedCodeLen })))
+      .then(applyBlock(List(candidateWithCode(svc, q, y))))
+      .then(expectThat(all {
+        isOkDigest(lastStepWorkResults[0].result),
+        activeCodeOf(svc, q) == Some({ vchBytes: 3 }),
+        svc.paraInfo(q).headData == prevSvc.paraInfo(q).headData,
+        svc.paraInfo(q).announcedUpgrade == Some({ hash: y, len: FixedCodeLen }),
+        parent_head_continuity
+      }))
+  }
+
+  /// §6.3 / `validation_code_matches_outcomes` part 2: Coretime's accepted
+  /// `parachain_set_validation_code(3, code 4)` must switch para 3's code (it
+  /// fits), so a model that charges the code but keeps the old one, letting
+  /// para 3's same-block candidate built with the old code enact, is caught.
+  run setValidationCodeOutcomeTest = {
+    val q = MkParaId(3)
+    initCleanUp
+      .then(applyBlock(List(
+        refinedCandidate(svc, CoretimeParaId,
+          List(ParachainSetValidationCode({ paraId: q, newValidationCode: { hash: { vchBytes: 4 }, len: FixedCodeLen } })),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        refinedCandidate(svc, q, List(), StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(all {
+        isOkDigest(lastStepWorkResults[0].result),
+        isOkDigest(lastStepWorkResults[1].result),
+        // Reached: Coretime's candidate enacts and switches para 3 to code 4,
+        // so para 3's candidate built with code 3 does not.
+        svc.paraInfo(CoretimeParaId).headData == prevSvc.paraInfo(CoretimeParaId).headData + 1,
+        activeCodeOf(svc, q) == Some({ vchBytes: 4 }),
+        svc.paraInfo(q).headData == prevSvc.paraInfo(q).headData,
+        validation_code_matches_outcomes
+      }))
+  }
+
+  /// §5.2 / `validation_code_matches_outcomes` part 1: an `Apply` of code para 3
+  /// solicited (so referenced) but never announced is rejected, so a model in
+  /// which it switches the code (and a chained candidate then enacts) is caught;
+  /// the reference keeps `validation_code_in_registry` from noticing.
+  run unannouncedApplyOutcomeTest = {
+    val q = MkParaId(3)
+    val c: ValidationCodeHash = { vchBytes: 107 }
+    initCleanUp
+      .then(applyBlock(List(refinedCandidate(svc, q,
+        List(Solicit({ target: Parachain(q), hash: c.asPreimage(), len: FixedCodeLen })),
+        StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(provide(c.asPreimage(), FixedCodeLen))
+      .then(applyBlock(List(
+        refinedCandidate(svc, q,
+          List(RequestCodeUpgrade({ hash: c, len: FixedCodeLen, phase: Apply })),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        chainedCandidate(svc, q, 1, List(), StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(all {
+        isOkDigest(lastStepWorkResults[0].result),
+        isOkDigest(lastStepWorkResults[1].result),
+        svc.hasReferencer(c.asPreimage(), FixedCodeLen, q),
+        // Reached: both candidates enact on the unchanged code 3.
+        svc.paraInfo(q).headData == prevSvc.paraInfo(q).headData + 2,
+        activeCodeOf(svc, q) == Some({ vchBytes: 3 }),
+        validation_code_matches_outcomes
+      }))
+  }
+
+  /// §6.3 / `validation_code_matches_outcomes` part 2, rejected branch: Coretime
+  /// sets para 3's total to its used balance, then (next block, so para 3 stays
+  /// tracked: a same-block `parachain_set_state_balance` counts as a possible
+  /// re-registration) sets its code to code 4. That is rejected with
+  /// `InsufficientStateBalance`, para 3 keeps code 3, and its same-block
+  /// candidate built on code 3 enacts. Only the log entry excuses the unchanged
+  /// code; neither sim reaches this path.
+  run setValidationCodeInsufficientBalanceTest = {
+    val q = MkParaId(3)
+    val c = { hash: { vchBytes: 4 }, len: FixedCodeLen }
+    val isb = InsufficientStateBalance(FromSolicit({ hash: c.hash.asPreimage(), len: c.len }))
+    initCleanUp
+      .then(applyBlock(List(refinedCandidate(svc, CoretimeParaId,
+        List(ParachainSetStateBalance({ paraId: q, newTotal: svc.paraInfo(q).usedStateBalance })),
+        StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(svc.paraInfo(q).totalStateBalance == svc.paraInfo(q).usedStateBalance))
+      .then(applyBlock(List(
+        refinedCandidate(svc, CoretimeParaId,
+          List(ParachainSetValidationCode({ paraId: q, newValidationCode: c })),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        refinedCandidate(svc, q, List(), StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(all {
+        isOkDigest(lastStepWorkResults[0].result),
+        isOkDigest(lastStepWorkResults[1].result),
+        svc.paraInfo(CoretimeParaId).headData == prevSvc.paraInfo(CoretimeParaId).headData + 1,
+        svc.paraLog(CoretimeParaId).foldl(false, (b, e) => b or (e._1 == now and match e._2 {
+          | Accumulate(ls) => ls.foldl(false, (x, l) => x or l == isb)
+          | Refine(_) => false
+        })),
+        continuityReplay.codeSets.get(q) == c,
+        activeCodeOf(svc, q) == Some({ vchBytes: 3 }),
+        svc.paraInfo(q).headData == prevSvc.paraInfo(q).headData + 1,
+        validation_code_matches_outcomes,
+        parent_head_continuity
       }))
   }
 }

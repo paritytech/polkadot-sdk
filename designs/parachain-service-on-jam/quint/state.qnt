@@ -92,7 +92,7 @@ module state {
   // --- Settlement ring (design §8.1) --------------------------------------
 
   /// Ends and length of a parachain's settlement ring: `oldest` is the root
-  /// evicted next, `newest` the most recently pushed root, and `len` the
+  /// evicted next, `newest` the root that entered last, and `len` the
   /// number of live roots, in `1..MaxSettlementRingCapacity`.
   type SettlementCursor = { oldest: StreamsRoot, newest: StreamsRoot, len: int }
 
@@ -141,10 +141,10 @@ module state {
     // maps under tags `0x09` and `0x0a`. `messagesCursor` holds the list's
     // ends and length, absent until the parachain's first push and never
     // read by the settlement check. `messagesMember` is present iff the root
-    // is one of the sender's `MaxSettlementRingCapacity` most recent distinct
-    // enacted roots, and is the ONLY entry the settlement check reads. Its
-    // value is the next root in insertion order; the newest root maps to
-    // itself. The ring at capacity is reserved in the baseline footprint
+    // is in the sender's ring: at most `MaxSettlementRingCapacity` distinct
+    // enacted roots, evicted in the order they entered. It is the ONLY entry
+    // the settlement check reads. Its value is the next root in insertion
+    // order; the newest root maps to itself. The ring at capacity is reserved in the baseline footprint
     // (§6.1, `SettlementRingFootprint`), so pushes are never charged.
     messagesCursor: ParaId -> SettlementCursor,
     messagesMember: (ParaId, StreamsRoot) -> StreamsRoot,
@@ -603,8 +603,8 @@ module state {
 
   /// Destroys a parachain's entire settlement ring (cursor and member list).
   ///
-  /// Triggered exclusively by `parachain_clean_up` (§6.4). Note: forced head updates
-  /// bypass this. While atomic in this model, the service walks the list from
+  /// Triggered exclusively by `parachain_clean_up`'s all-expunged branch (§6.4); the
+  /// partial branch and forced head updates leave the ring in place. While atomic in this model, the service walks the list from
   /// `oldest` (§8.1 "Ring Cleanup") and needs gas for `1 + MaxSettlementRingCapacity`
   /// reads and `1 + MaxSettlementRingCapacity` deletions in the worst case.
   pure def settlementRingDelete(

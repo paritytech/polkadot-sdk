@@ -168,9 +168,10 @@ module types {
   pure val MaxRequiresSources: int = 32
 
   /// §8.1 (`MAX_SETTLEMENT_RING_CAPACITY`): per-parachain settlement-ring
-  /// capacity, the 64 most recent distinct roots the parachain declared in
-  /// enacted blocks. Eviction is in insertion order: a root leaves the ring
-  /// only after this many newer distinct pushes.
+  /// capacity: at most 64 distinct roots the parachain declared in enacted
+  /// blocks. Eviction is in insertion order: a root leaves the ring only
+  /// after this many newer distinct pushes; re-pushing a live root is
+  /// skipped and does not refresh its position.
   pure val MaxSettlementRingCapacity: int = 64
 
   /// §3.1: bounded cap on `staged_validator_keys` (= `CoreCount * 3 = 1023`).

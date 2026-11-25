@@ -209,12 +209,7 @@ module management {
               para_id, vc.hash.asPreimage(), vc.len, now
             )
         }
-        // §6.4 / §8.1: the first accepted clean-up deletes the settlement
-        // ring, whether the parachain is dropped right away or left
-        // deregistering while a validation code awaits its expunging forget.
-        // The ring is plain storage, not a preimage, so it needs no two-step
-        // release.
-        val s1 = settlementRingDelete(afterAnnounced.state, para_id)
+        val s1 = afterAnnounced.state
         val jamForgets =
           optionToSet(afterActive.jamForget).union(optionToSet(afterAnnounced.jamForget))
 
@@ -233,16 +228,18 @@ module management {
             logs: List().appendOption(afterActive.log).appendOption(afterAnnounced.log)
           }
         } else {
-          // Fully expunged: drop all per-para state.
+          // Fully expunged: drop all per-para state, settlement ring included
+          // (§6.4 "all expunged", §8.1 "Ring Cleanup").
+          val s2 = settlementRingDelete(s1, para_id)
           val stagedAfter =
-            if (para_id == AssetHubParaId) List() else s1.stagedValidatorKeys
+            if (para_id == AssetHubParaId) List() else s2.stagedValidatorKeys
           {
             state: {
-              ...s1,
-              parachains: s1.parachains.mapRemove(para_id),
-              parachainLog: s1.parachainLog.mapRemove(para_id),
+              ...s2,
+              parachains: s2.parachains.mapRemove(para_id),
+              parachainLog: s2.parachainLog.mapRemove(para_id),
               stagedValidatorKeys: stagedAfter,
-              keyValueStorage: s1.keyValueStorage.mapFilterKeys(key => key._1 != para_id)
+              keyValueStorage: s2.keyValueStorage.mapFilterKeys(key => key._1 != para_id)
             },
             jamSolicit: Set(),
             jamForget: jamForgets,

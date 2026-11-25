@@ -416,8 +416,8 @@ module accumulate {
     jamForget: Set[Hash],
     logs: List[AccumulateLog]
   } = {
-    // Step 1: registration check. A not-registered OR deregistering para
-    // (§6.4) is treated as if it no longer exists: silently drop, no log.
+    // Step 1: registration check. A candidate of a not-registered OR
+    // deregistering para (§6.4) is rejected: silently drop, no log.
     if (not(s.isLive(r.paraId)) or s.paraInfo(r.paraId).isDeregistering) {
       { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
     } else {
