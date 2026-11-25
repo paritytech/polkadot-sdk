@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795605451645,
+  "lastUpdate": 1795609578553,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "mail@skunert.dev",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "eafcc55352b027f9ca6f2156aaab3a9f22bccfc8",
-          "message": "ParityDB: Value should still be stored after transaction with store + reference (#12082)\n\nWhenever we would see a store + reference within the same database\ntransaction on a yet unknown value, parityDB would transform the\nreference into a dereference, which would give us invalid DB state.\nIntuitively, the value should be stored in the DB but was actually not\npresent.\n\nIn this PR we fix this by introducing a direct mapping to operations and\nadding test cases for this.\n\nNote: In chains with pallet-transaction-storage, the runtime would\nprevent this because you can not renew a transaction that was not\nalready present in a prior block. But at the low level this should still\nwork.",
-          "timestamp": "2026-05-18T08:09:00Z",
-          "tree_id": "dda373efb3f3a42289a4272c654f020c7bbc13f2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/eafcc55352b027f9ca6f2156aaab3a9f22bccfc8"
-        },
-        "date": 1779096779793,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009591994399999975,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023615281300000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007236783373333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1435943939533334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14380861300666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adel.prokurov@parity.io",
+            "name": "playX18",
+            "username": "playX18"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ae307bbef1da9ecae3dff57267fa2ce95b6110f",
+          "message": "statement-store: disconnect a peer that reads statements too slowly (#13863)\n\n# Description\n\nA peer that reads statements too slowly is disconnected, and its\nreconnect gets a fresh initial sync. Before, such a peer kept its\nconnection and lost statements: a full outbox dropped its oldest hashes,\nand a failed send was never retried.\n\nA peer is disconnected, with no reputation change when:\n- its last two statement sends timed out, or\n- its propagation outbox overflowed\n\nFull outbox now refuses new hashes instead of dropping oldest, and the\npeer stays connected if the delay is ours: no chunk in flight, or an\ninitial sync running. The refused hashes are counted in\n`substrate_sync_statement_undelivered_total{reason=\"outbox_full\"}`.\n\nEach disconnect is logged with the peer id and counted in\n`substrate_sync_statement_stalled_peers_disconnected`.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13635.",
+          "timestamp": "2026-11-25T10:52:27Z",
+          "tree_id": "d721646cb2499dd71398594d016338f78840cc38",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4ae307bbef1da9ecae3dff57267fa2ce95b6110f"
+        },
+        "date": 1795609541641,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02443133300666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009721353499999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14693626068,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007849032539999998,
             "unit": "seconds"
           }
         ]
