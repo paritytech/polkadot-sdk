@@ -286,7 +286,9 @@ pub trait Ext: PrecompileWithInfoExt {
 
 	/// Set the immutable data of the current contract.
 	///
-	/// Returns `Err(InvalidImmutableAccess)` if not called from a constructor.
+	/// Returns `Err(InvalidImmutableAccess)` if not called from a constructor. The value is
+	/// stored under the address of the contract being constructed and a later call overwrites
+	/// it, so an instantiation stores at most one value.
 	///
 	/// Note: Requires &mut self to access the contract info.
 	fn set_immutable_data(&mut self, data: ImmutableData) -> Result<(), DispatchError>;
