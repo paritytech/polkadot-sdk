@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795609517151,
+  "lastUpdate": 1795621142599,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e7d08d2c89aef53d78491e79827ccee8f5c3460b",
-          "message": "[acf] Move py/trsry drain migration from pallet to Westend RC (#12092)\n\n`pallet-accumulate-and-forward` is meant to be generic and reusable.\nHard-coding a one-shot drain of the legacy `py/trsry` from RC to AH\naccount belongs in a runtime, not the generic pallet.\nTo achieve the above:\n- Removed `DrainLegacyTreasuryToAccumulationAccount` and its tests from\n`pallet-accumulate-and-forward`.\n- Added a runtime-local equivalent inside `westend-runtime`'s migrations\nmodule, with the same semantics: drain into the local `ACF` accumulation\naccount, where the existing `Forwarder` teleports to AssetHub's central\nDAP on the next forwarding interval.\n- Dropped the migration from BridgeHub / Collectives / Coretime / People\nWestend: `py/trsry` is empty there, so no migration is needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-19T08:05:16Z",
-          "tree_id": "de207240d71e7c0ae57e9ff71c92be63ef860226",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e7d08d2c89aef53d78491e79827ccee8f5c3460b"
-        },
-        "date": 1779183753836,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13603526220000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.195012009100001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13463098669999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0bd30416e7934a99719fa568d0153e267e8723b4",
+          "message": "[JAM] Upstream AURA Authorizer (#13453)\n\nAdds the `cumulus-aura-authorizer` crate from the parachain-service\nrepository.\n\n### Assumptions\n\nSome things need clarification in the spec before this can be finalized:\n\n- https://github.com/paritytech/parachain-service/issues/57\n- https://github.com/paritytech/parachain-service/issues/58\n- https://github.com/paritytech/parachain-service/issues/59\n- https://github.com/paritytech/parachain-service/issues/60\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2026-11-25T14:03:52Z",
+          "tree_id": "7a8c9cdc7776dd746ef04a2d342e2914480261ae",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0bd30416e7934a99719fa568d0153e267e8723b4"
+        },
+        "date": 1795621100990,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.306328956666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13180044196666668,
             "unit": "seconds"
           }
         ]
