@@ -631,6 +631,18 @@ mod tests {
 		(backend_on(db.clone()), db, tmp)
 	}
 
+	/// A backend on a fresh RocksDB, which stores a node once per trie position and leaves the
+	/// counting of references to state-db. The directory must outlive the database.
+	fn rocksdb_backend() -> (Backend<Block>, Arc<dyn Database<DbHash>>, tempfile::TempDir) {
+		let tmp = tempfile::TempDir::new().unwrap();
+		let mut config = kvdb_rocksdb::DatabaseConfig::with_columns(crate::utils::NUM_COLUMNS);
+		config.create_if_missing = true;
+		let db = kvdb_rocksdb::Database::open(&config, tmp.path())
+			.expect("rocksdb open succeeds in test");
+		let db = sp_database::as_database(db);
+		(backend_on(db.clone()), db, tmp)
+	}
+
 	fn backend_on(db: Arc<dyn Database<DbHash>>) -> Backend<Block> {
 		Backend::<Block>::new_test_with_tx_storage_source(
 			BlocksPruning::Some(10),
@@ -1057,6 +1069,97 @@ mod tests {
 			assert!(db.get(columns::STATE, key).is_none(), "every reference is gone");
 		}
 		assert!(db.get(columns::STATE_META, state_sync_keys::DISCARDING).is_none());
+	}
+
+	/// Imports eleven finalized blocks on `parent` and returns the last.
+	///
+	/// The first sets `key` to `[2]`, the others change nothing. Their change sets go through
+	/// state-db, as any block's after a state sync. The test backends keep a pruning window of
+	/// ten blocks, so on return the first block has left it and the nodes it replaced are removed.
+	fn import_and_prune(
+		backend: &Backend<Block>,
+		parent: &Header,
+		key: &[u8],
+	) -> ClientResult<Header> {
+		let mut head = parent.clone();
+		for block in 0..11 {
+			let mut op = backend.begin_operation()?;
+			backend.begin_state_operation(&mut op, head.hash())?;
+			let change = (block == 0).then_some((key, Some(&[2u8][..])));
+			let (state_root, nodes) =
+				op.old_state.storage_root(change.into_iter(), StateVersion::V0);
+			op.update_db_storage(nodes)?;
+			head = Header {
+				number: head.number + 1,
+				parent_hash: head.hash(),
+				state_root,
+				digest: Default::default(),
+				extrinsics_root: Default::default(),
+			};
+			op.set_block_data(head.clone(), Some(vec![]), None, NewBlockState::Final, true)?;
+			backend.commit_operation(op)?;
+		}
+		Ok(head)
+	}
+
+	/// Waits until `key` is gone from `STATE`. parity-db applies a commit on a worker thread, and
+	/// a removed node reads as present until then, see `DbPartialState::remove_nodes`.
+	fn wait_gone(db: &dyn Database<DbHash>, key: &[u8]) {
+		let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+		while db.get(columns::STATE, key).is_some() {
+			assert!(std::time::Instant::now() < deadline, "{key:?} is still in `STATE`");
+			std::thread::sleep(std::time::Duration::from_millis(1));
+		}
+	}
+
+	/// Pruning removes the nodes of a synced state as it removes any block's, on both databases.
+	///
+	/// The download writes the nodes past state-db, and the target block commits an empty change
+	/// set. Pruning needs no more: it removes the keys that later blocks list as deleted, and the
+	/// download stored each node under the key those lists name, once per trie position.
+	///
+	/// Here a leaf sits at two positions. That is two entries on RocksDB, and one entry holding
+	/// two references on parity-db. The leaf outlives the pruning of the block that replaced its
+	/// first position and goes with the block that replaced the second. Then nothing of the
+	/// synced state is left, and the state of the head still reads in full.
+	#[test]
+	fn pruning_removes_synced_nodes() {
+		let key = |first: u8| [vec![first], vec![0u8; 40]].concat();
+		for (backend, db, _tmp) in [rocksdb_backend(), parity_db_backend()] {
+			let (nodes, target) = shared_leaf_chunk();
+			let nodes_keys = chunk_keys(&backend, chunk(&target, nodes.clone())).unwrap();
+			let root_key = root_key(&backend, &target);
+			backend.partial_state.begin(partial_state_target(&target)).unwrap();
+			backend.partial_state.import(&chunk(&target, nodes)).unwrap();
+			import_synced_block(&backend, &target).unwrap();
+			backend.finalize_block(target.hash(), None).unwrap();
+
+			// The first key changes, which replaces the root and the leaf at the first position.
+			let head = import_and_prune(&backend, &target, &key(0x10)).unwrap();
+			// The root goes in the same commit as the leaf's first position.
+			wait_gone(&*db, &root_key);
+			// A reopened backend reads the database, where the first one may answer from its trie
+			// cache. The pruning window comes back from its journal.
+			drop(backend);
+			let backend = reopen_backend(db.clone(), BlocksPruning::Some(10));
+			assert_eq!(
+				state_pairs(&backend, &head),
+				vec![(key(0x10), vec![2]), (key(0x20), vec![1])],
+				"the leaf at the second position is intact"
+			);
+
+			// The second key changes, which replaces the leaf at the second position too.
+			let head = import_and_prune(&backend, &head, &key(0x20)).unwrap();
+			for node_key in &nodes_keys {
+				wait_gone(&*db, node_key);
+			}
+			drop(backend);
+			let backend = reopen_backend(db.clone(), BlocksPruning::Some(10));
+			assert_eq!(
+				state_pairs(&backend, &head),
+				vec![(key(0x10), vec![2]), (key(0x20), vec![2])],
+			);
+		}
 	}
 
 	/// Builds a one-level trie holding `key_values` and returns its nodes as a state-sync chunk
