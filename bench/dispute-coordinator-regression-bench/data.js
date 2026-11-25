@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795555799435,
+  "lastUpdate": 1795601448016,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d803f1b216332a65c20ea78573078a12d88b4eeb",
-          "message": "omni-bencher: expose BLS host functions (#12035)\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2026-05-11T08:36:39Z",
-          "tree_id": "6d7ff3bcb96c5391f8c5fab70565ce350f58aa7e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d803f1b216332a65c20ea78573078a12d88b4eeb"
-        },
-        "date": 1778493644118,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009946674200000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026452340900000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009273418319999987,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025176518200000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cd193d6c301eb1d76dfa9a92620bd2bf7dc79946",
+          "message": "pallet-revive: align eth tx decoding and reuse decoded call in dry runs (#13947)\n\nSmall consistency and performance change: Align the decoding of\nsubstrate calls via Eth TX with the decoding of\n`generic::UncheckedExtrinsic`. Also reuse the decoded call in the dry\nrun.\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-25T08:31:09Z",
+          "tree_id": "475b6ed61b8097d932969c7a3f73e862c2e32f16",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cd193d6c301eb1d76dfa9a92620bd2bf7dc79946"
+        },
+        "date": 1795601405931,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011284364280000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025450081899999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009546549099999985,
             "unit": "seconds"
           }
         ]
