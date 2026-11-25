@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795609762327,
+  "lastUpdate": 1795621407540,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9a0d118456879b86f6ce87159c0b64d20bd26956",
-          "message": "ci: update image tag for images in master branch (#12056)\n\ncc https://github.com/paritytech/devops/issues/5296",
-          "timestamp": "2026-05-12T13:21:10Z",
-          "tree_id": "57ddd3e007cb82cf91ffab2a671138a5a043c13f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9a0d118456879b86f6ce87159c0b64d20bd26956"
-        },
-        "date": 1778597040349,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009323017569999972,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00262887698,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009799079060000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010712116330000009,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0bd30416e7934a99719fa568d0153e267e8723b4",
+          "message": "[JAM] Upstream AURA Authorizer (#13453)\n\nAdds the `cumulus-aura-authorizer` crate from the parachain-service\nrepository.\n\n### Assumptions\n\nSome things need clarification in the spec before this can be finalized:\n\n- https://github.com/paritytech/parachain-service/issues/57\n- https://github.com/paritytech/parachain-service/issues/58\n- https://github.com/paritytech/parachain-service/issues/59\n- https://github.com/paritytech/parachain-service/issues/60\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2026-11-25T14:03:52Z",
+          "tree_id": "7a8c9cdc7776dd746ef04a2d342e2914480261ae",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0bd30416e7934a99719fa568d0153e267e8723b4"
+        },
+        "date": 1795621365660,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009475580049999984,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00996263646999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002597785720000001,
             "unit": "seconds"
           }
         ]
