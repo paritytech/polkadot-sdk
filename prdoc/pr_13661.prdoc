@@ -1,0 +1,28 @@
+title: 'fungible(s): Check deposit against capped amount in best-effort `release`'
+doc:
+- audience: Runtime Dev
+  description: |-
+    With `Precision::BestEffort`, `release()` called `can_deposit` with
+    the
+       requested amount but released only what was actually held. If free
+    plus
+       held was below the existential deposit, `increase_balance` credited
+       nothing while the hold had already been reduced. The funds were lost
+       without any change to total issuance.
+
+       Cap the amount at the held balance first, call `can_deposit` with
+    that
+       capped amount, and then decrease the hold with `Exact`. A release
+    that
+       can't be credited now fails with `CannotCreate` and changes nothing.
+
+       Applies to both `fungible::hold::Mutate` and
+    `fungibles::hold::Mutate`.
+       Adds a regression test in `pallet-balances`.
+crates:
+- name: pallet-balances
+  bump: patch
+- name: frame-support
+  bump: patch
+- name: pallet-assets-holder
+  bump: patch

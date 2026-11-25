@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use std::time::Duration;
 
 use polkadot_primitives::Id as ParaId;
@@ -22,7 +22,7 @@ use polkadot_primitives::Id as ParaId;
 use crate::{
 	utils::{initialize_network, BEST_BLOCK_METRIC},
 	zombie_ci::full_node_warp_sync::common::{
-		add_relaychain_node, build_network_config, PARA_BEST_BLOCK_TO_WAIT_FOR, PARA_ID,
+		add_parachain_node, build_network_config, PARA_BEST_BLOCK_TO_WAIT_FOR, PARA_ID,
 	},
 };
 use cumulus_zombienet_sdk_helpers::assert_para_is_registered;
@@ -34,133 +34,112 @@ use zombienet_sdk::{
 
 pub const RELAY_BEST_BLOCK_TO_WAIT_FOR: f64 = 70.0;
 
-// Asserting Warp sync requires at least sync=debug level
-async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
-	let option_1_line = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(20), false);
+// Generous to accommodate slow CI machines, the wait ends as soon as the line is logged.
+const SYNC_LOG_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+const GAP_SYNC_DONE: &str = "Block history download is complete";
 
-	log::info!("Asserting Warp sync for node {}", node.name());
-	// We are interested only in Relaychain Warp sync (relaychain and parachain nodes),
-	// thus exclude exclude lines containing "[Parachain]"
+/// Waits until the parachain of `node` completed gap sync, then returns its parachain lines.
+///
+/// Gap sync starts after warp and state sync, so all lines of the three are logged by then.
+async fn parachain_log_after_gap_sync(node: &NetworkNode) -> Result<Vec<String>, anyhow::Error> {
 	let result = node
 		.wait_log_line_count_with_timeout(
-			r"(?<!\[Parachain\] )Started warp sync with [0-9]+ peers",
+			format!(r"\[Parachain\] {GAP_SYNC_DONE}"),
 			false,
-			option_1_line.clone(),
+			LogLineCountOptions::new(|n| n >= 1, SYNC_LOG_TIMEOUT, false),
 		)
 		.await?;
 	if !result.success() {
-		return Err(anyhow!("Warp sync is not started"));
-	}
-	let result = node
-		.wait_log_line_count_with_timeout(
-			r"(?<!\[Parachain\] )Starting import of [0-9]+ blocks.*\(origin: WarpSync\)",
-			false,
-			option_1_line.clone(),
-		)
-		.await?;
-	if !result.success() {
-		return Err(anyhow!("Warp sync block import is not started"));
-	}
-	let result = node
-		.wait_log_line_count_with_timeout(
-			r"(?<!\[Parachain\] )Imported [0-9]+ out of [0-9]+ blocks.*\(origin: WarpSync\)",
-			false,
-			option_1_line.clone(),
-		)
-		.await?;
-	if !result.success() {
-		return Err(anyhow!("Warp sync block import is not progressing"));
+		bail!("{}: gap sync not complete within {SYNC_LOG_TIMEOUT:?}", node.name());
 	}
 
-	let result = node
-		.wait_log_line_count_with_timeout(
-			r"(?<!\[Parachain\] )Warp sync is complete",
-			false,
-			option_1_line.clone(),
-		)
-		.await?;
-	if !result.success() {
-		return Err(anyhow!("Warp sync is not complete"));
+	Ok(node
+		.logs()
+		.await?
+		.lines()
+		.filter(|line| line.contains("[Parachain] "))
+		.map(Into::into)
+		.collect())
+}
+
+/// Parses `(imported, count)` from an import queue `Imported X out of Y blocks` line.
+fn imported_out_of(line: &str) -> Option<(u32, u32)> {
+	let (_, rest) = line.split_once("Imported ")?;
+	let (imported, rest) = rest.split_once(" out of ")?;
+	let (count, _) = rest.split_once(" blocks")?;
+	Some((imported.parse().ok()?, count.parse().ok()?))
+}
+
+/// Checks that blocks of `origin` were imported and that no import batch failed.
+///
+/// The number of batches depends on the order in which peers answer, so it is not checked.
+fn assert_block_imports(node: &str, lines: &[String], origin: &str) -> Result<(), anyhow::Error> {
+	let origin = format!("(origin: {origin})");
+	let lines = lines.iter().filter(|line| line.contains(&origin));
+
+	if !lines.clone().any(|line| line.contains("Starting import of ")) {
+		bail!("{node}: no {origin} block import started");
+	}
+	let batches: Vec<_> = lines.filter_map(|line| imported_out_of(line)).collect();
+	if batches.is_empty() {
+		bail!("{node}: no {origin} block import finished");
+	}
+	if let Some((imported, count)) = batches.iter().find(|(imported, count)| imported != count) {
+		bail!("{node}: only {imported} out of {count} {origin} blocks imported");
+	}
+
+	Ok(())
+}
+
+/// The parachain warp sync target comes from the relay chain, so there are no warp proofs and
+/// no `WarpSync` imports, only the state of the target block is downloaded.
+fn assert_warp_sync(name: &str, lines: &[String]) -> Result<(), anyhow::Error> {
+	if !lines.iter().any(|line| line.contains("Warp sync is complete")) {
+		bail!("{name}: warp sync not complete");
+	}
+	if !lines.iter().any(|line| line.contains("State sync is complete")) {
+		bail!("{name}: state sync not complete");
+	}
+
+	Ok(())
+}
+
+fn assert_gap_sync(name: &str, lines: &[String], is_archive: bool) -> Result<(), anyhow::Error> {
+	if !lines.iter().any(|line| line.contains("Starting gap sync ")) {
+		bail!("{name}: gap sync not started");
+	}
+	assert_block_imports(name, lines, "GapSync")?;
+
+	// Archive nodes download bodies, the others only headers and justifications. Every stats
+	// line and the final summary have to agree with that.
+	for line in lines
+		.iter()
+		.filter(|line| line.contains("Gap sync cumulative stats: ") || line.contains(GAP_SYNC_DONE))
+	{
+		let body_bytes: u64 = line
+			.split_once("body: ")
+			.and_then(|(_, rest)| rest.split_once(" B"))
+			.and_then(|(bytes, _)| bytes.parse().ok())
+			.ok_or_else(|| anyhow!("{name}: no body size in gap sync stats: {line}"))?;
+		if (body_bytes > 0) != is_archive {
+			bail!("{name}: archive mode is {is_archive}, but gap sync stats are: {line}");
+		}
 	}
 
 	Ok(())
 }
 
 // Asserting Gap sync requires at least sync=trace level
-async fn assert_gap_sync(node: &NetworkNode, is_archive: bool) -> Result<(), anyhow::Error> {
-	let option_1_line = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(5), false);
-	let option_at_least_5_lines =
-		LogLineCountOptions::new(|n| n >= 5, Duration::from_secs(20), false);
+async fn assert_warp_and_gap_sync(
+	node: &NetworkNode,
+	is_archive: bool,
+) -> Result<(), anyhow::Error> {
+	let name = node.name();
+	log::info!("Asserting parachain Warp and Gap sync for node {name}");
 
-	log::info!("Asserting Gap sync for node {}", node.name());
-	// We are interested only in Relaychain Gap sync (relaychain and parachain nodes),
-	// thus exclude exclude lines containing "[Parachain]"
-	let result = node
-		.wait_log_line_count_with_timeout(
-			r"(?<!\[Parachain\] )Starting gap sync",
-			false,
-			option_1_line.clone(),
-		)
-		.await?;
-	if !result.success() {
-		return Err(anyhow!("Gap sync not started"));
-	}
-
-	let result = node
-		.wait_log_line_count_with_timeout(
-			r"(?<!\[Parachain\] )Starting import of [0-9]+ blocks.*\(origin: GapSync\)",
-			false,
-			option_at_least_5_lines.clone(),
-		)
-		.await?;
-	if !result.success() {
-		return Err(anyhow!("Gap sync block imports are not started"));
-	}
-
-	// Verify body download behavior based on archive mode:
-	// - Archive nodes should download bodies (body: non-zero)
-	// - Non-archive nodes should skip bodies (body: 0 B)
-	let (body_pattern, body_error) = if is_archive {
-		(
-			r"(?<!\[Parachain\] )Gap sync cumulative stats:.*body: [1-9]",
-			"archive node should download bodies",
-		)
-	} else {
-		(
-			r"(?<!\[Parachain\] )Gap sync cumulative stats:.*body: 0 B",
-			"non-archive node should not download bodies",
-		)
-	};
-	let result = node
-		.wait_log_line_count_with_timeout(body_pattern, false, option_at_least_5_lines.clone())
-		.await?;
-	if !result.success() {
-		return Err(anyhow!("Gap sync: {body_error}"));
-	}
-
-	let result = node
-		.wait_log_line_count_with_timeout(
-			r"(?<!\[Parachain\] )Imported [0-9]+ out of [0-9]+ blocks.*\(origin: GapSync\)",
-			false,
-			option_at_least_5_lines,
-		)
-		.await?;
-	if !result.success() {
-		return Err(anyhow!("Gap sync block imports are not progressing"));
-	}
-
-	let result = node
-		.wait_log_line_count_with_timeout(
-			r"(?<!\[Parachain\] )Block history download is complete",
-			false,
-			option_1_line.clone(),
-		)
-		.await?;
-	if !result.success() {
-		return Err(anyhow!("Gap sync is not complete"));
-	}
-
-	Ok(())
+	let lines = parachain_log_after_gap_sync(node).await?;
+	assert_warp_sync(name, &lines)?;
+	assert_gap_sync(name, &lines, is_archive)
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -179,12 +158,10 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 	log::info!("Ensuring parachain is registered");
 	assert_para_is_registered(&alice_client, ParaId::from(PARA_ID), 10).await?;
 
-	// Assert warp and gap syncs only for relaychain.
-	// "five" is not warp syncing the relaychain
-	// dave is non-archive (--blocks-pruning 256), eve and four use default (archive-canonical)
-	for (name, is_archive) in [("dave", false), ("eve", true), ("four", true)] {
-		assert_warp_sync(network.get_node(name)?).await?;
-		assert_gap_sync(network.get_node(name)?, is_archive).await?;
+	// "four" and "five" warp sync the parachain, the other collators start from the snapshot.
+	// Both use the default blocks pruning (archive-canonical).
+	for name in ["four", "five"] {
+		assert_warp_and_gap_sync(network.get_node(name)?, true).await?;
 	}
 
 	// Check relaychain progress
@@ -219,22 +196,20 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 		network.get_node(name)?.pause().await?;
 	}
 
-	// Add ferdie dynamically
+	// Add ferdie dynamically, it has to sync the parachain from the warp synced nodes
 	log::info!("Adding ferdie to the network");
-	add_relaychain_node(&mut network, "ferdie", true).await?;
+	add_parachain_node(&mut network, "ferdie").await?;
 
 	log::info!("Waiting for ferdie to be up");
 	network.get_node("ferdie")?.wait_until_is_up(60u64).await?;
 
-	// Assert warp and gap sync for ferdie (uses default archive-canonical)
-	assert_warp_sync(network.get_node("ferdie")?).await?;
-	assert_gap_sync(network.get_node("ferdie")?, true).await?;
+	// Non-archive (--blocks-pruning 256), so gap sync downloads headers only
+	assert_warp_and_gap_sync(network.get_node("ferdie")?, false).await?;
 
-	// Check progress for ferdie
-	log::info!("Checking full node ferdie  is syncing");
+	log::info!("Checking full node ferdie is syncing");
 	network
 		.get_node("ferdie")?
-		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= RELAY_BEST_BLOCK_TO_WAIT_FOR, 225u64)
+		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= PARA_BEST_BLOCK_TO_WAIT_FOR, 225u64)
 		.await?;
 
 	Ok(())

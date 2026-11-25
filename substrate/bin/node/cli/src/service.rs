@@ -448,7 +448,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 
 	let statement_network_workers = statement_store_config.network_workers;
 	let statement_rate_limit = statement_store_config.rate_limit;
-	let statement_v2dht_config = statement_store_config.v2dht.clone();
+	let statement_dht_config = statement_store_config.dht.clone();
 
 	let sc_service::PartialComponents {
 		client,
@@ -515,7 +515,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			metrics.clone(),
 			Arc::clone(&peer_store_handle),
 			&net_config.network_config,
-			statement_v2dht_config.as_ref(),
+			statement_dht_config.as_ref(),
 		);
 	net_config.add_notification_protocol(statement_notification_config);
 
@@ -796,7 +796,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	let statement_protocol_executor = {
 		let spawn_handle = task_manager.spawn_handle();
 		Box::new(move |fut| {
-			spawn_handle.spawn("network-statement-validator", Some("networking"), fut);
+			spawn_handle.spawn_blocking("network-statement-validator", Some("networking"), fut);
 		})
 	};
 	let statement_handler = statement_handler_proto.build(
@@ -807,14 +807,14 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		statement_protocol_executor,
 		statement_network_workers,
 		statement_rate_limit,
-		statement_v2dht_config,
+		statement_dht_config,
 	)?;
-	if sc_network_statement::v2dht_enabled() {
+	if sc_network_statement::dht_enabled() {
 		if let Some(resolver) = statement_handler.retention_resolver() {
 			statement_store.set_retention_resolver(resolver);
 		}
 	}
-	task_manager.spawn_handle().spawn(
+	task_manager.spawn_handle().spawn_blocking(
 		"network-statement-handler",
 		Some("networking"),
 		statement_handler.run(),
@@ -864,7 +864,7 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 		purge_after_sec: cli.statement_store_purge_after_sec,
 		network_workers: cli.statement_network_workers,
 		rate_limit: cli.statement_rate_limit,
-		v2dht: sc_network_statement::v2dht_enabled().then(|| sc_statement_store::V2DhtConfig {
+		dht: sc_network_statement::dht_enabled().then(|| sc_statement_store::DhtConfig {
 			affinity_topics: cli.statement_affinity_topics.clone(),
 			affinity_topics_file: cli.statement_affinity_topics_file.clone(),
 			bloom_false_pos_rate: cli.statement_bloom_false_positive_rate,

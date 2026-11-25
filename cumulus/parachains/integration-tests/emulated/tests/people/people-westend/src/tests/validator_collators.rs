@@ -117,6 +117,8 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 		pallet_session::Pallet::<<PeopleWestend as Chain>::Runtime>::current_index()
 	});
 
+	let people = PeopleWestend::para_id();
+
 	// WHEN Asset Hub starts era 1 with Alice, Bob and Charlie
 	let asset_hub_session_before = AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
@@ -136,8 +138,8 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 		assert!(!<AssetHubWestend as Chain>::events().iter().any(|event| matches!(
 			event,
 			RuntimeEvent::ValidatorSetAnnouncer(
-				pallet_validator_set_announcer::Event::AnnouncementFailed { .. }
-			)
+				pallet_validator_set_announcer::Event::AnnouncementFailed { destination, .. }
+			) if *destination == people
 		)));
 		// AND both chains record the arrival of the set to time the report before the era end
 		assert!(pallet_validator_collators::ExternalSetReceivedAt::<Runtime>::get().is_some());

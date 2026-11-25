@@ -23,8 +23,7 @@ use sp_core::H256;
 use sp_runtime::BoundedVec;
 
 use crate::{
-	lift::MMRExtensionProof,
-	mmr::{self, MmrFrontier, SpecMerge},
+	mmr::{self, MmrExtensionProof, MmrFrontier, SpecMerge},
 	stream::StreamId,
 };
 
@@ -49,14 +48,14 @@ pub(crate) fn mmr_size(k: usize) -> u64 {
 
 /// The honest O(log n) extension proof from `k` leaves to `n` leaves (`0 < k < n`), via
 /// `gen_ancestry_proof`.
-pub(crate) fn extension(all: &[Hash], k: usize, n: usize) -> MMRExtensionProof {
+pub(crate) fn extension(all: &[Hash], k: usize, n: usize) -> MmrExtensionProof {
 	let store = MemStore::<Hash>::default();
 	let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
 	for leaf in &all[..n] {
 		mmr.push(*leaf).unwrap();
 	}
 	let proof = mmr.gen_ancestry_proof(mmr_size(k)).unwrap();
-	MMRExtensionProof {
+	MmrExtensionProof {
 		leaf_count: n as u64,
 		connecting_nodes: BoundedVec::truncate_from(
 			proof.prev_peaks_proof.proof_items().iter().map(|(_, h)| *h).collect::<Vec<_>>(),
