@@ -201,7 +201,8 @@ struct ParachainServiceState {
 
     /// The cursor of the parachain's settlement ring. See §8.
     messages_cursor: Map<ParaId, SettlementCursor>,
-    /// Contains every `StreamsRoot` currently live in the settlement ring. See §8.
+    /// Contains every `StreamsRoot` in the parachain's settlement ring, mapped to
+    /// the next newer root in the ring. The newest root maps to itself. See §8.
     messages_member: Map<(ParaId, StreamsRoot), StreamsRoot>,
 }
 
@@ -263,7 +264,7 @@ enum RefineLog {
     /// `set_messages_streams_root` or `set_messages_requires_roots` was called more than once
     /// in a single Refine invocation. See §4.3.
     MessagesCallRepeated,
-    /// The messages required roots exceeded `MAX_REQUIRES_SOURCES (32)` or contained a
+    /// The messages required roots exceeded `MAX_REQUIRES_SOURCES` or contained a
     /// repeated `ParaId` or the candidate's own `ParaId`. See §4.3.
     MessagesInvalidRequires,
 }
@@ -461,8 +462,7 @@ struct IncomingTransferBuckets {
 /// Parachain head data, capped at 4 KiB. See §6.1.
 type HeadData = BoundedVec<u8, { 4 * 1024 }>;
 
-/// A parachain's commitment to the messages it has sent, declared via
-/// `set_messages_streams_root`. See §8.
+/// A parachain's commitment to the messages it has sent. See §8.
 type StreamsRoot = [u8; 32];
 
 /// Parachain's settlement cursor. See §8.
@@ -815,6 +815,10 @@ messages. If the validation code exceeds this, the invocation fails with
 This bounds the number of side effects Accumulate must replay per work item,
 independently of the 48 KiB combined-result-blob budget.
 
+A single Refine invocation may declare at most `MAX_REQUIRES_SOURCES = 32` entries
+in `set_messages_requires_roots`. This bounds the number of `messages_member` reads
+the settlement check performs (§5.1 step 5).
+
 ---
 
 ## 5. Accumulate: On-Chain Integration
@@ -926,7 +930,8 @@ writes no state, records no log entry, and prunes nothing. The steps are:
 
 1. **Registration check**: Reject the work package, without a `parachain_log` entry, if
    `para_id` is not in `parachains` or its `ParaInfo` has `is_deregistering == true`
-   (§6.4). A deregistering para is treated as if it no longer exists.
+   (§6.4). A deregistering para is treated as if it no longer exists. However, its settlement
+   ring stays until the para is removed, so the settlement check still accepts roots.
 2. **Validation code check**: This is the authoritative check. Reject the work package if
    the digest's `validation_code` is not the hash of `ParaInfo.validation_code`.
 3. **Refine-result dispatch**: A **Refine failure** (`ParachainWorkDigest::Err`, see §3.3)
@@ -1324,7 +1329,7 @@ many referencers.
 
 `baseline_footprint` is the worst-case state cost of an empty parachain: the
 `(ParaId, ParaInfo)` entry, the `(ParaId, parachain_log[para_id])` entry and the
-parachain's settlement ring (§8), with every bounded field SCALE-encoded at its
+parachain's settlement ring, with every bounded field SCALE-encoded at its
 maximum so the value is static across the parachain's lifetime. Taking `ParaId = u32` (4 B),
 `Hash = 32 B`, `Timeslot = u32` (4 B), and `Balance = u64`, so
 that `Compact<Balance>` is sized at its worst case of 9 B:
@@ -1540,7 +1545,8 @@ Parachain Service (Accumulate)
     │  baseline, its active validation code and its announced validation code.
     │  Otherwise forgets the active and the announced validation code:
     │
-    │    all expunged  -> removes parachains[para_id] and parachain_log[para_id]
+    │    all expunged  -> removes parachains[para_id], parachain_log[para_id]
+    │                     and the settlement ring (§8.1)
     │    otherwise     -> sets is_deregistering and stops until the retry
 ```
 
@@ -1549,8 +1555,6 @@ service only has to forget the two validation codes, never an unbounded set of s
 preimages or KV entries. A parachain that can no longer produce
 blocks cannot drain itself, so `Forget` and `RemoveKV` take a `para_id` (§3.3),
 letting the Coretime chain free any parachain's state on its behalf.
-
-The first accepted call also deletes the parachain's settlement ring (§8.1).
 
 The `TooMuchStateHeld` check allows `used_state_balance` up to `baseline_footprint` plus
 the preimage footprints of `validation_code` and `announced_upgrade`, where set. A
@@ -1752,34 +1756,17 @@ Two possible policies on the Coretime chain side:
 
 Parachains exchange messages off-chain. The message payloads are never written to the parachain service state.
 
-The speculative messaging design specifies how these messages travel off-chain and how a receiver
-runtime verifies them against a sender's root.
-
-The parachain runtimes commit their outbound messages under a single 32-byte `StreamsRoot`,
-via a `set_messages_streams_root` host call. The receiver parachain declares one
-`(ParaId, StreamsRoot)` pair per sender it consumed from via a `set_messages_requires_roots` host call.
-
-The parachain service is responsible only for settling these roots. To achieve this, it maintains
-a settlement ring for every parachain which holds its 64 (`MAX_SETTLEMENT_RING_CAPACITY`) most
-recently inserted distinct `StreamsRoot`s. Reinserting a root in the ring doesn't change its
-eviction order. The receiver block enacts only if every declared consumed root is in the
-sender's ring.
-
 ### 8.1 Settlement Ring
 
-The settlement ring is represented by a linked list.
+A parachain's settlement ring holds up to `MAX_SETTLEMENT_RING_CAPACITY = 64` distinct `StreamsRoot`s,
+kept as a linked list from oldest to newest. Roots are evicted in the order they entered the ring.
 
-The `SettlementCursor` contains the oldest and newest roots, together with the size of the ring.
-
-The `messages_member` holds every settled root in the ring. This is represented by a `Map` to
-ensure that membership checks happen in `O(1)`. The value of the map points to the next entry
-in the list. The newest entry points to itself.
-
-#### Checking Membership
-
-The settlement check reads only `messages_member`, once per declared `(ParaId, StreamsRoot)`.
+The `messages_member` map holds every settled root in the ring. The value of the map points
+to the next entry in the list. The newest entry points to itself.
 
 #### Pushing a Root
+
+When a block that declares a `messages_streams_root` is enacted, the root is pushed as follows:
 
 1. Read `messages_member` under `(para_id, new_root)`. Stop if the ring already contains the new root.
 
@@ -1797,7 +1784,7 @@ The settlement check reads only `messages_member`, once per declared `(ParaId, S
 6. Write the updated `SettlementCursor`.
     - `oldest` is the value obtained in step 3.1 if a root was evicted.
     - `newest` is the `new_root`.
-    - `len` is incremented until capacity.
+    - `len` is incremented by one, up to `MAX_SETTLEMENT_RING_CAPACITY`
 
 #### Ring Cleanup
 
@@ -1826,4 +1813,3 @@ root to the newest.
 - [JAM PVM Common API](https://docs.rs/jam-pvm-common/latest/jam_pvm_common/): Host call specifications for Refine and Accumulate
 - [JIP-1: Log Host Call](https://github.com/polkadot-fellows/JIPs/blob/main/JIP-1.md): PVM logging specification
 - [Speculative Messaging](https://github.com/paritytech/polkadot-sdk/pull/12659): The speculative messaging design document
-- [Speculative Messaging on JAM](https://github.com/paritytech/polkadot-sdk/pull/12809): Overview of speculative messaging on JAM
