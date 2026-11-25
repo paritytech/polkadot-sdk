@@ -292,6 +292,8 @@ where
 			.and_then(|proof| proof.signed_scheduling_info.as_ref());
 		let tail = bundle_provides(blocks.iter().map(|block| block.header().digest()))
 			.and_then(|provides| {
+				// TODO(https://github.com/paritytech/polkadot-sdk/issues/12707): Pass the bundle's
+				// records and lifts. Until then, the PVF rejects candidates that consume messages.
 				ump_signal_tail(&upward_message_signals, signed, provides, &[], None)
 			})
 			.map_err(
