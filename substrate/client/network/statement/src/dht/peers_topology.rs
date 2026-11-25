@@ -282,15 +282,15 @@ impl PeersTopology {
 	///
 	/// This uses only the locally learned topology, avoiding network lookups that would reveal
 	/// explicit-affinity topics, and selects few peers that together cover every topic with a
-	/// reachable replica.
+	/// usable replica.
 	///
-	/// A peer that `is_unreachable` is passed over, so another replica of its topic takes its
-	/// place. A connected peer goes first, so the replacement keeps the topic when the unreachable
-	/// peer is tried again.
+	/// A peer that `is_skipped` (unreachable or paused) is passed over, so another replica of its
+	/// topic takes its place. A connected peer goes first, so the replacement keeps the topic when
+	/// the skipped peer is tried again.
 	pub fn peers_for_topics(
 		&self,
 		topics: &[Topic],
-		is_unreachable: impl Fn(&PeerId) -> bool,
+		is_skipped: impl Fn(&PeerId) -> bool,
 	) -> Vec<PeerId> {
 		if topics.is_empty() {
 			return Vec::new();
@@ -302,7 +302,7 @@ impl PeersTopology {
 			.iter()
 			.map(|topic| {
 				let mut pool = self.closest_known_keyed(*topic, pool_size);
-				pool.retain(|(peer, _)| !is_unreachable(peer));
+				pool.retain(|(peer, _)| !is_skipped(peer));
 				pool
 			})
 			.collect::<Vec<_>>();
@@ -336,11 +336,11 @@ impl PeersTopology {
 	/// uncovered buckets are the far ones, holding most of the network. One peer in each gives a
 	/// statement for any topic a connected next hop closer to the topic.
 	///
-	/// A peer that `is_unreachable` is passed over, so the next peer of its bucket takes its place.
+	/// A peer that `is_skipped` is passed over, so the next peer of its bucket takes its place.
 	/// A bucket also keeps its nearest connected peer until a nearer chosen one connects, and the
 	/// `replication_factor` nearest connected peers stay, so a replacement serves until the nearest
 	/// peers themselves connect.
-	pub fn peers_for_routing(&self, is_unreachable: impl Fn(&PeerId) -> bool) -> Vec<PeerId> {
+	pub fn peers_for_routing(&self, is_skipped: impl Fn(&PeerId) -> bool) -> Vec<PeerId> {
 		let nearest = self.config.replication_factor.get();
 		let mut routing = Vec::new();
 		let mut last_bucket = None;
@@ -348,7 +348,7 @@ impl PeersTopology {
 		let mut connected_chosen = 0;
 		// Nearest-first order visits each bucket as one run, its first peer being its nearest.
 		for (peer, key) in self.discovered_index.closest(self.local_key) {
-			if is_unreachable(&peer) {
+			if is_skipped(&peer) {
 				continue;
 			}
 			let bucket = bucket_of(self.local_key, key);

@@ -24,7 +24,7 @@ mod peer_steering;
 mod peers_index;
 pub(crate) mod peers_topology;
 
-pub(crate) use metrics::V2DhtMetrics;
+pub(crate) use metrics::DhtMetrics;
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
 use explicit_affinity::{AffinitySource, ExplicitAffinity, TopicAffinity};
@@ -122,7 +122,7 @@ impl RetentionHandle {
 			let (Ok(dht), Ok(topics)) = (dht_affinity.read(), topic_affinity.read()) else {
 				log::error!(
 					target: LOG_TARGET,
-					"v2dht: retention affinity lock poisoned; persisting statement defensively",
+					"dht: retention affinity lock poisoned; persisting statement defensively",
 				);
 				return RetentionReasonMask::persistent();
 			};
@@ -161,8 +161,8 @@ pub(crate) struct PropagationPlan {
 	pub(crate) dead_ends: Vec<usize>,
 }
 
-/// Coordinates the v2 DHT-affinity statement gossip path.
-pub(crate) struct V2DhtOrchestrator {
+/// Coordinates the DHT-affinity statement gossip path.
+pub(crate) struct DhtOrchestrator {
 	/// Local view of statement-store peers known and connected through network topology events.
 	peers_topology: PeersTopology,
 	/// Tracks the local node's topic affinity and the filters peers advertise.
@@ -172,12 +172,12 @@ pub(crate) struct V2DhtOrchestrator {
 	/// Shared affinity view the store reads to decide statement retention.
 	retention: Option<RetentionHandle>,
 	/// Prometheus metrics.
-	metrics: Option<V2DhtMetrics>,
+	metrics: Option<DhtMetrics>,
 	/// When the node was last seen major-syncing.
 	major_sync_seen_at: Option<Instant>,
 }
 
-impl V2DhtOrchestrator {
+impl DhtOrchestrator {
 	pub(crate) fn new(
 		configured_topics: &[Topic],
 		bloom_seed: Option<u128>,
@@ -185,7 +185,7 @@ impl V2DhtOrchestrator {
 		local_peer: PeerId,
 		peers_topology_config: PeersTopologyConfig,
 		protocol: ProtocolName,
-		metrics: Option<V2DhtMetrics>,
+		metrics: Option<DhtMetrics>,
 	) -> Self {
 		Self {
 			peers_topology: PeersTopology::new(local_peer, peers_topology_config),
@@ -286,7 +286,7 @@ impl V2DhtOrchestrator {
 		// Adds the peer to the DHT index, hence affinity.
 		self.publish_dht_affinity();
 		self.report_topology_size();
-		log::trace!(target: LOG_TARGET, "v2dht: on_substream_opened {peer}");
+		log::trace!(target: LOG_TARGET, "dht: on_substream_opened {peer}");
 	}
 
 	pub(crate) fn on_substream_closed(&mut self, peer: PeerId) {
@@ -295,7 +295,7 @@ impl V2DhtOrchestrator {
 		// The filter arrived over this substream, so it lives exactly as long.
 		self.explicit_affinity.on_substream_closed(peer);
 		self.report_topology_size();
-		log::trace!(target: LOG_TARGET, "v2dht: on_substream_closed {peer}");
+		log::trace!(target: LOG_TARGET, "dht: on_substream_closed {peer}");
 	}
 
 	pub(crate) fn on_peer_filter_update(&mut self, peer: PeerId, filter: AffinityFilter) {
@@ -421,14 +421,13 @@ impl V2DhtOrchestrator {
 
 	fn on_pending_affinities_at(&mut self, now: Instant) {
 		self.peer_steering.update_unreachable_peers(now);
+		self.peer_steering.update_paused_peers(now);
 		let topics = self.explicit_affinity.topics();
-		let mut desired = self
-			.peers_topology
-			.peers_for_topics(&topics, |peer| self.peer_steering.is_unreachable(peer));
-		desired.extend(
-			self.peers_topology
-				.peers_for_routing(|peer| self.peer_steering.is_unreachable(peer)),
-		);
+		let is_skipped = |peer: &PeerId| {
+			self.peer_steering.is_unreachable(peer) || self.peer_steering.is_paused(peer)
+		};
+		let mut desired = self.peers_topology.peers_for_topics(&topics, &is_skipped);
+		desired.extend(self.peers_topology.peers_for_routing(&is_skipped));
 		// A reserved peer without the DHT path stays reserved: releasing a peer this node dialed
 		// closes its substream, and steering dials no peer outside the index again.
 		desired.extend(
@@ -449,13 +448,23 @@ impl V2DhtOrchestrator {
 		self.peer_steering.refresh_connections(network);
 	}
 
-	/// Release `peer` if steering holds it reserved as a peer without the DHT path, so that a
-	/// disconnect sent next closes its substream. The litep2p peerset ignores a disconnect of a
-	/// reserved peer, and it takes both commands from one queue, in order.
-	pub(crate) fn release_peer_without_dht<N: NetworkPeers>(&mut self, network: &N, peer: PeerId) {
-		if self.peer_steering.is_reserved(&peer) && self.peers_topology.is_without_dht(&peer) {
+	/// Release `peer` from the reserved set so the next disconnect closes its substream: litep2p
+	/// ignores disconnects of reserved peers.
+	pub(crate) fn release_reserved_peer<N: NetworkPeers>(&mut self, network: &N, peer: PeerId) {
+		if self.peer_steering.is_reserved(&peer) {
 			self.peer_steering.release_peer(network, peer);
 		}
+	}
+
+	/// Keep `peer` away for [`peer_steering::DISCONNECT_PAUSE`]: steering leaves it unreserved and
+	/// the handler rejects its inbound substream.
+	pub(crate) fn pause_peer(&mut self, peer: PeerId) {
+		self.peer_steering.pause_peer(peer, Instant::now());
+	}
+
+	/// Whether `peer` is paused after a disconnect for its behavior.
+	pub(crate) fn is_paused(&self, peer: &PeerId) -> bool {
+		self.peer_steering.is_paused(peer)
 	}
 
 	/// Whether peer steering holds `peer` in the statement protocol's reserved set.
@@ -496,11 +505,11 @@ mod tests {
 		config::DEFAULT_BLOOM_FALSE_POS_RATE,
 		test_helpers::{filter_over, nz, peer, statement_on, topic, topology_config},
 	};
-	use peer_steering::{UNREACHABLE_AFTER, UNREACHABLE_RETRY_AFTER};
+	use peer_steering::{DISCONNECT_PAUSE, UNREACHABLE_AFTER, UNREACHABLE_RETRY_AFTER};
 	use sp_statement_store::{InvalidReason, RejectionReason};
 
-	fn orchestrator() -> V2DhtOrchestrator {
-		V2DhtOrchestrator::new(
+	fn orchestrator() -> DhtOrchestrator {
+		DhtOrchestrator::new(
 			&[],
 			None,
 			DEFAULT_BLOOM_FALSE_POS_RATE,
@@ -513,8 +522,8 @@ mod tests {
 
 	/// Like [`orchestrator`] but with a deterministic local identity, so the XOR routing
 	/// distances the propagation tests assert on stay reproducible across runs.
-	fn orchestrator_with(local_seed: u8, config: PeersTopologyConfig) -> V2DhtOrchestrator {
-		V2DhtOrchestrator::new(
+	fn orchestrator_with(local_seed: u8, config: PeersTopologyConfig) -> DhtOrchestrator {
+		DhtOrchestrator::new(
 			&[],
 			None,
 			DEFAULT_BLOOM_FALSE_POS_RATE,
@@ -536,7 +545,7 @@ mod tests {
 
 	/// Routing targets `propagation_plan` is expected to reach for `topics`, taken from the
 	/// already-tested [`PeersTopology::routing_targets`] rather than recomputed from XOR distances.
-	fn routing_targets(orchestrator: &V2DhtOrchestrator, topics: &[Topic]) -> Vec<PeerId> {
+	fn routing_targets(orchestrator: &DhtOrchestrator, topics: &[Topic]) -> Vec<PeerId> {
 		let mut targets: Vec<PeerId> = topics
 			.iter()
 			.flat_map(|topic| orchestrator.peers_topology.routing_targets(*topic))
@@ -659,7 +668,7 @@ mod tests {
 
 	#[test]
 	fn publish_dht_affinity_reflects_the_orchestrator_topology() {
-		let mut orchestrator = V2DhtOrchestrator::new(
+		let mut orchestrator = DhtOrchestrator::new(
 			&[],
 			None,
 			DEFAULT_BLOOM_FALSE_POS_RATE,
@@ -722,7 +731,7 @@ mod tests {
 	fn set_retention_handle_publishes_configured_topics() {
 		// Configured topics must drive retention from the moment the handle is installed, before
 		// any peer or subscription event.
-		let mut orchestrator = V2DhtOrchestrator::new(
+		let mut orchestrator = DhtOrchestrator::new(
 			&[topic(1)],
 			None,
 			DEFAULT_BLOOM_FALSE_POS_RATE,
@@ -740,7 +749,7 @@ mod tests {
 
 	#[test]
 	fn set_rpc_subscription_topics_publishes_topic_affinity() {
-		let mut orchestrator = V2DhtOrchestrator::new(
+		let mut orchestrator = DhtOrchestrator::new(
 			&[],
 			None,
 			DEFAULT_BLOOM_FALSE_POS_RATE,
@@ -959,7 +968,7 @@ mod tests {
 
 	#[test]
 	fn affinity_tick_marks_coverage_peers_for_connection() {
-		let mut orchestrator = V2DhtOrchestrator::new(
+		let mut orchestrator = DhtOrchestrator::new(
 			&[topic(1)],
 			None,
 			DEFAULT_BLOOM_FALSE_POS_RATE,
@@ -1002,6 +1011,49 @@ mod tests {
 		connect.sort();
 		assert!(routing.len() >= 3, "the three nearest, plus the far buckets they leave uncovered");
 		assert_eq!(connect, routing);
+	}
+
+	#[test]
+	fn a_paused_peer_gives_its_place_to_the_next_until_the_pause_ends() {
+		let mut orchestrator = DhtOrchestrator::new(
+			&[topic(1)],
+			None,
+			DEFAULT_BLOOM_FALSE_POS_RATE,
+			peer(1),
+			topology_config(2, 3),
+			"/statement/test".into(),
+			None,
+		);
+		for seed in 2..=30 {
+			orchestrator.on_peers_discovered([peer(seed)]);
+			orchestrator.on_peer_identified(peer(seed), true);
+		}
+		let start = Instant::now();
+		let routing = orchestrator.peers_topology.peers_for_routing(|_| false)[0];
+		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)], |_| false)[0];
+		orchestrator.on_pending_affinities_at(start);
+		let places = orchestrator.peer_steering.peers_to_reserve().len();
+
+		orchestrator.peer_steering.pause_peer(routing, start);
+		orchestrator.peer_steering.pause_peer(coverage, start);
+
+		// A dial-in leaves the pause running.
+		orchestrator.on_substream_opened(routing);
+		orchestrator.on_substream_closed(routing);
+		orchestrator.on_pending_affinities_at(start + DISCONNECT_PAUSE - Duration::from_secs(1));
+		let reserve = orchestrator.peer_steering.peers_to_reserve();
+		for paused in [routing, coverage] {
+			assert!(orchestrator.is_paused(&paused));
+			assert!(!reserve.contains(&paused));
+		}
+		assert!(reserve.len() >= places, "the next candidates took the places");
+
+		orchestrator.on_pending_affinities_at(start + DISCONNECT_PAUSE);
+		let reserve = orchestrator.peer_steering.peers_to_reserve();
+		for paused in [routing, coverage] {
+			assert!(!orchestrator.is_paused(&paused));
+			assert!(reserve.contains(&paused));
+		}
 	}
 
 	#[test]
@@ -1050,7 +1102,7 @@ mod tests {
 
 	#[test]
 	fn affinity_tick_replaces_a_coverage_peer_that_never_connects() {
-		let mut orchestrator = V2DhtOrchestrator::new(
+		let mut orchestrator = DhtOrchestrator::new(
 			&[topic(1)],
 			None,
 			DEFAULT_BLOOM_FALSE_POS_RATE,
@@ -1137,7 +1189,7 @@ mod tests {
 
 	#[test]
 	fn connected_coverage_peer_is_never_disconnected() {
-		let mut orchestrator = V2DhtOrchestrator::new(
+		let mut orchestrator = DhtOrchestrator::new(
 			&[topic(1)],
 			None,
 			DEFAULT_BLOOM_FALSE_POS_RATE,
