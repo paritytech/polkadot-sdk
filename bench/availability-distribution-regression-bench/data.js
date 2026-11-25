@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795621210163,
+  "lastUpdate": 1795636906746,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "22e63b740b6943b4e39a3c6b779ca9e5408ca00c",
-          "message": "Update runner names in reusable-preflight.yml (#11832)",
-          "timestamp": "2026-05-18T11:39:36Z",
-          "tree_id": "0613011f07f943311055bbced989cf794fe2d1fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/22e63b740b6943b4e39a3c6b779ca9e5408ca00c"
-        },
-        "date": 1779109362479,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006726773033333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14244364432000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009412924173333314,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02353547701333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02426411296666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jessechejieh@gmail.com",
+            "name": "jessechejieh",
+            "username": "jessechejieh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "94d256ae8ed41109c351a3d57ee3d35129327fec",
+          "message": "(RWF)`pallet-asset-rewards`: fix post-expiry underflow and persist pool on harvest (#13208)\n\n### Description\n\nFixes two accounting bugs in `pallet-asset-rewards`, one of which can\nleave stakes frozen in an expired pool with no way to recover them.\n\n`update_pool_rewards` always sets `last_update_block` to the current\nblock, while `reward_per_token` counts elapsed blocks from\n`last_update_block` up to `min(now, expiry_block)`. Any stake or unstake\nafter expiry therefore stores a block past the expiry, and every later\n`stake`, `unstake`, `harvest_rewards`, `set_pool_expiry_block` and\n`set_pool_reward_rate_per_block` on that pool fails with\n`ArithmeticError::Underflow`. After expiry anyone may unstake on a\nstaker's behalf, so one small delegated unstake is enough, and\n`cleanup_pool` cannot run while stakers remain.\n\n`harvest_rewards` also computes the updated pool but never writes it\nback to `Pools`, unlike `stake` and `unstake`, so the stored accumulator\ngoes stale after every harvest.\n\nRewardable blocks are now counted with `saturating_sub`, so a pool last\nupdated after its expiry accrues nothing instead of underflowing, and\n`harvest_rewards` persists the pool. I chose this over capping\n`last_update_block` at the expiry because:\n\n1. Pools already stuck in this state recover without a migration.\n2. Behaviour after `set_pool_expiry_block` on an expired pool is\nunchanged: rewards restart from the extension rather than paying out the\nexpired gap.\n\nThe two changes need to land together. Persisting the pool on harvest\nwithout the first fix would let a post-expiry harvest trigger the\nunderflow as well.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-25T16:49:42Z",
+          "tree_id": "5fbf59f1af061a256d7e6ed3955fc3e2f6cdad05",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/94d256ae8ed41109c351a3d57ee3d35129327fec"
+        },
+        "date": 1795636860330,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024310346166666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14597251480000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009744705699999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.008057284986666666,
             "unit": "seconds"
           }
         ]
