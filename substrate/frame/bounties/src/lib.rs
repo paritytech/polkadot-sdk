@@ -113,6 +113,7 @@ use sp_runtime::{
 
 use frame_support::{
 	dispatch::DispatchResultWithPostInfo, pallet_prelude::*, traits::EnsureOrigin,
+	weights::RuntimeDbWeight,
 };
 use frame_system::pallet_prelude::{
 	ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
@@ -213,6 +214,15 @@ pub trait ChildBountyManager<Balance> {
 	fn bounty_removed(bounty_id: BountyIndex);
 }
 
+/// Proof size, in bytes, allowed for one storage entry that a transfer touches.
+///
+/// Trie node overhead dominates the encoded size of these entries, so they all land a little
+/// over 2600 bytes: a `System::Account` entry is billed at 2603, a `pallet_assets::Account`
+/// entry at 2609 and a `pallet_assets::Asset` entry at 2685. 2700 bounds any of them. An
+/// implementation of [`TransferAllAssets`] sizes the proof of its transfers with this, because
+/// the pallet cannot benchmark an implementation that the runtime supplies.
+pub const TRANSFER_ENTRY_PROOF_SIZE: u64 = 2_700;
+
 /// Transfer all assets held by an account (e.g. a stale bounty sub-account) back to another.
 pub trait TransferAllAssets<AccountId> {
 	/// Transfer all assets from one account to another, possibly reaping `from`.
@@ -220,6 +230,16 @@ pub trait TransferAllAssets<AccountId> {
 	/// Returns `true` if any balance was actually transferred, `false` if the account was already
 	/// empty.
 	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> Result<bool, DispatchError>;
+
+	/// Worst-case weight of one `force_transfer_all_assets` call.
+	///
+	/// Callers must add this to the weight they declare. The cost of a sweep grows with the
+	/// number of assets the implementation touches, and that number is a property of the
+	/// implementation rather than of the pallet, so only the implementation can state it.
+	///
+	/// `db` is the host runtime's database weight, so that an implementation prices its storage
+	/// accesses the way the runtime it runs on does.
+	fn max_weight(db: RuntimeDbWeight) -> Weight;
 
 	/// Mint benchmark amounts of each relevant asset into `from`.
 	///
@@ -232,6 +252,11 @@ pub trait TransferAllAssets<AccountId> {
 impl<AccountId> TransferAllAssets<AccountId> for () {
 	fn force_transfer_all_assets(_: &AccountId, _: &AccountId) -> Result<bool, DispatchError> {
 		Ok(false)
+	}
+
+	fn max_weight(_db: RuntimeDbWeight) -> Weight {
+		// Transfers nothing and touches no storage.
+		Weight::zero()
 	}
 }
 
@@ -254,6 +279,12 @@ where
 		}
 		C::transfer(from, to, balance, Preservation::Expendable)?;
 		Ok(true)
+	}
+
+	fn max_weight(db: RuntimeDbWeight) -> Weight {
+		// One balance read, then one transfer that reads and writes both accounts.
+		db.reads_writes(2, 2)
+			.saturating_add(Weight::from_parts(0, 2 * TRANSFER_ENTRY_PROOF_SIZE))
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -300,6 +331,20 @@ where
 			}
 		}
 		Ok(transferred_any)
+	}
+
+	fn max_weight(db: RuntimeDbWeight) -> Weight {
+		let assets = RelevantAssets::get().len() as u64;
+		// The asset list is walked twice, and each visit can read a balance and then run a
+		// transfer that reads and writes the asset's own record and both accounts.
+		let visits = assets.saturating_mul(2);
+		db.reads_writes(visits.saturating_mul(3), visits.saturating_mul(3))
+			// The proof grows once per asset, not once per visit: the second walk reads the
+			// keys the first walk already added to the proof.
+			.saturating_add(Weight::from_parts(
+				0,
+				assets.saturating_mul(3 * TRANSFER_ENTRY_PROOF_SIZE),
+			))
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -853,10 +898,12 @@ pub mod pallet {
 		/// - `bounty_id`: Bounty ID to cancel.
 		///
 		/// ## Complexity
-		/// - O(1).
+		/// - O(A) for an active bounty, where A is the number of relevant assets configured in
+		///   `TransferAllAssets`, since closing one sweeps its account. O(1) otherwise.
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::close_bounty_proposed()
-			.max(<T as Config<I>>::WeightInfo::close_bounty_active()))]
+			.max(<T as Config<I>>::WeightInfo::close_bounty_active()
+				.saturating_add(Pallet::<T, I>::sweep_weight())))]
 		pub fn close_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
@@ -929,7 +976,11 @@ pub mod pallet {
 					T::ChildBountyManager::bounty_removed(bounty_id);
 
 					Self::deposit_event(Event::<T, I>::BountyCanceled { index: bounty_id });
-					Ok(Some(<T as Config<I>>::WeightInfo::close_bounty_active()).into())
+					Ok(Some(
+						<T as Config<I>>::WeightInfo::close_bounty_active()
+							.saturating_add(Self::sweep_weight()),
+					)
+					.into())
 				},
 			)
 		}
@@ -1058,7 +1109,8 @@ pub mod pallet {
 		/// ## Complexity
 		/// - O(A) where A is the number of relevant assets configured in `TransferAllAssets`.
 		#[pallet::call_index(11)]
-		#[pallet::weight(<T as Config<I>>::WeightInfo::reclaim_bounty_funds())]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::reclaim_bounty_funds()
+			.saturating_add(Pallet::<T, I>::sweep_weight()))]
 		pub fn reclaim_bounty_funds(
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
@@ -1147,6 +1199,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// It may be configured to use the relay chain block number on a parachain.
 	pub fn treasury_block_number() -> BlockNumberFor<T, I> {
 		<T as pallet_treasury::Config<I>>::BlockNumberProvider::current_block_number()
+	}
+
+	/// Worst-case weight of sweeping a bounty account with [`Config::TransferAllAssets`].
+	///
+	/// Every call that sweeps declares this on top of its benchmarked weight. The benchmark
+	/// measures the asset list of the runtime it was generated against, which is not the list
+	/// the host runtime configures, so the sweep has to be priced separately.
+	pub fn sweep_weight() -> Weight {
+		T::TransferAllAssets::max_weight(T::DbWeight::get())
 	}
 
 	/// Calculate the deposit required for a curator.

@@ -35,6 +35,7 @@ use frame_support::{
 		AsEnsureOriginWithArg, ConstU32, ConstU64, Currency, Imbalance, LockableCurrency,
 		OnInitialize, WithdrawReasons,
 	},
+	weights::constants::RocksDbWeight,
 	PalletId,
 };
 use frame_system::{pallet_prelude::*, EnsureSigned};
@@ -79,6 +80,9 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	// The default is zero, which would hide the database cost of an asset sweep from the
+	// weights the dispatchables declare.
+	type DbWeight = RocksDbWeight;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -2325,5 +2329,85 @@ fn reclaim_bounty_funds_respects_native_locks() {
 		assert_eq!(Balances::free_balance(&bounty_account), 60);
 		assert_eq!(last_event(), BountiesEvent::BountyFundsReclaimed { bounty_id: 0 });
 		assert_eq!(res.unwrap().pays_fee, Pays::No);
+	});
+}
+
+#[test]
+fn sweep_weight_is_zero_without_a_transfer_implementation() {
+	ExtBuilder::default().build().execute_with(|| {
+		// `Bounties1` configures `TransferAllAssets = ()`, which moves nothing and so reads and
+		// writes nothing.
+		assert_eq!(Bounties1::sweep_weight(), Weight::zero());
+	});
+}
+
+#[test]
+fn sweep_weight_is_linear_in_the_asset_list() {
+	ExtBuilder::default().build().execute_with(|| {
+		RelevantAssets::set(vec![NativeOrWithId::Native, NativeOrWithId::WithId(1)]);
+		let two_assets = Bounties::sweep_weight();
+
+		RelevantAssets::set(vec![
+			NativeOrWithId::Native,
+			NativeOrWithId::WithId(1),
+			NativeOrWithId::WithId(2),
+			NativeOrWithId::WithId(3),
+		]);
+		let four_assets = Bounties::sweep_weight();
+
+		// Every asset costs the same walk, so twice the assets is twice the sweep.
+		assert_eq!(four_assets, two_assets * 2);
+		assert!(two_assets.ref_time() > 0 && two_assets.proof_size() > 0);
+	});
+}
+
+#[test]
+fn reclaim_bounty_funds_weight_grows_with_the_asset_list() {
+	use frame_support::dispatch::GetDispatchInfo;
+
+	ExtBuilder::default().build().execute_with(|| {
+		let call = RuntimeCall::Bounties(Call::reclaim_bounty_funds { bounty_id: 0 });
+
+		RelevantAssets::set(vec![NativeOrWithId::Native]);
+		let one_asset = call.get_dispatch_info().call_weight;
+		let one_asset_sweep = Bounties::sweep_weight();
+
+		RelevantAssets::set(vec![
+			NativeOrWithId::Native,
+			NativeOrWithId::WithId(1),
+			NativeOrWithId::WithId(2),
+		]);
+		let three_assets = call.get_dispatch_info().call_weight;
+		let three_assets_sweep = Bounties::sweep_weight();
+
+		// The sweep walks every configured asset, so the declared weight has to follow the list
+		// rather than stay at the figure the reference runtime was benchmarked with.
+		assert!(three_assets.ref_time() > one_asset.ref_time());
+		assert!(three_assets.proof_size() > one_asset.proof_size());
+		// All of the growth comes from the sweep; the benchmarked part does not move.
+		assert_eq!(three_assets - one_asset, three_assets_sweep - one_asset_sweep);
+	});
+}
+
+#[test]
+fn close_bounty_weight_grows_with_the_asset_list() {
+	use frame_support::dispatch::GetDispatchInfo;
+
+	ExtBuilder::default().build().execute_with(|| {
+		let call = RuntimeCall::Bounties(Call::close_bounty { bounty_id: 0 });
+
+		RelevantAssets::set(vec![NativeOrWithId::Native]);
+		let one_asset = call.get_dispatch_info().call_weight;
+
+		RelevantAssets::set(vec![
+			NativeOrWithId::Native,
+			NativeOrWithId::WithId(1),
+			NativeOrWithId::WithId(2),
+		]);
+		let three_assets = call.get_dispatch_info().call_weight;
+
+		// Closing an active bounty sweeps its account too, so the same scaling applies.
+		assert!(three_assets.ref_time() > one_asset.ref_time());
+		assert!(three_assets.proof_size() > one_asset.proof_size());
 	});
 }
