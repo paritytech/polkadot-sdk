@@ -68,4 +68,11 @@ module state_vars {
   /// `parachain_log_above_lookup`. Not part of the protocol (the service
   /// prunes against the candidate's anchor each block without storing it).
   var logPrunedBelow: ParaId -> Timeslot
+
+  /// Ghost state: one entry per `Ok` digest of `lastStepWorkResults` whose
+  /// effects were kept, in order: the `AccumulateLog` events its replay logged
+  /// (§5.1 step 7), empty when Accumulate rejected it. Tells which candidate
+  /// logged an event when several of one para's candidates share a timeslot and
+  /// reuse a `MessageId`. Not part of the protocol.
+  var lastStepOkLogs: List[List[(MessageId, AccumulateLog)]]
 }

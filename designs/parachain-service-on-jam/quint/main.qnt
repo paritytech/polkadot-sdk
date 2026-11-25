@@ -71,7 +71,8 @@ module main {
     lastStepOutOfGas' = Never,
     lastHeadRoot' = None,
     foreignServices' = Map(),
-    logPrunedBelow' = Map()
+    logPrunedBelow' = Map(),
+    lastStepOkLogs' = List()
   }
 
   /// Due-assign budgets a step picks from: none, one, or every due assign, both
@@ -111,7 +112,8 @@ module main {
   /// head: it declares the `StaleParentHead` sentinel as its parent (and new
   /// head) while still carrying its normal messages, so the candidate is
   /// well-formed but rejected by Accumulate's parent-head check (§5.1 step 4),
-  /// exercising that check.
+  /// exercising that check. `messaging` are the optional messaging host calls
+  /// (§8), made just before the code exits.
   pure def buildPackage(
     curHead: HeadData,
     candidate: ParachainCandidate,
@@ -123,7 +125,8 @@ module main {
     headCall: List[CodeCall],
     headFirst: bool,
     codeEnd: List[CodeCall],
-    staleParent: bool
+    staleParent: bool,
+    messaging: List[CodeCall]
   ): { pkg: WorkPackage, calls: List[CodeCall] } = {
     val msgs =
       if (numMsgs == 0) List()
@@ -146,7 +149,7 @@ module main {
     val body =
       if (headFirst) headCalls.concat(sends(withIndexIds(msgs)))
       else sends(withIndexIds(msgs)).concat(headCalls)
-    { pkg: pkg, calls: parentCalls.concat(body).concat(codeEnd) }
+    { pkg: pkg, calls: parentCalls.concat(body).concat(messaging).concat(codeEnd) }
   }
 
   action stepRefineAccumulate = {
@@ -200,6 +203,9 @@ module main {
     // parent-head check's rejection (§5.1 step 4). Forced to active code so it
     // is rejected on the parent rather than on the code.
     nondet wp1StaleParent = oneOf(Set(false, true))
+    // §8: what the validation code's optional messaging host calls amounted to.
+    nondet wp1StreamsRoot = oneOf(streamsRootMenu)
+    nondet wp1RequiresRoots = oneOf(requiresRootsMenu(wp1Para))
     // Latest head for wp1's para this block. A non-live para (e.g. not yet
     // registered) has no head; we use 0, so such a candidate is dropped at
     // Accumulate (§5.1 step 1) regardless.
@@ -207,7 +213,7 @@ module main {
     val wp1 = buildPackage(
       wp1Head, wp1Candidate, wp1M1, wp1M2,
       wp1NumMsgs, wp1ItemCount, wp1DeclParent, wp1HeadCall, wp1HeadFirst, wp1CodeEnd,
-      wp1StaleParent
+      wp1StaleParent, messagingCalls(wp1StreamsRoot, wp1RequiresRoots)
     )
     val wp1Wr: WorkResult = {
       result:
@@ -235,6 +241,8 @@ module main {
     nondet wp2HeadCall = oneOf(Set(List(SetHead(0)), List(), List(SetHeadOversized)))
     nondet wp2HeadFirst = oneOf(Set(false, true))
     nondet wp2StaleParent = oneOf(Set(false, true))
+    nondet wp2StreamsRoot = oneOf(streamsRootMenu)
+    nondet wp2RequiresRoots = oneOf(requiresRootsMenu(wp2Para))
     // Chain off wp1's new head when same para; else wp2's own pre-block head.
     val wp2Head =
       if (wp2Para == wp1Para) wp1Head + 1
@@ -242,7 +250,7 @@ module main {
     val wp2 = buildPackage(
       wp2Head, wp2Candidate, wp2M1, wp2M2,
       wp2NumMsgs, wp2ItemCount, wp2DeclParent, wp2HeadCall, wp2HeadFirst, wp2CodeEnd,
-      wp2StaleParent
+      wp2StaleParent, messagingCalls(wp2StreamsRoot, wp2RequiresRoots)
     )
     val wp2Wr: WorkResult = {
       result:
@@ -295,7 +303,8 @@ module main {
       lastStepOutOfGas' = outOfGas,
       lastHeadRoot' = blockOut.headRoot,
       foreignServices' = blockOut.foreign,
-      logPrunedBelow' = newLogPrunedBelow
+      logPrunedBelow' = newLogPrunedBelow,
+      lastStepOkLogs' = blockOut.okLogs
     }
   }
 
@@ -323,7 +332,8 @@ module main {
       // Touches no head, so the commitment is empty (checked by the invariant).
       lastHeadRoot' = None,
       foreignServices' = foreignServices,
-      logPrunedBelow' = logPrunedBelow
+      logPrunedBelow' = logPrunedBelow,
+      lastStepOkLogs' = List()
     }
   }
 
@@ -364,13 +374,213 @@ module main {
       // Touches no head, so the commitment is empty (checked by the invariant).
       lastHeadRoot' = None,
       foreignServices' = foreignServices,
-      logPrunedBelow' = logPrunedBelow
+      logPrunedBelow' = logPrunedBelow,
+      lastStepOkLogs' = List()
     }
   }
 
   // --- Step composition --------------------------------------------------
 
   action step = any { stepRefineAccumulate, stepIncomingTransfer, provisionPreimage }
+
+  // --- Directed clean-up scenario (§6.4, §8.1) ---------------------------
+  // `quint run main.qnt --init=initCleanUp --step=stepCleanUp`. The random
+  // `step` almost never registers a para and then has Coretime clean it up,
+  // and a partial clean-up completes only `ExpungePeriod` slots later, far past
+  // any sampled trace, so neither `parachainCleanUp` branch is reached there.
+
+  /// Registers `p` with its own provided code (so clean-up takes the partial
+  /// branch) and a settlement ring holding `StreamsRootA`.
+  pure def withRingedPara(
+    s: ParachainServiceState, p: ParaId, code: ValidationCodeHash
+  ): ParachainServiceState = {
+    val s1 = parachainSetStateBalance(s, p, InitialParaBalance).state
+    val s2 = parachainSetValidationCode(s1, p, code, FixedCodeLen, 0).state
+    val s3 = parachainSetHead(s2, p, 0).state
+    val key = (code.asPreimage(), FixedCodeLen)
+    settlementRingPush(
+      { ...s3, preimageStatus: s3.preimageStatus.put(key, Provided(0)) }, p, StreamsRootA
+    )
+  }
+
+  /// Para 3 is live with a ring. Para 4 was partially cleaned up at slot 0 and
+  /// the clock starts at `ExpungePeriod`, so Coretime's next retry removes it.
+  action initCleanUp = {
+    val s3 = withRingedPara(initialState, MkParaId(3), { vchBytes: 3 })
+    val s4 = withRingedPara(s3, MkParaId(4), { vchBytes: 4 })
+    val s = parachainCleanUp(s4, MkParaId(4), 0).state
+    all {
+      svc' = s,
+      now' = ExpungePeriod,
+      jamStagingSet' = List(),
+      solicitedSet' = Set(),
+      prevSvc' = s,
+      lastStepWorkResults' = List(),
+      lastStepAssigns' = List(),
+      lastStepAssignBudget' = { flush: 0, end: 0 },
+      lastStepOutOfGas' = Never,
+      lastHeadRoot' = None,
+      foreignServices' = Map(),
+      logPrunedBelow' = Map(),
+      lastStepOkLogs' = List()
+    }
+  }
+
+  /// One directed candidate refined against the pre-block `svc`: the para's
+  /// work package chaining off `curHead`, carrying `msgs` and the messaging calls.
+  /// It names the para's active code, or its announced upgrade code when
+  /// `useAnnounced` and there is one (§5.1 step 2 must reject that until an
+  /// `Apply` lands earlier in the block).
+  pure def directedResult(
+    s: ParachainServiceState, para: ParaId, curHead: HeadData, msgs: List[UpwardMessage],
+    provides: StreamsRootDeclaration, requires: RequiresRootsDeclaration, t: Timeslot,
+    useAnnounced: bool
+  ): WorkResult = {
+    val pi = s.paraInfo(para)
+    val code = match pi.announcedUpgrade {
+      | Some(vc) => if (useAnnounced) vc.hash else activeCodeHashOr(pi, NoCodeHash)
+      | None => activeCodeHashOr(pi, NoCodeHash)
+    }
+    val pkg: WorkPackage = {
+      items: List({ paraId: para, validationCode: { hash: code, len: FixedCodeLen } })
+    }
+    val calls = List(SetParentHeadHash(headHash(curHead)), SetHead(curHead + 1))
+      .concat(sends(withIndexIds(msgs)))
+      .concat(messagingCalls(provides, requires))
+    { result: refine(s, pkg, calls, t)[0], authTrace: 0 }
+  }
+
+  /// One or two well-formed candidates in one block, usually from live paras:
+  /// optionally Coretime cleaning up, setting the head of, or changing the code
+  /// of para 3 or 4, optionally para 3 announcing or applying an upgrade,
+  /// optionally pushing a root or consuming from their rings. The optional
+  /// second package lands after the first in the same block, so a clean-up or
+  /// code change meets a receiver (or the target para's own candidate) that
+  /// Refine accepted against the pre-block rings, heads and codes.
+  action stepCleanUpDirected = {
+    // One draw in four may pick a deregistering para, whose candidate Accumulate
+    // drops silently (§5.1 step 1): the random `step` almost never gets one that
+    // far, and it is what the frozen paras of `parent_head_continuity` check.
+    // The rest go to paras whose candidates can land. Coretime and Asset Hub are
+    // never cleaned up, so the live set is never empty.
+    val liveParas = svc.parachains.keys().filter(p => not(svc.paraInfo(p).isDeregistering))
+    nondet anyPara = oneOf(svc.parachains.keys())
+    nondet livePara = oneOf(liveParas)
+    nondet roll = oneOf(0.to(3))
+    val para = if (roll == 0) anyPara else livePara
+    // `parachain_clean_up` and `parachain_set_head` are Coretime-only (§4.3):
+    // from any other para they only abort Refine, a path the random `step`
+    // already samples. `ParachainSetHead` must be a no-op for a deregistering
+    // para (para 4 from the start, para 3 once cleaned up).
+    // `parachain_set_validation_code` switches para 3 between its own code and
+    // para 4's (so it then holds both and can announce either back, §5.2), or is
+    // a no-op on the deregistering para 4. The three share one menu slot, so
+    // each clean-up and forced-head option drops from 1/5 to 1/6, not to 1/8.
+    nondet codeChange = oneOf(Set(
+      ParachainSetValidationCode({ paraId: MkParaId(3), newValidationCode: { hash: { vchBytes: 3 }, len: FixedCodeLen } }),
+      ParachainSetValidationCode({ paraId: MkParaId(3), newValidationCode: { hash: { vchBytes: 4 }, len: FixedCodeLen } }),
+      ParachainSetValidationCode({ paraId: MkParaId(4), newValidationCode: { hash: { vchBytes: 3 }, len: FixedCodeLen } })
+    ))
+    nondet cleanUp = oneOf(Set(
+      List(), List(ParachainCleanUp(MkParaId(3))), List(ParachainCleanUp(MkParaId(4))),
+      List(ParachainSetHead({ paraId: MkParaId(3), newHead: 7 })),
+      List(ParachainSetHead({ paraId: MkParaId(4), newHead: 7 })),
+      List(codeChange)
+    ))
+    // Para 3 drives its own upgrade (§5.2): announce or apply either code.
+    nondet upgradeCode = oneOf(Set({ vchBytes: 3 }, { vchBytes: 4 }))
+    nondet upgradePhase = oneOf(Set(Announcement, Apply))
+    nondet ownUpgrade = oneOf(Set(false, true))
+    val msgs =
+      if (para == CoretimeParaId) cleanUp
+      else if (para == MkParaId(3) and ownUpgrade)
+        List(RequestCodeUpgrade({ hash: upgradeCode, len: FixedCodeLen, phase: upgradePhase }))
+      else List()
+    // Half of Coretime's code changes ride a stale-parent candidate, which
+    // Accumulate rejects (§5.1 step 4) and so must not change any code.
+    nondet staleDraw = oneOf(Set(false, true))
+    val stale = staleDraw and msgs == List(codeChange)
+    // One draw in four names the announced upgrade code, if any.
+    nondet announcedRoll = oneOf(0.to(3))
+    nondet announcedRoll2 = oneOf(0.to(3))
+    nondet provides = oneOf(Set(StreamsRootUndeclared, StreamsRootDeclared(StreamsRootB)))
+    // Naming itself only aborts Refine (`MessagesInvalidRequires`), which the
+    // random `step` and `messaging_test` already cover. Root A is in both
+    // seeded rings; root B enters para 3's ring only once one of its
+    // candidates providing B is enacted, so requiring it settles against a
+    // root pushed during the run (earlier in the block or in an earlier step)
+    // and is rejected before that.
+    val requiresMenu = Set(
+      RequiresRootsUndeclared,
+      RequiresRootsDeclared(List((MkParaId(3), StreamsRootA))),
+      RequiresRootsDeclared(List((MkParaId(4), StreamsRootA))),
+      RequiresRootsDeclared(List((MkParaId(3), StreamsRootB)))
+    )
+    nondet requires = oneOf(requiresMenu.filter(r => not(namesItself(r, para))))
+    val curHead = svc.paraInfo(para).headData
+    val wr = directedResult(
+      svc, para, if (stale) StaleParentHead - 1 else curHead, msgs, provides, requires, now,
+      announcedRoll == 0
+    )
+
+    // Optional second package, also refined against the pre-block `svc` (as
+    // `stepRefineAccumulate` does): 0 = none; 1 = a receiver (the same 1-in-4
+    // any-para draw, else a live para, which includes 3 until it is cleaned
+    // up) consuming para 3's or 4's root; 2 = the candidate of the para named
+    // in Coretime's message (3 or 4 otherwise), if it still exists, so a code
+    // change meets a candidate still on the old code.
+    nondet second = oneOf(0.to(2))
+    nondet anyPara2 = oneOf(svc.parachains.keys())
+    nondet livePara2 = oneOf(liveParas)
+    nondet roll2 = oneOf(0.to(3))
+    nondet fallbackTarget = oneOf(Set(MkParaId(3), MkParaId(4)))
+    val target = msgs.foldl(fallbackTarget, (t, m) => match m {
+      | ParachainCleanUp(q) => q
+      | ParachainSetHead(pl) => pl.paraId
+      | ParachainSetValidationCode(pl) => pl.paraId
+      | _ => t
+    })
+    val para2 =
+      if (second == 2 and svc.parachains.keys().contains(target)) target
+      else if (roll2 == 0) anyPara2
+      else livePara2
+    nondet provides2 = oneOf(Set(StreamsRootUndeclared, StreamsRootDeclared(StreamsRootB)))
+    val requiresMenu2 = if (second == 1) requiresMenu.exclude(Set(RequiresRootsUndeclared)) else requiresMenu
+    nondet requires2 =
+      oneOf(requiresMenu2.filter(r => not(namesItself(r, para2))))
+    // Chain off the first package's new head when it is the same para (and the
+    // first was not stale).
+    val curHead2 = if (para2 == para and not(stale)) curHead + 1 else svc.paraInfo(para2).headData
+    val wr2 = directedResult(svc, para2, curHead2, List(), provides2, requires2, now, announcedRoll2 == 0)
+    val packages = if (second == 0) List(wr) else List(wr, wr2)
+
+    val out = accumulateBlock(
+      svc, now + 1, jamStagingSet, solicitedSet, FixedCodeLen, packages, foreignServices
+    )
+    all {
+      svc' = out.state,
+      jamStagingSet' = out.staging,
+      now' = now + 1,
+      solicitedSet' = out.solicited,
+      prevSvc' = svc,
+      lastStepWorkResults' = out.results,
+      lastStepAssigns' = out.assigns,
+      lastStepAssignBudget' = FullAssignBudget,
+      lastStepOutOfGas' = Never,
+      lastHeadRoot' = out.headRoot,
+      foreignServices' = out.foreign,
+      logPrunedBelow' = out.logPruned.foldl(logPrunedBelow, (m, pr) => m.put(pr._1, pr._2)),
+      lastStepOkLogs' = out.okLogs
+    }
+  }
+
+  /// Whether a directed requires declaration names the candidate's own para.
+  pure def namesItself(r: RequiresRootsDeclaration, para: ParaId): bool = match r {
+    | RequiresRootsDeclared(l) => l.foldl(false, (b, e) => b or e._1 == para)
+    | _ => false
+  }
+
+  action stepCleanUp = any { step, stepCleanUpDirected }
 
   // --- Auxiliary: nondeterministic refine-input generators --------------
 
@@ -397,7 +607,36 @@ module main {
     }
   }
 
-  /// Menu of individual upward messages validation code might emit during Refine.
+  /// §8: the two roots the nondet messaging menus draw from. Two distinct
+  /// values are enough to reach settlement hits and misses, repeated-root
+  /// pushes, and clean-up interactions, keeping the state space bounded.
+  pure val StreamsRootA: StreamsRoot = { streamsRootBytes: 1 }
+  pure val StreamsRootB: StreamsRoot = { streamsRootBytes: 2 }
+
+  /// Menu of `set_messages_streams_root` outcomes validation code might declare (§8):
+  /// no root, either root, or an aborting repeated call.
+  pure val streamsRootMenu: Set[StreamsRootDeclaration] = Set(
+    StreamsRootUndeclared,
+    StreamsRootDeclared(StreamsRootA),
+    StreamsRootDeclared(StreamsRootB),
+    StreamsRootRepeated
+  )
+
+  /// Menu of `set_messages_requires_roots` outcomes (§8): nothing consumed,
+  /// entries that settle once their source has enacted the named root (and
+  /// are silently rejected until then, §5.1 step 5), an ill-formed set naming
+  /// the candidate itself, and an aborting repeated call.
+  pure def requiresRootsMenu(para_id: ParaId): Set[RequiresRootsDeclaration] = Set(
+    RequiresRootsUndeclared,
+    RequiresRootsDeclared(List((CoretimeParaId, StreamsRootA))),
+    RequiresRootsDeclared(List((AssetHubParaId, StreamsRootB))),
+    RequiresRootsDeclared(List(
+      (CoretimeParaId, StreamsRootA), (AssetHubParaId, StreamsRootB))),
+    RequiresRootsDeclared(List((para_id, StreamsRootA))),
+    RequiresRootsRepeated
+  )
+
+    /// Menu of individual upward messages validation code might emit during Refine.
   /// Every parachain draws from the SAME menu: restricted host calls
   /// (AH-only, Coretime-only) are included for all paras so the Refine
   /// wrapper's `RestrictedHostFunction` rejection (§4.3) is exercised

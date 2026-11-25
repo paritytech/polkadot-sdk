@@ -227,11 +227,14 @@ module management_test {
     }
   }
 
-  /// §6, §6.4: once clean-up has set `isDeregistering`, the para is treated as
-  /// if it no longer existed. `parachain_set_state_balance` is rejected as
-  /// `ParachainIsDeregistering`; the two other Coretime calls, a `Solicit` naming
-  /// it and a `SetKV` for it no-op without a log. So a half-removed para cannot
-  /// be revived or grow state; only `parachain_clean_up` still acts.
+  /// §6, §6.4: once clean-up has set `isDeregistering`, its work packages are
+  /// rejected and Coretime cannot add to it. `parachain_set_state_balance` is
+  /// rejected as `ParachainIsDeregistering`; `parachain_set_head`,
+  /// `parachain_set_validation_code`, a `Solicit` naming it, and a `SetKV` for
+  /// it no-op without a log. So a half-removed para cannot be revived or grow
+  /// state. `RemoveKV` is gated too, but unobservable here: clean-up only gets
+  /// this far once the para holds no KV. Its ring stays until removal and
+  /// `Forget` is not gated; neither is exercised here.
   run deregisteringParaIsFrozenTest = {
     val para = MkParaId(5)
     val code: ValidationCodeHash = { vchBytes: 0x55 }

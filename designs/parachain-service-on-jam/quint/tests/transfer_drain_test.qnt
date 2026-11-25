@@ -64,7 +64,9 @@ module transfer_drain_test {
       parentHeadHash: headHash(seeded.paraInfo(ah).headData),
       headData: seeded.paraInfo(ah).headData + 1,
       upwardMessages: List((0, CleanUpBucketsUpTo(1))),
-      lookupAnchor: 5
+      lookupAnchor: 5,
+      messagesStreamsRoot: None,
+      messagesRequiresRoots: List()
     }
     val out = accumulateOnePackage(
       seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), List(), FixedCodeLen, 10, Map()
@@ -111,7 +113,9 @@ module transfer_drain_test {
       parentHeadHash: headHash(seeded.paraInfo(ah).headData),
       headData: seeded.paraInfo(ah).headData + 1,
       upwardMessages: List((0, CleanUpBucketsUpTo(2))),
-      lookupAnchor: 2
+      lookupAnchor: 2,
+      messagesStreamsRoot: None,
+      messagesRequiresRoots: List()
     }
     val out = accumulateOnePackage(
       seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), List(), FixedCodeLen, 3, Map()
@@ -159,7 +163,9 @@ module transfer_drain_test {
       parentHeadHash: headHash(tight.paraInfo(ah).headData),
       headData: tight.paraInfo(ah).headData + 1,
       upwardMessages: msgs,
-      lookupAnchor: MaxIncomingTransfers
+      lookupAnchor: MaxIncomingTransfers,
+      messagesStreamsRoot: None,
+      messagesRequiresRoots: List()
     }
     // Each message keeps its `MessageId` in both orders, so the logs can match.
     pure def replay(msgs: List[(MessageId, UpwardMessage)]): ParachainServiceState =

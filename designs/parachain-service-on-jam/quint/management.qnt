@@ -83,6 +83,10 @@ module management {
   /// §6.2 / §6.3: upsert head data. No-op on a ParaId whose ParaInfo
   /// doesn't exist yet (Coretime must call set_state_balance first) or that
   /// is deregistering (§6.4).
+  /// Does not touch the parachain's settlement ring (§8.1): roots declared
+  /// before a forced head reset stay settleable until evicted, so a call the
+  /// Coretime chain makes for one parachain can never invalidate the
+  /// in-flight candidates of the parachains consuming from it.
   pure def parachainSetHead(
     s: ParachainServiceState,
     para_id: ParaId,
@@ -216,16 +220,18 @@ module management {
             logs: List().appendOption(afterActive.log).appendOption(afterAnnounced.log)
           }
         } else {
-          // Fully expunged: drop all per-para state.
+          // Fully expunged: drop all per-para state, settlement ring included
+          // (§6.4 "all expunged", §8.1 "Ring Cleanup").
+          val s2 = settlementRingDelete(s1, para_id)
           val stagedAfter =
-            if (para_id == AssetHubParaId) List() else s1.stagedValidatorKeys
+            if (para_id == AssetHubParaId) List() else s2.stagedValidatorKeys
           {
             state: {
-              ...s1,
-              parachains: s1.parachains.mapRemove(para_id),
-              parachainLog: s1.parachainLog.mapRemove(para_id),
+              ...s2,
+              parachains: s2.parachains.mapRemove(para_id),
+              parachainLog: s2.parachainLog.mapRemove(para_id),
               stagedValidatorKeys: stagedAfter,
-              keyValueStorage: s1.keyValueStorage.mapFilterKeys(key => key._1 != para_id)
+              keyValueStorage: s2.keyValueStorage.mapFilterKeys(key => key._1 != para_id)
             },
             jamSolicit: Set(),
             jamForget: jamForgets,

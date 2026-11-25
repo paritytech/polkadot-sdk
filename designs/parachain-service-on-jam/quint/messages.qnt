@@ -59,6 +59,13 @@ module messages {
     | InvalidCoreIndex
     // A `SetKV` or `RemoveKV` carried an empty key, or a `SetKV` an empty value (§3.3).
     | EmptyKVKeyOrValue
+    // `set_messages_streams_root` or `set_messages_requires_roots` was called
+    // more than once in a single Refine invocation (§4.3, §8).
+    | MessagesCallRepeated
+    // A `set_messages_requires_roots` set exceeded `MaxRequiresSources`,
+    // repeated a source `ParaId`, or named the candidate's own `para_id`
+    // (§4.3, §8).
+    | MessagesInvalidRequires
 
   // --- Accumulate-side log payloads ---------------------------------------
 
@@ -323,7 +330,15 @@ module messages {
     headData: HeadData,
     // Each upward message with the `MessageId` it was sent with (§4.3).
     upwardMessages: List[(MessageId, UpwardMessage)],
-    lookupAnchor: Timeslot
+    lookupAnchor: Timeslot,
+    // §8: the `StreamsRoot` this candidate publishes, `None` when it declared
+    // none. Pushed into the parachain's settlement ring on enactment (§5.1
+    // step 6), so a root enters the ring only for an enacted candidate.
+    messagesStreamsRoot: Option[StreamsRoot],
+    // §8: the senders this candidate consumed messages from, one entry per
+    // sender with the root it consumed against. Checked against the senders'
+    // settlement rings before the head write (§5.1 step 5).
+    messagesRequiresRoots: List[(ParaId, StreamsRoot)]
   }
 
   /// Refine output per work item: a success digest or a Refine error. Both carry
