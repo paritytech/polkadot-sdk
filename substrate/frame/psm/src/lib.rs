@@ -1011,8 +1011,8 @@ pub mod pallet {
 		/// `full_admin` and `emergency_admin` roles are set from the provided arguments and may
 		/// later be reassigned via [`Pallet::set_full_admin`] / [`Pallet::set_emergency_admin`].
 		///
-		/// An admin argument of `None` sets the role to [`AdminOrigin::AssetOwner`]: it is held by
-		/// whoever owns the internal asset at the time of each admin call. An explicit
+		/// Pass [`AdminOrigin::AssetOwner`] for a role that follows the internal asset's owner: it
+		/// is held by whoever owns the asset at the time of each admin call.
 		/// [`AdminOrigin::Origin`] stays with that origin, also when it is the owner's signed
 		/// origin and the asset later changes hands.
 		///
@@ -1025,10 +1025,8 @@ pub mod pallet {
 		///
 		/// - `internal_asset`: The internal stablecoin keying the new PSM. Must exist in the
 		///   fungibles backend; must not already have a PSM registered.
-		/// - `full_admin`: Holder of full management of the new PSM. `None` means
-		///   [`AdminOrigin::AssetOwner`].
-		/// - `emergency_admin`: Holder of emergency management of the new PSM. `None` means
-		///   [`AdminOrigin::AssetOwner`].
+		/// - `full_admin`: Holder of full management of the new PSM.
+		/// - `emergency_admin`: Holder of emergency management of the new PSM.
 		/// - `fee_destination`: Account that will receive mint/redeem fees. Fees are waived while
 		///   it cannot receive the internal asset.
 		/// - `max_debt`: Initial absolute internal-asset debt ceiling.
@@ -1054,15 +1052,15 @@ pub mod pallet {
 		pub fn create_psm(
 			origin: OriginFor<T>,
 			internal_asset: T::AssetId,
-			full_admin: Option<Box<AdminOrigin<T::PalletsOrigin>>>,
-			emergency_admin: Option<Box<AdminOrigin<T::PalletsOrigin>>>,
+			full_admin: Box<AdminOrigin<T::PalletsOrigin>>,
+			emergency_admin: Box<AdminOrigin<T::PalletsOrigin>>,
 			fee_destination: T::AccountId,
 			max_debt: BalanceOf<T>,
 			min_swap_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let maybe_depositor = T::CreateOrigin::ensure_origin(origin, &internal_asset)?;
-			let full_admin = full_admin.map_or(AdminOrigin::AssetOwner, |admin| *admin);
-			let emergency_admin = emergency_admin.map_or(AdminOrigin::AssetOwner, |admin| *admin);
+			let full_admin = *full_admin;
+			let emergency_admin = *emergency_admin;
 			ensure!(
 				Self::is_valid_admin(&full_admin) && Self::is_valid_admin(&emergency_admin),
 				Error::<T>::InvalidAdminOrigin

@@ -64,8 +64,8 @@ where
 		Psm::<T>::create_psm(
 			origin,
 			internal_id.clone(),
-			None,
-			None,
+			Box::new(AdminOrigin::AssetOwner),
+			Box::new(AdminOrigin::AssetOwner),
 			admin,
 			BalanceOf::<T>::from(u32::MAX).saturating_mul(1_000_000u32.into()),
 			BalanceOf::<T>::from(BENCH_MIN_SWAP),
@@ -358,8 +358,8 @@ mod benchmarks {
 		_(
 			origin,
 			internal_id.clone(),
-			Some(Box::new(admin.clone())),
-			Some(Box::new(admin)),
+			Box::new(admin.clone()),
+			Box::new(admin),
 			caller,
 			max_debt,
 			min_swap,
