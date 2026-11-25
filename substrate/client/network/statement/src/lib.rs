@@ -20,8 +20,8 @@
 //!
 //! This crate implements gossip-based propagation of statements between nodes, layered on the
 //! substrate notifications protocol. The protocol version is negotiated per peer: `statement/2`
-//! (preferred) with `statement/1` as a fallback. A node on the DHT path prefers `statement/3`
-//! and falls back to both.
+//! (preferred) with `statement/1` as a fallback. A node on the DHT path prefers `statement/4`,
+//! then `statement/3`, and falls back to both.
 //!
 //! ## Propagation
 //!
@@ -68,7 +68,7 @@
 //!
 //! ## Announced sync
 //!
-//! A full peer on `statement/3` often holds most of what a sync would send it, so its sync
+//! A full peer on `statement/4` often holds most of what a sync would send it, so its sync
 //! announces short hashes ahead of the bodies. The sender walks the store's index by topic,
 //! which needs no body, and announces the hashes under every topic due to the peer. The peer
 //! answers with one bit for each hash, set for a statement it lacks: one neither stored, nor
@@ -89,10 +89,14 @@
 //! chunk is resent from the sync's cursor.
 //!
 //! Propagation queues hashes in a per-peer outbox and fetches, filters and encodes them only when
-//! the slot is free, so a slow peer holds one encoded chunk rather than its whole backlog. An
-//! outbox past `config::MAX_PROPAGATION_OUTBOX_LEN` drops its oldest hashes, since the freshest
-//! statements are the ones still worth delivering. Dropped hashes are counted in
+//! the slot is free, so a slow peer holds one encoded chunk rather than its whole backlog. A full
+//! outbox (`config::MAX_PROPAGATION_OUTBOX_LEN`) refuses new hashes, which are counted in
 //! `undelivered_statements`.
+//!
+//! A peer is stalled when its last `STALLED_PEER_FAILED_SENDS` sends failed or its outbox
+//! overflows with a propagation chunk in flight. It is disconnected without a reputation change
+//! and resynced on reconnect. Overflow with the slot free or during an initial sync is this
+//! node's delay, so the peer stays and loses only the refused hashes.
 //!
 //! In-flight bytes of both kinds are held against the shared
 //! `config::MAX_SEND_IN_FLIGHT_BYTES` budget. A peer that finds the budget full, or whose store
@@ -119,7 +123,8 @@
 //! opt into an affinity.
 //!
 //! With the DHT path enabled, the node speaks `statement/3`, which carries the `statement/2`
-//! messages between two nodes on that path. Every `statement/3` peer sends its affinity filter as
+//! messages between two nodes on that path, or `statement/4`, which adds the messages of set
+//! reconciliation. Every such peer sends its affinity filter as
 //! the first message on connect, and the initial sync waits for the peer's filter, replaying the
 //! statements it matches and those the peer is a DHT routing target for. A full peer that falls
 //! back to `statement/2` or `statement/1` floods instead of routing, so it gets every statement
@@ -219,17 +224,20 @@ enum PeerProtocolVersion {
 	V2,
 	/// V3: the V2 messages, between two nodes on the DHT path.
 	V3,
+	/// V4: the V3 messages and the messages of set reconciliation.
+	V4,
 }
 
 impl PeerProtocolVersion {
 	/// The version negotiated on a substream: `negotiated_fallback` names the fallback protocol
-	/// the peer settled for, and without one the peer speaks the main protocol, `statement/3`
+	/// the peer settled for, and without one the peer speaks the main protocol, `statement/4`
 	/// when `dht` is on.
 	fn negotiated(negotiated_fallback: Option<&str>, dht: bool) -> Self {
 		match negotiated_fallback {
 			Some(name) if name.ends_with(STATEMENT_PROTOCOL_V1) => PeerProtocolVersion::V1,
+			Some(name) if name.ends_with(STATEMENT_PROTOCOL_V3) => PeerProtocolVersion::V3,
 			Some(_) => PeerProtocolVersion::V2,
-			None if dht => PeerProtocolVersion::V3,
+			None if dht => PeerProtocolVersion::V4,
 			None => PeerProtocolVersion::V2,
 		}
 	}
@@ -238,7 +246,9 @@ impl PeerProtocolVersion {
 	fn envelope_overhead(&self) -> usize {
 		match self {
 			PeerProtocolVersion::V1 => V1_ENVELOPE_OVERHEAD,
-			PeerProtocolVersion::V2 | PeerProtocolVersion::V3 => V2_ENVELOPE_OVERHEAD,
+			PeerProtocolVersion::V2 | PeerProtocolVersion::V3 | PeerProtocolVersion::V4 => {
+				V2_ENVELOPE_OVERHEAD
+			},
 		}
 	}
 }
@@ -251,11 +261,16 @@ enum StatementMessage {
 	#[codec(index = 1)]
 	ExplicitTopicAffinity(AffinityFilter),
 	/// Short hashes of statements the sender holds for this peer, sent ahead of their bodies.
+	/// The sender mixes `salt` into every hash, and sets `last` on the final announce of a sync.
 	#[codec(index = 2)]
-	Announce { id: u64, hashes: AnnouncedHashes },
+	Announce { id: u64, salt: u64, last: bool, hashes: AnnouncedHashes },
 	/// The answer to the announce `id`: a set bit asks for the body of the hash at that position.
 	#[codec(index = 3)]
 	Want { id: u64, wanted: WantedBitmap },
+	/// Asks the peer to announce the statements it admitted in the last `window_secs` seconds of
+	/// its own clock, or all of them without a window.
+	#[codec(index = 4)]
+	AnnounceRequest { window_secs: Option<u32> },
 }
 
 /// Codec variant index for `StatementMessage::Statements`, kept in sync with `#[codec(index)]`.
@@ -273,6 +288,19 @@ impl StatementMessage {
 		STATEMENTS_VARIANT_INDEX.encode_to(&mut out);
 		statements.encode_to(&mut out);
 		out
+	}
+
+	/// Decode a notification from a peer that negotiated `version`. Only a `statement/4` peer may
+	/// send the messages of set reconciliation.
+	fn decode_from(version: PeerProtocolVersion, mut notification: &[u8]) -> Option<Self> {
+		match Self::decode(&mut notification).ok()? {
+			Self::Announce { .. } | Self::Want { .. } | Self::AnnounceRequest { .. }
+				if version != PeerProtocolVersion::V4 =>
+			{
+				None
+			},
+			message => Some(message),
+		}
 	}
 }
 
@@ -321,6 +349,8 @@ mod rep {
 }
 
 const LOG_TARGET: &str = "statement-gossip";
+/// V4 statement protocol suffix: the V3 messages and the messages of set reconciliation.
+const STATEMENT_PROTOCOL_V4: &str = "statement/4";
 /// V3 statement protocol suffix: the V2 messages between two nodes on the DHT path, so the
 /// protocol a peer negotiates tells whether it routes or floods.
 const STATEMENT_PROTOCOL_V3: &str = "statement/3";
@@ -331,6 +361,18 @@ const STATEMENT_PROTOCOL_V2: &str = "statement/2";
 const STATEMENT_PROTOCOL_V1: &str = "statement/1";
 /// Maximum time we wait for sending a notification to a peer.
 const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+/// Consecutive failed sends that disconnect the peer.
+const STALLED_PEER_FAILED_SENDS: u32 = 2;
+
+/// Why a peer counts as stalled.
+#[derive(Clone, Copy, Debug)]
+enum StallCause {
+	/// Its last [`STALLED_PEER_FAILED_SENDS`] sends failed.
+	FailedSends,
+	/// Its outbox overflowed with a propagation chunk in flight.
+	OutboxOverflow,
+}
+
 /// Interval for sending statement batches during initial sync to new peers.
 const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::from_millis(10);
 
@@ -349,6 +391,11 @@ const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::fr
 const PEER_EVICTION_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
 /// Delay before re-adding a peer to the reserved set after a forced disconnect for sync recovery.
 const SYNC_RECOVERY_READD_DELAY: std::time::Duration = std::time::Duration::from_secs(60);
+/// Without the DHT path, how long a stalled peer stays out of the reserved set. Peer steering
+/// pauses such a peer for as long with the DHT path on.
+const STALLED_PEER_READD_DELAY: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+/// Interval between checks for stalled peers whose re-add delay has passed.
+const STALLED_PEER_READD_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
 
 static DHT_ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 
@@ -387,6 +434,7 @@ struct Metrics {
 	initial_sync_peers_active: Gauge<U64>,
 	initial_sync_duration_seconds: HistogramVec,
 	statement_flooding_detected: Counter<U64>,
+	stalled_peers_disconnected: Counter<U64>,
 	affinity_flooding_detected: Counter<U64>,
 	send_failures: CounterVec<U64>,
 	undelivered_statements: CounterVec<U64>,
@@ -413,7 +461,7 @@ mod send_failure {
 	pub const TIMEOUT: &str = "timeout";
 	/// The chunk was never handed to the network because the peer had no message sink.
 	pub const NO_SINK: &str = "no_sink";
-	/// The peer's propagation outbox overflowed and the oldest queued hashes were dropped.
+	/// The peer's propagation outbox was full and refused new hashes.
 	pub const OUTBOX_FULL: &str = "outbox_full";
 	/// A queued statement left the store, failed to decode or expired before its chunk went out.
 	pub const MISSING_FROM_STORE: &str = "missing_from_store";
@@ -606,6 +654,13 @@ impl Metrics {
 				)?,
 				r,
 			)?,
+			stalled_peers_disconnected: register(
+				Counter::new(
+					"substrate_sync_statement_stalled_peers_disconnected",
+					"Number of peers disconnected for reading statements too slowly",
+				)?,
+				r,
+			)?,
 			affinity_flooding_detected: register(
 				Counter::new(
 					"substrate_sync_statement_affinity_flooding_detected",
@@ -686,7 +741,7 @@ impl Metrics {
 }
 
 /// The main protocol name and its fallbacks, most preferred first. Only a node on the DHT path
-/// offers `statement/3`.
+/// offers `statement/4` and `statement/3`.
 fn protocol_names(
 	genesis_hash_hex: &str,
 	fork_id: Option<&str>,
@@ -698,12 +753,25 @@ fn protocol_names(
 	};
 	if dht {
 		(
-			protocol(STATEMENT_PROTOCOL_V3),
-			vec![protocol(STATEMENT_PROTOCOL_V2), protocol(STATEMENT_PROTOCOL_V1)],
+			protocol(STATEMENT_PROTOCOL_V4),
+			vec![
+				protocol(STATEMENT_PROTOCOL_V3),
+				protocol(STATEMENT_PROTOCOL_V2),
+				protocol(STATEMENT_PROTOCOL_V1),
+			],
 		)
 	} else {
 		(protocol(STATEMENT_PROTOCOL_V2), vec![protocol(STATEMENT_PROTOCOL_V1)])
 	}
+}
+
+/// Whether a peer whose identify answer lists `supported` runs the DHT path: it offers the main
+/// protocol `statement/4`, or `statement/3` of the same chain.
+fn lists_dht_protocol(supported: &HashSet<ProtocolName>, main: &ProtocolName) -> bool {
+	supported.contains(main) ||
+		main.strip_suffix(STATEMENT_PROTOCOL_V4).is_some_and(|chain| {
+			supported.contains(format!("{chain}{STATEMENT_PROTOCOL_V3}").as_str())
+		})
 }
 
 /// Prototype for a [`StatementHandler`].
@@ -944,6 +1012,8 @@ impl StatementHandlerPrototype {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: self.in_peers_full,
 			in_peers_light: self.in_peers_light,
 			dropped_statements_during_sync: false,
@@ -1033,6 +1103,11 @@ pub struct StatementHandler<
 	/// Tracks peers that connected while major sync was active and adds them to the reserved set
 	/// once sync ends
 	deferred_peers: HashSet<PeerId>,
+	/// Without the DHT path, stalled peers taken out of the reserved set, each with the time it
+	/// is added back
+	stalled_peers: HashMap<PeerId, Instant>,
+	/// Fires when `stalled_peers` is due a check for peers to add back
+	stalled_peers_readd_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
 	/// Inbound slots for full peers.
 	in_peers_full: u32,
 	/// Inbound slots for light peers.
@@ -1154,6 +1229,8 @@ pub struct Peer {
 	full_replay_requested: bool,
 	/// One past the newest admission covered by the peer's initial syncs.
 	sync_watermark: u64,
+	/// Consecutive failed sends, see [`STALLED_PEER_FAILED_SENDS`].
+	failed_sends: u32,
 }
 
 /// Tracks pending initial sync state for a peer as a cursor over the store's admission
@@ -1444,9 +1521,9 @@ fn has_received_from(
 }
 
 impl Peer {
-	/// Only full nodes on `statement/3` sync by announce.
+	/// Only full nodes on `statement/4` sync by announce.
 	fn syncs_by_announce(&self) -> bool {
-		self.protocol_version == PeerProtocolVersion::V3 && !self.is_light
+		self.protocol_version == PeerProtocolVersion::V4 && !self.is_light
 	}
 
 	/// The peer floods instead of routing, so it is served like a v1 peer. A light peer on
@@ -1455,7 +1532,7 @@ impl Peer {
 		match self.protocol_version {
 			PeerProtocolVersion::V1 => true,
 			PeerProtocolVersion::V2 => !self.is_light,
-			PeerProtocolVersion::V3 => false,
+			PeerProtocolVersion::V3 | PeerProtocolVersion::V4 => false,
 		}
 	}
 
@@ -1475,13 +1552,14 @@ impl Peer {
 			pending_topic_affinity: None,
 			full_replay_requested: false,
 			sync_watermark: 0,
+			failed_sends: 0,
 		}
 	}
 
 	/// Whether this peer is ready to receive statements.
 	///
 	/// Light V2 peers must set their topic affinity before receiving any statements; with the
-	/// DHT path on, every `statement/3` peer must.
+	/// DHT path on, every `statement/3` and `statement/4` peer must.
 	fn can_receive(&self) -> bool {
 		!(self.protocol_version != PeerProtocolVersion::V1 &&
 			self.topic_affinity.is_none() &&
@@ -1583,6 +1661,8 @@ where
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -1678,6 +1758,9 @@ where
 					self.try_readd_sync_recovery_peer();
 					self.sync_recovery_readd_timeout = Box::pin(pending().fuse());
 				},
+				_ = &mut self.stalled_peers_readd_timeout => {
+					self.readd_stalled_peers(Instant::now());
+				},
 				_ = &mut self.peer_eviction_timeout => {
 					self.dht.evict_stale_peers();
 					self.peer_eviction_timeout =
@@ -1703,9 +1786,10 @@ where
 	fn handle_network_event(&mut self, event: Event) {
 		match event {
 			Event::PeersDiscovered(peers) => self.dht.on_peers_discovered(peers),
-			Event::PeerIdentified { peer, supported_protocols } => self
-				.dht
-				.on_peer_identified(peer, supported_protocols.contains(&self.protocol_name)),
+			Event::PeerIdentified { peer, supported_protocols } => self.dht.on_peer_identified(
+				peer,
+				lists_dht_protocol(&supported_protocols, &self.protocol_name),
+			),
 			// The stream is filtered to `PeersDiscovered` and `PeerIdentified`, so no other
 			// variant reaches here.
 			_ => {},
@@ -1866,7 +1950,7 @@ where
 		);
 
 		if dht_enabled() {
-			self.dht.release_peer_without_dht(&self.network, peer_id);
+			self.dht.release_reserved_peer(&self.network, peer_id);
 			self.network.disconnect_peer(peer_id, self.protocol_name.clone());
 			return;
 		}
@@ -1899,6 +1983,35 @@ where
 		{
 			log::warn!(target: LOG_TARGET, "Failed to re-add sync recovery peer {peer_id}: {err}");
 		}
+	}
+
+	/// Add back to the reserved set the stalled peers whose delay ended by `now`, and wait for
+	/// the rest.
+	fn readd_stalled_peers(&mut self, now: Instant) {
+		let mut due = HashSet::new();
+		self.stalled_peers.retain(|peer_id, readd_at| {
+			if *readd_at > now {
+				return true;
+			}
+			due.insert(
+				iter::once(multiaddr::Protocol::P2p((*peer_id).into()))
+					.collect::<multiaddr::Multiaddr>(),
+			);
+			false
+		});
+		if !due.is_empty() {
+			log::debug!(target: LOG_TARGET, "Re-adding {} stalled peers", due.len());
+			if let Err(err) =
+				self.network.add_peers_to_reserved_set(self.protocol_name.clone(), due)
+			{
+				log::warn!(target: LOG_TARGET, "Failed to re-add stalled peers: {err}");
+			}
+		}
+		self.stalled_peers_readd_timeout = if self.stalled_peers.is_empty() {
+			Box::pin(pending().fuse())
+		} else {
+			Box::pin(tokio::time::sleep(STALLED_PEER_READD_INTERVAL).fuse())
+		};
 	}
 
 	/// Whether the role's inbound quota has room for one more peer.
@@ -1953,6 +2066,8 @@ where
 				}
 			},
 			SyncEvent::PeerDisconnected(remote) => {
+				// A peer that left is not added back.
+				self.stalled_peers.remove(&remote);
 				if self.deferred_peers.remove(&remote) {
 					return;
 				}
@@ -1998,6 +2113,10 @@ where
 				}
 				// Only accept peers whose role can be determined
 				let result = match role {
+					Some(_) if dht_enabled() && self.dht.is_paused(&peer) => {
+						log::debug!(target: LOG_TARGET, "Rejecting paused {peer}");
+						ValidationResult::Reject
+					},
 					Some(role)
 						if dht_enabled() &&
 							!self.dht.is_reserved(&peer) &&
@@ -2058,6 +2177,7 @@ where
 						pending_topic_affinity: None,
 						full_replay_requested: false,
 						sync_watermark: 0,
+						failed_sends: 0,
 					},
 				);
 				debug_assert!(_was_in.is_none());
@@ -2084,7 +2204,7 @@ where
 				}
 
 				// Peers awaiting their affinity filter are synced by the pending-affinity tick.
-				// Light peers owe the filter by protocol; full peers owe it only on `statement/3`.
+				// Light peers owe the filter by protocol; full peers owe it from `statement/3` on.
 				// A full `statement/2` peer floods, so with the DHT path on it is served at
 				// once.
 				if dht_enabled() && protocol_version == PeerProtocolVersion::V2 && !is_light {
@@ -2136,7 +2256,7 @@ where
 						target: LOG_TARGET,
 						"{peer}: Ignoring statements while major syncing or offline"
 					);
-					// With the DHT path on, a v3 peer replays on the re-advertised filter; a
+					// With the DHT path on, a v3 or v4 peer replays on the re-advertised filter; a
 					// peer without the DHT path gets no such request and is reconnected once the
 					// sync ends.
 					let from_peer_without_dht =
@@ -2170,9 +2290,12 @@ where
 							}
 						}
 					},
-					PeerProtocolVersion::V2 | PeerProtocolVersion::V3 => {
-						// V2 and V3 peers send StatementMessage enum.
-						if let Ok(message) = StatementMessage::decode(&mut notification.as_ref()) {
+					PeerProtocolVersion::V2 | PeerProtocolVersion::V3 | PeerProtocolVersion::V4 => {
+						// V2 and later peers send StatementMessage enum.
+						if let Some(message) = StatementMessage::decode_from(
+							peer_data.protocol_version,
+							notification.as_ref(),
+						) {
 							match message {
 								StatementMessage::Statements(statements) => {
 									self.on_statements(peer, statements.into_inner());
@@ -2218,7 +2341,7 @@ where
 										peer_data.pending_topic_affinity = Some(filter);
 									}
 								},
-								StatementMessage::Announce { id, hashes } => {
+								StatementMessage::Announce { id, hashes, .. } => {
 									if dht_enabled() && peer_data.syncs_by_announce() {
 										self.on_announce(peer, id, hashes.into_inner());
 									} else {
@@ -2231,6 +2354,12 @@ where
 									} else {
 										self.report_bad_message(peer);
 									}
+								},
+								StatementMessage::AnnounceRequest { window_secs } => {
+									log::trace!(
+										target: LOG_TARGET,
+										"Dropping announce request for {window_secs:?} seconds from {peer}",
+									);
 								},
 							}
 						} else {
@@ -2410,7 +2539,9 @@ where
 
 				// Initiate peer state cleanup in the `NotificationStreamClosed` handler
 				if dht_enabled() {
-					self.dht.release_peer_without_dht(&self.network, who);
+					// The pause keeps steering from reserving the peer again on its next refresh.
+					self.dht.pause_peer(who);
+					self.dht.release_reserved_peer(&self.network, who);
 				}
 				self.network.disconnect_peer(who, self.protocol_name.clone());
 
@@ -2721,10 +2852,13 @@ where
 				sends.extend(missed.map(|peer| (*peer, dead_end.hash)));
 			}
 		}
-		// The outbox takes its own hold on a hash before the dead end gives up its one.
+		// The outbox takes its own hold on a hash before the dead end gives up its one. A dead end
+		// that a full outbox refused stays held, and the next tick offers it again.
 		for (peer, hash) in sends {
-			self.push_outbox_hashes(&peer, vec![hash]);
-			resolved.insert(hash);
+			if self.propagation_outboxes.push(peer, vec![hash]) == 0 {
+				resolved.insert(hash);
+				self.try_send_next_chunk(peer);
+			}
 		}
 		self.propagation_outboxes
 			.retain_dead_ends(|dead_end| !resolved.contains(&dead_end.hash));
@@ -2742,8 +2876,61 @@ where
 
 		if overflow > 0 {
 			self.record_abandoned_send(send_failure::OUTBOX_FULL, overflow);
+			if self.in_flight_chunks.contains_key(who) &&
+				!self.pending_initial_syncs.contains_key(who)
+			{
+				self.disconnect_stalled_peer(*who, StallCause::OutboxOverflow);
+				return;
+			}
 		}
 		self.try_send_next_chunk(*who);
+	}
+
+	/// Disconnect a peer that reads too slowly, without a reputation change since it is broken or
+	/// overloaded, not malicious. It is resynced on reconnect.
+	fn disconnect_stalled_peer(&mut self, who: PeerId, cause: StallCause) {
+		let queued = self.propagation_outboxes.remove(&who);
+		if queued > 0 {
+			self.record_abandoned_send(send_failure::DISCONNECTED, queued);
+		}
+
+		let cause = match cause {
+			StallCause::FailedSends => "failed consecutive statement sends",
+			StallCause::OutboxOverflow => "overflowed its outbox",
+		};
+		log::warn!(
+			target: LOG_TARGET,
+			"Peer {who} {cause} with {queued} statements queued. Disconnecting.",
+		);
+
+		// Initiate peer state cleanup in the `NotificationStreamClosed` handler
+		if dht_enabled() {
+			// The pause keeps steering from reserving the peer again on its next refresh.
+			self.dht.pause_peer(who);
+			self.dht.release_reserved_peer(&self.network, who);
+		} else {
+			// Every peer is reserved here and a reserved peer ignores the disconnect below, so
+			// it leaves the set until the re-add delay passes.
+			match self
+				.network
+				.remove_peers_from_reserved_set(self.protocol_name.clone(), vec![who])
+			{
+				Ok(()) => {
+					if self.stalled_peers.is_empty() {
+						self.stalled_peers_readd_timeout =
+							Box::pin(tokio::time::sleep(STALLED_PEER_READD_INTERVAL).fuse());
+					}
+					self.stalled_peers.insert(who, Instant::now() + STALLED_PEER_READD_DELAY);
+				},
+				Err(err) => {
+					log::warn!(target: LOG_TARGET, "Failed to remove stalled peer {who}: {err}")
+				},
+			}
+		}
+		self.network.disconnect_peer(who, self.protocol_name.clone());
+		if let Some(ref metrics) = self.metrics {
+			metrics.stalled_peers_disconnected.inc();
+		}
 	}
 
 	/// Send the next propagation chunk to `who` if its send slot is free.
@@ -2847,7 +3034,7 @@ where
 			let send_stmts: Vec<_> = statements.iter().map(|(_, stmt)| stmt).collect();
 			let encoded = match peer_version {
 				PeerProtocolVersion::V1 => send_stmts.encode(),
-				PeerProtocolVersion::V2 | PeerProtocolVersion::V3 => {
+				PeerProtocolVersion::V2 | PeerProtocolVersion::V3 | PeerProtocolVersion::V4 => {
 					StatementMessage::encode_statement_refs(&send_stmts)
 				},
 			};
@@ -2970,6 +3157,17 @@ where
 		let slot_freed = self.in_flight_chunks.get(&peer) == Some(&chunk_id);
 		if slot_freed {
 			self.in_flight_chunks.remove(&peer);
+			// Likewise only that chunk says whether this connection's peer reads.
+			let failed_sends = self.peers.get_mut(&peer).map(|peer| {
+				peer.failed_sends =
+					if failure.is_some() { peer.failed_sends.saturating_add(1) } else { 0 };
+				peer.failed_sends
+			});
+			// Disconnect once, on the send that reaches the limit: results that follow before
+			// the stream closes count past it.
+			if failed_sends == Some(STALLED_PEER_FAILED_SENDS) {
+				self.disconnect_stalled_peer(peer, StallCause::FailedSends);
+			}
 		}
 
 		let sync_id = match kind {
@@ -3416,7 +3614,7 @@ where
 		let send_stmts: Vec<_> = batch.statements.iter().map(|(_, stmt)| stmt).collect();
 		let encoded = match peer_version {
 			PeerProtocolVersion::V1 => send_stmts.encode(),
-			PeerProtocolVersion::V2 | PeerProtocolVersion::V3 => {
+			PeerProtocolVersion::V2 | PeerProtocolVersion::V3 | PeerProtocolVersion::V4 => {
 				StatementMessage::encode_statement_refs(&send_stmts)
 			},
 		};
@@ -3570,9 +3768,13 @@ where
 		};
 		let id = awaited.id;
 		let hashes: Vec<ShortHash> = awaited.hashes.iter().map(short_hash).collect();
-		let encoded =
-			StatementMessage::Announce { id, hashes: AnnouncedHashes::truncate_from(hashes) }
-				.encode();
+		let encoded = StatementMessage::Announce {
+			id,
+			salt: 0,
+			last: false,
+			hashes: AnnouncedHashes::truncate_from(hashes),
+		}
+		.encode();
 		self.send_sync_notification(peer_id, encoded, 0, SendKind::Announce { sync_id, id }, route);
 	}
 
@@ -4389,6 +4591,7 @@ mod tests {
 					pending_topic_affinity: None,
 					full_replay_requested: false,
 					sync_watermark: 0,
+					failed_sends: 0,
 				},
 			);
 		}
@@ -4431,6 +4634,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -4939,58 +5144,140 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn overflowing_outbox_drops_the_oldest_hashes() {
-		let (mut handler, statement_store, _network, _notification_service, _, peer_ids) =
+	async fn full_outbox_refuses_hashes_and_disconnects_a_peer_with_a_chunk_in_flight() {
+		for chunk_in_flight in [false, true] {
+			let (mut handler, statement_store, network, _notification_service, _, peer_ids) =
+				build_handler(1);
+			handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
+			let peer_id = peer_ids[0];
+
+			let mut old = new_live_statement();
+			old.set_plain_data(b"oldest".to_vec());
+			let old_hash = old.hash();
+
+			// Three fresh statements arrive by tick while the outbox is full.
+			let fresh_hashes: HashSet<_> = (0..3u8)
+				.map(|i| {
+					let mut fresh = new_live_statement();
+					fresh.set_plain_data(vec![i]);
+					let hash = fresh.hash();
+					statement_store.recent_statements.lock().unwrap().insert(hash, fresh);
+					hash
+				})
+				.collect();
+			if chunk_in_flight {
+				handler.in_flight_chunks.insert(peer_id, 0);
+			} else {
+				// A saturated send budget keeps the slot free and the outbox full.
+				handler.propagation_in_flight_bytes = MAX_SEND_IN_FLIGHT_BYTES;
+			}
+			handler
+				.propagation_outboxes
+				.push(peer_id, vec![old_hash; MAX_PROPAGATION_OUTBOX_LEN]);
+
+			handler.propagate_statements().await;
+
+			let held = statement_store.held.lock().unwrap();
+			assert!(fresh_hashes
+				.iter()
+				.all(|hash| held.get(hash).map_or(true, |holds| *holds == 0)));
+			let metrics = handler.metrics.as_ref().unwrap();
+			assert_eq!(
+				metrics
+					.undelivered_statements
+					.with_label_values(&[send_failure::OUTBOX_FULL])
+					.get(),
+				3,
+				"each refused hash counts as undelivered"
+			);
+			assert_eq!(
+				metrics.send_failures.with_label_values(&[send_failure::OUTBOX_FULL]).get(),
+				1,
+				"one overflow event"
+			);
+
+			if chunk_in_flight {
+				assert_eq!(network.get_disconnected_peers(), vec![peer_id]);
+				assert!(network.get_reports().is_empty(), "a slow peer is not punished");
+				assert!(handler.propagation_outboxes.get(&peer_id).is_none());
+				assert_eq!(metrics.stalled_peers_disconnected.get(), 1);
+			} else {
+				assert!(
+					network.get_disconnected_peers().is_empty(),
+					"the peer had no chunk to read"
+				);
+				let outbox = handler.propagation_outboxes.get(&peer_id).unwrap();
+				assert_eq!(outbox.len(), MAX_PROPAGATION_OUTBOX_LEN);
+				assert_eq!(held[&old_hash], MAX_PROPAGATION_OUTBOX_LEN);
+			}
+		}
+	}
+
+	#[tokio::test]
+	async fn consecutive_failed_sends_disconnect_the_peer_without_a_reputation_change() {
+		let (mut handler, statement_store, network, notification_service, _, peer_ids) =
 			build_handler(1);
 		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
 		let peer_id = peer_ids[0];
 
-		let mut old = new_live_statement();
-		old.set_plain_data(b"oldest".to_vec());
-		let old_hash = old.hash();
-
-		// Three fresh statements arrive by tick while the outbox is full and the
-		// peer's slot is busy.
-		let fresh_hashes: HashSet<_> = (0..3u8)
+		// 700 KiB each, so a 1 MiB chunk carries exactly one statement.
+		let hashes: Vec<_> = (0..5u8)
 			.map(|i| {
-				let mut fresh = new_live_statement();
-				fresh.set_plain_data(vec![i; 8]);
-				let hash = fresh.hash();
-				statement_store.recent_statements.lock().unwrap().insert(hash, fresh);
+				let mut statement = new_live_statement();
+				statement.set_plain_data(vec![i; 700 * 1024]);
+				let hash = statement.hash();
+				statement_store.insert(statement);
 				hash
 			})
 			.collect();
-		handler.in_flight_chunks.insert(peer_id, 0);
-		handler
-			.propagation_outboxes
-			.push(peer_id, vec![old_hash; MAX_PROPAGATION_OUTBOX_LEN]);
+		handler.propagation_outboxes.push(peer_id, hashes);
 
-		handler.propagate_statements().await;
+		// One failed send, then a completed one: the count starts over.
+		notification_service.fail_sends();
+		handler.try_send_next_chunk(peer_id);
+		let result = handler.pending_sends.next().await.unwrap();
+		notification_service.allow_sends();
+		handler.handle_send_result(result);
+		assert_eq!(handler.peers[&peer_id].failed_sends, 1);
+		let result = handler.pending_sends.next().await.unwrap();
+		notification_service.fail_sends();
+		handler.handle_send_result(result);
+		assert_eq!(handler.peers[&peer_id].failed_sends, 0);
 
-		let outbox = handler.propagation_outboxes.get(&peer_id).unwrap();
-		assert_eq!(outbox.len(), MAX_PROPAGATION_OUTBOX_LEN);
-		let tail: HashSet<_> =
-			outbox.iter().skip(MAX_PROPAGATION_OUTBOX_LEN - 3).copied().collect();
-		assert_eq!(tail, fresh_hashes, "the freshest hashes must survive the overflow");
-		let held = statement_store.held.lock().unwrap();
-		assert_eq!(held[&old_hash], MAX_PROPAGATION_OUTBOX_LEN - 3);
-		assert!(fresh_hashes.iter().all(|hash| held[hash] == 1));
-		drop(held);
+		// A failed chunk left over from a previous connection does not count.
+		handler.handle_send_result(PendingSendResult {
+			peer: peer_id,
+			statement_count: 1,
+			bytes_sent: 0,
+			result: SendOutcome::TimedOut,
+			kind: SendKind::Propagation,
+			route: peer_route::LEGACY,
+			chunk_id: u64::MAX,
+		});
+		assert_eq!(handler.peers[&peer_id].failed_sends, 0);
 
-		let metrics = handler.metrics.as_ref().unwrap();
-		assert_eq!(
-			metrics
-				.undelivered_statements
-				.with_label_values(&[send_failure::OUTBOX_FULL])
-				.get(),
-			3,
-			"each dropped hash counts as undelivered"
-		);
-		assert_eq!(
-			metrics.send_failures.with_label_values(&[send_failure::OUTBOX_FULL]).get(),
-			1,
-			"one overflow event"
-		);
+		// The second failed send in a row disconnects the peer.
+		let result = handler.pending_sends.next().await.unwrap();
+		handler.handle_send_result(result);
+		assert!(network.get_disconnected_peers().is_empty());
+		let result = handler.pending_sends.next().await.unwrap();
+		handler.handle_send_result(result);
+		assert_eq!(network.get_disconnected_peers(), vec![peer_id]);
+		assert!(network.get_reports().is_empty(), "a stalled peer is not punished");
+		// A reserved peer ignores the disconnect, so it leaves the set and is re-added later.
+		assert_eq!(network.get_removed_reserved(), vec![vec![peer_id]]);
+		let readd_at = handler.stalled_peers[&peer_id];
+		assert!(handler.sync_recovery_peer.is_none(), "sync recovery keeps its own slot");
+		handler.readd_stalled_peers(readd_at - std::time::Duration::from_secs(1));
+		assert!(network.get_added_reserved().is_empty(), "the delay still runs");
+		handler.readd_stalled_peers(readd_at);
+		assert_eq!(network.get_added_reserved().len(), 1);
+		assert!(handler.stalled_peers.is_empty());
+
+		// The disconnect drops the backlog, so nothing more goes out before the stream closes.
+		assert!(handler.propagation_outboxes.get(&peer_id).is_none());
+		assert!(handler.pending_sends.is_empty());
+		assert_eq!(handler.metrics.as_ref().unwrap().stalled_peers_disconnected.get(), 1);
 	}
 
 	#[tokio::test]
@@ -5572,6 +5859,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -5640,6 +5929,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -7504,13 +7795,14 @@ mod tests {
 	}
 
 	#[test]
-	fn identify_indexes_only_a_peer_that_lists_the_main_protocol() {
+	fn identify_indexes_only_a_peer_that_lists_a_dht_protocol() {
 		let (mut handler, _statement_store, _network, _notification_service) =
 			build_handler_no_peers();
-		let main: ProtocolName = format!("/aa/{STATEMENT_PROTOCOL_V3}").into();
+		let main: ProtocolName = format!("/aa/{STATEMENT_PROTOCOL_V4}").into();
 		let fallbacks: HashSet<ProtocolName> = HashSet::from([
 			format!("/aa/{STATEMENT_PROTOCOL_V2}").into(),
 			format!("/aa/{STATEMENT_PROTOCOL_V1}").into(),
+			format!("/bb/{STATEMENT_PROTOCOL_V3}").into(),
 		]);
 		handler.protocol_name = main.clone();
 		// A lone node is the replica of the topic at a peer's key until it indexes that peer.
@@ -7530,15 +7822,32 @@ mod tests {
 			peer: remote,
 			supported_protocols: fallbacks.clone(),
 		});
-		assert!(handler.dht.is_replica_for(&[topic]), "a peer without statement/3 is not indexed");
+		assert!(
+			handler.dht.is_replica_for(&[topic]),
+			"a peer without a DHT protocol is not indexed"
+		);
 
-		let mut with_main = fallbacks;
+		let mut with_main = fallbacks.clone();
 		with_main.insert(main);
 		handler.handle_network_event(Event::PeerIdentified {
 			peer: remote,
 			supported_protocols: with_main,
 		});
 		assert!(!handler.dht.is_replica_for(&[topic]));
+
+		handler.handle_network_event(Event::PeerIdentified {
+			peer: remote,
+			supported_protocols: fallbacks.clone(),
+		});
+		assert!(handler.dht.is_replica_for(&[topic]));
+
+		let mut with_v3 = fallbacks;
+		with_v3.insert(format!("/aa/{STATEMENT_PROTOCOL_V3}").into());
+		handler.handle_network_event(Event::PeerIdentified {
+			peer: remote,
+			supported_protocols: with_v3,
+		});
+		assert!(!handler.dht.is_replica_for(&[topic]), "a statement/3 peer runs the DHT path");
 	}
 
 	#[test]
@@ -7548,20 +7857,99 @@ mod tests {
 		for dht in [false, true] {
 			assert_eq!(PeerProtocolVersion::negotiated(Some(&v1), dht), PeerProtocolVersion::V1);
 		}
+		let v3 = format!("/genesis/{STATEMENT_PROTOCOL_V3}");
 		assert_eq!(PeerProtocolVersion::negotiated(Some(&v2), true), PeerProtocolVersion::V2);
-		assert_eq!(PeerProtocolVersion::negotiated(None, true), PeerProtocolVersion::V3);
+		assert_eq!(PeerProtocolVersion::negotiated(Some(&v3), true), PeerProtocolVersion::V3);
+		assert_eq!(PeerProtocolVersion::negotiated(None, true), PeerProtocolVersion::V4);
 		assert_eq!(PeerProtocolVersion::negotiated(None, false), PeerProtocolVersion::V2);
 	}
 
 	#[test]
-	fn only_a_node_on_the_dht_path_offers_statement_3() {
+	fn only_a_node_on_the_dht_path_offers_statement_3_and_4() {
 		let (main, fallbacks) = protocol_names("aa", None, false);
 		assert_eq!(main, "/aa/statement/2");
 		assert_eq!(fallbacks, vec!["/aa/statement/1"]);
 
 		let (main, fallbacks) = protocol_names("aa", Some("fork"), true);
-		assert_eq!(main, "/aa/fork/statement/3");
-		assert_eq!(fallbacks, vec!["/aa/fork/statement/2", "/aa/fork/statement/1"]);
+		assert_eq!(main, "/aa/fork/statement/4");
+		assert_eq!(
+			fallbacks,
+			vec!["/aa/fork/statement/3", "/aa/fork/statement/2", "/aa/fork/statement/1"]
+		);
+	}
+
+	#[test]
+	fn reconciliation_messages_encoding_snapshot() {
+		let announce = StatementMessage::Announce {
+			id: 1,
+			salt: 2,
+			last: true,
+			hashes: vec![[0xAA; 8]].try_into().unwrap(),
+		};
+		let mut expected = vec![2, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 4];
+		expected.extend([0xAA; 8]);
+		assert_eq!(announce.encode(), expected);
+
+		let want = StatementMessage::Want { id: 1, wanted: vec![0b101].try_into().unwrap() };
+		assert_eq!(want.encode(), vec![3, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0b101]);
+
+		let request = |window_secs| StatementMessage::AnnounceRequest { window_secs }.encode();
+		assert_eq!(request(Some(300)), vec![4, 1, 0x2C, 1, 0, 0]);
+		assert_eq!(request(None), vec![4, 0]);
+	}
+
+	#[tokio::test]
+	async fn a_peer_below_v4_is_reported_for_the_reconciliation_messages() {
+		let (mut handler, _statement_store, network, _notification_service) =
+			build_handler_no_peers();
+		let peer_id = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		let announce = StatementMessage::Announce {
+			id: 1,
+			salt: 0,
+			last: false,
+			hashes: vec![[1; 8]].try_into().unwrap(),
+		};
+		let request = StatementMessage::AnnounceRequest { window_secs: Some(60) };
+		let want = StatementMessage::Want { id: 1, wanted: vec![1].try_into().unwrap() };
+		let messages = [announce.encode(), want.encode(), request.encode()];
+
+		for version in [PeerProtocolVersion::V2, PeerProtocolVersion::V3] {
+			handler.peers.get_mut(&peer_id).unwrap().protocol_version = version;
+			for message in messages.clone() {
+				handler
+					.handle_notification_event(NotificationEvent::NotificationReceived {
+						peer: peer_id,
+						notification: message.into(),
+					})
+					.await;
+			}
+		}
+		assert_eq!(network.get_reports().len(), 6);
+	}
+
+	#[test]
+	fn an_announce_over_the_hash_limit_fails_to_decode() {
+		let announce = |hashes: usize| {
+			let mut bytes = vec![2];
+			bytes.extend([0; 17]);
+			Compact(hashes as u32).encode_to(&mut bytes);
+			bytes.extend(vec![0; hashes * 8]);
+			bytes
+		};
+		let decode =
+			|bytes: Vec<u8>| StatementMessage::decode_from(PeerProtocolVersion::V4, &bytes);
+
+		assert!(decode(announce(MAX_ANNOUNCED_HASHES)).is_some());
+		assert!(decode(announce(MAX_ANNOUNCED_HASHES + 1)).is_none());
 	}
 
 	#[test]
@@ -7576,8 +7964,10 @@ mod tests {
 		assert!(!peer.without_dht(), "a light v2 peer is served by its filter");
 
 		peer.is_light = false;
-		peer.protocol_version = PeerProtocolVersion::V3;
-		assert!(!peer.without_dht());
+		for version in [PeerProtocolVersion::V3, PeerProtocolVersion::V4] {
+			peer.protocol_version = version;
+			assert!(!peer.without_dht());
+		}
 	}
 
 	async fn send_affinity(
@@ -7606,18 +7996,6 @@ mod tests {
 		assert!(wanted_bitmap(&[], |_| true).is_empty());
 		let wanted: Vec<usize> = (0..12).filter(|position| is_wanted(&bitmap, *position)).collect();
 		assert_eq!(wanted, vec![0, 9], "positions past the bitmap are not wanted");
-	}
-
-	#[test]
-	fn announce_and_want_encoding_snapshot() {
-		let announce =
-			StatementMessage::Announce { id: 1, hashes: vec![[0xAA; 8]].try_into().unwrap() };
-		let mut expected = vec![2, 1, 0, 0, 0, 0, 0, 0, 0, 4];
-		expected.extend([0xAA; 8]);
-		assert_eq!(announce.encode(), expected);
-
-		let want = StatementMessage::Want { id: 1, wanted: vec![0b101].try_into().unwrap() };
-		assert_eq!(want.encode(), vec![3, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0b101]);
 	}
 
 	#[tokio::test]
@@ -7693,7 +8071,12 @@ mod tests {
 			.await;
 		notification_service.clear_sent_notifications();
 		let messages = [
-			StatementMessage::Announce { id: 1, hashes: vec![[1; 8]].try_into().unwrap() },
+			StatementMessage::Announce {
+				id: 1,
+				salt: 0,
+				last: false,
+				hashes: vec![[1; 8]].try_into().unwrap(),
+			},
 			StatementMessage::Want { id: 1, wanted: vec![1].try_into().unwrap() },
 		];
 
@@ -7715,7 +8098,7 @@ mod tests {
 		assert!(notification_service.get_sent_notifications().is_empty());
 	}
 
-	/// A handler with one full `statement/3` peer whose sync announces, and the statements on
+	/// A handler with one full `statement/4` peer whose sync announces, and the statements on
 	/// `topics` in its store, in the order of the store's index by topic.
 	async fn handler_with_announced_sync(
 		topics: &[Topic],
@@ -7739,7 +8122,7 @@ mod tests {
 			})
 			.await;
 		notification_service.clear_sent_notifications();
-		handler.peers.get_mut(&peer_id).unwrap().protocol_version = PeerProtocolVersion::V3;
+		handler.peers.get_mut(&peer_id).unwrap().protocol_version = PeerProtocolVersion::V4;
 		let mut statements: Vec<Statement> = topics
 			.iter()
 			.map(|topic| {
@@ -7786,7 +8169,8 @@ mod tests {
 	fn announce_of(id: u64, statements: &[&Statement]) -> Vec<u8> {
 		let hashes: Vec<ShortHash> =
 			statements.iter().map(|statement| short_hash(&statement.hash())).collect();
-		StatementMessage::Announce { id, hashes: hashes.try_into().unwrap() }.encode()
+		StatementMessage::Announce { id, salt: 0, last: false, hashes: hashes.try_into().unwrap() }
+			.encode()
 	}
 
 	#[tokio::test]
@@ -8537,6 +8921,7 @@ mod tests {
 				pending_topic_affinity: None,
 				full_replay_requested: false,
 				sync_watermark: 0,
+				failed_sends: 0,
 			}
 		};
 
@@ -8724,6 +9109,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -8818,6 +9205,7 @@ mod tests {
 				pending_topic_affinity: None,
 				full_replay_requested: false,
 				sync_watermark: 0,
+				failed_sends: 0,
 			},
 		);
 
@@ -9233,6 +9621,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -9317,7 +9707,7 @@ mod tests {
 	}
 
 	#[test]
-	fn only_a_held_peer_without_dht_is_released_for_a_disconnect() {
+	fn a_reserved_peer_is_released_for_a_disconnect() {
 		let (mut handler, _store, network, _notification_service) = build_handler_no_peers();
 		let held = PeerId::random();
 		let routing = PeerId::random();
@@ -9332,12 +9722,12 @@ mod tests {
 		handler.dht.refresh_connections(&network);
 
 		for peer in [held, routing, unreserved] {
-			handler.dht.release_peer_without_dht(&network, peer);
+			handler.dht.release_reserved_peer(&network, peer);
 		}
 
-		assert_eq!(network.get_removed_reserved(), vec![vec![held]]);
+		assert_eq!(network.get_removed_reserved(), vec![vec![held], vec![routing]]);
 		assert!(!handler.dht.is_reserved(&held));
-		assert!(handler.dht.is_reserved(&routing));
+		assert!(!handler.dht.is_reserved(&routing));
 	}
 
 	#[test]
@@ -9392,6 +9782,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: deferred,
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -9452,6 +9844,7 @@ mod tests {
 				pending_topic_affinity: None,
 				full_replay_requested: false,
 				sync_watermark: 0,
+				failed_sends: 0,
 			},
 		);
 
@@ -9493,6 +9886,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: true,
@@ -9571,6 +9966,7 @@ mod tests {
 			pending_topic_affinity: None,
 			full_replay_requested: false,
 			sync_watermark: 0,
+			failed_sends: 0,
 		};
 
 		let make_handler =
@@ -9618,6 +10014,8 @@ mod tests {
 					parked_propagations: VecDeque::new(),
 					pending_sends: FuturesUnordered::new(),
 					deferred_peers: HashSet::new(),
+					stalled_peers: HashMap::new(),
+					stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 					in_peers_full: DEFAULT_IN_PEERS,
 					in_peers_light: 0,
 					dropped_statements_during_sync: dropped,
@@ -9682,6 +10080,7 @@ mod tests {
 			pending_topic_affinity: None,
 			full_replay_requested: false,
 			sync_watermark: 0,
+			failed_sends: 0,
 		};
 		let who = PeerId::random();
 		let received = HashMap::new();
@@ -9750,6 +10149,7 @@ mod tests {
 			pending_topic_affinity: None,
 			full_replay_requested: false,
 			sync_watermark: 0,
+			failed_sends: 0,
 		};
 		let who = PeerId::random();
 		let received = HashMap::new();
@@ -9821,6 +10221,7 @@ mod tests {
 			pending_topic_affinity: None,
 			full_replay_requested: false,
 			sync_watermark: 0,
+			failed_sends: 0,
 		};
 		let previous = filter_over(&[topic(7)]);
 		let is_dht_target = |stmt: &Statement| stmt.topics().contains(&topic(5));

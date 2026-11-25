@@ -222,15 +222,7 @@ where
 	type ValidationContext = AncestryValidationContext<MerkleRootOf<T>>;
 
 	fn is_proof_optimal(proof: &Self::Proof) -> bool {
-		let is_proof_optimal = pallet_mmr::Pallet::<T>::is_ancestry_proof_optimal(proof);
-
-		// We don't check the proof size when running benchmarks, since we use mock proofs
-		// which would cause the test to fail.
-		if cfg!(feature = "runtime-benchmarks") {
-			return true;
-		}
-
-		is_proof_optimal
+		pallet_mmr::Pallet::<T>::is_ancestry_proof_optimal(proof)
 	}
 
 	fn extract_validation_context(header: HeaderFor<T>) -> Option<Self::ValidationContext> {
@@ -342,8 +334,7 @@ where
 		<T as Config>::WeightInfo::n_items_proof_is_non_canonical(
 			proof.items.len().saturating_add(proof.prev_peaks.len()).saturated_into(),
 		)
-		// `n_items_proof_is_non_canonical()` uses inflated proofs that contain all the leafs,
-		// where no peak needs to be read. So we need to also add the cost of reading the peaks.
+		// Add the cost of reading the peaks as well.
 		.saturating_add(<T as Config>::WeightInfo::read_peak().saturating_mul(num_peaks))
 	}
 }

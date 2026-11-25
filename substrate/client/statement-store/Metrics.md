@@ -245,7 +245,7 @@ bandwidth, latency, and network health indicators.
 - **How to read:** Two-line chart in bytes/sec. Compare sent vs received for balance.
 - **Labels:** `statements_received`, `propagated_statements`, `bytes_sent_total` and `bytes_received_total`
   carry `route`: `dht` for peers served through the DHT path, `legacy` for the rest (v1 peers and full
-  v2 peers). A peer counts as `dht` only once its affinity filter applies, so a `statement/3` peer counts as
+  v2 peers). A peer counts as `dht` only once its affinity filter applies, so a `statement/3` or `statement/4` peer counts as
   `legacy` until its filter arrives. A node without the DHT path reports every peer as `legacy`.
 - **Problems it solves:**
   - Detect bandwidth issues
@@ -371,7 +371,7 @@ on every reconnect shows as a high `bursts_total{route="legacy"}` rate.
   - `rate(substrate_sync_statement_announced_hashes_sent_total[$__rate_interval])`
   - `rate(substrate_sync_statement_announced_hashes_requested_total[$__rate_interval])`
 - **Type:** Counter (displayed as rate)
-- **What it measures:** Statement hashes that this node announced to full `statement/3` peers during
+- **What it measures:** Statement hashes that this node announced to full `statement/4` peers during
   their initial syncs, and how many of those statements the peers asked for.
 - **Why it matters:** The gap between the two is the share of the initial syncs that the peers already
   held, so this node never sent those bodies.
@@ -381,7 +381,7 @@ on every reconnect shows as a high `bursts_total{route="legacy"}` rate.
   - `rate(substrate_sync_statement_announced_hashes_received_total[$__rate_interval])`
   - `rate(substrate_sync_statement_announced_hashes_wanted_total[$__rate_interval])`
 - **Type:** Counter (displayed as rate)
-- **What it measures:** Statement hashes that full `statement/3` peers announced to this node ahead of
+- **What it measures:** Statement hashes that full `statement/4` peers announced to this node ahead of
   the bodies, and how many of them the node lacked and asked for.
 - **Why it matters:** The gap between the two is the share of the announced statements that the node
   already held, so their bodies were never sent. A wanted count far above the number of new statements

@@ -1756,10 +1756,39 @@ impl Store {
 				let Some(dec_key) = parse_dec_key_index_prefix(&prefix) else { continue };
 				query_index.dec_key_counts.insert(dec_key, count);
 			}
+			if submit_index.config.dht.is_some() {
+				self.restore_retention_tracking(&mut query_index)?;
+			}
 		}
 
 		self.known_accounts_count.store(self.count_accounts()?, AtomicOrdering::Relaxed);
 		self.maintain();
+		Ok(())
+	}
+
+	/// Restores the track of every transient and explicit-only statement from the account index.
+	fn restore_retention_tracking(&self, query_index: &mut QueryIndex) -> Result<()> {
+		let mut iter = self.db.iter(col::INDEX_BY_ACCOUNT).map_err(|e| Error::Db(e.to_string()))?;
+		iter.seek_to_first().map_err(|e| Error::Db(e.to_string()))?;
+		while let Some((key, value)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+			let Some((_, _, hash)) = parse_account_index_key(&key) else { continue };
+			let Ok(details) = EntryDetails::decode(&mut value.as_slice()) else {
+				log::error!(
+					target: LOG_TARGET,
+					"Corrupt account index entry for statement {:?}",
+					HexDisplay::from(&hash)
+				);
+				continue;
+			};
+			if details.track.is_persistent() {
+				continue;
+			}
+			query_index.retention_tracks.insert(hash, details.track);
+			// Nothing records which transient statements reached a peer, so all are sent again.
+			if details.track == RetentionTrack::Transient {
+				query_index.recent.insert(hash, details.admission_seq);
+			}
+		}
 		Ok(())
 	}
 
@@ -2556,7 +2585,8 @@ impl Store {
 	}
 
 	/// Re-check the retention of the tracked statements once they are propagated: the
-	/// resolver's verdict becomes their track, and a statement no affinity covers is removed.
+	/// resolver's verdict becomes their track while that track has room, and a statement no
+	/// affinity covers is removed.
 	fn sweep_retention(&self) {
 		let Some(resolver) = self.retention_fn.get() else { return };
 		let candidates: Vec<(Hash, RetentionTrack)> = {
@@ -2608,7 +2638,7 @@ impl Store {
 								query_index.retention_tracks.insert(hash, verdict);
 							}
 						},
-						// Logged where found, left tracked so the next sweep reports it again.
+						// Logged where found, left tracked so the next sweep tries again.
 						Ok(false) => {},
 						Err(e) => log::warn!(
 							target: LOG_TARGET,
@@ -3876,7 +3906,8 @@ impl Store {
 	}
 
 	/// Moves a stored statement onto `track` by rewriting its account index row and the totals
-	/// under the submit-index write lock, `false` when the statement cannot be tied to its row.
+	/// under the submit-index write lock, `false` when the statement cannot be tied to its row or
+	/// `track` has no room for it.
 	fn retrack_statement_locked(
 		&self,
 		submit_index: &mut SubmitIndex,
@@ -3910,6 +3941,15 @@ impl Store {
 		let mut totals = submit_index.totals;
 		totals.sub(details.track, details.data_len);
 		totals.add(track, details.data_len);
+		if submit_index.exceeded_limit(&totals, track) == Some(RejectionReason::TrackFull) {
+			log::debug!(
+				target: LOG_TARGET,
+				"No room to move statement {:?} to {:?}",
+				HexDisplay::from(&hash),
+				track
+			);
+			return Ok(false);
+		}
 		self.db
 			.commit([
 				(
@@ -4322,13 +4362,17 @@ mod tests {
 
 	/// Closes `store` and opens the database in `temp` again with the default config.
 	fn reopen(store: Store, temp: &tempfile::TempDir) -> Store {
+		reopen_with_config(store, temp, Default::default())
+	}
+
+	fn reopen_with_config(store: Store, temp: &tempfile::TempDir, config: Config) -> Store {
 		let keystore = store.keystore.clone();
 		drop(store);
 		let mut path: std::path::PathBuf = temp.path().into();
 		path.push("db");
 		Store::new::<Block, TestClient, TestBackend>(
 			&path,
-			Default::default(),
+			config,
 			std::sync::Arc::new(TestClient),
 			keystore,
 			None,
@@ -5414,6 +5458,41 @@ mod tests {
 		assert_eq!(store.submit_index.read().totals, StoreTotals::default());
 	}
 
+	#[test]
+	fn sweep_keeps_a_statement_on_its_track_while_the_new_track_is_full() {
+		let (store, _temp) = test_store_with_config(Config {
+			dht: Some(DhtConfig { dht_affinity_max_size: Some(15), ..Default::default() }),
+			..Default::default()
+		});
+		let (resolver, transient) =
+			switchable_resolver(RetentionReasonMask::TRANSIENT, RetentionReasonMask::DHT_AFFINITY);
+		store.set_retention_resolver(resolver);
+		let source = StatementSource::Network;
+		let moving = statement(5, 1, None, 10);
+		let hash = moving.hash();
+		assert_eq!(store.submit(moving, source), SubmitResult::New);
+		transient.store(false, Ordering::Relaxed);
+		let persistent = statement(5, 2, None, 10);
+		assert_eq!(store.submit(persistent.clone(), source), SubmitResult::New);
+		propagate(&store);
+
+		// Two statements of 10 bytes exceed the 15 of the persistent track.
+		store.maintain();
+		assert!(store.has_statement(&hash));
+		assert_eq!(
+			store.query_index.read().retention_tracks.get(&hash),
+			Some(&RetentionTrack::Transient)
+		);
+		assert_eq!(track_size(&store, RetentionTrack::Transient), 10);
+		assert_eq!(track_size(&store, RetentionTrack::Persistent), 10);
+
+		store.remove(&persistent.hash()).unwrap();
+		store.maintain();
+		assert!(store.query_index.read().retention_tracks.is_empty());
+		assert_eq!(track_size(&store, RetentionTrack::Transient), 0);
+		assert_eq!(track_size(&store, RetentionTrack::Persistent), 10);
+	}
+
 	fn submit_one_statement_per_track(store: &Store) -> Vec<Statement> {
 		let phase = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
 		store.set_retention_resolver(Box::new({
@@ -5863,19 +5942,63 @@ mod tests {
 	}
 
 	#[test]
-	fn sweep_skips_statements_admitted_before_a_restart() {
-		let (store, temp) = test_store();
+	fn sweep_drops_a_lapsed_statement_admitted_before_a_restart() {
+		let (store, temp) = test_store_with_config(dht_config());
 		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::EXPLICIT_AFFINITY));
 		let statement = signed_statement(0);
 		let hash = statement.hash();
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
-		let store = reopen(store, &temp);
+		let store = reopen_with_config(store, &temp, dht_config());
 		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::TRANSIENT));
 
-		// Affinity tracking is in-memory: a statement admitted before a restart escapes the
-		// sweep and is kept until natural expiry.
 		store.maintain();
-		assert!(store.has_statement(&hash));
+		assert!(!store.has_statement(&hash));
+	}
+
+	fn dht_config() -> Config {
+		Config { dht: Some(Default::default()), ..Default::default() }
+	}
+
+	fn resolver_by_data_len() -> Box<dyn Fn(&Statement) -> RetentionReasonMask + Send + Sync> {
+		Box::new(|statement| match statement.data_len() {
+			1 => RetentionReasonMask::TRANSIENT,
+			2 => RetentionReasonMask::EXPLICIT_AFFINITY,
+			_ => RetentionReasonMask::persistent(),
+		})
+	}
+
+	#[test]
+	fn restart_restores_the_retention_tracks() {
+		let (store, temp) = test_store_with_config(dht_config());
+		store.set_retention_resolver(resolver_by_data_len());
+		let transient = statement(5, 1, None, 1).hash();
+		for data_len in 1..=3 {
+			let statement = statement(5, data_len as u32, None, data_len);
+			assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
+		}
+		let transient_seq = store.query_index.read().recent[&transient];
+		propagate(&store);
+		let tracks = store.query_index.read().retention_tracks.clone();
+		assert_eq!(tracks.len(), 2);
+
+		let store = reopen_with_config(store, &temp, dht_config());
+		store.set_retention_resolver(resolver_by_data_len());
+		assert_eq!(store.query_index.read().retention_tracks, tracks);
+
+		// The transient statement waits for propagation again, so the sweep keeps it.
+		store.maintain();
+		let recent: Vec<_> = store
+			.take_recent_statements()
+			.unwrap()
+			.into_iter()
+			.map(|(seq, hash, _)| (seq, hash))
+			.collect();
+		assert_eq!(recent, vec![(transient_seq, transient)]);
+
+		// Without the DHT config nothing is tracked.
+		let store = reopen(store, &temp);
+		assert!(store.query_index.read().retention_tracks.is_empty());
+		assert!(store.take_recent_statements().unwrap().is_empty());
 	}
 
 	#[test]
