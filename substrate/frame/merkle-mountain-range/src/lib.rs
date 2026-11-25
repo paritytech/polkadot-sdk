@@ -436,11 +436,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		mmr.generate_ancestry_proof(prev_leaf_count)
 	}
 
+	/// Generate a synthetic, optimal ancestry proof between `prev_leaf_count` and `leaf_count`,
+	/// together with the MMR root that it is valid against.
 	#[cfg(feature = "runtime-benchmarks")]
-	pub fn generate_mock_ancestry_proof() -> Result<AncestryProof<HashOf<T, I>>, Error> {
-		let leaf_count = Self::block_num_to_leaf_count(<frame_system::Pallet<T>>::block_number())?;
-		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> = mmr::Mmr::new(leaf_count);
-		mmr.generate_mock_ancestry_proof()
+	pub fn generate_synthetic_ancestry_proof(
+		prev_leaf_count: LeafIndex,
+		leaf_count: LeafIndex,
+	) -> Result<(AncestryProof<HashOf<T, I>>, HashOf<T, I>), Error> {
+		mmr::generate_synthetic_ancestry_proof::<HashingOf<T, I>, LeafOf<T, I>>(
+			prev_leaf_count,
+			leaf_count,
+		)
 	}
 
 	pub fn is_ancestry_proof_optimal(
