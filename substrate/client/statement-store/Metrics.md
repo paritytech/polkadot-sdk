@@ -245,7 +245,7 @@ bandwidth, latency, and network health indicators.
 - **How to read:** Two-line chart in bytes/sec. Compare sent vs received for balance.
 - **Labels:** `statements_received`, `propagated_statements`, `bytes_sent_total` and `bytes_received_total`
   carry `route`: `dht` for peers served through the DHT path, `legacy` for the rest (v1 peers and full
-  v2 peers). A peer counts as `dht` only once its affinity filter applies, so a `statement/3` peer counts as
+  v2 peers). A peer counts as `dht` only once its affinity filter applies, so a `statement/3` or `statement/4` peer counts as
   `legacy` until its filter arrives. A node without the DHT path reports every peer as `legacy`.
 - **Problems it solves:**
   - Detect bandwidth issues
