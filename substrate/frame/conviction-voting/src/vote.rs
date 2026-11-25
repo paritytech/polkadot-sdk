@@ -283,6 +283,20 @@ where
 		AsMut::<PriorLock<BlockNumber, Balance>>::as_mut(self).rejig(now);
 	}
 
+	/// Whether this is equal to the default value: no votes, no delegations and no prior lock.
+	pub fn is_default(&self) -> bool {
+		match self {
+			Voting::Casting(Casting { votes, delegations, prior }) => {
+				votes.is_empty() &&
+					delegations.votes.is_zero() &&
+					delegations.capital.is_zero() &&
+					prior.0.is_zero() &&
+					prior.1.is_zero()
+			},
+			Voting::Delegating(_) => false,
+		}
+	}
+
 	/// The amount of this account's balance that must currently be locked due to voting.
 	pub fn locked_balance(&self) -> Balance {
 		match self {

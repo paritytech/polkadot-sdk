@@ -569,25 +569,31 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		class: &ClassOf<T, I>,
 		amount: Delegations<BalanceOf<T, I>>,
 	) -> u32 {
-		VotingFor::<T, I>::mutate(who, class, |voting| match voting {
-			Voting::Delegating(Delegating { delegations, .. }) => {
-				// We don't support second level delegating, so we don't need to do anything more.
-				*delegations = delegations.saturating_add(amount);
-				1
-			},
-			Voting::Casting(Casting { votes, delegations, .. }) => {
-				*delegations = delegations.saturating_add(amount);
-				for &(poll_index, account_vote) in votes.iter() {
-					if let AccountVote::Standard { vote, .. } = account_vote {
-						T::Polls::access_poll(poll_index, |poll_status| {
-							if let PollStatus::Ongoing(tally, _) = poll_status {
-								tally.increase(vote.aye, amount);
-							}
-						});
+		VotingFor::<T, I>::mutate_exists(who, class, |maybe_voting| {
+			let mut voting = maybe_voting.take().unwrap_or_default();
+			let votes = match &mut voting {
+				Voting::Delegating(Delegating { delegations, .. }) => {
+					// We don't support second level delegating, so we don't need to do anything
+					// more.
+					*delegations = delegations.saturating_add(amount);
+					1
+				},
+				Voting::Casting(Casting { votes, delegations, .. }) => {
+					*delegations = delegations.saturating_add(amount);
+					for &(poll_index, account_vote) in votes.iter() {
+						if let AccountVote::Standard { vote, .. } = account_vote {
+							T::Polls::access_poll(poll_index, |poll_status| {
+								if let PollStatus::Ongoing(tally, _) = poll_status {
+									tally.increase(vote.aye, amount);
+								}
+							});
+						}
 					}
-				}
-				votes.len() as u32
-			},
+					votes.len() as u32
+				},
+			};
+			*maybe_voting = (!voting.is_default()).then_some(voting);
+			votes
 		})
 	}
 
@@ -597,25 +603,31 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		class: &ClassOf<T, I>,
 		amount: Delegations<BalanceOf<T, I>>,
 	) -> u32 {
-		VotingFor::<T, I>::mutate(who, class, |voting| match voting {
-			Voting::Delegating(Delegating { delegations, .. }) => {
-				// We don't support second level delegating, so we don't need to do anything more.
-				*delegations = delegations.saturating_sub(amount);
-				1
-			},
-			Voting::Casting(Casting { votes, delegations, .. }) => {
-				*delegations = delegations.saturating_sub(amount);
-				for &(poll_index, account_vote) in votes.iter() {
-					if let AccountVote::Standard { vote, .. } = account_vote {
-						T::Polls::access_poll(poll_index, |poll_status| {
-							if let PollStatus::Ongoing(tally, _) = poll_status {
-								tally.reduce(vote.aye, amount);
-							}
-						});
+		VotingFor::<T, I>::mutate_exists(who, class, |maybe_voting| {
+			let mut voting = maybe_voting.take().unwrap_or_default();
+			let votes = match &mut voting {
+				Voting::Delegating(Delegating { delegations, .. }) => {
+					// We don't support second level delegating, so we don't need to do anything
+					// more.
+					*delegations = delegations.saturating_sub(amount);
+					1
+				},
+				Voting::Casting(Casting { votes, delegations, .. }) => {
+					*delegations = delegations.saturating_sub(amount);
+					for &(poll_index, account_vote) in votes.iter() {
+						if let AccountVote::Standard { vote, .. } = account_vote {
+							T::Polls::access_poll(poll_index, |poll_status| {
+								if let PollStatus::Ongoing(tally, _) = poll_status {
+									tally.reduce(vote.aye, amount);
+								}
+							});
+						}
 					}
-				}
-				votes.len() as u32
-			},
+					votes.len() as u32
+				},
+			};
+			*maybe_voting = (!voting.is_default()).then_some(voting);
+			votes
 		})
 	}
 
@@ -731,11 +743,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Rejig the lock on an account. It will never get more stringent (since that would indicate
 	/// a security hole) but may be reduced from what they are currently.
 	fn update_lock(class: &ClassOf<T, I>, who: &T::AccountId) {
-		let class_lock_needed = VotingFor::<T, I>::mutate(who, class, |voting| {
+		let class_lock_needed = VotingFor::<T, I>::mutate_exists(who, class, |maybe_voting| {
+			let mut voting = maybe_voting.take().unwrap_or_default();
 			voting.rejig(T::BlockNumberProvider::current_block_number());
-			voting.locked_balance()
+			let locked_balance = voting.locked_balance();
+			*maybe_voting = (!voting.is_default()).then_some(voting);
+			locked_balance
 		});
-		let lock_needed = ClassLocksFor::<T, I>::mutate(who, |locks| {
+		let lock_needed = ClassLocksFor::<T, I>::mutate_exists(who, |maybe_locks| {
+			let mut locks = maybe_locks.take().unwrap_or_default();
 			locks.retain(|x| &x.0 != class);
 			if !class_lock_needed.is_zero() {
 				let ok = locks.try_push((class.clone(), class_lock_needed)).is_ok();
@@ -746,7 +762,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					qed"
 				);
 			}
-			locks.iter().map(|x| x.1).max().unwrap_or(Zero::zero())
+			let lock_needed = locks.iter().map(|x| x.1).max().unwrap_or(Zero::zero());
+			*maybe_locks = (!locks.is_empty()).then_some(locks);
+			lock_needed
 		});
 		if lock_needed.is_zero() {
 			T::Currency::remove_lock(CONVICTION_VOTING_ID, who);

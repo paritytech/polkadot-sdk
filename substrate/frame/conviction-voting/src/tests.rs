@@ -1131,3 +1131,87 @@ fn failed_tally_add_leaves_tally_unchanged() {
 	assert!(t.add(split_abstain(10, 0, 10)).is_none());
 	assert_eq!(t, initial);
 }
+
+#[test]
+fn unlock_does_not_create_storage() {
+	new_test_ext().execute_with(|| {
+		assert!(VotingOf::<Test>::default().is_default());
+
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 42));
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 200, 42));
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 2));
+
+		assert_eq!(VotingFor::<Test>::iter().count(), 0);
+		assert_eq!(ClassLocksFor::<Test>::iter().count(), 0);
+	});
+}
+
+#[test]
+fn unlock_removes_stored_default_values() {
+	new_test_ext().execute_with(|| {
+		VotingFor::<Test>::insert(42, 0, VotingOf::<Test>::default());
+		ClassLocksFor::<Test>::insert(42, ClassLocksFor::<Test>::get(42));
+		assert_eq!(VotingFor::<Test>::iter().count(), 1);
+		assert_eq!(ClassLocksFor::<Test>::iter().count(), 1);
+
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 42));
+
+		assert_eq!(VotingFor::<Test>::iter().count(), 0);
+		assert_eq!(ClassLocksFor::<Test>::iter().count(), 0);
+	});
+}
+
+#[test]
+fn voting_storage_is_removed_when_nothing_is_locked() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(5, 1)));
+		let c = class(3);
+		assert!(VotingFor::<Test>::contains_key(1, c));
+		assert!(ClassLocksFor::<Test>::contains_key(1));
+
+		Polls::set(vec![(3, Completed(3, true))].into_iter().collect());
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(c), 3));
+
+		// The prior lock keeps both entries until it expires at block 6.
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), c, 1));
+		assert!(VotingFor::<Test>::contains_key(1, c));
+		assert!(ClassLocksFor::<Test>::contains_key(1));
+		assert_eq!(Balances::usable_balance(1), 5);
+
+		run_to(6);
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), c, 1));
+		assert_eq!(VotingFor::<Test>::iter().count(), 0);
+		assert_eq!(ClassLocksFor::<Test>::iter().count(), 0);
+		assert_eq!(Balances::usable_balance(1), 10);
+	});
+}
+
+#[test]
+fn delegation_storage_is_removed_when_delegation_ends() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 42, Conviction::None, 0));
+		assert!(!VotingFor::<Test>::contains_key(42, 0));
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
+		assert_eq!(VotingFor::<Test>::iter().count(), 0);
+		assert_eq!(ClassLocksFor::<Test>::iter().count(), 0);
+
+		// The target has an entry for as long as it holds delegated voting power.
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 5));
+		assert!(VotingFor::<Test>::contains_key(2, 0));
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
+		assert!(!VotingFor::<Test>::contains_key(2, 0));
+
+		// The delegator keeps its entries until the lock of the delegation expires at block 4.
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
+		assert!(VotingFor::<Test>::contains_key(1, 0));
+		assert!(ClassLocksFor::<Test>::contains_key(1));
+		assert_eq!(Balances::usable_balance(1), 5);
+
+		run_to(4);
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
+		assert_eq!(VotingFor::<Test>::iter().count(), 0);
+		assert_eq!(ClassLocksFor::<Test>::iter().count(), 0);
+		assert_eq!(Balances::usable_balance(1), 10);
+	});
+}
