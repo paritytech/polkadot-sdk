@@ -47,6 +47,10 @@ const LOG_TARGET: &str = "rpc-spec-v2::bitswap";
 /// worst-case response at ≤128 MiB (64 × 2 MiB/chunk). Spec only requires ≥16.
 pub const MAX_CIDS_PER_REQUEST: usize = 64;
 
+/// Bound quadratic base58 decoding work. A CIDv1 with a supported 32-byte digest fits
+/// even in base2, which uses eight characters per byte.
+const MAX_ENCODED_CID_LEN: usize = 512;
+
 /// Bitswap RPC implementation.
 pub struct Bitswap<Block, Client> {
 	client: Arc<Client>,
@@ -68,6 +72,9 @@ impl<Block, Client> Bitswap<Block, Client> {
 
 /// Parse a CID string and validate it (CIDv1, sha2-256 / blake2b-256 / keccak-256, 32-byte digest).
 fn parse_and_validate_cid(cid_str: &str) -> Result<H256, Error> {
+	if cid_str.len() > MAX_ENCODED_CID_LEN {
+		return Err(Error::InvalidCid(format!("encoded CID exceeds {MAX_ENCODED_CID_LEN} bytes")));
+	}
 	let cid = Cid::try_from(cid_str).map_err(|e| Error::InvalidCid(format!("{e}")))?;
 
 	// Only CIDv1 version is supported according to the spec.
