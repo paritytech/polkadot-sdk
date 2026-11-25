@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795554499716,
+  "lastUpdate": 1795597722630,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -150551,6 +150551,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2741256858,
             "range": "± 27072823",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "79002163+gab8i@users.noreply.github.com",
+            "name": "gab",
+            "username": "gab8i"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d8d0859a9c72aeeeabcd4d1f53ae5e28b810e943",
+          "message": "fix: fork-tree, do not overflow the stack on deep trees (#13804)\n\n### Description\n\nA `ForkTree` gains one level for every node imported on top of another,\nuntil an ancestor is finalized. `Clone`, `PartialEq`, `Debug`, `Encode`,\n`Decode` and `Drop` were derived, so each used one stack frame per\nlevel.\n\nWhen finality stalled on Paseo, the BABE epoch tree grew by one level\nper epoch. BABE clones that tree at every epoch boundary, and the clone\noverflowed the 2 MiB worker stack, crashing the node. Encoding, decoding\nat startup and dropping the tree recurse the same way.\n\n### Integration\n\nThe roots and the children of a node are now held in a wrapper, `Nodes`,\naround `Vec<Node>`. It implements the six traits with a heap-allocated\nstack utilizing a pre-order listing of the nodes.\n\n- `Node` and `ForkTree` keep their derives on top of it.\n- The encoding is unchanged. \n\nCloses #12062",
+          "timestamp": "2026-11-25T07:48:02Z",
+          "tree_id": "4a8eb99dcb20189cc120c22462dd390ad9c76a6a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d8d0859a9c72aeeeabcd4d1f53ae5e28b810e943"
+        },
+        "date": 1795597679224,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19516357,
+            "range": "± 97138",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20328951,
+            "range": "± 152477",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21421920,
+            "range": "± 102841",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26099173,
+            "range": "± 235375",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57947680,
+            "range": "± 928236",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 344583247,
+            "range": "± 4961412",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2435880551,
+            "range": "± 67606281",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17482729,
+            "range": "± 165562",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17333393,
+            "range": "± 210189",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17780169,
+            "range": "± 178812",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22432225,
+            "range": "± 137144",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59863383,
+            "range": "± 599455",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 351146165,
+            "range": "± 4657546",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2747830370,
+            "range": "± 21286358",
             "unit": "ns/iter"
           }
         ]
