@@ -505,13 +505,18 @@ module main {
     nondet announcedRoll2 = oneOf(0.to(3))
     nondet provides = oneOf(Set(StreamsRootUndeclared, StreamsRootDeclared(StreamsRootB)))
     // Naming itself only aborts Refine (`MessagesInvalidRequires`), which the
-    // random `step` and `messaging_test` already cover.
+    // random `step` and `messaging_test` already cover. Root A is in both
+    // seeded rings; root B enters para 3's ring only once one of its
+    // candidates providing B is enacted, so requiring it settles against a
+    // root pushed during the run (earlier in the block or in an earlier step)
+    // and is rejected before that.
     val requiresMenu = Set(
       RequiresRootsUndeclared,
       RequiresRootsDeclared(List((MkParaId(3), StreamsRootA))),
-      RequiresRootsDeclared(List((MkParaId(4), StreamsRootA)))
+      RequiresRootsDeclared(List((MkParaId(4), StreamsRootA))),
+      RequiresRootsDeclared(List((MkParaId(3), StreamsRootB)))
     )
-    nondet requires = oneOf(requiresMenu.filter(r => r != RequiresRootsDeclared(List((para, StreamsRootA)))))
+    nondet requires = oneOf(requiresMenu.filter(r => not(namesItself(r, para))))
     val curHead = svc.paraInfo(para).headData
     val wr = directedResult(
       svc, para, if (stale) StaleParentHead - 1 else curHead, msgs, provides, requires, now,
@@ -542,7 +547,7 @@ module main {
     nondet provides2 = oneOf(Set(StreamsRootUndeclared, StreamsRootDeclared(StreamsRootB)))
     val requiresMenu2 = if (second == 1) requiresMenu.exclude(Set(RequiresRootsUndeclared)) else requiresMenu
     nondet requires2 =
-      oneOf(requiresMenu2.filter(r => r != RequiresRootsDeclared(List((para2, StreamsRootA)))))
+      oneOf(requiresMenu2.filter(r => not(namesItself(r, para2))))
     // Chain off the first package's new head when it is the same para (and the
     // first was not stale).
     val curHead2 = if (para2 == para and not(stale)) curHead + 1 else svc.paraInfo(para2).headData
@@ -567,6 +572,12 @@ module main {
       logPrunedBelow' = out.logPruned.foldl(logPrunedBelow, (m, pr) => m.put(pr._1, pr._2)),
       lastStepOkLogs' = out.okLogs
     }
+  }
+
+  /// Whether a directed requires declaration names the candidate's own para.
+  pure def namesItself(r: RequiresRootsDeclaration, para: ParaId): bool = match r {
+    | RequiresRootsDeclared(l) => l.foldl(false, (b, e) => b or e._1 == para)
+    | _ => false
   }
 
   action stepCleanUp = any { step, stepCleanUpDirected }
