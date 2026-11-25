@@ -53,12 +53,8 @@ mod benchmarks {
 	/// if the proof is optimal.
 	#[benchmark]
 	fn n_leafs_proof_is_optimal(n: Linear<2, 512>) {
-		pallet_mmr::UseLocalStorage::<T>::set(true);
-
-		for block_num in 1..=n {
-			init_block::<T>(block_num);
-		}
-		let proof = Mmr::<T>::generate_mock_ancestry_proof().unwrap();
+		let (proof, _) =
+			Mmr::<T>::generate_synthetic_ancestry_proof((n - 1).into(), n.into()).unwrap();
 		assert_eq!(proof.leaf_count, n as u64);
 
 		#[block]
@@ -100,36 +96,45 @@ mod benchmarks {
 		assert!(peak.is_some());
 	}
 
-	/// Generate ancestry proofs with `n` nodes and benchmark the verification logic.
-	/// These proofs are inflated, containing all the leafs, so we won't read any peak during
-	/// the verification. We need to account for the peaks separately.
+	/// Generate optimal ancestry proofs with `n` nodes (items + previous peaks) and benchmark the
+	/// verification logic.
+	///
+	/// For `prev_leaf_count = 2^(n - 2) - 1` and `leaf_count = 2^(n - 1) - 1`, the optimal proof
+	/// has exactly `n` nodes. This is the split that needs the most hashing for a given `n`.
+	/// The upper bound covers all the proofs possible with 32-bit block numbers.
 	#[benchmark]
-	fn n_items_proof_is_non_canonical(n: Linear<2, 512>) {
-		pallet_mmr::UseLocalStorage::<T>::set(true);
+	fn n_items_proof_is_non_canonical(n: Linear<3, 33>) {
+		let prev_leaf_count = (1u64 << (n - 2)) - 1;
+		let leaf_count = (1u64 << (n - 1)) - 1;
+		let (proof, mmr_root) =
+			Mmr::<T>::generate_synthetic_ancestry_proof(prev_leaf_count, leaf_count).unwrap();
+		assert!(<BeefyMmr<T> as AncestryHelper<HeaderFor<T>>>::is_proof_optimal(&proof));
+		assert_eq!(proof.items.len() + proof.prev_peaks.len(), n as usize);
 
-		for block_num in 1..=n {
-			init_block::<T>(block_num);
-		}
-		let proof = Mmr::<T>::generate_mock_ancestry_proof().unwrap();
-		assert_eq!(proof.items.len(), n as usize);
+		// Set up the chain so that leaf `i` was added by block `i + 1`.
+		let leaf_count_to_block_num = |leaf_count: u64| -> BlockNumberFor<T> {
+			u32::try_from(leaf_count).expect("leaf_count < 2^32 since n <= 33; qed").into()
+		};
+		System::<T>::set_block_number(leaf_count_to_block_num(leaf_count));
+		pallet_mmr::NumberOfLeaves::<T>::put(leaf_count);
+
+		let commitment = Commitment {
+			payload: Payload::from_single_entry(
+				known_payloads::MMR_ROOT_ID,
+				MerkleRootOf::<T>::default().encode(),
+			),
+			block_number: leaf_count_to_block_num(prev_leaf_count),
+			validator_set_id: 0,
+		};
+		let context = AncestryValidationContext { leaf_count, mmr_root };
 
 		let is_non_canonical;
 		#[block]
 		{
 			is_non_canonical = <BeefyMmr<T> as AncestryHelper<HeaderFor<T>>>::is_non_canonical(
-				&Commitment {
-					payload: Payload::from_single_entry(
-						known_payloads::MMR_ROOT_ID,
-						MerkleRootOf::<T>::default().encode(),
-					),
-					block_number: n.into(),
-					validator_set_id: 0,
-				},
+				&commitment,
 				proof,
-				AncestryValidationContext {
-					leaf_count: Mmr::<T>::mmr_leaves(),
-					mmr_root: Mmr::<T>::mmr_root(),
-				},
+				context,
 			);
 		};
 
