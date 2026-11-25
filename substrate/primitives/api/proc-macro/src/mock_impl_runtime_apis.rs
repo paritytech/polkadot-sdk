@@ -128,9 +128,7 @@ fn implement_common_api_traits(block_type: TypePath, self_ty: Type) -> Result<To
 				unimplemented!("`set_call_context` not implemented for runtime api mocks")
 			}
 
-			fn register_extension<E: #crate_::Extension>(&mut self, _: E) {
-				unimplemented!("`register_extension` not implemented for runtime api mocks")
-			}
+			fn register_extension<E: #crate_::Extension>(&mut self, _: E) {}
 
 			fn set_overlayed_changes(&mut self, _: #crate_::OverlayedChanges<#crate_::HashingFor<#block_type>>) {
 				unimplemented!("`set_overlayed_changes` not implemented for runtime api mocks")
