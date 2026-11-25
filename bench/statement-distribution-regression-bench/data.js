@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795555739902,
+  "lastUpdate": 1795601388656,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "823a550f4be744bd1ba9e47a2ce82ede6e8aa4bd",
-          "message": "Statement store e2e integration tests lite person setup (#11415)\n\n## Summary\n\n- Add a lite person registration test that exercises the full\nPeopleLite::attest flow on a live parachain, including ring-VRF key\ngeneration, attestation, and subsequent statement submission.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-11T13:19:23Z",
-          "tree_id": "477f2e189ec1398609b4e1066c16c114d813fc65",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/823a550f4be744bd1ba9e47a2ce82ede6e8aa4bd"
-        },
-        "date": 1778512963832,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.168,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.0386239605,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08615941031199989,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08761510502599991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cd193d6c301eb1d76dfa9a92620bd2bf7dc79946",
+          "message": "pallet-revive: align eth tx decoding and reuse decoded call in dry runs (#13947)\n\nSmall consistency and performance change: Align the decoding of\nsubstrate calls via Eth TX with the decoding of\n`generic::UncheckedExtrinsic`. Also reuse the decoded call in the dry\nrun.\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-25T08:31:09Z",
+          "tree_id": "475b6ed61b8097d932969c7a3f73e862c2e32f16",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cd193d6c301eb1d76dfa9a92620bd2bf7dc79946"
+        },
+        "date": 1795601346365,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.116,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0833289832319999,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039049059296000006,
             "unit": "seconds"
           }
         ]
