@@ -31,7 +31,7 @@ pub type CollatorSignature = [u8; 64];
 
 #[derive(Clone, Debug, Encode, Decode)]
 pub struct AuthToken {
-	/// Merkle proof for `key` to be at the correct index in  [`AuthConfig::collator_set_root`].
+	/// Merkle proof for `key` to be at the correct index in [`AuthConfig::collator_set_root`].
 	///
 	/// The leaf index is determined by the round-robin logic for the slot.
 	pub proof: Vec<H256>,
@@ -54,7 +54,7 @@ pub enum TokenError {
 impl AuthToken {
 	/// Verify that `key` sits at zero-based leaf index `collator_index` of the collator-set tree.
 	///
-	/// Use [`crate::merkle::build_collator_proof`] to generate a valid proof.
+	/// Use [`crate::build_collator_proof`] to generate a valid proof.
 	pub fn check_proof(&self, config: &AuthConfig, collator_index: u32) -> Result<(), TokenError> {
 		verify_collator_proof(
 			&config.collator_set_root,

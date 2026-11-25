@@ -6,8 +6,6 @@ doc:
     parachain-service repository. Provides shared AURA authorization types,
     collator membership proofs, the canonical work-package signing hash and token
     verification for JAM. Signing itself is not part of this crate.
-    Update jam-types and Zombienet's jam-std-common to 0.1.29; jam-std-common 0.1.28 does
-    not build against jam-types 0.1.29.
     Qualify the std-only Storage references in sp-state-machine to avoid an unused
     import when checking the authorizer utilities without std.
 crates:
