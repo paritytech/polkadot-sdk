@@ -880,6 +880,44 @@ module messaging_test {
       }))
   }
 
+  /// `settlement_rings_match_replay` (§5.1 steps 5 and 6, §8.1): Asset Hub
+  /// requires para 3's root `B` before para 3 pushes it in the same block, so
+  /// Asset Hub is rejected at settlement and its own `B` never lands, while para
+  /// 3's enacts and pushes. The real block passes every invariant. A ring that
+  /// also holds the rejected candidate's root, or lacks the accepted one's,
+  /// leaves every head and the ring shape intact, so only the ring replay
+  /// catches it.
+  run ringReplayCatchesWrongPushTest = {
+    val q = MkParaId(3)
+    val ah = AssetHubParaId
+    def headAndShapeHold: bool = and {
+      parent_head_continuity, head_state_matches_outcomes,
+      settlement_ring_coherent, settlement_ring_only_for_live
+    }
+    initCleanUp
+      .then(applyBlock(List(
+        refinedCandidate(svc, ah, List(),
+          StreamsRootDeclared(StreamsRootB), RequiresRootsDeclared(List((q, StreamsRootB)))),
+        refinedCandidate(svc, q, List(),
+          StreamsRootDeclared(StreamsRootB), RequiresRootsUndeclared)
+      )))
+      .then(expectThat(all {
+        svc.paraInfo(ah).headData == prevSvc.paraInfo(ah).headData,
+        svc.paraInfo(q).headData == prevSvc.paraInfo(q).headData + 1,
+        svc.settlementCheck(List((q, StreamsRootB))),
+        not(svc.settlementCheck(List((ah, StreamsRootB)))),
+        invariants
+      }))
+      .then(setSvc(settlementRingPush(svc, ah, StreamsRootB)))
+      .then(expectThat(headAndShapeHold and not(settlement_rings_match_replay)))
+      .then(setSvc({ ...svc,
+        messagesCursor: svc.messagesCursor.mapRemove(ah)
+          .put(q, prevSvc.messagesCursor.get(q)),
+        messagesMember: svc.messagesMember.mapFilterKeys(k => k._1 != ah and k._1 != q)
+          .put((q, StreamsRootA), StreamsRootA) }))
+      .then(expectThat(headAndShapeHold and not(settlement_rings_match_replay)))
+  }
+
   /// `parent_head_continuity` regression (§5.1 step 1, §6.4): Coretime
   /// partially cleans up para 3, whose own candidate follows in the same block,
   /// and para 4, deregistering since `initCleanUp`, submits one too. Both are

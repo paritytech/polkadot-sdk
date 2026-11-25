@@ -655,6 +655,33 @@ module invariants {
   val settlement_ring_only_for_live: bool =
     svc.messagesCursor.keys().forall(p => svc.parachains.keys().contains(p))
 
+  /// A para's settlement ring: its cursor, if any, and its member entries.
+  pure def ringOf(
+    s: ParachainServiceState, p: ParaId
+  ): (Option[SettlementCursor], (ParaId, StreamsRoot) -> StreamsRoot) = (
+    if (s.messagesCursor.keys().contains(p)) Some(s.messagesCursor.get(p)) else None,
+    s.messagesMember.keys().filter(k => k._1 == p).mapBy(k => s.messagesMember.get(k))
+  )
+
+  /// §5.1 steps 5 and 6, §8.1: the rings `continuityReplay` rebuilds equal the
+  /// stored ones for every para whose ring it can still predict. The replay
+  /// pushes the root of each candidate it accepts and of no other, settles each
+  /// candidate against the rings as of that candidate, and deletes a ring only on
+  /// a full clean-up, so a model that pushes a rejected candidate's root, skips
+  /// an accepted one's, or keeps or deletes a ring wrongly on clean-up breaks
+  /// this even when no head changes. Unknown paras are skipped, as are paras
+  /// registered in this step that were not live before it: the replay never
+  /// tracks their candidates.
+  val settlement_rings_match_replay: bool = {
+    val r = continuityReplay.rings
+    def paras(s: ParachainServiceState): Set[ParaId] =
+      s.messagesCursor.keys().union(s.messagesMember.keys().map(k => k._1))
+    paras(r).union(paras(svc)).forall(p =>
+      continuityReplay.unknown.contains(p)
+        or (reRegistered(stepOkDigests, p) and not(prevSvc.parachains.keys().contains(p)))
+        or ringOf(r, p) == ringOf(svc, p))
+  }
+
   /// Composite invariant: every invariant above must hold simultaneously.
   val invariants: bool = and {
     balance_invariant,
@@ -690,6 +717,7 @@ module invariants {
     parachain_log_within_capacity,
     parachain_log_above_lookup,
     settlement_ring_coherent,
-    settlement_ring_only_for_live
+    settlement_ring_only_for_live,
+    settlement_rings_match_replay
   }
 }
