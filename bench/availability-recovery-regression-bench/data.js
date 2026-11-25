@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795621142599,
+  "lastUpdate": 1795636839962,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a46d804b9d219c242da648da872eab278c496101",
-          "message": "staking-async / WAH: use div_ceil for VoterSnapshotPerBlock (#12100)\n\nFloor division could undersize the paged voter snapshot relative to\n`MaxElectingVoters`. Switched to `div_ceil` so `VoterSnapshotPerBlock *\nPages >= MaxElectingVoters` holds for any configured values, and added\ninvariant tests for both fake presets.\n\nAligned AH-Westend and the fake DOT/KSM presets with PAH and KAH in the\nruntimes repo, which already use `div_ceil`.\n\n\nExample in staking-async testnet configuration: floor division\nundersized the paged voter snapshot by 4 voters:\n* DOT: floor(22_500 / 32) = 703 → 703 * 32 = 22_496 (4 short)\n* KSM: floor(12_500 / 16) = 781 → 781 * 16 = 12_496 (4 short)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-19T10:08:30Z",
-          "tree_id": "8222959a63e270e0d3e50b1bbe25edb4d8de9668",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a46d804b9d219c242da648da872eab278c496101"
-        },
-        "date": 1779198041326,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.366454408733336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.14417222986666664,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13180044196666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jessechejieh@gmail.com",
+            "name": "jessechejieh",
+            "username": "jessechejieh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "94d256ae8ed41109c351a3d57ee3d35129327fec",
+          "message": "(RWF)`pallet-asset-rewards`: fix post-expiry underflow and persist pool on harvest (#13208)\n\n### Description\n\nFixes two accounting bugs in `pallet-asset-rewards`, one of which can\nleave stakes frozen in an expired pool with no way to recover them.\n\n`update_pool_rewards` always sets `last_update_block` to the current\nblock, while `reward_per_token` counts elapsed blocks from\n`last_update_block` up to `min(now, expiry_block)`. Any stake or unstake\nafter expiry therefore stores a block past the expiry, and every later\n`stake`, `unstake`, `harvest_rewards`, `set_pool_expiry_block` and\n`set_pool_reward_rate_per_block` on that pool fails with\n`ArithmeticError::Underflow`. After expiry anyone may unstake on a\nstaker's behalf, so one small delegated unstake is enough, and\n`cleanup_pool` cannot run while stakers remain.\n\n`harvest_rewards` also computes the updated pool but never writes it\nback to `Pools`, unlike `stake` and `unstake`, so the stored accumulator\ngoes stale after every harvest.\n\nRewardable blocks are now counted with `saturating_sub`, so a pool last\nupdated after its expiry accrues nothing instead of underflowing, and\n`harvest_rewards` persists the pool. I chose this over capping\n`last_update_block` at the expiry because:\n\n1. Pools already stuck in this state recover without a migration.\n2. Behaviour after `set_pool_expiry_block` on an expired pool is\nunchanged: rewards restart from the extension rather than paying out the\nexpired gap.\n\nThe two changes need to land together. Persisting the pool on harvest\nwithout the first fix would let a post-expiry harvest trigger the\nunderflow as well.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-25T16:49:42Z",
+          "tree_id": "5fbf59f1af061a256d7e6ed3955fc3e2f6cdad05",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/94d256ae8ed41109c351a3d57ee3d35129327fec"
+        },
+        "date": 1795636796352,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.232398705533331,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13095523486666663,
             "unit": "seconds"
           }
         ]
