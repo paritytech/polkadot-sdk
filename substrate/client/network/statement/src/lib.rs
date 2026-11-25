@@ -76,10 +76,14 @@
 //! chunk is resent from the sync's cursor.
 //!
 //! Propagation queues hashes in a per-peer outbox and fetches, filters and encodes them only when
-//! the slot is free, so a slow peer holds one encoded chunk rather than its whole backlog. An
-//! outbox past `config::MAX_PROPAGATION_OUTBOX_LEN` drops its oldest hashes, since the freshest
-//! statements are the ones still worth delivering. Dropped hashes are counted in
+//! the slot is free, so a slow peer holds one encoded chunk rather than its whole backlog. A full
+//! outbox (`config::MAX_PROPAGATION_OUTBOX_LEN`) refuses new hashes, which are counted in
 //! `undelivered_statements`.
+//!
+//! A peer is stalled when its last `STALLED_PEER_FAILED_SENDS` sends failed or its outbox
+//! overflows with a propagation chunk in flight. It is disconnected without a reputation change
+//! and resynced on reconnect. Overflow with the slot free or during an initial sync is this
+//! node's delay, so the peer stays and loses only the refused hashes.
 //!
 //! In-flight bytes of both kinds are held against the shared
 //! `config::MAX_SEND_IN_FLIGHT_BYTES` budget. A peer that finds the budget full, or whose store
@@ -288,6 +292,18 @@ const STATEMENT_PROTOCOL_V2: &str = "statement/2";
 const STATEMENT_PROTOCOL_V1: &str = "statement/1";
 /// Maximum time we wait for sending a notification to a peer.
 const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+/// Consecutive failed sends that disconnect the peer.
+const STALLED_PEER_FAILED_SENDS: u32 = 2;
+
+/// Why a peer counts as stalled.
+#[derive(Clone, Copy, Debug)]
+enum StallCause {
+	/// Its last [`STALLED_PEER_FAILED_SENDS`] sends failed.
+	FailedSends,
+	/// Its outbox overflowed with a propagation chunk in flight.
+	OutboxOverflow,
+}
+
 /// Interval for sending statement batches during initial sync to new peers.
 const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::from_millis(10);
 
@@ -301,6 +317,11 @@ const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::fr
 const PEER_EVICTION_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
 /// Delay before re-adding a peer to the reserved set after a forced disconnect for sync recovery.
 const SYNC_RECOVERY_READD_DELAY: std::time::Duration = std::time::Duration::from_secs(60);
+/// Without the DHT path, how long a stalled peer stays out of the reserved set. Peer steering
+/// pauses such a peer for as long with the DHT path on.
+const STALLED_PEER_READD_DELAY: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+/// Interval between checks for stalled peers whose re-add delay has passed.
+const STALLED_PEER_READD_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
 
 static DHT_ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 
@@ -339,6 +360,7 @@ struct Metrics {
 	initial_sync_peers_active: Gauge<U64>,
 	initial_sync_duration_seconds: HistogramVec,
 	statement_flooding_detected: Counter<U64>,
+	stalled_peers_disconnected: Counter<U64>,
 	affinity_flooding_detected: Counter<U64>,
 	send_failures: CounterVec<U64>,
 	undelivered_statements: CounterVec<U64>,
@@ -351,7 +373,7 @@ mod send_failure {
 	pub const TIMEOUT: &str = "timeout";
 	/// The chunk was never handed to the network because the peer had no message sink.
 	pub const NO_SINK: &str = "no_sink";
-	/// The peer's propagation outbox overflowed and the oldest queued hashes were dropped.
+	/// The peer's propagation outbox was full and refused new hashes.
 	pub const OUTBOX_FULL: &str = "outbox_full";
 	/// A queued statement left the store, failed to decode or expired before its chunk went out.
 	pub const MISSING_FROM_STORE: &str = "missing_from_store";
@@ -539,6 +561,13 @@ impl Metrics {
 				Counter::new(
 					"substrate_sync_statement_flooding_detected",
 					"Number of peers disconnected for exceeding statement rate limits",
+				)?,
+				r,
+			)?,
+			stalled_peers_disconnected: register(
+				Counter::new(
+					"substrate_sync_statement_stalled_peers_disconnected",
+					"Number of peers disconnected for reading statements too slowly",
 				)?,
 				r,
 			)?,
@@ -831,6 +860,8 @@ impl StatementHandlerPrototype {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: self.in_peers_full,
 			in_peers_light: self.in_peers_light,
 			dropped_statements_during_sync: false,
@@ -917,6 +948,11 @@ pub struct StatementHandler<
 	/// Tracks peers that connected while major sync was active and adds them to the reserved set
 	/// once sync ends
 	deferred_peers: HashSet<PeerId>,
+	/// Without the DHT path, stalled peers taken out of the reserved set, each with the time it
+	/// is added back
+	stalled_peers: HashMap<PeerId, Instant>,
+	/// Fires when `stalled_peers` is due a check for peers to add back
+	stalled_peers_readd_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
 	/// Inbound slots for full peers.
 	in_peers_full: u32,
 	/// Inbound slots for light peers.
@@ -1020,6 +1056,8 @@ pub struct Peer {
 	full_replay_requested: bool,
 	/// One past the newest admission covered by the peer's initial syncs.
 	sync_watermark: u64,
+	/// Consecutive failed sends, see [`STALLED_PEER_FAILED_SENDS`].
+	failed_sends: u32,
 }
 
 /// Tracks pending initial sync state for a peer as a cursor over the store's admission
@@ -1278,6 +1316,7 @@ impl Peer {
 			pending_topic_affinity: None,
 			full_replay_requested: false,
 			sync_watermark: 0,
+			failed_sends: 0,
 		}
 	}
 
@@ -1385,6 +1424,8 @@ where
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -1478,6 +1519,9 @@ where
 				_ = &mut self.sync_recovery_readd_timeout => {
 					self.try_readd_sync_recovery_peer();
 					self.sync_recovery_readd_timeout = Box::pin(pending().fuse());
+				},
+				_ = &mut self.stalled_peers_readd_timeout => {
+					self.readd_stalled_peers(Instant::now());
 				},
 				_ = &mut self.peer_eviction_timeout => {
 					self.dht.evict_stale_peers();
@@ -1667,7 +1711,7 @@ where
 		);
 
 		if dht_enabled() {
-			self.dht.release_peer_without_dht(&self.network, peer_id);
+			self.dht.release_reserved_peer(&self.network, peer_id);
 			self.network.disconnect_peer(peer_id, self.protocol_name.clone());
 			return;
 		}
@@ -1700,6 +1744,35 @@ where
 		{
 			log::warn!(target: LOG_TARGET, "Failed to re-add sync recovery peer {peer_id}: {err}");
 		}
+	}
+
+	/// Add back to the reserved set the stalled peers whose delay ended by `now`, and wait for
+	/// the rest.
+	fn readd_stalled_peers(&mut self, now: Instant) {
+		let mut due = HashSet::new();
+		self.stalled_peers.retain(|peer_id, readd_at| {
+			if *readd_at > now {
+				return true;
+			}
+			due.insert(
+				iter::once(multiaddr::Protocol::P2p((*peer_id).into()))
+					.collect::<multiaddr::Multiaddr>(),
+			);
+			false
+		});
+		if !due.is_empty() {
+			log::debug!(target: LOG_TARGET, "Re-adding {} stalled peers", due.len());
+			if let Err(err) =
+				self.network.add_peers_to_reserved_set(self.protocol_name.clone(), due)
+			{
+				log::warn!(target: LOG_TARGET, "Failed to re-add stalled peers: {err}");
+			}
+		}
+		self.stalled_peers_readd_timeout = if self.stalled_peers.is_empty() {
+			Box::pin(pending().fuse())
+		} else {
+			Box::pin(tokio::time::sleep(STALLED_PEER_READD_INTERVAL).fuse())
+		};
 	}
 
 	/// Whether the role's inbound quota has room for one more peer.
@@ -1754,6 +1827,8 @@ where
 				}
 			},
 			SyncEvent::PeerDisconnected(remote) => {
+				// A peer that left is not added back.
+				self.stalled_peers.remove(&remote);
 				if self.deferred_peers.remove(&remote) {
 					return;
 				}
@@ -1799,6 +1874,10 @@ where
 				}
 				// Only accept peers whose role can be determined
 				let result = match role {
+					Some(_) if dht_enabled() && self.dht.is_paused(&peer) => {
+						log::debug!(target: LOG_TARGET, "Rejecting paused {peer}");
+						ValidationResult::Reject
+					},
 					Some(role)
 						if dht_enabled() &&
 							!self.dht.is_reserved(&peer) &&
@@ -1857,6 +1936,7 @@ where
 						pending_topic_affinity: None,
 						full_replay_requested: false,
 						sync_watermark: 0,
+						failed_sends: 0,
 					},
 				);
 				debug_assert!(_was_in.is_none());
@@ -2069,7 +2149,9 @@ where
 
 				// Initiate peer state cleanup in the `NotificationStreamClosed` handler
 				if dht_enabled() {
-					self.dht.release_peer_without_dht(&self.network, who);
+					// The pause keeps steering from reserving the peer again on its next refresh.
+					self.dht.pause_peer(who);
+					self.dht.release_reserved_peer(&self.network, who);
 				}
 				self.network.disconnect_peer(who, self.protocol_name.clone());
 
@@ -2378,10 +2460,13 @@ where
 				sends.extend(missed.map(|peer| (*peer, dead_end.hash)));
 			}
 		}
-		// The outbox takes its own hold on a hash before the dead end gives up its one.
+		// The outbox takes its own hold on a hash before the dead end gives up its one. A dead end
+		// that a full outbox refused stays held, and the next tick offers it again.
 		for (peer, hash) in sends {
-			self.push_outbox_hashes(&peer, vec![hash]);
-			resolved.insert(hash);
+			if self.propagation_outboxes.push(peer, vec![hash]) == 0 {
+				resolved.insert(hash);
+				self.try_send_next_chunk(peer);
+			}
 		}
 		self.propagation_outboxes
 			.retain_dead_ends(|dead_end| !resolved.contains(&dead_end.hash));
@@ -2399,8 +2484,61 @@ where
 
 		if overflow > 0 {
 			self.record_abandoned_send(send_failure::OUTBOX_FULL, overflow);
+			if self.in_flight_chunks.contains_key(who) &&
+				!self.pending_initial_syncs.contains_key(who)
+			{
+				self.disconnect_stalled_peer(*who, StallCause::OutboxOverflow);
+				return;
+			}
 		}
 		self.try_send_next_chunk(*who);
+	}
+
+	/// Disconnect a peer that reads too slowly, without a reputation change since it is broken or
+	/// overloaded, not malicious. It is resynced on reconnect.
+	fn disconnect_stalled_peer(&mut self, who: PeerId, cause: StallCause) {
+		let queued = self.propagation_outboxes.remove(&who);
+		if queued > 0 {
+			self.record_abandoned_send(send_failure::DISCONNECTED, queued);
+		}
+
+		let cause = match cause {
+			StallCause::FailedSends => "failed consecutive statement sends",
+			StallCause::OutboxOverflow => "overflowed its outbox",
+		};
+		log::warn!(
+			target: LOG_TARGET,
+			"Peer {who} {cause} with {queued} statements queued. Disconnecting.",
+		);
+
+		// Initiate peer state cleanup in the `NotificationStreamClosed` handler
+		if dht_enabled() {
+			// The pause keeps steering from reserving the peer again on its next refresh.
+			self.dht.pause_peer(who);
+			self.dht.release_reserved_peer(&self.network, who);
+		} else {
+			// Every peer is reserved here and a reserved peer ignores the disconnect below, so
+			// it leaves the set until the re-add delay passes.
+			match self
+				.network
+				.remove_peers_from_reserved_set(self.protocol_name.clone(), vec![who])
+			{
+				Ok(()) => {
+					if self.stalled_peers.is_empty() {
+						self.stalled_peers_readd_timeout =
+							Box::pin(tokio::time::sleep(STALLED_PEER_READD_INTERVAL).fuse());
+					}
+					self.stalled_peers.insert(who, Instant::now() + STALLED_PEER_READD_DELAY);
+				},
+				Err(err) => {
+					log::warn!(target: LOG_TARGET, "Failed to remove stalled peer {who}: {err}")
+				},
+			}
+		}
+		self.network.disconnect_peer(who, self.protocol_name.clone());
+		if let Some(ref metrics) = self.metrics {
+			metrics.stalled_peers_disconnected.inc();
+		}
 	}
 
 	/// Send the next propagation chunk to `who` if its send slot is free.
@@ -2620,6 +2758,17 @@ where
 		let slot_freed = self.in_flight_chunks.get(&peer) == Some(&chunk_id);
 		if slot_freed {
 			self.in_flight_chunks.remove(&peer);
+			// Likewise only that chunk says whether this connection's peer reads.
+			let failed_sends = self.peers.get_mut(&peer).map(|peer| {
+				peer.failed_sends =
+					if failure.is_some() { peer.failed_sends.saturating_add(1) } else { 0 };
+				peer.failed_sends
+			});
+			// Disconnect once, on the send that reaches the limit: results that follow before
+			// the stream closes count past it.
+			if failed_sends == Some(STALLED_PEER_FAILED_SENDS) {
+				self.disconnect_stalled_peer(peer, StallCause::FailedSends);
+			}
 		}
 
 		let SendKind::InitialSync { sync_id, next_cursor } = kind else { return slot_freed };
@@ -3727,6 +3876,7 @@ mod tests {
 					pending_topic_affinity: None,
 					full_replay_requested: false,
 					sync_watermark: 0,
+					failed_sends: 0,
 				},
 			);
 		}
@@ -3768,6 +3918,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -4276,58 +4428,140 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn overflowing_outbox_drops_the_oldest_hashes() {
-		let (mut handler, statement_store, _network, _notification_service, _, peer_ids) =
+	async fn full_outbox_refuses_hashes_and_disconnects_a_peer_with_a_chunk_in_flight() {
+		for chunk_in_flight in [false, true] {
+			let (mut handler, statement_store, network, _notification_service, _, peer_ids) =
+				build_handler(1);
+			handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
+			let peer_id = peer_ids[0];
+
+			let mut old = new_live_statement();
+			old.set_plain_data(b"oldest".to_vec());
+			let old_hash = old.hash();
+
+			// Three fresh statements arrive by tick while the outbox is full.
+			let fresh_hashes: HashSet<_> = (0..3u8)
+				.map(|i| {
+					let mut fresh = new_live_statement();
+					fresh.set_plain_data(vec![i]);
+					let hash = fresh.hash();
+					statement_store.recent_statements.lock().unwrap().insert(hash, fresh);
+					hash
+				})
+				.collect();
+			if chunk_in_flight {
+				handler.in_flight_chunks.insert(peer_id, 0);
+			} else {
+				// A saturated send budget keeps the slot free and the outbox full.
+				handler.propagation_in_flight_bytes = MAX_SEND_IN_FLIGHT_BYTES;
+			}
+			handler
+				.propagation_outboxes
+				.push(peer_id, vec![old_hash; MAX_PROPAGATION_OUTBOX_LEN]);
+
+			handler.propagate_statements().await;
+
+			let held = statement_store.held.lock().unwrap();
+			assert!(fresh_hashes
+				.iter()
+				.all(|hash| held.get(hash).map_or(true, |holds| *holds == 0)));
+			let metrics = handler.metrics.as_ref().unwrap();
+			assert_eq!(
+				metrics
+					.undelivered_statements
+					.with_label_values(&[send_failure::OUTBOX_FULL])
+					.get(),
+				3,
+				"each refused hash counts as undelivered"
+			);
+			assert_eq!(
+				metrics.send_failures.with_label_values(&[send_failure::OUTBOX_FULL]).get(),
+				1,
+				"one overflow event"
+			);
+
+			if chunk_in_flight {
+				assert_eq!(network.get_disconnected_peers(), vec![peer_id]);
+				assert!(network.get_reports().is_empty(), "a slow peer is not punished");
+				assert!(handler.propagation_outboxes.get(&peer_id).is_none());
+				assert_eq!(metrics.stalled_peers_disconnected.get(), 1);
+			} else {
+				assert!(
+					network.get_disconnected_peers().is_empty(),
+					"the peer had no chunk to read"
+				);
+				let outbox = handler.propagation_outboxes.get(&peer_id).unwrap();
+				assert_eq!(outbox.len(), MAX_PROPAGATION_OUTBOX_LEN);
+				assert_eq!(held[&old_hash], MAX_PROPAGATION_OUTBOX_LEN);
+			}
+		}
+	}
+
+	#[tokio::test]
+	async fn consecutive_failed_sends_disconnect_the_peer_without_a_reputation_change() {
+		let (mut handler, statement_store, network, notification_service, _, peer_ids) =
 			build_handler(1);
 		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
 		let peer_id = peer_ids[0];
 
-		let mut old = new_live_statement();
-		old.set_plain_data(b"oldest".to_vec());
-		let old_hash = old.hash();
-
-		// Three fresh statements arrive by tick while the outbox is full and the
-		// peer's slot is busy.
-		let fresh_hashes: HashSet<_> = (0..3u8)
+		// 700 KiB each, so a 1 MiB chunk carries exactly one statement.
+		let hashes: Vec<_> = (0..5u8)
 			.map(|i| {
-				let mut fresh = new_live_statement();
-				fresh.set_plain_data(vec![i; 8]);
-				let hash = fresh.hash();
-				statement_store.recent_statements.lock().unwrap().insert(hash, fresh);
+				let mut statement = new_live_statement();
+				statement.set_plain_data(vec![i; 700 * 1024]);
+				let hash = statement.hash();
+				statement_store.insert(statement);
 				hash
 			})
 			.collect();
-		handler.in_flight_chunks.insert(peer_id, 0);
-		handler
-			.propagation_outboxes
-			.push(peer_id, vec![old_hash; MAX_PROPAGATION_OUTBOX_LEN]);
+		handler.propagation_outboxes.push(peer_id, hashes);
 
-		handler.propagate_statements().await;
+		// One failed send, then a completed one: the count starts over.
+		notification_service.fail_sends();
+		handler.try_send_next_chunk(peer_id);
+		let result = handler.pending_sends.next().await.unwrap();
+		notification_service.allow_sends();
+		handler.handle_send_result(result);
+		assert_eq!(handler.peers[&peer_id].failed_sends, 1);
+		let result = handler.pending_sends.next().await.unwrap();
+		notification_service.fail_sends();
+		handler.handle_send_result(result);
+		assert_eq!(handler.peers[&peer_id].failed_sends, 0);
 
-		let outbox = handler.propagation_outboxes.get(&peer_id).unwrap();
-		assert_eq!(outbox.len(), MAX_PROPAGATION_OUTBOX_LEN);
-		let tail: HashSet<_> =
-			outbox.iter().skip(MAX_PROPAGATION_OUTBOX_LEN - 3).copied().collect();
-		assert_eq!(tail, fresh_hashes, "the freshest hashes must survive the overflow");
-		let held = statement_store.held.lock().unwrap();
-		assert_eq!(held[&old_hash], MAX_PROPAGATION_OUTBOX_LEN - 3);
-		assert!(fresh_hashes.iter().all(|hash| held[hash] == 1));
-		drop(held);
+		// A failed chunk left over from a previous connection does not count.
+		handler.handle_send_result(PendingSendResult {
+			peer: peer_id,
+			statement_count: 1,
+			bytes_sent: 0,
+			result: SendOutcome::TimedOut,
+			kind: SendKind::Propagation,
+			route: peer_route::LEGACY,
+			chunk_id: u64::MAX,
+		});
+		assert_eq!(handler.peers[&peer_id].failed_sends, 0);
 
-		let metrics = handler.metrics.as_ref().unwrap();
-		assert_eq!(
-			metrics
-				.undelivered_statements
-				.with_label_values(&[send_failure::OUTBOX_FULL])
-				.get(),
-			3,
-			"each dropped hash counts as undelivered"
-		);
-		assert_eq!(
-			metrics.send_failures.with_label_values(&[send_failure::OUTBOX_FULL]).get(),
-			1,
-			"one overflow event"
-		);
+		// The second failed send in a row disconnects the peer.
+		let result = handler.pending_sends.next().await.unwrap();
+		handler.handle_send_result(result);
+		assert!(network.get_disconnected_peers().is_empty());
+		let result = handler.pending_sends.next().await.unwrap();
+		handler.handle_send_result(result);
+		assert_eq!(network.get_disconnected_peers(), vec![peer_id]);
+		assert!(network.get_reports().is_empty(), "a stalled peer is not punished");
+		// A reserved peer ignores the disconnect, so it leaves the set and is re-added later.
+		assert_eq!(network.get_removed_reserved(), vec![vec![peer_id]]);
+		let readd_at = handler.stalled_peers[&peer_id];
+		assert!(handler.sync_recovery_peer.is_none(), "sync recovery keeps its own slot");
+		handler.readd_stalled_peers(readd_at - std::time::Duration::from_secs(1));
+		assert!(network.get_added_reserved().is_empty(), "the delay still runs");
+		handler.readd_stalled_peers(readd_at);
+		assert_eq!(network.get_added_reserved().len(), 1);
+		assert!(handler.stalled_peers.is_empty());
+
+		// The disconnect drops the backlog, so nothing more goes out before the stream closes.
+		assert!(handler.propagation_outboxes.get(&peer_id).is_none());
+		assert!(handler.pending_sends.is_empty());
+		assert_eq!(handler.metrics.as_ref().unwrap().stalled_peers_disconnected.get(), 1);
 	}
 
 	#[tokio::test]
@@ -4907,6 +5141,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -4974,6 +5210,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -7474,6 +7712,7 @@ mod tests {
 				pending_topic_affinity: None,
 				full_replay_requested: false,
 				sync_watermark: 0,
+				failed_sends: 0,
 			}
 		};
 
@@ -7660,6 +7899,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -7752,6 +7993,7 @@ mod tests {
 				pending_topic_affinity: None,
 				full_replay_requested: false,
 				sync_watermark: 0,
+				failed_sends: 0,
 			},
 		);
 
@@ -8166,6 +8408,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -8250,7 +8494,7 @@ mod tests {
 	}
 
 	#[test]
-	fn only_a_held_peer_without_dht_is_released_for_a_disconnect() {
+	fn a_reserved_peer_is_released_for_a_disconnect() {
 		let (mut handler, _store, network, _notification_service) = build_handler_no_peers();
 		let held = PeerId::random();
 		let routing = PeerId::random();
@@ -8265,12 +8509,12 @@ mod tests {
 		handler.dht.refresh_connections(&network);
 
 		for peer in [held, routing, unreserved] {
-			handler.dht.release_peer_without_dht(&network, peer);
+			handler.dht.release_reserved_peer(&network, peer);
 		}
 
-		assert_eq!(network.get_removed_reserved(), vec![vec![held]]);
+		assert_eq!(network.get_removed_reserved(), vec![vec![held], vec![routing]]);
 		assert!(!handler.dht.is_reserved(&held));
-		assert!(handler.dht.is_reserved(&routing));
+		assert!(!handler.dht.is_reserved(&routing));
 	}
 
 	#[test]
@@ -8324,6 +8568,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: deferred,
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: false,
@@ -8382,6 +8628,7 @@ mod tests {
 				pending_topic_affinity: None,
 				full_replay_requested: false,
 				sync_watermark: 0,
+				failed_sends: 0,
 			},
 		);
 
@@ -8422,6 +8669,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			stalled_peers: HashMap::new(),
+			stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 			in_peers_full: DEFAULT_IN_PEERS,
 			in_peers_light: 0,
 			dropped_statements_during_sync: true,
@@ -8498,6 +8747,7 @@ mod tests {
 			pending_topic_affinity: None,
 			full_replay_requested: false,
 			sync_watermark: 0,
+			failed_sends: 0,
 		};
 
 		let make_handler =
@@ -8544,6 +8794,8 @@ mod tests {
 					parked_propagations: VecDeque::new(),
 					pending_sends: FuturesUnordered::new(),
 					deferred_peers: HashSet::new(),
+					stalled_peers: HashMap::new(),
+					stalled_peers_readd_timeout: Box::pin(futures::future::pending().fuse()),
 					in_peers_full: DEFAULT_IN_PEERS,
 					in_peers_light: 0,
 					dropped_statements_during_sync: dropped,
@@ -8606,6 +8858,7 @@ mod tests {
 			pending_topic_affinity: None,
 			full_replay_requested: false,
 			sync_watermark: 0,
+			failed_sends: 0,
 		};
 		let who = PeerId::random();
 		let received = HashMap::new();
@@ -8671,6 +8924,7 @@ mod tests {
 			pending_topic_affinity: None,
 			full_replay_requested: false,
 			sync_watermark: 0,
+			failed_sends: 0,
 		};
 		let who = PeerId::random();
 		let received = HashMap::new();
@@ -8740,6 +8994,7 @@ mod tests {
 			pending_topic_affinity: None,
 			full_replay_requested: false,
 			sync_watermark: 0,
+			failed_sends: 0,
 		};
 		let previous = filter_over(&[topic(7)]);
 		let is_dht_target = |stmt: &Statement| stmt.topics().contains(&topic(5));
