@@ -4412,52 +4412,6 @@ mod admin {
 		});
 	}
 
-	#[test]
-	fn admin_roles_follow_asset_owner_after_transfer() {
-		new_test_ext().execute_with(|| {
-			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
-			assert_ok!(Psm::create_psm(
-				RuntimeOrigin::signed(ALICE),
-				NEW_INTERNAL,
-				Box::new(AdminOrigin::AssetOwner),
-				Box::new(AdminOrigin::AssetOwner),
-				INSURANCE_FUND,
-				DEFAULT_MAX_DEBT,
-				DEFAULT_MIN_SWAP,
-			));
-
-			assert_ok!(Assets::transfer_ownership(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, BOB));
-			assert_ok!(Assets::set_team(RuntimeOrigin::signed(BOB), NEW_INTERNAL, BOB, BOB, BOB));
-
-			// The previous owner holds no admin role.
-			let alice = || RuntimeOrigin::signed(ALICE);
-			assert_noop!(Psm::set_max_debt(alice(), NEW_INTERNAL, 1), DispatchError::BadOrigin);
-			assert_noop!(
-				Psm::add_external_asset(alice(), NEW_INTERNAL, USDC_ASSET_ID),
-				DispatchError::BadOrigin
-			);
-			assert_noop!(
-				Psm::set_full_admin(alice(), NEW_INTERNAL, Box::new(fixed(signed_origin(ALICE)))),
-				DispatchError::BadOrigin
-			);
-			assert_noop!(Psm::remove_psm(alice(), NEW_INTERNAL), DispatchError::BadOrigin);
-
-			// The new owner administers the PSM and can remove it.
-			let bob = || RuntimeOrigin::signed(BOB);
-			assert_ok!(Psm::set_max_debt(bob(), NEW_INTERNAL, 1));
-			assert_ok!(Psm::add_external_asset(bob(), NEW_INTERNAL, USDC_ASSET_ID));
-			assert_ok!(Psm::set_asset_ceiling_weight(
-				bob(),
-				NEW_INTERNAL,
-				USDC_ASSET_ID,
-				Permill::from_percent(100),
-			));
-			assert_ok!(Psm::remove_external_asset(bob(), NEW_INTERNAL, USDC_ASSET_ID));
-			assert_ok!(Psm::remove_psm(bob(), NEW_INTERNAL));
-			assert!(!crate::Psm::<Test>::contains_key(NEW_INTERNAL));
-		});
-	}
-
 	/// Create a PSM on `NEW_INTERNAL`, owned by ALICE, with the given roles.
 	fn create_owned_psm(full: AdminOrigin<OriginCaller>, emergency: AdminOrigin<OriginCaller>) {
 		assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
@@ -4484,18 +4438,39 @@ mod admin {
 			assert!(is_full(RuntimeOrigin::signed(ALICE)));
 
 			assert_ok!(Assets::transfer_ownership(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, BOB));
+			assert_ok!(Assets::set_team(RuntimeOrigin::signed(BOB), NEW_INTERNAL, BOB, BOB, BOB));
 
-			assert!(is_full(RuntimeOrigin::signed(BOB)));
+			// The previous owner holds no admin role.
+			let alice = || RuntimeOrigin::signed(ALICE);
+			assert_noop!(Psm::set_max_debt(alice(), NEW_INTERNAL, 1), DispatchError::BadOrigin);
 			assert_noop!(
-				Psm::set_max_debt(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, 1),
+				Psm::add_external_asset(alice(), NEW_INTERNAL, USDC_ASSET_ID),
 				DispatchError::BadOrigin
 			);
+			assert_noop!(
+				Psm::set_full_admin(alice(), NEW_INTERNAL, Box::new(fixed(signed_origin(ALICE)))),
+				DispatchError::BadOrigin
+			);
+			assert_noop!(Psm::remove_psm(alice(), NEW_INTERNAL), DispatchError::BadOrigin);
+
 			// The stored roles did not change; only their resolution did.
 			let admin = crate::PsmAdmin::<Test>::get(NEW_INTERNAL).unwrap();
 			assert_eq!(admin.full_admin, AdminOrigin::AssetOwner);
 			assert_eq!(admin.emergency_admin, AdminOrigin::AssetOwner);
-			// The new owner can remove the PSM.
-			assert_ok!(Psm::remove_psm(RuntimeOrigin::signed(BOB), NEW_INTERNAL));
+
+			// The new owner administers the PSM and can remove it.
+			let bob = || RuntimeOrigin::signed(BOB);
+			assert!(is_full(bob()));
+			assert_ok!(Psm::add_external_asset(bob(), NEW_INTERNAL, USDC_ASSET_ID));
+			assert_ok!(Psm::set_asset_ceiling_weight(
+				bob(),
+				NEW_INTERNAL,
+				USDC_ASSET_ID,
+				Permill::from_percent(100),
+			));
+			assert_ok!(Psm::remove_external_asset(bob(), NEW_INTERNAL, USDC_ASSET_ID));
+			assert_ok!(Psm::remove_psm(bob(), NEW_INTERNAL));
+			assert!(!crate::Psm::<Test>::contains_key(NEW_INTERNAL));
 		});
 	}
 
