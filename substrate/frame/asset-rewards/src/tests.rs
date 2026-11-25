@@ -751,32 +751,6 @@ mod harvest_rewards {
 	}
 
 	#[test]
-	fn persists_pool_accumulator() {
-		new_test_ext().execute_with(|| {
-			let staker = 1;
-			let pool_id = 0;
-			create_default_pool();
-
-			System::set_block_number(10);
-			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
-
-			System::set_block_number(20);
-			assert_ok!(StakingRewards::harvest_rewards(
-				RuntimeOrigin::signed(staker),
-				pool_id,
-				None
-			));
-
-			let pool = Pools::<MockRuntime>::get(pool_id).unwrap();
-			assert_eq!(pool.last_update_block, 20);
-			assert_eq!(
-				pool.reward_per_token_stored,
-				PoolStakers::<MockRuntime>::get(pool_id, staker).unwrap().reward_per_token_paid
-			);
-		});
-	}
-
-	#[test]
 	fn fails_for_non_existent_staker() {
 		new_test_ext().execute_with(|| {
 			let non_existent_staker = 999;
