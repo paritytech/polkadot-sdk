@@ -199,10 +199,13 @@ once and the next propagation chunk follows, a failed send included: a failed pr
 chunk is not retried, but the rest of the backlog keeps draining, while a failed initial-sync
 chunk is resent from the sync’s cursor.</p>
 <p>Propagation queues hashes in a per-peer outbox and fetches, filters and encodes them only when
-the slot is free, so a slow peer holds one encoded chunk rather than its whole backlog. An
-outbox past <code>config::MAX_PROPAGATION_OUTBOX_LEN</code> drops its oldest hashes, since the freshest
-statements are the ones still worth delivering. Dropped hashes are counted in
+the slot is free, so a slow peer holds one encoded chunk rather than its whole backlog. A full
+outbox (<code>config::MAX_PROPAGATION_OUTBOX_LEN</code>) refuses new hashes, which are counted in
 <code>undelivered_statements</code>.</p>
+<p>A peer is stalled when its last <code>STALLED_PEER_FAILED_SENDS</code> sends failed or its outbox
+overflows with a propagation chunk in flight. It is disconnected without a reputation change
+and resynced on reconnect. Overflow with the slot free or during an initial sync is this
+node’s delay, so the peer stays and loses only the refused hashes.</p>
 <p>In-flight bytes of both kinds are held against the shared
 <code>config::MAX_SEND_IN_FLIGHT_BYTES</code> budget. A peer that finds the budget full, or whose store
 fetch fails, is parked once and refilled in parking order as completed sends free bytes and on

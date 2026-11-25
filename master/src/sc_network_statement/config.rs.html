@@ -209,7 +209,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#59 id=59 data-nosnippet>59</a></span><span class="kw">pub const </span>INITIAL_SYNC_RESERVED_BYTES: u64 = <span class="number">4 </span>* MAX_STATEMENT_NOTIFICATION_SIZE;
 <a href=#60 id=60 data-nosnippet>60</a>
 <a href=#61 id=61 data-nosnippet>61</a><span class="doccomment">/// Maximum number of statement hashes queued for propagation to one peer.
-<a href=#62 id=62 data-nosnippet>62</a>/// On overflow the oldest hashes are dropped first.
+<a href=#62 id=62 data-nosnippet>62</a>/// A full outbox refuses new hashes.
 <a href=#63 id=63 data-nosnippet>63</a></span><span class="kw">pub const </span>MAX_PROPAGATION_OUTBOX_LEN: usize = <span class="number">64 </span>* <span class="number">1024</span>;
 <a href=#64 id=64 data-nosnippet>64</a>
 <a href=#65 id=65 data-nosnippet>65</a><span class="doccomment">/// Maximum number of statement validation request we keep at any moment.
