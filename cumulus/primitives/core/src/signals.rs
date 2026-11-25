@@ -21,8 +21,8 @@ use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::mem::discriminant;
 use cumulus_primitives_spec_messaging::{
-	build_requires, streams_root::read_streams_root, ConsumptionRecord, LiftError, LiftsBySource,
-	StreamsRoot,
+	build_requires, streams_root::try_read_streams_root, ConsumptionRecord, LiftError,
+	LiftsBySource, StreamsRoot,
 };
 use polkadot_primitives::{ClaimQueueOffset, UMPSignal, UMP_SEPARATOR};
 use sp_runtime::Digest;
@@ -47,6 +47,8 @@ pub enum SignalError {
 	DuplicateApprovedPeer,
 	/// A block emitted `Provides` or `Requires`, which only the tail assembly may produce.
 	BlockEmittedSpecMsgSignal,
+	/// A header contains a malformed or duplicate `SPMS` item.
+	InvalidStreamsRootDigest,
 	/// The consumption records and the lifts do not synthesize a `Requires`.
 	RequiresSynthesis(LiftError),
 }
@@ -64,6 +66,7 @@ impl core::fmt::Display for SignalError {
 			Self::BlockEmittedSpecMsgSignal => {
 				write!(f, "Parachain block emitted a speculative-messaging UMP signal")
 			},
+			Self::InvalidStreamsRootDigest => write!(f, "Invalid SPMS header digest"),
 			Self::RequiresSynthesis(error) => {
 				write!(f, "Speculative Messaging `Requires` synthesis failed: {:?}", error)
 			},
@@ -142,10 +145,20 @@ pub fn ump_signal_tail(
 	Ok(tail)
 }
 
-/// The bundle's `Provides`: the last `StreamsRoot` digest among its blocks' headers, in bundle
-/// order. `None` if no block touched a stream.
-pub fn bundle_provides<'a>(digests: impl IntoIterator<Item = &'a Digest>) -> Option<StreamsRoot> {
-	digests.into_iter().filter_map(read_streams_root).last()
+/// The last root in bundle order, or `None` if no header carries an `SPMS` item.
+/// A malformed or duplicate item in any header invalidates the bundle.
+pub fn bundle_provides<'a>(
+	digests: impl IntoIterator<Item = &'a Digest>,
+) -> Result<Option<StreamsRoot>, SignalError> {
+	let mut last = None;
+	for digest in digests {
+		if let Some(root) =
+			try_read_streams_root(digest).map_err(|_| SignalError::InvalidStreamsRootDigest)?
+		{
+			last = Some(root);
+		}
+	}
+	Ok(last)
 }
 
 #[cfg(test)]
@@ -227,12 +240,25 @@ mod tests {
 	#[test]
 	fn provides_is_the_bundles_last_streams_root_digest() {
 		let (sent, idle, resent) = (digest(&[root(1)]), digest(&[]), digest(&[root(3)]));
-		assert_eq!(bundle_provides([&sent, &idle, &resent]), Some(root(3)));
+		assert_eq!(bundle_provides([&sent, &idle, &resent]), Ok(Some(root(3))));
 		// An idle last block still reports the root an earlier block produced.
-		assert_eq!(bundle_provides([&sent, &idle]), Some(root(1)));
-		assert_eq!(bundle_provides([&idle, &idle]), None);
-		// A header with two SPMS items carries no root.
-		assert_eq!(bundle_provides([&sent, &digest(&[root(4), root(5)])]), Some(root(1)));
+		assert_eq!(bundle_provides([&sent, &idle]), Ok(Some(root(1))));
+		assert_eq!(bundle_provides([&idle, &idle]), Ok(None));
+	}
+
+	#[test]
+	fn invalid_digest_anywhere_rejects_the_bundle() {
+		let valid = digest(&[root(1)]);
+		let duplicate = digest(&[root(4), root(5)]);
+		let malformed = Digest { logs: vec![DigestItem::Consensus(SPMS_ENGINE_ID, vec![])] };
+		assert_eq!(
+			bundle_provides([&valid, &duplicate]),
+			Err(SignalError::InvalidStreamsRootDigest)
+		);
+		assert_eq!(
+			bundle_provides([&malformed, &valid]),
+			Err(SignalError::InvalidStreamsRootDigest)
+		);
 	}
 
 	fn peer(byte: u8) -> ApprovedPeerId {

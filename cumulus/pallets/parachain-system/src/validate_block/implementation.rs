@@ -178,7 +178,8 @@ where
 	verify_blocks_form_chain::<B>(&blocks, &parent_header);
 
 	// Executing each block below checks its header digest against the one the runtime deposits.
-	let provides = bundle_provides(blocks.iter().map(|block| block.header().digest()));
+	let provides = bundle_provides(blocks.iter().map(|block| block.header().digest()))
+		.unwrap_or_else(|error| panic!("{error}"));
 
 	let mut processed_downward_messages = 0;
 	let mut upward_messages = BoundedVec::default();

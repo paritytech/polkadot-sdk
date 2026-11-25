@@ -290,9 +290,13 @@ where
 		let signed = scheduling_proof
 			.as_ref()
 			.and_then(|proof| proof.signed_scheduling_info.as_ref());
-		let provides = bundle_provides(blocks.iter().map(|block| block.header().digest()));
-		let tail = ump_signal_tail(&upward_message_signals, signed, provides, &[], None)
-			.map_err(|error| tracing::error!(target: LOG_TARGET, %error, "Invalid UMP signals."))
+		let tail = bundle_provides(blocks.iter().map(|block| block.header().digest()))
+			.and_then(|provides| {
+				ump_signal_tail(&upward_message_signals, signed, provides, &[], None)
+			})
+			.map_err(
+				|error| tracing::error!(target: LOG_TARGET, %error, "Invalid candidate signals."),
+			)
 			.ok()?;
 		upward_messages.extend(tail);
 

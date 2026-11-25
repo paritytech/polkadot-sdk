@@ -3,6 +3,7 @@ doc:
 - audience: Runtime Dev
   description: |-
     Emits `UMPSignal::Provides` from SPMS header digests and synthesizes `UMPSignal::Requires` in `validate_block` via `Config::ConsumptionRecordSource` and `ParachainBlockData::V3`.
+    A malformed or duplicate SPMS item in any header invalidates the candidate.
     Signed scheduling overrides now reject duplicate scheduling signals. Collators skip candidates whose signals fail validation.
     Candidates keep the runtime's scheduling-signal order.
     Well-formed signals from the standard pallet produce the same bytes on submission and resubmission as before.

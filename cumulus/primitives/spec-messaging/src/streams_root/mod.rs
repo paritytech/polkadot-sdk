@@ -209,15 +209,20 @@ pub fn gen_stream_proof(
 /// sender deposits: one `SPMS` item with a 32-byte payload. Foreign readers must agree on
 /// validity, so nothing else is accepted.
 pub fn read_streams_root(digest: &Digest) -> Option<StreamsRoot> {
+	try_read_streams_root(digest).ok().flatten()
+}
+
+/// An absent `SPMS` item is valid. A duplicate or malformed item is an error.
+pub fn try_read_streams_root(digest: &Digest) -> Result<Option<StreamsRoot>, codec::Error> {
 	let mut items = digest.logs().iter().filter_map(|item| match item {
 		DigestItem::Consensus(id, payload) if *id == SPMS_ENGINE_ID => Some(payload),
 		_ => None,
 	});
-	let payload = items.next()?;
+	let Some(payload) = items.next() else { return Ok(None) };
 	if items.next().is_some() {
-		return None;
+		return Err("Duplicate SPMS digest".into());
 	}
-	StreamsRoot::decode_all(&mut &payload[..]).ok()
+	StreamsRoot::decode_all(&mut &payload[..]).map(Some)
 }
 
 /// Fold a membership proof for `(stream, stream_root)` up to the `StreamsRoot` it implies, or
