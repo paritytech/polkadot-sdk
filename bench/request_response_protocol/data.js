@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795608770036,
+  "lastUpdate": 1795620324925,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -150983,6 +150983,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2765785708,
             "range": "± 17670228",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0bd30416e7934a99719fa568d0153e267e8723b4",
+          "message": "[JAM] Upstream AURA Authorizer (#13453)\n\nAdds the `cumulus-aura-authorizer` crate from the parachain-service\nrepository.\n\n### Assumptions\n\nSome things need clarification in the spec before this can be finalized:\n\n- https://github.com/paritytech/parachain-service/issues/57\n- https://github.com/paritytech/parachain-service/issues/58\n- https://github.com/paritytech/parachain-service/issues/59\n- https://github.com/paritytech/parachain-service/issues/60\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2026-11-25T14:03:52Z",
+          "tree_id": "7a8c9cdc7776dd746ef04a2d342e2914480261ae",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0bd30416e7934a99719fa568d0153e267e8723b4"
+        },
+        "date": 1795620279321,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19113061,
+            "range": "± 132524",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19712951,
+            "range": "± 98167",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21146153,
+            "range": "± 238607",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25252233,
+            "range": "± 154028",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56927227,
+            "range": "± 706395",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 353842526,
+            "range": "± 2798938",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2858606874,
+            "range": "± 237988268",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16800597,
+            "range": "± 147043",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16802054,
+            "range": "± 109501",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17433557,
+            "range": "± 249778",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22112515,
+            "range": "± 144945",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61002446,
+            "range": "± 456749",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 358622468,
+            "range": "± 4742397",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2823268608,
+            "range": "± 29922349",
             "unit": "ns/iter"
           }
         ]
