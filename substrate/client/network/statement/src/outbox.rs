@@ -60,23 +60,17 @@ impl PropagationOutboxes {
 		self.outboxes.get(who)
 	}
 
-	/// Append `hashes` to the peer's outbox and return how many queued hashes overflow dropped.
-	pub(crate) fn push(&mut self, who: PeerId, hashes: Vec<Hash>) -> usize {
+	/// Append `hashes` to the peer's outbox until it is full and return how many it refused.
+	pub(crate) fn push(&mut self, who: PeerId, mut hashes: Vec<Hash>) -> usize {
+		let outbox = self.outboxes.entry(who).or_default();
+		let offered = hashes.len();
+		hashes.truncate(MAX_PROPAGATION_OUTBOX_LEN.saturating_sub(outbox.len()));
 		if let Some(store) = &self.store {
 			store.hold_statements(&hashes);
 		}
-		let outbox = self.outboxes.entry(who).or_default();
-		let mut dropped = Vec::new();
-		for hash in hashes {
-			// The freshest statements are the ones still worth delivering, so an
-			// overflowing outbox drops from the front.
-			if outbox.len() == MAX_PROPAGATION_OUTBOX_LEN {
-				dropped.extend(outbox.pop_front());
-			}
-			outbox.push_back(hash);
-		}
-		self.release(&dropped);
-		dropped.len()
+		let refused = offered - hashes.len();
+		outbox.extend(hashes);
+		refused
 	}
 
 	/// The peer's queued hashes as one slice, oldest first.
