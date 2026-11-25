@@ -1788,8 +1788,8 @@ pub mod pallet {
 		/// other authority can manage a PSM.
 		///
 		/// [`AdminOrigin::AssetOwner`] matches a signed caller that owns `internal_asset` now.
-		/// The owner is read at most once, and only for a signed caller when a role is
-		/// [`AdminOrigin::AssetOwner`].
+		/// The owner is read at most once, and only when an [`AdminOrigin::AssetOwner`] role is
+		/// evaluated for a signed caller.
 		///
 		/// We reject the `None` origin to prevent the block author from controlling PSMs with an
 		/// admin set to `None`.
@@ -1801,20 +1801,14 @@ pub mod pallet {
 			let admin = PsmAdmin::<T>::get(internal_asset).ok_or(Error::<T>::PsmNotFound)?;
 			let caller = <T as Config>::RuntimeOrigin::from(origin).into_caller();
 			ensure!(!caller.is_none(), DispatchError::BadOrigin);
-			let follows_owner =
-				|role: &AdminOrigin<T::PalletsOrigin>| matches!(role, AdminOrigin::AssetOwner);
-			let caller_is_owner = match caller.as_signed() {
-				Some(who)
-					if follows_owner(&admin.full_admin) ||
-						follows_owner(&admin.emergency_admin) =>
-				{
-					T::Fungibles::owner(internal_asset.clone()).as_ref() == Some(who)
-				},
-				_ => false,
-			};
-			let holds = |role: &AdminOrigin<T::PalletsOrigin>| match role {
-				AdminOrigin::AssetOwner => caller_is_owner,
+			let mut caller_is_owner = None;
+			let mut holds = |role: &AdminOrigin<T::PalletsOrigin>| match role {
 				AdminOrigin::Origin(origin) => *origin == caller,
+				AdminOrigin::AssetOwner => *caller_is_owner.get_or_insert_with(|| {
+					caller.as_signed().is_some_and(|who| {
+						T::Fungibles::owner(internal_asset.clone()).as_ref() == Some(who)
+					})
+				}),
 			};
 			let level = if holds(&admin.full_admin) {
 				PsmManagerLevel::Full
