@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795605405961,
+  "lastUpdate": 1795609517151,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "22e63b740b6943b4e39a3c6b779ca9e5408ca00c",
-          "message": "Update runner names in reusable-preflight.yml (#11832)",
-          "timestamp": "2026-05-18T11:39:36Z",
-          "tree_id": "0613011f07f943311055bbced989cf794fe2d1fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/22e63b740b6943b4e39a3c6b779ca9e5408ca00c"
-        },
-        "date": 1779109330990,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13090902813333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.382689000633333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.865597903666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adel.prokurov@parity.io",
+            "name": "playX18",
+            "username": "playX18"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ae307bbef1da9ecae3dff57267fa2ce95b6110f",
+          "message": "statement-store: disconnect a peer that reads statements too slowly (#13863)\n\n# Description\n\nA peer that reads statements too slowly is disconnected, and its\nreconnect gets a fresh initial sync. Before, such a peer kept its\nconnection and lost statements: a full outbox dropped its oldest hashes,\nand a failed send was never retried.\n\nA peer is disconnected, with no reputation change when:\n- its last two statement sends timed out, or\n- its propagation outbox overflowed\n\nFull outbox now refuses new hashes instead of dropping oldest, and the\npeer stays connected if the delay is ours: no chunk in flight, or an\ninitial sync running. The refused hashes are counted in\n`substrate_sync_statement_undelivered_total{reason=\"outbox_full\"}`.\n\nEach disconnect is logged with the peer id and counted in\n`substrate_sync_statement_stalled_peers_disconnected`.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13635.",
+          "timestamp": "2026-11-25T10:52:27Z",
+          "tree_id": "d721646cb2499dd71398594d016338f78840cc38",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4ae307bbef1da9ecae3dff57267fa2ce95b6110f"
+        },
+        "date": 1795609479507,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.894399691133335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13463098669999998,
             "unit": "seconds"
           }
         ]
