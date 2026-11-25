@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795555560548,
+  "lastUpdate": 1795598577957,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "mail@skunert.dev",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1a69ade75f028819b70652a25a7ba4e9fa427076",
-          "message": "Allow calling `runtime_api` with supplied storage overlay (#12084)\n\nThis change allows users of `client.runtime_api()` to provide a custom\noverlay with changes before calling further runtime APIs.\n\nConcrete use-case is a future PR where I receive changes from a block\nexecution and want to call a runtime API on the post state of said block\neven before it hits the DB.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-18T06:58:50Z",
-          "tree_id": "5b6762465fa61cf0616b79cdbfd015eee7e3cbf7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1a69ade75f028819b70652a25a7ba4e9fa427076"
-        },
-        "date": 1779092517884,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13186740200000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.065114992700002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.704980657566669,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "79002163+gab8i@users.noreply.github.com",
+            "name": "gab",
+            "username": "gab8i"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d8d0859a9c72aeeeabcd4d1f53ae5e28b810e943",
+          "message": "fix: fork-tree, do not overflow the stack on deep trees (#13804)\n\n### Description\n\nA `ForkTree` gains one level for every node imported on top of another,\nuntil an ancestor is finalized. `Clone`, `PartialEq`, `Debug`, `Encode`,\n`Decode` and `Drop` were derived, so each used one stack frame per\nlevel.\n\nWhen finality stalled on Paseo, the BABE epoch tree grew by one level\nper epoch. BABE clones that tree at every epoch boundary, and the clone\noverflowed the 2 MiB worker stack, crashing the node. Encoding, decoding\nat startup and dropping the tree recurse the same way.\n\n### Integration\n\nThe roots and the children of a node are now held in a wrapper, `Nodes`,\naround `Vec<Node>`. It implements the six traits with a heap-allocated\nstack utilizing a pre-order listing of the nodes.\n\n- `Node` and `ForkTree` keep their derives on top of it.\n- The encoding is unchanged. \n\nCloses #12062",
+          "timestamp": "2026-11-25T07:48:02Z",
+          "tree_id": "4a8eb99dcb20189cc120c22462dd390ad9c76a6a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d8d0859a9c72aeeeabcd4d1f53ae5e28b810e943"
+        },
+        "date": 1795598538750,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1238077035,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.905007345166666,
             "unit": "seconds"
           }
         ]
