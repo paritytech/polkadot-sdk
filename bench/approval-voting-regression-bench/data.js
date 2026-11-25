@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795598670118,
+  "lastUpdate": 1795601329042,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "37865735+clangenb@users.noreply.github.com",
-            "name": "clangenb",
-            "username": "clangenb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f726bad79dbdb3db8be374cbdb272fe319b5d78c",
-          "message": "emulated integration tests cleanup (#12003)\n\nThis PR mostly consists of minor refactoring like introducing/centralize\nsome helpers and replacing some inlined functions with these helpers.\n\n---------\n\nCo-authored-by: clangenb <clangenb@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-05-14T07:02:34Z",
-          "tree_id": "37e2fa5221c8658d3aa080d2ab6bca210d449023",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f726bad79dbdb3db8be374cbdb272fe319b5d78c"
-        },
-        "date": 1778747147067,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52940.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63629.11,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.634842515689945,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000022746789999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8050817221099966,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.354077196812863,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005049658240000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.86952539969,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000020890790000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8047237330299494,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.85390937644,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000022746789999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4929292448599982,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8036233813199996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000020890790000000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-0",
             "value": 2.77756956186,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cd193d6c301eb1d76dfa9a92620bd2bf7dc79946",
+          "message": "pallet-revive: align eth tx decoding and reuse decoded call in dry runs (#13947)\n\nSmall consistency and performance change: Align the decoding of\nsubstrate calls via Eth TX with the decoding of\n`generic::UncheckedExtrinsic`. Also reuse the decoded call in the dry\nrun.\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-25T08:31:09Z",
+          "tree_id": "475b6ed61b8097d932969c7a3f73e862c2e32f16",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cd193d6c301eb1d76dfa9a92620bd2bf7dc79946"
+        },
+        "date": 1795601287187,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63580.18000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7340375273000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8384605423800047,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001821781,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.215961680149999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000019429230000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001821781,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7444039103,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.780132646570001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.73147999462,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000019429230000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.381744118049995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00570294093,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.543778261012895,
             "unit": "seconds"
           }
         ]
