@@ -55,7 +55,7 @@ use std::{
 };
 
 use crate::{
-	partial_state::DbPartialState,
+	partial_state::{DbPartialState, PartialStateStatus},
 	pinned_blocks_cache::PinnedBlocksCache,
 	record_stats_state::RecordStatsState,
 	stats::StateUsageStats,
@@ -2071,7 +2071,7 @@ impl<Block: BlockT> Backend<Block> {
 			if operation.synced_state {
 				// The target block is in, the attempt is over.
 				if let Some(status) = &mut partial_state_status {
-					**status = None;
+					**status = PartialStateStatus::Inactive;
 				}
 			}
 			let header_metadata = CachedHeaderMetadata::from(&header);

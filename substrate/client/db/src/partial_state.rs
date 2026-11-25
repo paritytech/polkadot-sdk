@@ -72,6 +72,8 @@ enum DiscardStep<H: hash_db::Hasher> {
 /// it at start.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum PartialStateStatus<Hash> {
+	/// Neither key is set: no state sync is recorded.
+	Inactive,
 	/// `TARGET` is set: chunks of this block are accepted.
 	Syncing { hash: Hash, state_root: Hash },
 	/// `DISCARDING` is set: the attempt was abandoned, or a discard failed after its first commit.
@@ -136,7 +138,7 @@ pub(crate) struct DbPartialState<Block: BlockT> {
 	storage: Arc<StorageDb<Block>>,
 	meta: Arc<RwLock<Meta<NumberFor<Block>, Block::Hash>>>,
 	state_usage: Arc<StateUsageStats>,
-	status: Mutex<Option<PartialStateStatus<Block::Hash>>>,
+	status: Mutex<PartialStateStatus<Block::Hash>>,
 }
 
 impl<Block: BlockT> DbPartialState<Block> {
@@ -145,7 +147,7 @@ impl<Block: BlockT> DbPartialState<Block> {
 		meta: Arc<RwLock<Meta<NumberFor<Block>, Block::Hash>>>,
 		state_usage: Arc<StateUsageStats>,
 	) -> Self {
-		Self { storage, meta, state_usage, status: Mutex::new(None) }
+		Self { storage, meta, state_usage, status: Mutex::new(PartialStateStatus::Inactive) }
 	}
 
 	/// Locks the status for a whole block commit, but only while a state sync may be in progress.
@@ -156,13 +158,14 @@ impl<Block: BlockT> DbPartialState<Block> {
 	pub(crate) fn maybe_lock(
 		&self,
 		operation: &BlockImportOperation<Block>,
-	) -> ClientResult<Option<MutexGuard<'_, Option<PartialStateStatus<Block::Hash>>>>> {
+	) -> ClientResult<Option<MutexGuard<'_, PartialStateStatus<Block::Hash>>>> {
 		// With finalized block state no sync is in progress, nor can one begin: nothing to lock.
 		if self.meta.read().finalized_state.is_some() {
 			return Ok(None);
 		}
 		let mut status = self.status.lock();
-		if operation.commit_state && !operation.synced_state && status.is_some() {
+		let recorded = *status != PartialStateStatus::Inactive;
+		if operation.commit_state && !operation.synced_state && recorded {
 			self.discard(&mut status)?;
 		}
 		Ok(Some(status))
@@ -175,12 +178,12 @@ impl<Block: BlockT> DbPartialState<Block> {
 	/// target: a synced state never lands on the wrong attempt, a discarded one, or none at all.
 	pub(crate) fn complete(
 		&self,
-		status: &Option<MutexGuard<'_, Option<PartialStateStatus<Block::Hash>>>>,
+		status: &Option<MutexGuard<'_, PartialStateStatus<Block::Hash>>>,
 		hash: Block::Hash,
 		transaction: &mut Transaction<DbHash>,
 	) -> ClientResult<()> {
-		match status.as_ref().and_then(|guard| **guard) {
-			Some(PartialStateStatus::Syncing { hash: target, .. }) if target == hash => {
+		match status.as_deref() {
+			Some(PartialStateStatus::Syncing { hash: target, .. }) if *target == hash => {
 				remove_partial_state_records(transaction);
 				Ok(())
 			},
@@ -195,7 +198,7 @@ impl<Block: BlockT> DbPartialState<Block> {
 				 being discarded"
 			))),
 			// Never happens: the mark presumes a completeness check, which needs the record.
-			None => Err(ClientError::Backend(format!(
+			Some(PartialStateStatus::Inactive) | None => Err(ClientError::Backend(format!(
 				"Block {hash:?} imports with a synced state while no state sync is recorded"
 			))),
 		}
@@ -220,15 +223,15 @@ impl<Block: BlockT> DbPartialState<Block> {
 			},
 			(Some(raw), None) => {
 				let state_root = decode_partial_state_marker::<Block>(&raw)?;
-				*status = Some(PartialStateStatus::Discarding { state_root });
+				*status = PartialStateStatus::Discarding { state_root };
 				self.discard(&mut status)?;
 			},
 			(None, Some(raw)) => {
 				let target = decode_partial_state_target::<Block>(&raw)?;
-				*status = Some(PartialStateStatus::Syncing {
+				*status = PartialStateStatus::Syncing {
 					hash: target.header.hash(),
 					state_root: *target.header.state_root(),
-				});
+				};
 			},
 			(None, None) => {},
 		}
@@ -259,26 +262,26 @@ impl<Block: BlockT> DbPartialState<Block> {
 
 	/// Fails unless `state_root` is the recorded target's. The caller holds the mutex.
 	fn ensure_syncing(
-		status: &Option<PartialStateStatus<Block::Hash>>,
+		status: &PartialStateStatus<Block::Hash>,
 		state_root: Block::Hash,
 	) -> ClientResult<()> {
 		match *status {
-			Some(PartialStateStatus::Syncing { state_root: recorded_root, .. })
+			PartialStateStatus::Syncing { state_root: recorded_root, .. }
 				if recorded_root == state_root =>
 			{
 				Ok(())
 			},
-			Some(PartialStateStatus::Syncing { hash, state_root: recorded_root }) => {
+			PartialStateStatus::Syncing { hash, state_root: recorded_root } => {
 				Err(ClientError::Backend(format!(
 					"State root {state_root:?} is not the recorded state sync target's: \
 					 {hash:?} has state root {recorded_root:?}"
 				)))
 			},
-			Some(PartialStateStatus::Discarding { .. }) => Err(ClientError::Backend(format!(
+			PartialStateStatus::Discarding { .. } => Err(ClientError::Backend(format!(
 				"State root {state_root:?} is not the recorded state sync target's: the recorded \
 				 attempt is being discarded"
 			))),
-			None => Err(ClientError::Backend(format!(
+			PartialStateStatus::Inactive => Err(ClientError::Backend(format!(
 				"State root {state_root:?} is not the recorded state sync target's: none is \
 				 recorded"
 			))),
@@ -290,7 +293,7 @@ impl<Block: BlockT> DbPartialState<Block> {
 	/// start or the next discard removes the nodes from the marker. The caller holds the mutex.
 	fn mark_discarding(
 		&self,
-		status: &mut Option<PartialStateStatus<Block::Hash>>,
+		status: &mut PartialStateStatus<Block::Hash>,
 		state_root: Block::Hash,
 	) -> ClientResult<()> {
 		let mut transaction = Transaction::new();
@@ -301,21 +304,22 @@ impl<Block: BlockT> DbPartialState<Block> {
 			state_root.encode(),
 		);
 		self.storage.db.commit(transaction)?;
-		*status = Some(PartialStateStatus::Discarding { state_root });
+		*status = PartialStateStatus::Discarding { state_root };
 		Ok(())
 	}
 
 	/// Removes the recorded attempt and its nodes from `STATE`. The caller holds the mutex and
-	/// passes its guard. On return the status matches the database again: `None` when everything
-	/// is gone, `Discarding` when a commit failed after the marker was written.
-	pub(crate) fn discard(
-		&self,
-		status: &mut Option<PartialStateStatus<Block::Hash>>,
-	) -> ClientResult<()> {
-		let Some(current) = *status else {
-			return Err(ClientError::Backend(
-				"Cannot discard the partial state: no state sync is recorded".into(),
-			));
+	/// passes its guard. On return the status matches the database again: `Inactive` when
+	/// everything is gone, `Discarding` when a commit failed after the marker was written.
+	pub(crate) fn discard(&self, status: &mut PartialStateStatus<Block::Hash>) -> ClientResult<()> {
+		let state_root = match *status {
+			PartialStateStatus::Inactive => {
+				return Err(ClientError::Backend(
+					"Cannot discard the partial state: no state sync is recorded".into(),
+				))
+			},
+			PartialStateStatus::Syncing { state_root, .. } |
+			PartialStateStatus::Discarding { state_root } => state_root,
 		};
 		// The walk below removes every node it reaches, so `STATE` must hold nothing but the
 		// attempt. That is always the case here, this is a sanity check.
@@ -327,20 +331,15 @@ impl<Block: BlockT> DbPartialState<Block> {
 					.into(),
 			));
 		}
-		let state_root = match current {
-			// The removal takes several commits, so a marker brackets it.
-			PartialStateStatus::Syncing { state_root, .. } => {
-				self.mark_discarding(status, state_root)?;
-				state_root
-			},
-			// The attempt was abandoned, or an earlier discard failed after writing the marker.
-			// We start from there.
-			PartialStateStatus::Discarding { state_root } => state_root,
-		};
+		// The removal takes several commits, so a marker brackets it. If the attempt was abandoned,
+		// or an earlier discard failed after writing the marker, it is there and we start from it.
+		if matches!(*status, PartialStateStatus::Syncing { .. }) {
+			self.mark_discarding(status, state_root)?;
+		}
 
 		let start = std::time::Instant::now();
 		let removed = self.remove_nodes(state_root)?;
-		*status = None;
+		*status = PartialStateStatus::Inactive;
 		if let Err(e) = self.storage.db.optimize_db_col(columns::STATE) {
 			warn!(target: "db", "Failed to optimize the database after discarding partial state: {e:?}");
 		}
@@ -465,7 +464,7 @@ impl<Block: BlockT> PartialStateStore<Block> for DbPartialState<Block> {
 				 delete the database to sync its state again."
 			)));
 		}
-		if status.is_some() {
+		if *status != PartialStateStatus::Inactive {
 			// A new target replaces an attempt that never completed. Its nodes go first, while
 			// `STATE` holds nothing else.
 			self.discard(&mut status)?;
@@ -475,8 +474,7 @@ impl<Block: BlockT> PartialStateStore<Block> for DbPartialState<Block> {
 		transaction.remove(columns::STATE_META, state_sync_keys::CURSOR);
 		transaction.remove(columns::STATE_META, state_sync_keys::DOWNLOADED);
 		self.storage.db.commit(transaction)?;
-		*status =
-			Some(PartialStateStatus::Syncing { hash, state_root: *target.header.state_root() });
+		*status = PartialStateStatus::Syncing { hash, state_root: *target.header.state_root() };
 		Ok(())
 	}
 
@@ -488,20 +486,20 @@ impl<Block: BlockT> PartialStateStore<Block> for DbPartialState<Block> {
 		// Held across the commit, so no discard can run in between.
 		let status = self.status.lock();
 		let state_root = match *status {
-			Some(PartialStateStatus::Syncing { hash, state_root }) if hash == block_hash => {
-				state_root
-			},
-			Some(PartialStateStatus::Syncing { hash, .. }) => {
+			PartialStateStatus::Syncing { hash, state_root } if hash == block_hash => state_root,
+			PartialStateStatus::Syncing { hash, .. } => {
 				return Err(refused(format!(
 					"does not belong to the recorded state sync target {hash:?}"
 				)))
 			},
-			Some(PartialStateStatus::Discarding { .. }) => {
+			PartialStateStatus::Discarding { .. } => {
 				return Err(refused(
 					"arrives while the recorded state sync is being discarded".into(),
 				))
 			},
-			None => return Err(refused("arrives while no state sync is recorded".into())),
+			PartialStateStatus::Inactive => {
+				return Err(refused("arrives while no state sync is recorded".into()))
+			},
 		};
 		if partial_state.state_root != state_root {
 			return Err(refused(format!(
@@ -593,11 +591,11 @@ impl<Block: BlockT> PartialStateStore<Block> for DbPartialState<Block> {
 	fn abandon(&self) -> ClientResult<()> {
 		let mut status = self.status.lock();
 		match *status {
-			Some(PartialStateStatus::Syncing { state_root, .. }) => {
+			PartialStateStatus::Syncing { state_root, .. } => {
 				self.mark_discarding(&mut status, state_root)
 			},
 			// Nothing is recorded, or the marker is already there.
-			Some(PartialStateStatus::Discarding { .. }) | None => Ok(()),
+			PartialStateStatus::Inactive | PartialStateStatus::Discarding { .. } => Ok(()),
 		}
 	}
 
