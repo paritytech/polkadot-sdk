@@ -88,7 +88,8 @@ module support {
       lastHeadRoot' = blockOut.headRoot,
       foreignServices' = blockOut.foreign,
       logPrunedBelow' =
-        blockOut.logPruned.foldl(logPrunedBelow, (m, pair) => m.put(pair._1, pair._2))
+        blockOut.logPruned.foldl(logPrunedBelow, (m, pair) => m.put(pair._1, pair._2)),
+      lastStepOkLogs' = blockOut.okLogs
     }
   }
 
@@ -146,7 +147,8 @@ module support {
       lastHeadRoot' = blockOut.headRoot,
       foreignServices' = blockOut.foreign,
       logPrunedBelow' =
-        blockOut.logPruned.foldl(logPrunedBelow, (m, pair) => m.put(pair._1, pair._2))
+        blockOut.logPruned.foldl(logPrunedBelow, (m, pair) => m.put(pair._1, pair._2)),
+      lastStepOkLogs' = blockOut.okLogs
     }
   }
 
@@ -189,7 +191,8 @@ module support {
     lastStepOutOfGas' = lastStepOutOfGas,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = foreignServices,
-    logPrunedBelow' = logPrunedBelow
+    logPrunedBelow' = logPrunedBelow,
+    lastStepOkLogs' = lastStepOkLogs
   }
 
   /// Force `svc` to a specific state so an invariant can be evaluated on it.
@@ -205,7 +208,8 @@ module support {
     lastStepOutOfGas' = lastStepOutOfGas,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = foreignServices,
-    logPrunedBelow' = logPrunedBelow
+    logPrunedBelow' = logPrunedBelow,
+    lastStepOkLogs' = lastStepOkLogs
   }
 
   /// Replace the other JAM services, e.g. to give a test counterparties.
@@ -221,7 +225,8 @@ module support {
     lastStepOutOfGas' = lastStepOutOfGas,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = fs,
-    logPrunedBelow' = logPrunedBelow
+    logPrunedBelow' = logPrunedBelow,
+    lastStepOkLogs' = lastStepOkLogs
   }
 
   /// Action wrapper for `markProvided`: flips a solicited preimage's `query`
@@ -238,7 +243,8 @@ module support {
     lastStepOutOfGas' = lastStepOutOfGas,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = foreignServices,
-    logPrunedBelow' = logPrunedBelow
+    logPrunedBelow' = logPrunedBelow,
+    lastStepOkLogs' = lastStepOkLogs
   }
 
   /// `incoming_transfers` at capacity, maximally fragmented: one transfer per
@@ -311,7 +317,8 @@ module support {
       lastStepOutOfGas' = Never,
       lastHeadRoot' = headCommitment(svc, out.state),
       foreignServices' = out.foreign,
-      logPrunedBelow' = logPrunedBelow
+      logPrunedBelow' = logPrunedBelow,
+      lastStepOkLogs' = if (isOkDigest(wr.result)) List(out.logs) else List()
     }
   }
 

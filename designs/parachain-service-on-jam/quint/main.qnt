@@ -71,7 +71,8 @@ module main {
     lastStepOutOfGas' = Never,
     lastHeadRoot' = None,
     foreignServices' = Map(),
-    logPrunedBelow' = Map()
+    logPrunedBelow' = Map(),
+    lastStepOkLogs' = List()
   }
 
   /// Due-assign budgets a step picks from: none, one, or every due assign, both
@@ -302,7 +303,8 @@ module main {
       lastStepOutOfGas' = outOfGas,
       lastHeadRoot' = blockOut.headRoot,
       foreignServices' = blockOut.foreign,
-      logPrunedBelow' = newLogPrunedBelow
+      logPrunedBelow' = newLogPrunedBelow,
+      lastStepOkLogs' = blockOut.okLogs
     }
   }
 
@@ -330,7 +332,8 @@ module main {
       // Touches no head, so the commitment is empty (checked by the invariant).
       lastHeadRoot' = None,
       foreignServices' = foreignServices,
-      logPrunedBelow' = logPrunedBelow
+      logPrunedBelow' = logPrunedBelow,
+      lastStepOkLogs' = List()
     }
   }
 
@@ -371,7 +374,8 @@ module main {
       // Touches no head, so the commitment is empty (checked by the invariant).
       lastHeadRoot' = None,
       foreignServices' = foreignServices,
-      logPrunedBelow' = logPrunedBelow
+      logPrunedBelow' = logPrunedBelow,
+      lastStepOkLogs' = List()
     }
   }
 
@@ -417,7 +421,8 @@ module main {
       lastStepOutOfGas' = Never,
       lastHeadRoot' = None,
       foreignServices' = Map(),
-      logPrunedBelow' = Map()
+      logPrunedBelow' = Map(),
+      lastStepOkLogs' = List()
     }
   }
 
@@ -559,7 +564,8 @@ module main {
       lastStepOutOfGas' = Never,
       lastHeadRoot' = out.headRoot,
       foreignServices' = out.foreign,
-      logPrunedBelow' = out.logPruned.foldl(logPrunedBelow, (m, pr) => m.put(pr._1, pr._2))
+      logPrunedBelow' = out.logPruned.foldl(logPrunedBelow, (m, pr) => m.put(pr._1, pr._2)),
+      lastStepOkLogs' = out.okLogs
     }
   }
 

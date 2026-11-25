@@ -101,7 +101,8 @@ module messaging_test {
       lastStepOutOfGas' = Never,
       lastHeadRoot' = out.headRoot,
       foreignServices' = out.foreign,
-      logPrunedBelow' = out.logPruned.foldl(logPrunedBelow, (m, pr) => m.put(pr._1, pr._2))
+      logPrunedBelow' = out.logPruned.foldl(logPrunedBelow, (m, pr) => m.put(pr._1, pr._2)),
+      lastStepOkLogs' = out.okLogs
     }
   }
 
@@ -1428,11 +1429,95 @@ module messaging_test {
           | Accumulate(ls) => ls.foldl(false, (x, l) => x or l == isb)
           | Refine(_) => false
         })),
-        continuityReplay.codeSets.get(q) == (0, c),
+        continuityReplay.codeSets.get(q) == (0, 0, c),
         activeCodeOf(svc, q) == Some({ vchBytes: 3 }),
         svc.paraInfo(q).headData == prevSvc.paraInfo(q).headData + 1,
         validation_code_matches_outcomes,
         parent_head_continuity
+      }))
+  }
+
+  /// Coretime's two candidates of one block for the tests below, both sending
+  /// their only message with `MessageId` 0: the first solicits a new preimage for
+  /// Coretime itself (`InsufficientStateBalance` when Coretime has no headroom),
+  /// the second sets para 3's code to code 4.
+  pure def twoCoretimeCandidates(s: ParachainServiceState): List[WorkResult] = {
+    val ct = CoretimeParaId
+    List(
+      refinedCandidate(s, ct,
+        List(Solicit({ target: Parachain(ct), hash: { hashBytes: 42 }, len: 1024 })),
+        StreamsRootUndeclared, RequiresRootsUndeclared),
+      chainedCandidate(s, ct, 1,
+        List(ParachainSetValidationCode({
+          paraId: MkParaId(3), newValidationCode: { hash: { vchBytes: 4 }, len: FixedCodeLen }
+        })),
+        StreamsRootUndeclared, RequiresRootsUndeclared))
+  }
+
+  /// Whether Coretime's log has `(0, InsufficientStateBalance)` at `now`.
+  def coretimeLoggedIsbZero: bool =
+    svc.paraLog(CoretimeParaId).foldl(false, (b, e) => b or (e._1 == now and match e._2 {
+      | Accumulate(ls) => ls.foldl(false, (x, l) => x or l == (0, InsufficientStateBalance))
+      | Refine(_) => false
+    }))
+
+  /// `validation_code_matches_outcomes` part 2 must tie the excusing log entry to
+  /// the candidate that sent the `parachain_set_validation_code`. Coretime's first
+  /// candidate logs `InsufficientStateBalance` for its own message 0; its second
+  /// sets para 3's code with its message 0 and succeeds. Forcing para 3 back to
+  /// code 3, as a model whose call silently did nothing would, must be caught:
+  /// the first candidate's entry does not excuse it.
+  run setValidationCodeOtherCandidateIsbTest = {
+    val ct = CoretimeParaId
+    val q = MkParaId(3)
+    initCleanUp
+      .then(applyBlock(List(refinedCandidate(svc, ct,
+        List(ParachainSetStateBalance({ paraId: ct, newTotal: svc.paraInfo(ct).usedStateBalance })),
+        StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(applyBlock(twoCoretimeCandidates(svc)))
+      .then(expectThat(all {
+        isOkDigest(lastStepWorkResults[0].result),
+        isOkDigest(lastStepWorkResults[1].result),
+        svc.paraInfo(ct).headData == prevSvc.paraInfo(ct).headData + 2,
+        coretimeLoggedIsbZero,
+        activeCodeOf(svc, q) == Some({ vchBytes: 4 }),
+        validation_code_matches_outcomes
+      }))
+      .then(setSvc({ ...svc, parachains: svc.parachains.put(q,
+        { ...svc.paraInfo(q), validationCode: prevSvc.paraInfo(q).validationCode }) }))
+      .then(expectThat(not(validation_code_matches_outcomes)))
+  }
+
+  /// The same block when para 3 has no headroom either: both candidates log
+  /// `(0, InsufficientStateBalance)`, para 3 keeps code 3, and that is excused.
+  /// Then with Coretime's first candidate logging nothing: only the second
+  /// candidate's entry exists, and it excuses para 3 keeping code 3.
+  run setValidationCodeBothCandidatesIsbTest = {
+    val ct = CoretimeParaId
+    val q = MkParaId(3)
+    initCleanUp
+      .then(applyBlock(List(refinedCandidate(svc, ct,
+        List(
+          ParachainSetStateBalance({ paraId: ct, newTotal: svc.paraInfo(ct).usedStateBalance }),
+          ParachainSetStateBalance({ paraId: q, newTotal: svc.paraInfo(q).usedStateBalance })),
+        StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(applyBlock(twoCoretimeCandidates(svc)))
+      .then(expectThat(all {
+        isOkDigest(lastStepWorkResults[1].result),
+        svc.paraInfo(ct).headData == prevSvc.paraInfo(ct).headData + 2,
+        svc.paraLog(ct).select(e => e._1 == now).length() == 2,
+        activeCodeOf(svc, q) == Some({ vchBytes: 3 }),
+        validation_code_matches_outcomes
+      }))
+      .then(applyBlock(List(
+        refinedCandidate(svc, ct, List(), StreamsRootUndeclared, RequiresRootsUndeclared),
+        twoCoretimeCandidates(svc)[1])))
+      .then(expectThat(all {
+        svc.paraInfo(ct).headData == prevSvc.paraInfo(ct).headData + 2,
+        svc.paraLog(ct).select(e => e._1 == now).length() == 1,
+        coretimeLoggedIsbZero,
+        activeCodeOf(svc, q) == Some({ vchBytes: 3 }),
+        validation_code_matches_outcomes
       }))
   }
 }

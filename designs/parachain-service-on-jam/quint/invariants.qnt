@@ -276,14 +276,15 @@ module invariants {
   /// target is neither removed nor re-registered; any other leaves the target
   /// missing from `codes`. `codeSets` records, for `validation_code_matches_outcomes`,
   /// the code each `parachain_set_validation_code` of an accepted Coretime
-  /// candidate set on a target that was tracked, live and not deregistering.
+  /// candidate set on a target that was tracked, live and not deregistering,
+  /// with the candidate's position in `stepOkDigests` and the call's `MessageId`.
   type ContinuityReplay = {
     heads: ParaId -> HeadData,
     rings: ParachainServiceState,
     unknown: Set[ParaId],
     frozen: Set[ParaId],
     codes: ParaId -> Option[ValidationCodeHash],
-    codeSets: ParaId -> (MessageId, ValidationCodeRef)
+    codeSets: ParaId -> (int, MessageId, ValidationCodeRef)
   }
 
   /// A candidate the replay cannot decide may have enacted, so its own para and
@@ -364,7 +365,8 @@ module invariants {
       .filter(q => codeChangeCount(okDigests, q) == 1 and
         svc.parachains.keys().contains(q) and not(reRegistered(okDigests, q)))
       .mapBy(q => svc.paraInfo(q).validationCode.optionMap(vc => vc.hash))
-    val replayed = okDigests.foldl(initial, (acc, ok) =>
+    val replayed = range(0, okDigests.length()).foldl(initial, (acc, i) => {
+      val ok = okDigests[i]
       if (acc.unknown.contains(ok.paraId)) markUnknown(acc, ok, settled)
       // Removed or deregistering: Accumulate drops it (step 1).
       else if (not(acc.heads.keys().contains(ok.paraId)) or acc.frozen.contains(ok.paraId)) acc
@@ -409,30 +411,30 @@ module invariants {
             | ParachainSetValidationCode(pl) =>
               if (ok.paraId == CoretimeParaId and a.heads.keys().contains(pl.paraId)
                   and not(a.frozen.contains(pl.paraId)))
-                { ...a, codeSets: a.codeSets.put(pl.paraId, (m._1, pl.newValidationCode)) }
+                { ...a, codeSets: a.codeSets.put(pl.paraId, (i, m._1, pl.newValidationCode)) }
               else a
             | _ => a
           })
-      })
+      }
+    })
     replayed
   }
 
-  /// Whether the `parachain_set_validation_code` sent with `id` may have been
-  /// rejected for lack of headroom (§6.3): Coretime's log got an
-  /// `InsufficientStateBalance` for `id` at `t`. That rejection is the only way
-  /// the call leaves a live, non-deregistering para's code unchanged. Another
-  /// Coretime candidate of the step may reuse `id`, which only makes the check
-  /// more permissive. The entry cannot have been evicted since (§5.1): eviction
-  /// takes the oldest entry first, so it would take more than
-  /// `ParachainLogByteCap` of entries at `t` alone, while a model block logs a
-  /// few hundred bytes. Pruning keeps it, as no lookup-anchor exceeds `t`.
+  /// Whether the `parachain_set_validation_code` sent with `id` by the `k`-th
+  /// `Ok` digest of the step was rejected for lack of headroom (§6.3): that
+  /// candidate's replay logged `InsufficientStateBalance` for `id`. That
+  /// rejection is the only way the call leaves a live, non-deregistering para's
+  /// code unchanged. Coretime's `parachain_log` alone cannot tell: its other
+  /// candidates of the step log at the same timeslot, may reuse `id`, and only
+  /// those that log anything append an entry, so neither the id nor the entry's
+  /// position names the candidate. `lastStepOkLogs` keeps each candidate's
+  /// events apart. Every generator sends a candidate's messages with distinct
+  /// ids, so `id` names the call within the candidate.
   pure def setCodeMayHaveFailed(
-    s: ParachainServiceState, t: Timeslot, id: MessageId
+    okLogs: List[List[(MessageId, AccumulateLog)]], k: int, id: MessageId
   ): bool =
-    s.paraLog(CoretimeParaId).foldl(false, (b, e) => b or (e._1 == t and match e._2 {
-      | Accumulate(ls) => ls.foldl(false, (x, l) => x or l == (id, InsufficientStateBalance))
-      | Refine(_) => false
-    }))
+    if (k >= okLogs.length()) false
+    else okLogs[k].foldl(false, (x, l) => x or l == (id, InsufficientStateBalance))
 
   /// Validation-code outcomes (§5.1 step 7, §5.2, §6.3), the code counterpart of
   /// `head_state_matches_outcomes`. Checked against the end-of-step state, so a
@@ -445,8 +447,8 @@ module invariants {
   ///    `Announcement` of the para in it (§5.2: an unannounced `Apply` is rejected).
   /// 2. A `parachain_set_validation_code(q, c)` that the replay accepted while q
   ///    was live and not deregistering, and that is q's only code change in the
-  ///    block, DID set q's code to c unless Coretime's log shows it hit
-  ///    `InsufficientStateBalance` (§6.3).
+  ///    block, DID set q's code to c unless its candidate logged
+  ///    `InsufficientStateBalance` for it (§6.3).
   val validation_code_matches_outcomes: bool = {
     // Guarded explicitly because Quint's `or` is eager (`svc.paraInfo` crashes
     // on a removed para).
@@ -460,7 +462,8 @@ module invariants {
       continuityReplay.codeSets.keys().forall(q => {
         val cs = continuityReplay.codeSets.get(q)
         if (not(tracked(q)) or codeChangeCount(stepOkDigests, q) != 1) true
-        else svc.paraInfo(q).validationCode == Some(cs._2) or setCodeMayHaveFailed(svc, now, cs._1)
+        else svc.paraInfo(q).validationCode == Some(cs._3) or
+          setCodeMayHaveFailed(lastStepOkLogs, cs._1, cs._2)
       })
     }
   }

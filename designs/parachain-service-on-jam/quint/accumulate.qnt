@@ -63,6 +63,10 @@ module accumulate {
     // processed a candidate (`None` for a JAM-substituted `WorkErr`). The
     // caller folds it into the ghost `logPrunedBelow`.
     logPruned: Option[(ParaId, Timeslot)],
+    // The events an accepted candidate's replay logged (§5.1 step 7), empty
+    // for any other package. The caller collects them into the ghost
+    // `lastStepOkLogs`.
+    logs: List[(MessageId, AccumulateLog)],
     foreign: ForeignServices
   }
 
@@ -76,6 +80,8 @@ module accumulate {
     // Each candidate-bearing package's `(para, lookup-anchor)` prune record, in
     // order; the caller folds these into the ghost `logPrunedBelow`.
     logPruned: List[(ParaId, Timeslot)],
+    // One per `Ok` digest accumulated, in order: the events its replay logged.
+    okLogs: List[List[(MessageId, AccumulateLog)]],
     foreign: ForeignServices,
     // The head-commitment root last `yield`ed (§5.5).
     headRoot: Option[MerkleHash]
@@ -92,6 +98,9 @@ module accumulate {
     assigns: List[AssignCall],
     // Each candidate-bearing package's `(para, lookup-anchor)` prune record.
     logPruned: List[(ParaId, Timeslot)],
+    // One per `Ok` digest whose effects were kept, in order: the events its
+    // replay logged (for `lastStepOkLogs`).
+    okLogs: List[List[(MessageId, AccumulateLog)]],
     // The block's work results, in order (for `lastStepWorkResults`).
     results: List[WorkResult],
     // The 32-byte value this accumulate invocation outputs: the head-commitment
@@ -513,6 +522,7 @@ module accumulate {
         jamDesignate: prevDesignate,
         jamAssigns: List(),
         logPruned: None,
+        logs: List(),
         foreign: foreign
       }
       | WorkOk(digest) =>
@@ -539,6 +549,7 @@ module accumulate {
               jamDesignate: prevDesignate,
               jamAssigns: List(),
               logPruned: None,
+              logs: List(),
               foreign: foreign
             }
           | Ok(ok) =>
@@ -556,6 +567,7 @@ module accumulate {
                 jamDesignate: prevDesignate,
                 jamAssigns: List(),
                 logPruned: None,
+                logs: List(),
                 foreign: foreign
               }
             } else {
@@ -577,6 +589,7 @@ module accumulate {
                 jamDesignate: acc.jamDesignate,
                 jamAssigns: acc.jamAssigns,
                 logPruned: Some((ok.paraId, ok.lookupAnchor)),
+                logs: acc.logs,
                 foreign: acc.foreign
               }
             }
@@ -605,6 +618,7 @@ module accumulate {
       jamDesignate: prevDesignate,
       jamAssigns: flushed.assigns,
       logPruned: List(),
+      okLogs: List(),
       foreign: foreign,
       headRoot: None
     }
@@ -623,6 +637,10 @@ module accumulate {
             jamDesignate: out.jamDesignate,
             jamAssigns: acc.jamAssigns.concat(out.jamAssigns),
             logPruned: acc.logPruned.appendOption(out.logPruned),
+            okLogs: match packages[i].result {
+              | WorkOk(d) => match d { | Ok(_) => acc.okLogs.append(out.logs) | Err(_) => acc.okLogs }
+              | WorkErr => acc.okLogs
+            },
             foreign: out.foreign,
             headRoot: acc.headRoot
           }
@@ -863,6 +881,7 @@ module accumulate {
       solicited: out.solicited,
       assigns: out.jamAssigns,
       logPruned: out.logPruned,
+      okLogs: out.okLogs,
       results: packages,
       headRoot: out.headRoot,
       foreign: out.foreign
