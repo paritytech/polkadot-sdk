@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795605496469,
+  "lastUpdate": 1795609640544,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f6fe95660ee9819b328aaa7ecb708a07ffff82a2",
-          "message": "ci: build container image for statement-store-tools (#12072)\n\nAdds a `statement-store-tools` docker image bundling the two binaries\nshipped by the `statement-latency-bench` crate\n(`statement-latency-bench` and `setup-allowances`) so the bench tools\ncan be run as a published image instead of building from source.",
-          "timestamp": "2026-05-15T10:59:45Z",
-          "tree_id": "cbf0fb78f19dc8518422b3c69ba5c5822f44c763",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6fe95660ee9819b328aaa7ecb708a07ffff82a2"
-        },
-        "date": 1778847890192,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52939.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63630.75,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.86943929144,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000022212230000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000021385079999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000022212230000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.509993437769968,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006253386570000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.7640893529499997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4480583664700024,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.278794503572874,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000021385079999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.78183597164,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8466769247700006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7936401439299631,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.460029792272519,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adel.prokurov@parity.io",
+            "name": "playX18",
+            "username": "playX18"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ae307bbef1da9ecae3dff57267fa2ce95b6110f",
+          "message": "statement-store: disconnect a peer that reads statements too slowly (#13863)\n\n# Description\n\nA peer that reads statements too slowly is disconnected, and its\nreconnect gets a fresh initial sync. Before, such a peer kept its\nconnection and lost statements: a full outbox dropped its oldest hashes,\nand a failed send was never retried.\n\nA peer is disconnected, with no reputation change when:\n- its last two statement sends timed out, or\n- its propagation outbox overflowed\n\nFull outbox now refuses new hashes instead of dropping oldest, and the\npeer stays connected if the delay is ours: no chunk in flight, or an\ninitial sync running. The refused hashes are counted in\n`substrate_sync_statement_undelivered_total{reason=\"outbox_full\"}`.\n\nEach disconnect is logged with the peer id and counted in\n`substrate_sync_statement_stalled_peers_disconnected`.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13635.",
+          "timestamp": "2026-11-25T10:52:27Z",
+          "tree_id": "d721646cb2499dd71398594d016338f78840cc38",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4ae307bbef1da9ecae3dff57267fa2ce95b6110f"
+        },
+        "date": 1795609603860,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52946.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63568.780000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0052639250499999955,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001893366,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.561650715113039,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7329675577300003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.706954789460003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001893366,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7820884813599943,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018344,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018344,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7072201092,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7561616120599983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3765625636999888,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.067219038559987,
             "unit": "seconds"
           }
         ]
