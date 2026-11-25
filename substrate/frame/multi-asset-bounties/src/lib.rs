@@ -1326,7 +1326,8 @@ pub mod pallet {
 						},
 					};
 
-					let weight = <T as Config<I>>::WeightInfo::check_status_funding();
+					let weight = <T as Config<I>>::WeightInfo::check_status_funding()
+						.saturating_add(Self::funding_expiry_weight(child_bounty_id));
 
 					(new_status, weight)
 				},
@@ -1474,7 +1475,8 @@ pub mod pallet {
 							payment_status: new_payment_status,
 							curator: curator.clone(),
 						},
-						<T as Config<I>>::WeightInfo::retry_payment_funding(),
+						<T as Config<I>>::WeightInfo::retry_payment_funding()
+							.saturating_add(Self::funding_expiry_weight(child_bounty_id)),
 					)
 				},
 				RefundAttempted { ref curator, ref payment_status } => {
@@ -1843,6 +1845,19 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		FundingExpiresAt::<T, I>::get(parent_bounty_id).map_or(false, |expires_at| {
 			T::BlockNumberProvider::current_block_number() >= expires_at
 		})
+	}
+
+	/// Weight of the funding expiry bookkeeping on the parent-bounty path of `check_status` and
+	/// `retry_payment`: at most two reads (`FundingExpiresAt` and the block number provider) and
+	/// one write (`FundingExpiresAt`).
+	///
+	/// The `*_funding` benchmarks measure the child-bounty path, which never touches the expiry.
+	fn funding_expiry_weight(child_bounty_id: Option<BountyIndex>) -> Weight {
+		if child_bounty_id.is_none() {
+			T::DbWeight::get().reads_writes(2, 1)
+		} else {
+			Weight::zero()
+		}
 	}
 
 	/// Initiates payment from the funding source to the child-/bounty account/location.

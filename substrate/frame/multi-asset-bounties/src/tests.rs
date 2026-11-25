@@ -419,6 +419,40 @@ fn async_funding_failure_starts_retry_period_once() {
 }
 
 #[test]
+fn parent_funding_weight_counts_funding_expiry() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: a parent bounty whose funding payment failed once.
+		let s = create_parent_bounty();
+		let bounty_account =
+			Bounties::bounty_account(s.parent_bounty_id, s.asset_kind).expect("conversion failed");
+		reject_payment(bounty_account, s.parent_bounty_id, None, s.asset_kind, s.value);
+		let expiry = <Test as frame_system::Config>::DbWeight::get().reads_writes(2, 1);
+
+		// When: the funding payment is retried.
+		let post_info =
+			Bounties::retry_payment(RuntimeOrigin::signed(1), s.parent_bounty_id, None).unwrap();
+
+		// Then: the weight adds the expiry reads and write to the child-path benchmark.
+		assert_eq!(
+			post_info.actual_weight,
+			Some(<Test as Config>::WeightInfo::retry_payment_funding() + expiry)
+		);
+
+		// When: the retried payment is confirmed.
+		let payment_id = get_payment_id(s.parent_bounty_id, None).expect("no payment attempt");
+		set_status(payment_id, PaymentStatus::Success);
+		let post_info =
+			Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None).unwrap();
+
+		// Then: `check_status` adds them too.
+		assert_eq!(
+			post_info.actual_weight,
+			Some(<Test as Config>::WeightInfo::check_status_funding() + expiry)
+		);
+	});
+}
+
+#[test]
 fn close_bounty_removes_parent_bounty_with_failed_funding() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Given: a bounty whose funding payment failed.
