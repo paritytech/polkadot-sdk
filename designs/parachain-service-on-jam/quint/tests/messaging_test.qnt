@@ -1687,4 +1687,92 @@ module messaging_test {
         parent_head_continuity
       }))
   }
+
+  /// §5.2 / `validation_code_matches_outcomes` part 1: para 3 applies code `c`
+  /// with no standing announcement, then a chained candidate refined with `c`
+  /// announces `c`. The `Apply` is replayed first, so it is rejected: para 3
+  /// keeps code 3 and the chained candidate does not enact. A model that
+  /// switched to `c` anyway would enact the chained candidate too (forced
+  /// below, which `parent_head_continuity` accepts); the later announcement
+  /// must not excuse it.
+  run applyBeforeAnnouncementOutcomeTest = {
+    val q = MkParaId(3)
+    val h: ValidationCodeHash = { vchBytes: 107 }
+    val c = { hash: h, len: FixedCodeLen }
+    initCleanUp
+      .then(applyBlock(List(refinedCandidate(svc, q,
+        List(Solicit({ target: Parachain(q), hash: h.asPreimage(), len: FixedCodeLen })),
+        StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(provide(h.asPreimage(), FixedCodeLen))
+      .then(applyBlock(List(
+        refinedCandidate(svc, q,
+          List(RequestCodeUpgrade({ hash: h, len: FixedCodeLen, phase: Apply })),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        chainedCandidateOnCode(svc, q, 1, h,
+          List(RequestCodeUpgrade({ hash: h, len: FixedCodeLen, phase: Announcement })),
+          StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(all {
+        isOkDigest(lastStepWorkResults[0].result),
+        isOkDigest(lastStepWorkResults[1].result),
+        svc.paraInfo(q).headData == prevSvc.paraInfo(q).headData + 1,
+        svc.paraInfo(q).announcedUpgrade == None,
+        activeCodeOf(svc, q) == Some({ vchBytes: 3 }),
+        validation_code_matches_outcomes
+      }))
+      .then(setSvc({ ...svc, parachains: svc.parachains.put(q, {
+        ...svc.paraInfo(q),
+        validationCode: Some(c),
+        headData: prevSvc.paraInfo(q).headData + 2
+      }) }))
+      .then(expectThat(and {
+        not(validation_code_matches_outcomes),
+        parent_head_continuity
+      }))
+  }
+
+  /// §5.2 / `validation_code_matches_outcomes` part 1: para 3 enters the block
+  /// with `c` announced, announces `d` in one candidate (replacing `c`), then
+  /// applies `c` in a chained candidate. The `Apply` no longer matches the
+  /// standing announcement, so it is rejected and para 3 keeps code 3; a model
+  /// that switched to `c` (forced below) must not be excused by the superseded
+  /// announcement.
+  run applySupersededAnnouncementOutcomeTest = {
+    val q = MkParaId(3)
+    val hc: ValidationCodeHash = { vchBytes: 107 }
+    val hd: ValidationCodeHash = { vchBytes: 108 }
+    val c = { hash: hc, len: FixedCodeLen }
+    val d = { hash: hd, len: FixedCodeLen }
+    initCleanUp
+      .then(applyBlock(List(refinedCandidate(svc, q,
+        List(
+          Solicit({ target: Parachain(q), hash: hc.asPreimage(), len: FixedCodeLen }),
+          Solicit({ target: Parachain(q), hash: hd.asPreimage(), len: FixedCodeLen })),
+        StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(provide(hc.asPreimage(), FixedCodeLen))
+      .then(provide(hd.asPreimage(), FixedCodeLen))
+      .then(applyBlock(List(refinedCandidate(svc, q,
+        List(RequestCodeUpgrade({ hash: hc, len: FixedCodeLen, phase: Announcement })),
+        StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(svc.paraInfo(q).announcedUpgrade == Some(c)))
+      .then(applyBlock(List(
+        refinedCandidate(svc, q,
+          List(RequestCodeUpgrade({ hash: hd, len: FixedCodeLen, phase: Announcement })),
+          StreamsRootUndeclared, RequiresRootsUndeclared),
+        chainedCandidate(svc, q, 1,
+          List(RequestCodeUpgrade({ hash: hc, len: FixedCodeLen, phase: Apply })),
+          StreamsRootUndeclared, RequiresRootsUndeclared))))
+      .then(expectThat(all {
+        isOkDigest(lastStepWorkResults[0].result),
+        isOkDigest(lastStepWorkResults[1].result),
+        svc.paraInfo(q).headData == prevSvc.paraInfo(q).headData + 2,
+        svc.paraInfo(q).announcedUpgrade == Some(d),
+        activeCodeOf(svc, q) == Some({ vchBytes: 3 }),
+        validation_code_matches_outcomes
+      }))
+      .then(setSvc(withForcedCode(svc, q, c)))
+      .then(expectThat(and {
+        not(validation_code_matches_outcomes),
+        parent_head_continuity
+      }))
+  }
 }

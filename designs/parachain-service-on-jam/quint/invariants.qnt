@@ -280,7 +280,8 @@ module invariants {
   /// with the candidate's position in `stepOkDigests` and the call's `MessageId`.
   /// `enacted` holds the positions in `stepOkDigests` of the candidates the
   /// replay accepted or could not decide (`markUnknown`): every other candidate
-  /// was rejected, so none of its upward messages took effect.
+  /// was rejected, so none of its upward messages took effect. `undecided`
+  /// holds the subset it could not decide.
   type ContinuityReplay = {
     heads: ParaId -> HeadData,
     rings: ParachainServiceState,
@@ -288,7 +289,8 @@ module invariants {
     frozen: Set[ParaId],
     codes: ParaId -> Option[ValidationCodeHash],
     codeSets: ParaId -> (int, MessageId, ValidationCodeRef),
-    enacted: Set[int]
+    enacted: Set[int],
+    undecided: Set[int]
   }
 
   /// A candidate the replay cannot decide may have enacted, so its own para and
@@ -313,7 +315,8 @@ module invariants {
       heads: dropHeads(acc.heads, touched.exclude(kept)),
       unknown: acc.unknown.union(touched),
       codes: recode(acc.codes, codeTargets(ok), settled),
-      enacted: acc.enacted.union(Set(i))
+      enacted: acc.enacted.union(Set(i)),
+      undecided: acc.undecided.union(Set(i))
     }
   }
 
@@ -370,7 +373,8 @@ module invariants {
       codes: prevSvc.parachains.keys().mapBy(p =>
         prevSvc.paraInfo(p).validationCode.optionMap(vc => vc.hash)),
       codeSets: Map(),
-      enacted: Set()
+      enacted: Set(),
+      undecided: Set()
     }
     val settled = okDigests.foldl(Set(), (t, ok) => t.union(codeTargets(ok)))
       .filter(q => codeChangeCount(okDigests, q) == 1 and
@@ -455,10 +459,11 @@ module invariants {
   /// 1. Every change of a para's `validation_code` over the step (para neither
   ///    removed nor re-registered) is claimed by an `Ok` digest the replay did
   ///    not reject (`enacted`): a Coretime `parachain_set_validation_code` of
-  ///    exactly that code, or an `Apply` from the para itself of code that was
-  ///    announced, before the step or by an `Announcement` of the para in such a
-  ///    digest (§5.2: an unannounced `Apply` is rejected). A rejected candidate's
-  ///    messages never take effect, so its claims and announcements do not count.
+  ///    exactly that code, or an `Apply` from the para itself of the code that
+  ///    was its standing announcement when the `Apply` was replayed
+  ///    (`appliableCodes`; §5.2: an `Apply` of any other code is rejected). A
+  ///    rejected candidate's messages never take effect, so its claims and
+  ///    announcements do not count.
   /// 2. A `parachain_set_validation_code(q, c)` that the replay accepted while q
   ///    was live and not deregistering, and that is q's only code change in the
   ///    block, DID set q's code to c unless its candidate logged
@@ -474,7 +479,9 @@ module invariants {
       prevSvc.parachains.keys().forall(p =>
         if (not(tracked(p))) true
         else svc.paraInfo(p).validationCode == prevSvc.paraInfo(p).validationCode
-          or codeChangeClaimed(enactedOks, prevSvc, p, svc.paraInfo(p).validationCode)),
+          or codeChangeClaimed(enactedOks, p, svc.paraInfo(p).validationCode,
+            appliableCodes(stepOkDigests, continuityReplay, lastStepOkLogs, prevSvc, p,
+              svc.paraInfo(p).isDeregistering))),
       continuityReplay.codeSets.keys().forall(q => {
         val cs = continuityReplay.codeSets.get(q)
         if (not(tracked(q)) or codeChangeCount(stepOkDigests, q) != 1) true
@@ -485,35 +492,78 @@ module invariants {
   }
 
   /// Whether one of the `Ok` digests `oks` claims `p`'s new code `vc` (see
-  /// `validation_code_matches_outcomes`, part 1).
+  /// `validation_code_matches_outcomes`, part 1). `applied` is
+  /// `appliableCodes` for `p`.
   pure def codeChangeClaimed(
-    oks: List[ParachainWorkDigestOk], prev: ParachainServiceState, p: ParaId,
-    vc: Option[ValidationCodeRef]
+    oks: List[ParachainWorkDigestOk], p: ParaId, vc: Option[ValidationCodeRef],
+    applied: Set[ValidationCodeRef]
   ): bool =
-    oks.foldl(false, (b, ok) => ok.upwardMessages.foldl(b, (x, m) => match m._2 {
-      | ParachainSetValidationCode(pl) =>
-        x or (ok.paraId == CoretimeParaId and pl.paraId == p and vc == Some(pl.newValidationCode))
-      | RequestCodeUpgrade(pl) => match pl.phase {
-          | Apply =>
-            val c = { hash: pl.hash, len: pl.len }
-            x or (ok.paraId == p and vc == Some(c) and
-              (prev.paraInfo(p).announcedUpgrade == Some(c) or announcedIn(oks, p, c)))
-          | Announcement => x
-        }
-      | _ => x
-    }))
+    applied.exists(c => vc == Some(c)) or
+      oks.foldl(false, (b, ok) => ok.upwardMessages.foldl(b, (x, m) => match m._2 {
+        | ParachainSetValidationCode(pl) =>
+          x or (ok.paraId == CoretimeParaId and pl.paraId == p and vc == Some(pl.newValidationCode))
+        | _ => x
+      }))
 
-  /// Whether one of `p`'s `Ok` digests announces `c` (§5.2).
-  pure def announcedIn(
-    oks: List[ParachainWorkDigestOk], p: ParaId, c: ValidationCodeRef
+  /// Whether candidate `k` of the step logged `entry` for its message `id`.
+  pure def loggedFor(
+    okLogs: List[List[(MessageId, AccumulateLog)]], k: int, id: MessageId, entry: AccumulateLog
   ): bool =
-    oks.foldl(false, (b, ok) => ok.upwardMessages.foldl(b, (x, m) => match m._2 {
-      | RequestCodeUpgrade(pl) => match pl.phase {
-          | Announcement => x or (ok.paraId == p and { hash: pl.hash, len: pl.len } == c)
-          | Apply => x
-        }
-      | _ => x
-    }))
+    if (k >= okLogs.length()) false
+    else okLogs[k].foldl(false, (x, l) => x or l == (id, entry))
+
+  /// The codes `c` of the `Apply`s of `c` by `p` replayed while `c` may have been
+  /// `p`'s standing announcement (§5.2), for a `p` live throughout the step (not
+  /// removed or re-registered). Walks the enacted and undecided digests in order
+  /// over the possible `(announcedUpgrade, validationCode)` pairs of `p`, starting
+  /// from the pre-step ones:
+  /// - an `Announcement` of `c` by `p` sets the announcement to `c`, unless `c` is
+  ///   the active code (a no-op) or it logged `CodeUpgradeNotAvailable`;
+  /// - an `Apply` of the announced code by `p` switches to it and clears the
+  ///   announcement; any other `Apply` changes nothing;
+  /// - Coretime's `parachain_set_validation_code(p, c)` switches to `c` and clears
+  ///   the announcement unless it logged `InsufficientStateBalance`. When `p` is
+  ///   deregistering at the end of the step it may already have been when the
+  ///   call ran, a no-op, so both outcomes are kept.
+  /// An undecided candidate may not have enacted, so the pairs before it are kept
+  /// alongside those after it.
+  pure def appliableCodes(
+    oks: List[ParachainWorkDigestOk], replay: ContinuityReplay,
+    okLogs: List[List[(MessageId, AccumulateLog)]], prev: ParachainServiceState, p: ParaId,
+    deregisteringAtEnd: bool
+  ): Set[ValidationCodeRef] = {
+    val pi = prev.paraInfo(p)
+    val walked = range(0, oks.length()).foldl(
+      (Set((pi.announcedUpgrade, pi.validationCode)), Set()), (acc, i) =>
+      if (not(replay.enacted.contains(i))) acc
+      else {
+        val ok = oks[i]
+        val after = ok.upwardMessages.foldl(acc, (st, m) => match m._2 {
+          | RequestCodeUpgrade(pl) =>
+            val c = { hash: pl.hash, len: pl.len }
+            if (ok.paraId != p) st
+            else match pl.phase {
+              | Announcement =>
+                if (loggedFor(okLogs, i, m._1, CodeUpgradeNotAvailable)) st
+                else (st._1.map(x => if (x._2 == Some(c)) x else (Some(c), x._2)), st._2)
+              | Apply =>
+                (st._1.map(x => if (x._1 == Some(c)) (None, Some(c)) else x),
+                  if (st._1.exists(x => x._1 == Some(c))) st._2.union(Set(c)) else st._2)
+            }
+          | ParachainSetValidationCode(pl) =>
+            if (ok.paraId != CoretimeParaId or pl.paraId != p or
+                loggedFor(okLogs, i, m._1, InsufficientStateBalance)) st
+            else {
+              val switched = (None, Some(pl.newValidationCode))
+              if (deregisteringAtEnd) (st._1.union(Set(switched)), st._2)
+              else (Set(switched), st._2)
+            }
+          | _ => st
+        })
+        if (replay.undecided.contains(i)) (acc._1.union(after._1), after._2) else after
+      })
+    walked._2
+  }
 
   /// The maintained `count` equals the transfers actually held across the buckets.
   /// It is incremented on append and decremented on clean-up rather than derived,
