@@ -107,18 +107,30 @@ module refine {
   pure def upwardMessagesTotalSize(msgs: List[(MessageId, UpwardMessage)]): int =
     msgs.foldl(0, (acc, m) => acc + sentMessageSize(m._1, m._2))
 
-  /// `true` iff the whole Refine output (`paraId` + `vch` + `parentHeadHash` +
-  /// worst-case `head_data` + upward messages) plus a worst-case auth trace
-  /// would exceed `MaxReportVarSize`. Backstop on the 48 KiB Gray Paper limit:
-  /// `MaxUpwardMessagesSize` is chosen so this cannot trigger, so it fires only
-  /// if that budget or one of the sizes below is ever set inconsistently.
-  pure def refineOutputExceedsBudget(msgs: List[(MessageId, UpwardMessage)]): bool = {
+  /// `true` iff the encoded `Ok` digest (§3.3) plus a worst-case auth trace
+  /// would exceed `MaxReportVarSize`: the enum tag, `paraId`, `vch`,
+  /// `parentHeadHash`, worst-case `head_data`, the upward messages,
+  /// `lookup_anchor` and both message-root fields (§4.1 step 7). Backstop on
+  /// the 48 KiB Gray Paper limit: `MaxUpwardMessagesSize` and
+  /// `MaxRequiresSources` are chosen so this cannot trigger, so it fires only
+  /// if one of them or one of the sizes below is ever set inconsistently.
+  pure def refineOutputExceedsBudget(
+    msgs: List[(MessageId, UpwardMessage)],
+    streamsRoot: Option[StreamsRoot],
+    requires: List[(ParaId, StreamsRoot)]
+  ): bool = {
     val headDataMax = 4098 // BoundedVec<u8, 4096> worst case
     val authTraceMax = 256
-    val resultBase = 4 + 32 + 32 + headDataMax
+    // Enum tag 1 + paraId 4 + vch 32 + parentHeadHash 32 + head data
+    // + lookup_anchor 4.
+    val resultBase = 1 + 4 + 32 + 32 + headDataMax + 4
     // The encoded blob does carry the vector's length prefix, 2 B worst case.
     val msgsSize = 2 + upwardMessagesTotalSize(msgs)
-    resultBase + msgsSize + authTraceMax > MaxReportVarSize
+    // Option<StreamsRoot>: 1 tag + 32 when Some.
+    val streamsRootSize = match streamsRoot { | Some(_) => 33 | None => 1 }
+    // Vec<(ParaId 4, StreamsRoot 32)>: compact length + 36 per entry.
+    val requiresSize = compactLen(requires.length()) + 36 * requires.length()
+    resultBase + msgsSize + streamsRootSize + requiresSize + authTraceMax > MaxReportVarSize
   }
 
   // --- Abstract Refine ----------------------------------------------------
@@ -386,14 +398,15 @@ module refine {
             | Some(ph) =>
               match r.head {
                 | None => Some(refineErr(para_id, codeHash, InvalidHeadDeclaration))
-                | Some(nh) =>
-                  if (refineOutputExceedsBudget(r.msgs))
+                | Some(nh) => {
+                  val requires = match r.requiresRoots { | Some(l) => l | None => List() }
+                  if (refineOutputExceedsBudget(r.msgs, r.streamsRoot, requires))
                     Some(refineErr(para_id, codeHash, RefineOutputTooLarge))
                   else
                     Some(refineOk(
-                      para_id, codeHash, ph, nh, r.msgs, lookupAnchor, r.streamsRoot,
-                      match r.requiresRoots { | Some(l) => l | None => List() }
+                      para_id, codeHash, ph, nh, r.msgs, lookupAnchor, r.streamsRoot, requires
                     ))
+                }
               }
           }
       }

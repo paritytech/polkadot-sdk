@@ -191,6 +191,35 @@ module refine_test {
     }
   }
 
+  /// §4.1 step 7: the output budget counts the whole encoded `Ok` digest,
+  /// message roots included. The largest digest validation code can produce
+  /// (a full 40 KiB of upward messages, a streams root and
+  /// `MaxRequiresSources` requires entries) still fits, so Refine returns `Ok`.
+  /// Past the upward-message budget, which `send_upward_message` never lets
+  /// through, the roots alone tip the digest over 48 KiB.
+  run refineOutputBudgetCountsMessageRootsTest = {
+    val ct = CoretimeParaId
+    // One `RemoveKV` whose `(message_id, message)` pair encodes to `total`
+    // bytes: id 1 + tag 1 + paraId 4 + 4 B key length + the key.
+    pure def removeKVOfSize(total: int): List[(MessageId, UpwardMessage)] =
+      List((0, RemoveKV({ paraId: ct, key: range(0, total - 10) })))
+    val root: StreamsRoot = { streamsRootBytes: 1 }
+    val fullRequires = range(0, MaxRequiresSources).foldl(List(), (acc, i) =>
+      acc.append((MkParaId(100 + i), { streamsRootBytes: 2 + i })))
+    val atBudget = removeKVOfSize(MaxUpwardMessagesSize)
+    val pastBudget = removeKVOfSize(44000)
+    val worstCalls = wellFormedSentCalls(headHash(0), 1, atBudget).concat(List(
+      SetMessagesStreamsRoot(root), SetMessagesRequiresRoots(fullRequires)))
+    all {
+      assert(upwardMessagesTotalSize(atBudget) == MaxUpwardMessagesSize),
+      assert(not(refineOutputExceedsBudget(atBudget, Some(root), fullRequires))),
+      assert(isOkDigest(refineCalls(initialState, ct, worstCalls))),
+      assert(not(refineOutputExceedsBudget(pastBudget, None, List()))),
+      assert(refineOutputExceedsBudget(pastBudget, Some(root), fullRequires)),
+      init
+    }
+  }
+
   /// §4.3: Refine checks the `SetValidatorKeys` chunk length explicitly and
   /// rejects a chunk over `SetValidatorKeysMaxKeys` with `TooManyValidatorKeys`.
   /// Exactly 30 keys refines fine. The cap and the once-per-Refine rule are
