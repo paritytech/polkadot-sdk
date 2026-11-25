@@ -53,48 +53,16 @@ impl<Block, Client> Bitswap<Block, Client> {
 	}
 }
 
-<<<<<<< HEAD
-=======
-/// Parse a CID string and validate it (CIDv1, sha2-256 / blake2b-256 / keccak-256, 32-byte digest).
-fn parse_and_validate_cid(cid_str: &str) -> Result<H256, Error> {
-	if cid_str.len() > MAX_ENCODED_CID_LEN {
-		return Err(Error::InvalidCid(format!("encoded CID exceeds {MAX_ENCODED_CID_LEN} bytes")));
-	}
-	let cid = Cid::try_from(cid_str).map_err(|e| Error::InvalidCid(format!("{e}")))?;
-
-	// Only CIDv1 version is supported according to the spec.
-	if cid.version() != cid::Version::V1 {
-		return Err(Error::InvalidCid("Only CIDv1 is supported".into()));
-	}
-
-	let hash = cid.hash();
-
-	// Only sha2-256, blake2b-256 & keccak-256 hash functions are supported according to the spec.
-	if hash.code() != u64::from(Code::Sha2_256) &&
-		hash.code() != u64::from(Code::Blake2b256) &&
-		hash.code() != u64::from(Code::Keccak256)
-	{
-		return Err(Error::InvalidCid(
-			"Only sha2-256, blake2b-256 & keccak-256 hash functions are supported".into(),
-		));
-	}
-
-	// `H256::from_slice` panics below if the size is incorrect, so double-check the size is
-	// correct, even though we checked the hash function type above.
-	if hash.size() != 32 {
-		return Err(Error::InvalidCid("Only 256-bit hash digests are supported".into()));
-	}
-
-	Ok(H256::from_slice(hash.digest()))
-}
-
->>>>>>> e0e9af4 (Check CID length before acceptance on `bitswap_v1_get` (#13937))
 impl<Block, Client> BitswapApiServer for Bitswap<Block, Client>
 where
 	Block: BlockT,
 	Client: BlockBackend<Block> + Send + Sync + 'static,
 {
 	fn bitswap_v1_get(&self, cid_str: String) -> RpcResult<String> {
+		if cid_str.len() > MAX_ENCODED_CID_LEN {
+			let reason = format!("encoded CID exceeds {MAX_ENCODED_CID_LEN} bytes");
+			return Err(Error::InvalidCid(reason).into());
+		}
 		let cid = Cid::try_from(cid_str.as_str()).map_err(|e| Error::InvalidCid(format!("{e}")))?;
 
 		// Only CIDv1 version is supported according to the spec.
