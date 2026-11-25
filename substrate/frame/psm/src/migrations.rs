@@ -20,12 +20,14 @@
 //! Add [`v1::MigrateV0ToV1`] to the runtime's migrations to move from storage version 0 to 1.
 
 /// Storage version 0 to 1: the admin roles in [`crate::PsmAdmin`] become [`crate::AdminOrigin`].
+///
+/// Each stored role becomes [`crate::AdminOrigin::Origin`] of the same origin, so every PSM keeps
+/// its admins. A role follows the internal asset's owner only after the full admin sets it to
+/// [`crate::AdminOrigin::AssetOwner`].
 pub mod v1 {
 	use crate::{AdminOrigin, Config, Pallet, PsmAdmin, PsmAdminInfo};
 	use frame_support::{
-		migrations::VersionedMigration,
-		pallet_prelude::*,
-		traits::{fungibles::roles::Inspect as FungiblesRolesInspect, UncheckedOnRuntimeUpgrade},
+		migrations::VersionedMigration, pallet_prelude::*, traits::UncheckedOnRuntimeUpgrade,
 	};
 	#[cfg(feature = "try-runtime")]
 	use {alloc::vec::Vec, sp_runtime::TryRuntimeError};
@@ -57,128 +59,64 @@ pub mod v1 {
 		>;
 	}
 
-	/// The signed origin of the owner of `internal_asset`, if it has an owner.
-	fn owner_origin<T: Config>(internal_asset: &T::AssetId) -> Option<T::PalletsOrigin> {
-		T::Fungibles::owner(internal_asset.clone())
-			.map(|who| frame_system::RawOrigin::Signed(who).into())
-	}
-
-	/// The storage version 1 form of a storage version 0 admin role.
-	///
-	/// A role equal to the signed origin of the internal asset's current owner becomes
-	/// [`AdminOrigin::AssetOwner`], so it is held by whoever owns the asset. Every other role
-	/// becomes [`AdminOrigin::Origin`] of the same origin.
-	fn migrate_role<T: Config>(
-		role: T::PalletsOrigin,
-		owner: Option<&T::PalletsOrigin>,
-	) -> AdminOrigin<T::PalletsOrigin> {
-		if owner == Some(&role) {
-			AdminOrigin::AssetOwner
-		} else {
-			AdminOrigin::Origin(role)
-		}
-	}
-
-	/// The storage version 1 form of a storage version 0 [`PsmAdmin`] entry.
-	fn migrate_entry<T: Config>(
-		internal_asset: &T::AssetId,
-		old: v0::PsmAdminInfo<T>,
-	) -> PsmAdminInfo<T> {
-		let owner = owner_origin::<T>(internal_asset);
+	/// The storage version 1 form of a storage version 0 [`PsmAdmin`] entry: each role becomes
+	/// [`AdminOrigin::Origin`] of the same origin, and the deposit is kept.
+	fn migrate_entry<T: Config>(old: v0::PsmAdminInfo<T>) -> PsmAdminInfo<T> {
 		PsmAdminInfo {
-			full_admin: migrate_role::<T>(old.full_admin, owner.as_ref()),
-			emergency_admin: migrate_role::<T>(old.emergency_admin, owner.as_ref()),
+			full_admin: AdminOrigin::Origin(old.full_admin),
+			emergency_admin: AdminOrigin::Origin(old.emergency_admin),
 			deposit: old.deposit,
 		}
 	}
 
-	/// Rewrites every [`PsmAdmin`] entry with `migrate_role`. Use it through
+	/// Rewrites every [`PsmAdmin`] entry with `migrate_entry`. Use it through
 	/// [`MigrateV0ToV1`], which runs it once and bumps the storage version.
 	pub struct InnerMigrateV0ToV1<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config> UncheckedOnRuntimeUpgrade for InnerMigrateV0ToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut migrated: u64 = 0;
-			PsmAdmin::<T>::translate::<v0::PsmAdminInfo<T>, _>(|internal_asset, old| {
+			PsmAdmin::<T>::translate::<v0::PsmAdminInfo<T>, _>(|_, old| {
 				migrated = migrated.saturating_add(1);
-				Some(migrate_entry::<T>(&internal_asset, old))
+				Some(migrate_entry::<T>(old))
 			});
 			log::info!(target: "runtime::psm", "migrated {migrated} PsmAdmin entries to v1");
-			// Per entry: read it, read the asset owner, write it back. One more read ends the
-			// iteration.
-			T::DbWeight::get().reads_writes(migrated.saturating_mul(2).saturating_add(1), migrated)
+			// Per entry: read it and write it back. One more read ends the iteration.
+			T::DbWeight::get().reads_writes(migrated.saturating_add(1), migrated)
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			let before: Vec<PreUpgradeEntry<T>> = v0::PsmAdmin::<T>::iter()
-				.map(|(internal_asset, old)| PreUpgradeEntry {
-					owner: owner_origin::<T>(&internal_asset),
-					internal_asset,
-					full_admin: old.full_admin,
-					emergency_admin: old.emergency_admin,
-					deposit: old.deposit,
-				})
-				.collect();
+			let before: Vec<(T::AssetId, v0::PsmAdminInfo<T>)> =
+				v0::PsmAdmin::<T>::iter().collect();
 			Ok(before.encode())
 		}
 
-		/// Checks each entry against the migration policy, independently of how the migration
-		/// computes it: a role is [`AdminOrigin::AssetOwner`] exactly when it was the signed
-		/// origin of the owner recorded before the upgrade, and otherwise it is
-		/// [`AdminOrigin::Origin`] of the same origin.
+		/// Checks that every role is [`AdminOrigin::Origin`] of its value before the upgrade, and
+		/// that the deposits and the entry count are unchanged.
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
-			let before = Vec::<PreUpgradeEntry<T>>::decode(&mut &state[..])
+			let before = Vec::<(T::AssetId, v0::PsmAdminInfo<T>)>::decode(&mut &state[..])
 				.map_err(|_| "pre_upgrade state does not decode")?;
 			ensure!(
 				PsmAdmin::<T>::iter_keys().count() == before.len(),
 				"PsmAdmin entry count changed during the migration"
 			);
-			for entry in before {
-				let after = PsmAdmin::<T>::get(&entry.internal_asset)
+			for (internal_asset, old) in before {
+				let after = PsmAdmin::<T>::get(&internal_asset)
 					.ok_or("PsmAdmin entry missing or undecodable after the migration")?;
-				check_role::<T>(&entry.full_admin, &after.full_admin, entry.owner.as_ref())?;
-				check_role::<T>(
-					&entry.emergency_admin,
-					&after.emergency_admin,
-					entry.owner.as_ref(),
-				)?;
-				ensure!(after.deposit == entry.deposit, "PsmAdmin deposit changed");
+				ensure!(
+					after.full_admin == AdminOrigin::Origin(old.full_admin),
+					"full_admin is not Origin of its value before the upgrade"
+				);
+				ensure!(
+					after.emergency_admin == AdminOrigin::Origin(old.emergency_admin),
+					"emergency_admin is not Origin of its value before the upgrade"
+				);
+				ensure!(after.deposit == old.deposit, "PsmAdmin deposit changed");
 			}
 			Ok(())
 		}
-	}
-
-	/// A [`PsmAdmin`] entry and the internal asset's owner, recorded before the upgrade.
-	#[cfg(feature = "try-runtime")]
-	#[derive(Encode, Decode)]
-	struct PreUpgradeEntry<T: Config> {
-		internal_asset: T::AssetId,
-		owner: Option<T::PalletsOrigin>,
-		full_admin: T::PalletsOrigin,
-		emergency_admin: T::PalletsOrigin,
-		deposit: Option<(T::AccountId, T::Consideration)>,
-	}
-
-	/// Checks one migrated role against its storage version 0 value `old`.
-	#[cfg(feature = "try-runtime")]
-	fn check_role<T: Config>(
-		old: &T::PalletsOrigin,
-		new: &AdminOrigin<T::PalletsOrigin>,
-		owner: Option<&T::PalletsOrigin>,
-	) -> Result<(), TryRuntimeError> {
-		let was_owner = owner == Some(old);
-		match new {
-			AdminOrigin::AssetOwner => {
-				ensure!(was_owner, "AssetOwner role was not the owner's signed origin before")
-			},
-			AdminOrigin::Origin(origin) => {
-				ensure!(origin == old, "Origin role differs from its value before the upgrade");
-				ensure!(!was_owner, "the owner's signed origin stayed a fixed Origin role");
-			},
-		}
-		Ok(())
 	}
 
 	/// Migrates [`PsmAdmin`] from storage version 0 to 1 and sets the storage version to 1.
