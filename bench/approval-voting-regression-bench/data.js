@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795701067316,
+  "lastUpdate": 1795712848976,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e7d08d2c89aef53d78491e79827ccee8f5c3460b",
-          "message": "[acf] Move py/trsry drain migration from pallet to Westend RC (#12092)\n\n`pallet-accumulate-and-forward` is meant to be generic and reusable.\nHard-coding a one-shot drain of the legacy `py/trsry` from RC to AH\naccount belongs in a runtime, not the generic pallet.\nTo achieve the above:\n- Removed `DrainLegacyTreasuryToAccumulationAccount` and its tests from\n`pallet-accumulate-and-forward`.\n- Added a runtime-local equivalent inside `westend-runtime`'s migrations\nmodule, with the same semantics: drain into the local `ACF` accumulation\naccount, where the existing `Forwarder` teleports to AssetHub's central\nDAP on the next forwarding interval.\n- Dropped the migration from BridgeHub / Collectives / Coretime / People\nWestend: `py/trsry` is empty there, so no migration is needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-19T08:05:16Z",
-          "tree_id": "de207240d71e7c0ae57e9ff71c92be63ef860226",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e7d08d2c89aef53d78491e79827ccee8f5c3460b"
-        },
-        "date": 1779183815722,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52943.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63641.909999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000025342180000000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.829572397490002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.7667660405899985,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.45949558399,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.7726222226399995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8005371050299234,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002274409,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000025342180000000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.781750898289999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.416036832719922,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002274409,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005292584690000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.2636974980425935,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
             "value": 0.812588823199991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "12944c9666b91d876736e2509e4370db402877dc",
+          "message": "Staking: make slashing reward a function of report's delay (#13770)\n\nPartially addresses #13769.\n\n## Problem\n\nThe reporter of an offence is paid a flat `SlashRewardFraction` of the\nslash, however late the report arrives. Since an offender can report its\nown offences, it gains by holding them back: it stays in the validator\nset longer, piles up more offences (the reward grows with the total\nslash), and reports just before they become unreportable, which also\nleaves governance little time to cancel the slash.\n\n## Change\n\n`pallet-staking-async` gets a new config item, `type SlashRewardDecay:\nSlashRewardDecay`. It maps the delay of a report, in eras between the\noffence and its report, to the portion of the reward that is paid.\n\nThe unpaid part goes to `Config::Slash` with the rest of the slash. The\nslash itself is unchanged. No storage change or migration.\n\nCurves added as templates: \n- `()`: no decay, the previous behaviour. Default in\n`TestDefaultConfig`, and used by Asset Hub Westend.\n- `LinearDecay<Window>`: 100% for a report in the offence era, falling\nlinearly to 0% at `Window` eras late.\n- `HalvingDecay<HalfLife>`: the reward halves for every full `HalfLife`\neras of delay.\n\n## Suggested values for integrators\n\n- Polkadot: `type SlashRewardDecay = ();` (no decay)\n- Kusama: `type SlashRewardDecay =\npallet_staking_async::HalvingDecay<ConstU32<2>>;` (full reward for 2\neras, about 12h, then halving every 2 eras), or\n`LinearDecay<ConstU32<4>>`\n\n## What this does not do\n\n- Reports are accepted for as long as before. \n- Self-reporting still pays, only less when late. Dropping the reward\naltogether, or paying it only from the validator's own slash, were\ndiscussed below as alternatives. I am still against it, as if a\nvalidator self-reports, and their nominators are slashable (e.g Kusama),\nit is fair for the nominator to also lose money. Their job was to not\nelect a validator who would commit a slash and then self-report.\n- The second bug of #13769 (repeated offences across eras slashing more\nthan the exposure) is out of scope.\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-26T15:29:00Z",
+          "tree_id": "669d836279f29bd1da1d6b3ee3015335e9fc5158",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/12944c9666b91d876736e2509e4370db402877dc"
+        },
+        "date": 1795712810962,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63565.68000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.736784347869999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005124667070000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7541485995800032,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000019886440000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7803217281600014,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8560337170899907,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002128127,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.58688696912285,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002128127,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.255243462819996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.73084390753,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000019886440000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.39198649552,
             "unit": "seconds"
           }
         ]
