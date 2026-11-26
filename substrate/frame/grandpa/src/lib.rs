@@ -57,6 +57,7 @@ use sp_staking::{offence::OffenceReportSystem, SessionIndex};
 mod default_weights;
 mod equivocation;
 pub mod migrations;
+pub mod weights;
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod benchmarking;
@@ -92,6 +93,9 @@ pub mod pallet {
 
 		/// Weights for this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Session-related weight provider for GRANDPA operations.
+		type SessionWeightInfo: crate::weights::SessionWeightInfo;
 
 		/// Max Authorities in use
 		#[pallet::constant]
