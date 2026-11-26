@@ -20,12 +20,12 @@ codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
-sp-arithmetic.workspace = true
-sp-core.workspace = true
-sp-runtime.workspace = true
+sp-arithmetic = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
 
 [dev-dependencies]
-substrate-test-utils = { path = "../../test-utils" }
+substrate-test-utils = { workspace = true }
 
 [features]
 default = ["std"]

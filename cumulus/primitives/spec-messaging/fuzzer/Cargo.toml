@@ -47,14 +47,11 @@ path = "src/bin/inherent_decode.rs"
 [dependencies]
 arbitrary = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
-cumulus-primitives-spec-messaging.workspace = true
-cumulus-primitives-spec-messaging.default-features = true
+cumulus-primitives-spec-messaging = { workspace = true, default-features = true }
 honggfuzz = { workspace = true }
 mmr-lib = { workspace = true, default-features = true }
-polkadot-parachain-primitives.workspace = true
-polkadot-parachain-primitives.default-features = true
-sp-core.workspace = true
-sp-core.default-features = true
+polkadot-parachain-primitives = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
 
 [dev-dependencies]
 hex-literal = { workspace = true, default-features = true }

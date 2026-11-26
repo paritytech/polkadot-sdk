@@ -17,17 +17,19 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-frame-support.workspace = true
-frame-system.workspace = true
-pallet-validator-collators.workspace = true
-sp-runtime.workspace = true
-sp-staking.workspace = true
+
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-validator-collators = { workspace = true }
+sp-runtime = { workspace = true }
+sp-staking = { workspace = true }
+
 frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
-pallet-session = { default-features = true, path = "../../../substrate/frame/session" }
-sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
-sp-runtime = { default-features = true, path = "../../../substrate/primitives/runtime" }
+pallet-session = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -35,6 +37,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-validator-collators/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
@@ -52,6 +55,7 @@ std = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-session/try-runtime",
 	"pallet-validator-collators/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -22,31 +22,37 @@ impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 trie-db = { workspace = true }
+
+# Substrate
 frame-benchmarking = { optional = true, workspace = true }
-frame-support.workspace = true
-frame-system.workspace = true
-pallet-message-queue.workspace = true
-sp-api.workspace = true
-sp-consensus-babe.workspace = true
-sp-core.workspace = true
-sp-crypto-hashing.workspace = true
-sp-externalities.workspace = true
-sp-inherents.workspace = true
-sp-io.workspace = true
-sp-runtime.workspace = true
-sp-state-machine.workspace = true
-sp-std.workspace = true
-sp-trie.workspace = true
-sp-version.workspace = true
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-message-queue = { workspace = true }
+sp-api = { workspace = true }
+sp-consensus-babe = { workspace = true }
+sp-core = { workspace = true }
+sp-crypto-hashing = { workspace = true }
+sp-externalities = { workspace = true }
+sp-inherents = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-state-machine = { workspace = true }
+sp-std = { workspace = true }
+sp-trie = { workspace = true }
+sp-version = { workspace = true }
+
+# Polkadot
 polkadot-parachain-primitives = { features = ["wasm-api"], workspace = true }
-polkadot-primitives.workspace = true
-polkadot-runtime-parachains.workspace = true
-xcm.workspace = true
-xcm-builder.workspace = true
-cumulus-pallet-parachain-system-proc-macro.workspace = true
-cumulus-primitives-core.workspace = true
-cumulus-primitives-parachain-inherent.workspace = true
-cumulus-primitives-proof-size-hostfunction.workspace = true
+polkadot-primitives = { workspace = true }
+polkadot-runtime-parachains = { workspace = true }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+
+# Cumulus
+cumulus-pallet-parachain-system-proc-macro = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+cumulus-primitives-parachain-inherent = { workspace = true }
+cumulus-primitives-proof-size-hostfunction = { workspace = true }
 
 # For building docs
 docify = { workspace = true }
@@ -60,18 +66,18 @@ rstest = { workspace = true }
 trie-standardmap = { workspace = true }
 
 # Substrate
-frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
-sc-consensus = { path = "../../../substrate/client/consensus/common", default-features = false }
-sp-api = { default-features = true, path = "../../../substrate/primitives/api" }
-sp-consensus-slots = { default-features = true, path = "../../../substrate/primitives/consensus/slots" }
-sp-crypto-hashing = { default-features = true, path = "../../../substrate/primitives/crypto/hashing" }
-sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
-sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
-sp-version = { default-features = true, path = "../../../substrate/primitives/version" }
+frame-executive = { workspace = true }
+sc-consensus = { workspace = true }
+sp-api = { workspace = true, default-features = true }
+sp-consensus-slots = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+sp-version = { workspace = true, default-features = true }
 
 # Cumulus
-cumulus-test-client = { path = "../../test/client" }
-cumulus-test-relay-sproof-builder = { default-features = true, path = "../../test/relay-sproof-builder" }
+cumulus-test-client = { workspace = true }
+cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -84,6 +90,7 @@ std = [
 	"cumulus-primitives-proof-size-hostfunction/std",
 	"environmental/std",
 	"frame-benchmarking/std",
+	"frame-executive/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
@@ -102,6 +109,7 @@ std = [
 	"sp-runtime/std",
 	"sp-state-machine/std",
 	"sp-std/std",
+	"sp-tracing/std",
 	"sp-trie/std",
 	"trie-db/std",
 	"xcm-builder/std",
@@ -110,6 +118,7 @@ std = [
 
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-test-client/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
@@ -123,6 +132,7 @@ runtime-benchmarks = [
 ]
 
 try-runtime = [
+	"frame-executive/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-message-queue/try-runtime",

@@ -17,15 +17,17 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-frame-support.workspace = true
-frame-system.workspace = true
-sp-runtime.workspace = true
+
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-runtime = { workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
+
 frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
-sp-io = { default-features = true, path = "../../../primitives/io" }
-sp-runtime = { default-features = true, path = "../../../primitives/runtime" }
+sp-io = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

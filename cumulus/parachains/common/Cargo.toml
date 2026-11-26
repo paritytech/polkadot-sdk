@@ -19,34 +19,40 @@ codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 tracing = { workspace = true }
-frame-support.workspace = true
-frame-system.workspace = true
-pallet-assets.workspace = true
-pallet-authorship.workspace = true
-pallet-balances.workspace = true
-pallet-message-queue.workspace = true
-pallet-multi-asset-bounties.workspace = true
-pallet-session.workspace = true
-pallet-treasury.workspace = true
-sp-authority-discovery.workspace = true
-sp-consensus-aura.workspace = true
-sp-core.workspace = true
-sp-io.workspace = true
-sp-runtime.workspace = true
-pallet-xcm.workspace = true
-polkadot-primitives.workspace = true
-polkadot-runtime-common.workspace = true
-xcm.workspace = true
-xcm-executor.workspace = true
-cumulus-primitives-core.workspace = true
-cumulus-primitives-utility.workspace = true
-pallet-collator-selection.workspace = true
-parachain-info.workspace = true
-parachains-common-types.workspace = true
+
+# Substrate
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-authorship = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-message-queue = { workspace = true }
+pallet-multi-asset-bounties = { workspace = true }
+pallet-session = { workspace = true }
+pallet-treasury = { workspace = true }
+sp-authority-discovery = { workspace = true }
+sp-consensus-aura = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+
+# Polkadot
+pallet-xcm = { workspace = true }
+polkadot-primitives = { workspace = true }
+polkadot-runtime-common = { workspace = true }
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
+
+# Cumulus
+cumulus-primitives-core = { workspace = true }
+cumulus-primitives-utility = { workspace = true }
+pallet-collator-selection = { workspace = true }
+parachain-info = { workspace = true }
+parachains-common-types = { workspace = true }
 
 [dev-dependencies]
-frame-executive = { default-features = true, path = "../../../substrate/frame/executive" }
-sp-version = { default-features = true, path = "../../../substrate/primitives/version" }
+frame-executive = { workspace = true, default-features = true }
+sp-version = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -101,6 +107,7 @@ runtime-benchmarks = [
 ]
 
 try-runtime = [
+	"frame-executive/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-assets/try-runtime",

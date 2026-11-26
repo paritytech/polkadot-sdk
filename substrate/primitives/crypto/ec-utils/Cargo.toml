@@ -56,6 +56,7 @@ std = [
 	"ark-pallas-ext?/std",
 	"ark-pallas?/std",
 	"ark-scale?/std",
+	"ark-std/std",
 	"ark-vesta-ext?/std",
 	"ark-vesta?/std",
 	"sp-runtime-interface?/std",

@@ -23,7 +23,7 @@ codec = { features = [
 ], optional = true, workspace = true }
 const-crypto = { workspace = true }
 hex-literal = { workspace = true }
-pallet-revive-proc-macro.workspace = true
+pallet-revive-proc-macro = { workspace = true }
 scale-info = { features = ["derive"], optional = true, workspace = true }
 
 [target.'cfg(target_arch = "riscv64")'.dependencies]
