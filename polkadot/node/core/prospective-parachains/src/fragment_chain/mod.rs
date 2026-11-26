@@ -117,11 +117,14 @@
 //! Still, the expensive candidate data (CandidateCommitments) are wrapped in an `Arc` and shared
 //! across fragment chains of the same para on different active leaves.
 
+mod backed_chain;
 #[cfg(test)]
 mod tests;
 
+use backed_chain::{BackedChain, FragmentNode};
+
 use std::{
-	cmp::{min, Ordering},
+	cmp::Ordering,
 	collections::{
 		hash_map::{Entry, HashMap},
 		BTreeSet, HashSet, VecDeque,
@@ -154,14 +157,10 @@ pub(crate) enum Error {
 	MultiplePaths,
 	#[error("Attempting to directly introduce a Backed candidate. It should first be introduced as Seconded")]
 	IntroduceBackedCandidate,
-	#[error("Relay parent {0:?} of the candidate precedes the relay parent {1:?} of a pending availability candidate")]
-	RelayParentPrecedesCandidatePendingAvailability(Hash, Hash),
 	#[error("Candidate would introduce a fork with a pending availability candidate: {0:?}")]
 	ForkWithCandidatePendingAvailability(CandidateHash),
 	#[error("Fork selection rule favours another candidate: {0:?}")]
 	ForkChoiceRule(CandidateHash),
-	#[error("Could not find parent of the candidate")]
-	ParentCandidateNotFound,
 	#[error("Could not compute candidate constraints: {0:?}")]
 	ComputeConstraints(inclusion_emulator::ModificationError),
 	#[error("Candidate violates constraints: {0:?}")]
@@ -357,8 +356,6 @@ pub enum CandidateEntryError {
 /// - **scheduling_parent**: Determines scheduling context (backing group, core). Must be recent.
 ///
 /// For V1/V2 candidates, both fields contain the same value (relay_parent).
-///
-/// The fragment chain validates that relay_parent is within the allowed ancestry scope.
 pub(crate) struct CandidateEntry {
 	candidate_hash: CandidateHash,
 	parent_head_data_hash: Hash,
@@ -564,26 +561,6 @@ impl Scope {
 	}
 }
 
-#[cfg_attr(test, derive(Clone))]
-/// A node that is part of a `BackedChain`. It holds constraints based on the ancestors in the
-/// chain.
-struct FragmentNode {
-	fragment: Fragment,
-	candidate_hash: CandidateHash,
-	cumulative_modifications: ConstraintModifications,
-	parent_head_data_hash: Hash,
-	output_head_data_hash: Hash,
-	scheduling_parent: Hash,
-	para_id: ParaId,
-}
-
-impl FragmentNode {
-	/// Execution context: the relay parent determines PVD, constraints, and message state.
-	fn relay_parent(&self) -> Hash {
-		self.fragment.relay_parent().hash
-	}
-}
-
 impl From<&FragmentNode> for CandidateEntry {
 	fn from(node: &FragmentNode) -> Self {
 		// We don't need to perform the checks done in `CandidateEntry::new()`, since a
@@ -602,71 +579,6 @@ impl From<&FragmentNode> for CandidateEntry {
 			state: CandidateState::Backed,
 			para_id: node.para_id,
 		}
-	}
-}
-
-/// A candidate chain of backed/backable candidates.
-/// Includes the candidates pending availability and candidates which may be backed on-chain.
-#[derive(Default)]
-#[cfg_attr(test, derive(Clone))]
-struct BackedChain {
-	// Holds the candidate chain.
-	chain: Vec<FragmentNode>,
-	// Index from head data hash to the candidate hash with that head data as a parent.
-	// Only contains the candidates present in the `chain`.
-	by_parent_head: HashMap<Hash, CandidateHash>,
-	// Index from head data hash to the candidate hash outputting that head data.
-	// Only contains the candidates present in the `chain`.
-	by_output_head: HashMap<Hash, CandidateHash>,
-	// A set of the candidate hashes in the `chain`.
-	candidates: HashSet<CandidateHash>,
-}
-
-impl BackedChain {
-	fn push(&mut self, candidate: FragmentNode) {
-		self.candidates.insert(candidate.candidate_hash);
-		self.by_parent_head
-			.insert(candidate.parent_head_data_hash, candidate.candidate_hash);
-		self.by_output_head
-			.insert(candidate.output_head_data_hash, candidate.candidate_hash);
-		self.chain.push(candidate);
-	}
-
-	fn clear(&mut self) -> Vec<FragmentNode> {
-		self.by_parent_head.clear();
-		self.by_output_head.clear();
-		self.candidates.clear();
-
-		std::mem::take(&mut self.chain)
-	}
-
-	fn revert_to_parent_hash<'a>(
-		&'a mut self,
-		parent_head_data_hash: &Hash,
-	) -> impl Iterator<Item = FragmentNode> + 'a {
-		let mut found_index = None;
-		for index in 0..self.chain.len() {
-			let node = &self.chain[index];
-
-			if found_index.is_some() {
-				self.by_parent_head.remove(&node.parent_head_data_hash);
-				self.by_output_head.remove(&node.output_head_data_hash);
-				self.candidates.remove(&node.candidate_hash);
-			} else if &node.output_head_data_hash == parent_head_data_hash {
-				found_index = Some(index);
-			}
-		}
-
-		if let Some(index) = found_index {
-			self.chain.drain(min(index + 1, self.chain.len())..)
-		} else {
-			// Don't remove anything, but use drain to satisfy the compiler.
-			self.chain.drain(0..0)
-		}
-	}
-
-	fn contains(&self, hash: &CandidateHash) -> bool {
-		self.candidates.contains(hash)
 	}
 }
 
@@ -719,7 +631,7 @@ impl FragmentChain {
 	) {
 		let mut prev_storage = prev_fragment_chain.unconnected.clone();
 
-		for candidate in prev_fragment_chain.chain.chain.iter() {
+		for candidate in prev_fragment_chain.chain.iter() {
 			// If they used to be pending availability, don't add them. This is fine
 			// because:
 			// - if they still are pending availability, they have already been added to the new
@@ -755,7 +667,7 @@ impl FragmentChain {
 
 	/// Returns the number of candidates in the backable chain.
 	pub fn len(&self) -> usize {
-		self.chain.chain.len()
+		self.chain.len()
 	}
 
 	/// Returns the number of candidates in unconnected potential storage.
@@ -770,7 +682,7 @@ impl FragmentChain {
 
 	/// Return a vector of the chain's candidate hashes, in-order.
 	pub fn candidate_hashes(&self) -> Vec<CandidateHash> {
-		self.chain.chain.iter().map(|candidate| candidate.candidate_hash).collect()
+		self.chain.candidate_hashes()
 	}
 
 	/// Return a vector of the unconnected potential candidate hashes, in arbitrary order.
@@ -780,7 +692,7 @@ impl FragmentChain {
 
 	/// Return whether this candidate is backed in this chain or the unconnected storage.
 	pub fn is_candidate_backed(&self, hash: &CandidateHash) -> bool {
-		self.chain.candidates.contains(hash) ||
+		self.chain.contains(hash) ||
 			matches!(
 				self.unconnected.by_candidate_hash.get(hash),
 				Some(candidate) if candidate.state == CandidateState::Backed
@@ -794,7 +706,7 @@ impl FragmentChain {
 		newly_backed_candidate: &CandidateHash,
 	) {
 		// Already backed.
-		if self.chain.candidates.contains(newly_backed_candidate) {
+		if self.chain.contains(newly_backed_candidate) {
 			return;
 		}
 		let Some(parent_head_hash) = self
@@ -902,31 +814,9 @@ impl FragmentChain {
 			return Some(required_parent.clone());
 		}
 
-		// Cheaply check if the head data is in the chain.
-		let has_head_data_in_chain = self
-			.chain
-			.by_parent_head
-			.get(head_data_hash)
-			.or_else(|| self.chain.by_output_head.get(head_data_hash))
-			.is_some();
-
-		if has_head_data_in_chain {
-			return self.chain.chain.iter().find_map(|candidate| {
-				if &candidate.parent_head_data_hash == head_data_hash {
-					Some(
-						candidate
-							.fragment
-							.candidate()
-							.persisted_validation_data
-							.parent_head
-							.clone(),
-					)
-				} else if &candidate.output_head_data_hash == head_data_hash {
-					Some(candidate.fragment.candidate().commitments.head_data.clone())
-				} else {
-					None
-				}
-			});
+		// Check the backed chain.
+		if let Some(head_data) = self.chain.find_head_data(head_data_hash) {
+			return Some(head_data);
 		}
 
 		// Lastly, try getting the head data from the unconnected candidates.
@@ -951,10 +841,10 @@ impl FragmentChain {
 		}
 		let base_pos = self.find_ancestor_path(ancestors);
 
-		let actual_end_index = std::cmp::min(base_pos + (count as usize), self.chain.chain.len());
+		let actual_end_index = std::cmp::min(base_pos + (count as usize), self.chain.len());
 		let mut res = Vec::with_capacity(actual_end_index - base_pos);
 
-		for elem in &self.chain.chain[base_pos..actual_end_index] {
+		for elem in self.chain.slice(base_pos..actual_end_index) {
 			// Only supply candidates which are not yet pending availability. `ancestors` should
 			// have already contained them, but check just in case.
 			if self.scope.get_pending_availability(&elem.candidate_hash).is_none() {
@@ -974,11 +864,11 @@ impl FragmentChain {
 	// Stops when the ancestors are all used or when a node in the chain is not present in the
 	// ancestor set. Returns the index in the chain were the search stopped.
 	fn find_ancestor_path(&self, mut ancestors: Ancestors) -> usize {
-		if self.chain.chain.is_empty() {
+		if self.chain.is_empty() {
 			return 0;
 		}
 
-		for (index, candidate) in self.chain.chain.iter().enumerate() {
+		for (index, candidate) in self.chain.iter().enumerate() {
 			if !ancestors.remove(&candidate.candidate_hash) {
 				return index;
 			}
@@ -986,7 +876,7 @@ impl FragmentChain {
 
 		// This means that we found the entire chain in the ancestor set. There won't be anything
 		// left to back.
-		self.chain.chain.len()
+		self.chain.len()
 	}
 
 	// Return the earliest relay parent a new candidate can have in order to be added to the chain
@@ -996,18 +886,16 @@ impl FragmentChain {
 	// Execution context: the relay parent determines constraint progression
 	// (HRMP watermark, DMP advancement must not regress).
 	fn earliest_relay_parent_number(&self) -> BlockNumber {
-		if let Some(last_candidate) = self.chain.chain.last() {
+		if let Some(last_candidate) = self.chain.last() {
 			last_candidate.fragment.relay_parent().number
 		} else {
 			self.scope.base_constraints.min_relay_parent_number
 		}
 	}
 
-	// Return the earliest relay parent a potential candidate may have for it to ever be added to
-	// the chain. This is the relay parent of the last candidate pending availability or the
-	// earliest relay parent in scope.
-	fn earliest_relay_parent_pending_availability(&self) -> Option<&RelayParentInfo> {
-		self.chain.chain.iter().rev().find_map(|candidate| {
+	// Return the relay parent of the latest (newest) candidate pending availability in the chain.
+	fn latest_relay_parent_pending_availability(&self) -> Option<&RelayParentInfo> {
+		self.chain.iter().rev().find_map(|candidate| {
 			self.scope
 				.get_pending_availability(&candidate.candidate_hash)
 				.map(|c| &c.relay_parent)
@@ -1048,12 +936,12 @@ impl FragmentChain {
 	fn check_cycles_or_invalid_tree(&self, output_head_hash: &Hash) -> Result<(), Error> {
 		// this should catch a cycle where this candidate would point back to the parent of some
 		// candidate in the chain.
-		if self.chain.by_parent_head.contains_key(output_head_hash) {
+		if self.chain.candidate_by_parent_head(output_head_hash).is_some() {
 			return Err(Error::Cycle);
 		}
 
 		// multiple paths to the same state, which can't happen for a chain.
-		if self.chain.by_output_head.contains_key(output_head_hash) {
+		if self.chain.candidate_by_output_head(output_head_hash).is_some() {
 			return Err(Error::MultiplePaths);
 		}
 
@@ -1086,16 +974,16 @@ impl FragmentChain {
 		}
 
 		// If it's a fork with a backed candidate in the current chain.
-		if let Some(other_candidate) = self.chain.by_parent_head.get(&parent_head_hash) {
-			if self.scope().get_pending_availability(other_candidate).is_some() {
+		if let Some(other_candidate) = self.chain.candidate_by_parent_head(&parent_head_hash) {
+			if self.scope().get_pending_availability(&other_candidate).is_some() {
 				// Cannot accept a fork with a candidate pending availability.
-				return Err(Error::ForkWithCandidatePendingAvailability(*other_candidate));
+				return Err(Error::ForkWithCandidatePendingAvailability(other_candidate));
 			}
 
 			// If the candidate is backed and in the current chain, accept only a candidate
 			// according to the fork selection rule.
-			if fork_selection_rule(other_candidate, &candidate_hash) == Ordering::Less {
-				return Err(Error::ForkChoiceRule(*other_candidate));
+			if fork_selection_rule(&other_candidate, &candidate_hash) == Ordering::Less {
+				return Err(Error::ForkChoiceRule(other_candidate));
 			}
 		}
 
@@ -1109,56 +997,50 @@ impl FragmentChain {
 			return Ok(None);
 		};
 
-		// Check if the relay parent moved backwards from the latest candidate pending availability.
-		if let Some(earliest_rp_of_pending_availability) =
-			self.earliest_relay_parent_pending_availability()
-		{
-			if relay_parent.number < earliest_rp_of_pending_availability.number {
-				return Err(Error::RelayParentPrecedesCandidatePendingAvailability(
-					relay_parent.hash,
-					earliest_rp_of_pending_availability.hash,
-				));
-			}
-		}
-
 		// Try seeing if the parent candidate is in the current chain or if it is the latest
 		// included candidate. If so, get the constraints the candidate must satisfy.
-		let (is_unconnected, constraints, maybe_min_relay_parent_number) =
-			if let Some(parent_candidate) = self.chain.by_output_head.get(&parent_head_hash) {
-				let Some(parent_candidate) =
-					self.chain.chain.iter().find(|c| &c.candidate_hash == parent_candidate)
-				else {
-					// Should never really happen.
-					return Err(Error::ParentCandidateNotFound);
-				};
+		let parent_candidate_in_chain = self.chain.node_by_output_head(&parent_head_hash);
 
-				(
-					false,
-					self.scope
-						.base_constraints
-						.apply_modifications(&parent_candidate.cumulative_modifications)
-						.map_err(Error::ComputeConstraints)?,
-					// Execution context: relay parent block number for HRMP
-					// watermark and DMP constraint checking.
-					Some(parent_candidate.fragment.relay_parent().number),
-				)
-			} else if self.scope.base_constraints.required_parent.hash() == parent_head_hash {
-				// It builds on the latest included candidate.
-				(false, self.scope.base_constraints.clone(), None)
-			} else {
-				// The parent is not yet part of the chain
-				(true, self.scope.base_constraints.clone(), None)
-			};
+		let is_unconnected = parent_candidate_in_chain.is_none() &&
+			self.scope.base_constraints.required_parent.hash() != parent_head_hash;
 
-		// Execution context: check if the relay parent is in scope.
-		if relay_parent.number < constraints.min_relay_parent_number {
-			return Err(Error::RelayParentNotInScope(relay_parent.hash));
+		let constraints = if let Some(parent_candidate) = parent_candidate_in_chain {
+			self.scope
+				.base_constraints
+				.apply_modifications(&parent_candidate.cumulative_modifications)
+				.map_err(Error::ComputeConstraints)?
+		} else {
+			self.scope.base_constraints.clone()
+		};
+
+		// The relay parent must not move backwards. Compute the minimum allowed relay parent
+		// number from all committed state:
+		// 1. `constraints.min_relay_parent_number` — the runtime's lower bound. On runtimes that
+		//    return `para_most_recent_context`, this already accounts for the latest included or
+		//    pending-availability candidate's relay parent, making bullet 2 redundant. We keep
+		//    bullet 2 because not all runtimes have that change enacted yet.
+		// 2. The relay parent of the latest candidate pending availability — candidates on-chain
+		//    must not be preceded.
+		// 3. The relay parent of the parent candidate in the chain — a child must not regress from
+		//    its parent's execution context (HRMP watermark, DMP).
+		let mut min_relay_parent_number = constraints.min_relay_parent_number;
+
+		if let Some(latest_rp_of_pending_availability) =
+			self.latest_relay_parent_pending_availability()
+		{
+			min_relay_parent_number =
+				std::cmp::max(min_relay_parent_number, latest_rp_of_pending_availability.number);
 		}
 
-		if let Some(earliest_rp) = maybe_min_relay_parent_number {
-			if relay_parent.number < earliest_rp {
-				return Err(Error::RelayParentMovedBackwards);
-			}
+		if let Some(parent_candidate) = parent_candidate_in_chain {
+			min_relay_parent_number = std::cmp::max(
+				min_relay_parent_number,
+				parent_candidate.fragment.relay_parent().number,
+			);
+		}
+
+		if relay_parent.number < min_relay_parent_number {
+			return Err(Error::RelayParentMovedBackwards);
 		}
 
 		Ok(Some((is_unconnected, constraints)))
@@ -1234,12 +1116,12 @@ impl FragmentChain {
 		let mut queue: VecDeque<_> = if let Some(starting_point) = starting_point {
 			[(starting_point, true)].into_iter().collect()
 		} else {
-			if self.chain.chain.is_empty() {
+			if self.chain.is_empty() {
 				[(self.scope.base_constraints.required_parent.hash(), true)]
 					.into_iter()
 					.collect()
 			} else {
-				self.chain.chain.iter().map(|c| (c.parent_head_data_hash, true)).collect()
+				self.chain.iter().map(|c| (c.parent_head_data_hash, true)).collect()
 			}
 		};
 		// To make sure that cycles don't make us loop forever, keep track of the visited parent
@@ -1318,7 +1200,7 @@ impl FragmentChain {
 			scheduling_parent: Hash,
 		}
 
-		let mut cumulative_modifications = if let Some(last_candidate) = self.chain.chain.last() {
+		let mut cumulative_modifications = if let Some(last_candidate) = self.chain.last() {
 			last_candidate.cumulative_modifications.clone()
 		} else {
 			ConstraintModifications::identity()
@@ -1327,7 +1209,7 @@ impl FragmentChain {
 		let mut earliest_rp = self.earliest_relay_parent_number();
 
 		loop {
-			if self.chain.chain.len() >= self.scope.max_backable_len {
+			if self.chain.len() >= self.scope.max_backable_len {
 				break;
 			}
 
@@ -1386,7 +1268,7 @@ impl FragmentChain {
 					// when the parent is a pending availability candidate as well, but
 					// only other pending candidates can have a relay parent out of scope.
 					let min_relay_parent_number = pending
-						.map(|p: &PendingAvailability| match self.chain.chain.len() {
+						.map(|p: &PendingAvailability| match self.chain.len() {
 							0 => p.relay_parent.number,
 							_ => earliest_rp,
 						})
@@ -1500,7 +1382,16 @@ impl FragmentChain {
 				};
 
 				// Add the candidate to the chain now.
-				self.chain.push(node);
+				if let Err(node) = self.chain.push(node) {
+					gum::warn!(
+						target: LOG_TARGET,
+						candidate_hash = ?node.candidate_hash,
+						parent_head = ?node.parent_head_data_hash,
+						"Candidate does not form a chain with the previous candidate. \
+						 This is a bug.",
+					);
+					break;
+				}
 			} else {
 				break;
 			}
@@ -1508,17 +1399,17 @@ impl FragmentChain {
 	}
 
 	// Revert the backable chain so that the last candidate will be one outputting the given
-	// `parent_head_hash`. If the `parent_head_hash` is exactly the required parent of the base
+	// `output_head_hash`. If the `output_head_hash` is exactly the required parent of the base
 	// constraints (builds on the latest included candidate), revert the entire chain.
-	// Return false if we couldn't find the parent head hash.
-	fn revert_to(&mut self, parent_head_hash: &Hash) -> bool {
+	// Return false if we couldn't find the output head hash.
+	fn revert_to(&mut self, output_head_hash: &Hash) -> bool {
 		let mut removed_items = None;
-		if &self.scope.base_constraints.required_parent.hash() == parent_head_hash {
+		if &self.scope.base_constraints.required_parent.hash() == output_head_hash {
 			removed_items = Some(self.chain.clear());
 		}
 
-		if removed_items.is_none() && self.chain.by_output_head.contains_key(parent_head_hash) {
-			removed_items = Some(self.chain.revert_to_parent_hash(parent_head_hash).collect());
+		if removed_items.is_none() {
+			removed_items = self.chain.revert_to_output_head(output_head_hash);
 		}
 
 		let Some(removed_items) = removed_items else { return false };
