@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795701006718,
+  "lastUpdate": 1795712784796,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0d98056f335694d823786748d234867449fd6eac",
-          "message": "statement-store: remove statement-latency-bench crate (#12102)\n\nThe benchmarking tooling has moved to its own repository at\nhttps://github.com/paritytech/statement-store-tools.",
-          "timestamp": "2026-05-19T13:20:47Z",
-          "tree_id": "3ddaffd6bb47c126f6361a6b211cc70bd6540c9f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0d98056f335694d823786748d234867449fd6eac"
-        },
-        "date": 1779204681188,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010030336119999976,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1451293626733334,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02372274834666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007754515693333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14464328224,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "12944c9666b91d876736e2509e4370db402877dc",
+          "message": "Staking: make slashing reward a function of report's delay (#13770)\n\nPartially addresses #13769.\n\n## Problem\n\nThe reporter of an offence is paid a flat `SlashRewardFraction` of the\nslash, however late the report arrives. Since an offender can report its\nown offences, it gains by holding them back: it stays in the validator\nset longer, piles up more offences (the reward grows with the total\nslash), and reports just before they become unreportable, which also\nleaves governance little time to cancel the slash.\n\n## Change\n\n`pallet-staking-async` gets a new config item, `type SlashRewardDecay:\nSlashRewardDecay`. It maps the delay of a report, in eras between the\noffence and its report, to the portion of the reward that is paid.\n\nThe unpaid part goes to `Config::Slash` with the rest of the slash. The\nslash itself is unchanged. No storage change or migration.\n\nCurves added as templates: \n- `()`: no decay, the previous behaviour. Default in\n`TestDefaultConfig`, and used by Asset Hub Westend.\n- `LinearDecay<Window>`: 100% for a report in the offence era, falling\nlinearly to 0% at `Window` eras late.\n- `HalvingDecay<HalfLife>`: the reward halves for every full `HalfLife`\neras of delay.\n\n## Suggested values for integrators\n\n- Polkadot: `type SlashRewardDecay = ();` (no decay)\n- Kusama: `type SlashRewardDecay =\npallet_staking_async::HalvingDecay<ConstU32<2>>;` (full reward for 2\neras, about 12h, then halving every 2 eras), or\n`LinearDecay<ConstU32<4>>`\n\n## What this does not do\n\n- Reports are accepted for as long as before. \n- Self-reporting still pays, only less when late. Dropping the reward\naltogether, or paying it only from the validator's own slash, were\ndiscussed below as alternatives. I am still against it, as if a\nvalidator self-reports, and their nominators are slashable (e.g Kusama),\nit is fair for the nominator to also lose money. Their job was to not\nelect a validator who would commit a slash and then self-report.\n- The second bug of #13769 (repeated offences across eras slashing more\nthan the exposure) is out of scope.\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-26T15:29:00Z",
+          "tree_id": "669d836279f29bd1da1d6b3ee3015335e9fc5158",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/12944c9666b91d876736e2509e4370db402877dc"
+        },
+        "date": 1795712747180,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1456512264533334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007737901606666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02418648651333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010136286666666652,
             "unit": "seconds"
           }
         ]
