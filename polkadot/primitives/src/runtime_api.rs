@@ -348,6 +348,8 @@ sp_api::decl_runtime_apis! {
 		/// The newest `StreamsRoot` the para committed in an included candidate: the head of its
 		/// speculative-messaging provides window. `None` if it never provided or is offboarding or
 		/// offboarded. Receivers fetch and target lifts under it.
+		/// During offboarding, `Requires` can still match roots in the window until session cleanup
+		/// clears it.
 		#[api_version(17)]
 		fn newest_included_provides(para_id: ppp::Id) -> Option<StreamsRoot>;
 	}
