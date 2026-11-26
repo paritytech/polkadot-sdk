@@ -57,16 +57,18 @@ use futures::{
 use parking_lot::Mutex;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
-	error::Error as TxPoolApiError, ChainEvent, ImportNotificationStream,
-	MaintainedTransactionPool, PoolStatus, TransactionFor, TransactionPool, TransactionSource,
-	TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
+	error::{Error as TxPoolApiError, IntoPoolError},
+	ChainEvent, ImportNotificationStream, MaintainedTransactionPool, PoolStatus, TransactionFor,
+	TransactionPool, TransactionSource, TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, NumberFor},
-	transaction_validity::{TransactionTag as Tag, TransactionValidityError, ValidTransaction},
+	transaction_validity::{
+		InvalidTransaction, TransactionTag as Tag, TransactionValidityError, ValidTransaction,
+	},
 	Saturating,
 };
 use std::{
@@ -945,6 +947,16 @@ fn reduce_multiview_result<H, D, E>(input: HashMap<H, Vec<Result<D, E>>>) -> Vec
 		.unwrap_or_default()
 }
 
+/// Returns `true` if the error is [`InvalidTransaction::Future`] or [`InvalidTransaction::Stale`].
+fn is_future_or_stale<E: IntoPoolError>(error: E) -> bool {
+	matches!(
+		error.into_pool_error(),
+		Ok(TxPoolApiError::InvalidTransaction(
+			InvalidTransaction::Future | InvalidTransaction::Stale
+		))
+	)
+}
+
 #[async_trait]
 impl<ChainApi, Block> TransactionPool for ForkAwareTxPool<ChainApi, Block>
 where
@@ -1610,6 +1622,10 @@ where
 							?error,
 							"update_view_with_mempool: tx rejected from view"
 						);
+						if is_future_or_stale(error) {
+							// Lift the ban `submit_many` set, so the next view retries it.
+							view.pool.validated_pool().unban_if_validation(&tx_hash);
+						}
 						Err(tx_hash)
 					},
 				}

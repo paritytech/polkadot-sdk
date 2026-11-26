@@ -39,7 +39,9 @@ use sc_transaction_pool_api::{error::Error as TxPoolError, PoolStatus, Transacti
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
-	generic::BlockId, traits::Block as BlockT, transaction_validity::TransactionValidityError,
+	generic::BlockId,
+	traits::Block as BlockT,
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	SaturatedConversion,
 };
 use std::{sync::Arc, time::Instant};
@@ -66,6 +68,8 @@ impl ImportedStatus {
 pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
 	revalidated: IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
 	invalid_hashes: Vec<ExtrinsicHash<ChainApi>>,
+	/// `Future` or `Stale` transactions, removed without a ban or an `Invalid` event.
+	remove_from_view_hashes: Vec<ExtrinsicHash<ChainApi>>,
 }
 
 /// Used to obtain result from RevalidationWorker on View side.
@@ -452,6 +456,7 @@ where
 		// todo: revalidate future, remove if invalid [#5496]
 
 		let mut invalid_hashes = Vec::new();
+		let mut remove_from_view_hashes = Vec::new();
 		let mut revalidated = IndexMap::new();
 
 		let mut validation_results = vec![];
@@ -511,6 +516,17 @@ where
 		);
 		for (validation_result, tx_hash, tx) in validation_results {
 			match validation_result {
+				Ok(Err(TransactionValidityError::Invalid(
+					InvalidTransaction::Future | InvalidTransaction::Stale,
+				))) => {
+					trace!(
+						target: LOG_TARGET,
+						?tx_hash,
+						?validation_result,
+						"Removing from view. Transaction is not valid at this block"
+					);
+					remove_from_view_hashes.push(tx_hash);
+				},
 				Ok(Err(TransactionValidityError::Invalid(_))) => {
 					trace!(
 						target: LOG_TARGET,
@@ -560,7 +576,7 @@ where
 			"view::revalidate: sending revalidation result"
 		);
 		if let Err(error) = revalidation_result_tx
-			.send(RevalidationResult { invalid_hashes, revalidated })
+			.send(RevalidationResult { invalid_hashes, remove_from_view_hashes, revalidated })
 			.await
 		{
 			trace!(
@@ -652,6 +668,7 @@ where
 			let revalidated_len = revalidation_result.revalidated.len();
 			let validated_pool = self.pool.validated_pool();
 			validated_pool.remove_invalid(&revalidation_result.invalid_hashes);
+			self.remove_subtree(&revalidation_result.remove_from_view_hashes, false, |_, _| {});
 			if revalidated_len > 0 {
 				self.pool.resubmit(revalidation_result.revalidated);
 			}
@@ -672,6 +689,7 @@ where
 			debug!(
 				target: LOG_TARGET,
 				invalid = revalidation_result.invalid_hashes.len(),
+				removed_from_view = revalidation_result.remove_from_view_hashes.len(),
 				revalidated = revalidated_len,
 				at_hash = ?self.at.hash,
 				duration = ?start.elapsed(),

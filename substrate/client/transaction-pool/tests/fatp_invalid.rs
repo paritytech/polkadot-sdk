@@ -817,3 +817,76 @@ fn fatp_viewless_tx_dropped_if_invalid_at_finalized() {
 	// The user should have received the Invalid event.
 	assert_watcher_stream!(watcher, [TransactionStatus::Ready, TransactionStatus::Invalid]);
 }
+
+/// Submits a transaction at block 1 and makes it fail with `reason` from block 2 on.
+fn setup_tx_invalid_at_block_2(
+	reason: InvalidTransaction,
+) -> (
+	sc_transaction_pool::ForkAwareTxPool<TestApi, Block>,
+	std::sync::Arc<TestApi>,
+	Hash,
+	substrate_test_runtime_client::runtime::Extrinsic,
+	futures::executor::ThreadPool,
+) {
+	let (pool, api, executor) = pool();
+
+	let header01 = api.push_block(1, vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, None, header01.hash())));
+
+	let xt = uxt(Alice, 200);
+	block_on(pool.submit_one(invalid_hash(), SOURCE, xt.clone())).unwrap();
+	assert_pool_status!(header01.hash(), &pool, 1, 0);
+
+	api.add_invalid_with(&xt, reason);
+	let header02 = push_best_block(&pool, &api, header01.hash());
+
+	(pool, api, header02, xt, executor)
+}
+
+/// Pushes a best block on top of `parent` and returns its hash.
+fn push_best_block(
+	pool: &sc_transaction_pool::ForkAwareTxPool<TestApi, Block>,
+	api: &TestApi,
+	parent: Hash,
+) -> Hash {
+	let header = api.push_block_with_parent(parent, vec![], true);
+	block_on(pool.maintain(new_best_block_event(pool, Some(parent), header.hash())));
+	header.hash()
+}
+
+/// View revalidation at block 2 and resubmission at block 3 reject a `Future` or `Stale`
+/// transaction without a ban. The view at block 4 accepts it once it is valid.
+#[test]
+fn fatp_future_or_stale_tx_is_not_banned() {
+	sp_tracing::try_init_simple();
+
+	for reason in [InvalidTransaction::Future, InvalidTransaction::Stale] {
+		let (pool, api, header02, xt, _executor) = setup_tx_invalid_at_block_2(reason);
+
+		let header03 = push_best_block(&pool, &api, header02);
+		assert_pool_status!(header03, &pool, 0, 0);
+
+		api.remove_invalid(&xt);
+		let header04 = push_best_block(&pool, &api, header03);
+		assert_ready_iterator!(header04, pool, [xt]);
+		assert_eq!(block_on(pool.mempool_len()), (1, 0));
+	}
+}
+
+/// Resubmission still bans a transaction that fails with another reason, so later views do not
+/// accept it.
+#[test]
+fn fatp_mempool_resubmission_bans_other_invalid() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, header02, xt, _executor) =
+		setup_tx_invalid_at_block_2(InvalidTransaction::Future);
+
+	api.add_invalid_with(&xt, InvalidTransaction::Payment);
+	let header03 = push_best_block(&pool, &api, header02);
+
+	api.remove_invalid(&xt);
+	let header04 = push_best_block(&pool, &api, header03);
+	assert_pool_status!(header04, &pool, 0, 0);
+	assert_eq!(block_on(pool.mempool_len()), (1, 0));
+}

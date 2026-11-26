@@ -257,6 +257,11 @@
 //! View revalidation is performed in the background thread. Revalidation is executed for every
 //! view. All the transaction from the view are [revalidated][`view::revalidate`].
 //!
+//! A [`Future`][`InvalidTransaction::Future`] or [`Stale`][`InvalidTransaction::Stale`]
+//! transaction is removed from the view without a ban or the [`Invalid`] event. It stays in the
+//! *mempool* and each new view validates it again. *Mempool* revalidation decides whether to keep
+//! it.
+//!
 //! The fork-aware pool utilizes two threads to execute maintain and revalidation process
 //! exclusively, ensuring maintain performance without overlapping with revalidation.
 //!
@@ -351,6 +356,8 @@
 //! [`Future`]:sc_transaction_pool_api::TransactionStatus::Future
 //! [`Broadcast`]:sc_transaction_pool_api::TransactionStatus::Broadcast
 //! [`Invalid`]:sc_transaction_pool_api::TransactionStatus::Invalid
+//! [`InvalidTransaction::Future`]: sp_runtime::transaction_validity::InvalidTransaction::Future
+//! [`InvalidTransaction::Stale`]: sp_runtime::transaction_validity::InvalidTransaction::Stale
 //! [`InBlock`]:sc_transaction_pool_api::TransactionStatus::InBlock
 //! [`Finalized`]:sc_transaction_pool_api::TransactionStatus::Finalized
 //! [`Dropped`]:sc_transaction_pool_api::TransactionStatus::Dropped

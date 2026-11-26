@@ -36,7 +36,7 @@ use sp_runtime::{
 	},
 };
 use std::{
-	collections::{BTreeMap, HashMap, HashSet},
+	collections::{BTreeMap, HashMap},
 	sync::Arc,
 };
 use substrate_test_runtime_client::{
@@ -90,7 +90,7 @@ pub struct ChainState {
 	pub block_by_number: BTreeMap<BlockNumber, Vec<(Block, IsBestBlock)>>,
 	pub block_by_hash: HashMap<Hash, Block>,
 	pub nonces: HashMap<Hash, HashMap<AccountId, u64>>,
-	pub invalid_hashes: HashSet<Hash>,
+	pub invalid_hashes: HashMap<Hash, InvalidTransaction>,
 	pub priorities: HashMap<Hash, u64>,
 	pub valid_till_blocks: HashMap<Hash, u64>,
 }
@@ -258,7 +258,15 @@ impl TestApi {
 	/// Next time transaction pool will try to validate this
 	/// extrinsic, api will return invalid result.
 	pub fn add_invalid(&self, xts: &Extrinsic) {
-		self.chain.write().invalid_hashes.insert(Self::hash_and_length_inner(xts).0);
+		self.add_invalid_with(xts, InvalidTransaction::Custom(0));
+	}
+
+	/// Same as [`Self::add_invalid`], but validation returns `reason`.
+	pub fn add_invalid_with(&self, xts: &Extrinsic, reason: InvalidTransaction) {
+		self.chain
+			.write()
+			.invalid_hashes
+			.insert(Self::hash_and_length_inner(xts).0, reason);
 	}
 
 	/// Remove a transaction that was previously declared as invalid via `[Self::add_invalid]`.
@@ -455,9 +463,9 @@ impl ChainApi for TestApi {
 			(Vec::new(), vec![uxt.encode()])
 		};
 
-		if self.chain.read().invalid_hashes.contains(&self.hash_and_length(&uxt).0) {
-			log::info!("test_api::validate_transaction: invalid_transaction....");
-			return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(0))));
+		if let Some(reason) = self.chain.read().invalid_hashes.get(&self.hash_and_length(&uxt).0) {
+			log::info!("test_api::validate_transaction: invalid_transaction({reason:?})....");
+			return Ok(Err(TransactionValidityError::Invalid(*reason)));
 		}
 
 		let priority = self.chain.read().priorities.get(&self.hash_and_length(&uxt).0).cloned();
