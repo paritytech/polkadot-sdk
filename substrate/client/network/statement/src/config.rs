@@ -71,6 +71,15 @@ pub const DEFAULT_STATEMENTS_PER_SECOND: u32 = 50_000;
 /// Burst capacity coefficient for the rate limiter.
 pub const STATEMENTS_BURST_COEFFICIENT: u32 = 5;
 
+/// Maximum statement hashes that one peer may announce per second.
+pub const ANNOUNCED_HASHES_PER_SECOND: NonZeroU32 =
+	NonZeroU32::new(50_000).expect("50_000 is non-zero");
+
+/// Burst capacity for the limiter of announced hashes.
+pub const ANNOUNCED_HASHES_BURST: NonZeroU32 =
+	NonZeroU32::new(ANNOUNCED_HASHES_PER_SECOND.get() * STATEMENTS_BURST_COEFFICIENT)
+		.expect("non-zero rate times non-zero coefficient; qed");
+
 /// Maximum topic affinity updates per second from one peer before rate limiting kicks in.
 pub const AFFINITY_UPDATES_PER_SECOND: NonZeroU32 = NonZeroU32::new(100).expect("100 is non-zero");
 

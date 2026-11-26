@@ -366,4 +366,41 @@ on every reconnect shows as a high `bursts_total{route="legacy"}` rate.
   - Compare sync durations as statement store size grows
   - Identify network-level bottlenecks
 
+#### Announced Hashes Sent vs Requested
+- **Metrics:**
+  - `rate(substrate_sync_statement_announced_hashes_sent_total[$__rate_interval])`
+  - `rate(substrate_sync_statement_announced_hashes_requested_total[$__rate_interval])`
+- **Type:** Counter (displayed as rate)
+- **What it measures:** Statement hashes that this node announced to full `statement/4` peers during
+  their initial syncs, and how many of those statements the peers asked for.
+- **Why it matters:** The gap between the two is the share of the initial syncs that the peers already
+  held, so this node never sent those bodies.
+
+#### Announced Hashes Received vs Wanted
+- **Metrics:**
+  - `rate(substrate_sync_statement_announced_hashes_received_total[$__rate_interval])`
+  - `rate(substrate_sync_statement_announced_hashes_wanted_total[$__rate_interval])`
+- **Type:** Counter (displayed as rate)
+- **What it measures:** Statement hashes that full `statement/4` peers announced to this node ahead of
+  the bodies, and how many of them the node lacked and asked for.
+- **Why it matters:** The gap between the two is the share of the announced statements that the node
+  already held, so their bodies were never sent. A wanted count far above the number of new statements
+  means that several peers announce the same statements and each sends its copy.
+
+#### Ignored Announce Answers
+- **Metric:** `rate(substrate_sync_statement_announce_answers_ignored_total[$__rate_interval])`
+- **Type:** Counter (displayed as rate)
+- **What it measures:** Answers to an announce that this node no longer awaited: the announce went out
+  twice after a send timeout, or the sync ended before the answer came.
+- **Why it matters:** The peer asked for statements in such an answer and this node sent none of them.
+
+#### Announce Walk Time
+- **Metric:** `substrate_sync_statement_announce_walk_seconds` (histogram), by `part`
+- **Buckets:** 0.1ms, 0.5ms, 1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s
+- **What it measures:** Time of one walk over the index by topic that collects the hashes of one
+  announce. `total` is the whole walk, `due_check` is its share spent on asking whether a topic is due
+  for the peer.
+- **Why it matters:** The walk runs inside the event loop of the statement handler, so a slow walk
+  delays every other statement message of the node while a sync lasts.
+
 ---

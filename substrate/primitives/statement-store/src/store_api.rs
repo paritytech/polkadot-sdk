@@ -405,6 +405,29 @@ pub struct AdmittedBatch {
 	pub done: bool,
 }
 
+/// The first bytes of a statement hash, which a peer announces in place of the whole hash.
+pub type ShortHash = [u8; 8];
+
+/// The short form of `hash`.
+pub fn short_hash(hash: &Hash) -> ShortHash {
+	let mut short = ShortHash::default();
+	short.copy_from_slice(&hash[..size_of::<ShortHash>()]);
+	short
+}
+
+/// A row of the store's index by topic.
+pub type TopicIndexPosition = (Topic, Hash);
+
+/// A batch of hashes read from the index by topic by [`StatementStore::hashes_by_topic`].
+#[derive(Debug)]
+pub struct TopicHashesBatch {
+	/// The hashes under the wanted topics, in index order. A statement with several wanted
+	/// topics appears once for each.
+	pub hashes: Vec<Hash>,
+	/// The row to resume the walk from, `None` once the walk has reached the end of the index.
+	pub next: Option<TopicIndexPosition>,
+}
+
 /// Statement store API.
 pub trait StatementStore: Send + Sync {
 	/// Return all statements.
@@ -481,6 +504,46 @@ pub trait StatementStore: Send + Sync {
 		scan_limit: usize,
 		filter: &mut dyn FnMut(&Hash, &[u8], &Statement) -> FilterDecision,
 	) -> Result<AdmittedBatch>;
+
+	/// Walk the index by topic from the row `from` (inclusive), collecting the hashes of the
+	/// statements under every topic that `wanted` accepts. No statement body is read.
+	///
+	/// `wanted` is asked once for each run of rows that share a topic, and the walk jumps over
+	/// the rows of a topic it declines. A call visits at most `scan_limit` rows, a jump counting
+	/// as one, so its cost stays bounded. `scan_limit` must be positive.
+	///
+	/// The walk follows no snapshot: it may return a statement admitted after the walk began
+	/// and a statement removed since.
+	fn hashes_by_topic(
+		&self,
+		from: &TopicIndexPosition,
+		scan_limit: usize,
+		wanted: &mut dyn FnMut(&Topic) -> bool,
+	) -> Result<TopicHashesBatch>;
+
+	/// Whether the store holds a statement with this short hash, or has removed one and still
+	/// bans it. A peer has no reason to send such a statement.
+	fn knows_short_hash(&self, short: &ShortHash) -> bool;
+
+	/// Record the current time against the admission watermark, for
+	/// [`Self::admission_seq_since`]. The gossip loop calls it once a minute.
+	fn note_admission_time(&self) {}
+
+	/// The admission sequence number from which the statements admitted in the last
+	/// `window_secs` seconds start. `None` when the store cannot tell, or when the window
+	/// covers more than a quarter of the journal: the caller then walks everything.
+	fn admission_seq_since(&self, _window_secs: u64) -> Option<u64> {
+		None
+	}
+
+	/// The records of set reconciliation: for each peer, the time when this node last held
+	/// everything that the peer had for it.
+	fn sync_records(&self) -> Vec<(Vec<u8>, u64)> {
+		Vec::new()
+	}
+
+	/// Replace the records of [`Self::sync_records`].
+	fn set_sync_records(&self, _records: &[(Vec<u8>, u64)]) {}
 
 	/// Return the data of all known statements which include all topics and have no `DecryptionKey`
 	/// field.

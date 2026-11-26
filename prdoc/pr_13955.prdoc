@@ -1,0 +1,23 @@
+title: 'statement-store: announce hashes ahead of bodies in the initial sync'
+doc:
+- audience: [Node Operator, Node Dev]
+  description: |-
+    A node with `--statement-dht` now syncs a full `statement/4` peer in two steps. It announces
+    the short hashes of the statements that it holds for the peer, the peer answers which of them
+    it lacks, and only those bodies go out. A peer that reconnects, repeats its filter after
+    major sync, or changes its filter no longer downloads statements that it already holds.
+    Light peers and peers below `statement/4` get bodies as before.
+    The `StatementStore` trait has two new required methods, `hashes_by_topic` and
+    `knows_short_hash`.
+    New counters: `substrate_sync_statement_announced_hashes_sent_total`,
+    `substrate_sync_statement_announced_hashes_requested_total`,
+    `substrate_sync_statement_announced_hashes_received_total` and
+    `substrate_sync_statement_announced_hashes_wanted_total`. The histogram
+    `substrate_sync_initial_sync_duration_seconds` has a new outcome `unanswered`.
+crates:
+- name: sp-statement-store
+  bump: major
+- name: sc-statement-store
+  bump: minor
+- name: sc-network-statement
+  bump: minor
