@@ -1,0 +1,10 @@
+title: 'pallet-session: default body for `MigrateDisabledValidators::peek_disabled`'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `MigrateDisabledValidators::peek_disabled` now has a default body that returns an empty list.
+    An implementor built without its own `try-runtime` feature, such as `pallet-staking` when only
+    `pallet-session/try-runtime` is enabled, no longer fails to compile with E0046.
+crates:
+- name: pallet-session
+  bump: patch
