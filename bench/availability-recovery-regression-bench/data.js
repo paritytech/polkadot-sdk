@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795712720734,
+  "lastUpdate": 1795717154082,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f4c1d929947b81fe2adee06f55eaaf9403f7eff7",
-          "message": "Update DOCKER_IMAGES_VERSION with timestamp (#12109)\n\nAppend timestamp to DOCKER_IMAGES_VERSION for better versioning.\n\ncc @EgorPopelyaev",
-          "timestamp": "2026-05-19T19:47:55Z",
-          "tree_id": "e4d1fb884fc410a67ea02ee1f4319b6928dafd88",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f4c1d929947b81fe2adee06f55eaaf9403f7eff7"
-        },
-        "date": 1779230184305,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.1482692026,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.14183279130000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13174209280000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "913974288a48522bcd9159583c1a0dff9b68ffd8",
+          "message": "frame-system: apply call filter to AuthorizeCall origin (#13365)\n\n# Description\n\n`AuthorizeCall` turns a `None` origin into `Authorized` when the call's\n`#[pallet::authorize]` callback\nsucceeds, but it did not consult the runtime call filter. Dispatch does\n(only Root bypasses it), so a\ncall the filter rejects (e.g. under safe mode or tx-pause) was still\nvalid at the pool and only failed\nlater with `CallFiltered`.\n\n`validate` now checks `filter_call` on the minted `Authorized` origin\nand returns\n`InvalidTransaction::Call` when it fails, so pool admission matches what\ndispatch will accept.\n\nSigned transactions aren't checked against the call filter at validation\neither, but they pay a fee for their failed dispatch. An authorized\ntransaction pays none, so a filtered one would take block space for\nfree.\n\nSurfaced while reviewing #12452.\n\n## Integration\n\nNo code change needed. Unsigned `#[pallet::authorize]` calls (im-online\nheartbeats today, and the\npending migrations of babe/grandpa/beefy/EPMP/disputes/claims) are\nrejected at validation while the\nruntime call filter blocks them, instead of failing at dispatch. A\nruntime that wants such a call to stay\nusable during safe mode / tx-pause must allow it in its filter, as it\nalready had to for dispatch.\n\n## Review Notes\n\nThe filter runs after the callback (the `Authorize` trait gives no\nearlier hook), so a filtered call still\ncosts its callback at validation. Regression test\n`filtered_call_is_not_authorized` adds a pausable\n`BaseCallFilter` to the extension's test runtime; it fails on master\n(`validate` returns `Ok`) and passes here.\n\n#13364 also appends a test to the end of this tests module; whichever of\nthe two lands second keeps both.",
+          "timestamp": "2026-11-26T16:40:28Z",
+          "tree_id": "a765d755e488e2ab83373b30be737046f72a7ed7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/913974288a48522bcd9159583c1a0dff9b68ffd8"
+        },
+        "date": 1795717105111,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.090145057533334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12876923879999996,
             "unit": "seconds"
           }
         ]
