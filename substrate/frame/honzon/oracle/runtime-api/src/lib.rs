@@ -39,7 +39,9 @@
 #![allow(clippy::unnecessary_mut_passed)]
 
 use codec::Codec;
-use sp_std::prelude::Vec;
+extern crate alloc;
+
+use alloc::vec::Vec;
 
 sp_api::decl_runtime_apis! {
 	/// Runtime API for querying oracle data from the blockchain.
