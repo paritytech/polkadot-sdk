@@ -4947,7 +4947,7 @@ version = "0.1.0"
 dependencies = [
  "binary-merkle-tree 13.0.0",
  "blake2b_simd",
- "hash-db",
+ "hash-db 0.17.0",
  "hash256-std-hasher",
  "jam-codec",
  "jam-types",
