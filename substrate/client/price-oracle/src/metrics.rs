@@ -37,6 +37,7 @@ struct Inner {
 	market_fetch_duration: HistogramVec,
 	pair_market_margins: GaugeVec<I64>,
 	received_reports: CounterVec<U64>,
+	sent_reports: CounterVec<U64>,
 	pool_reports: Gauge<U64>,
 }
 
@@ -105,6 +106,13 @@ impl Metrics {
 	pub(crate) fn on_received_report(&self, result: &str) {
 		if let Some(metrics) = &self.0 {
 			metrics.received_reports.with_label_values(&[result]).inc();
+		}
+	}
+
+	/// Count a report sent to a peer with `result`.
+	pub(crate) fn on_sent_report(&self, result: &str) {
+		if let Some(metrics) = &self.0 {
+			metrics.sent_reports.with_label_values(&[result]).inc();
 		}
 	}
 
@@ -177,6 +185,16 @@ impl Inner {
 					Opts::new(
 						"substrate_price_oracle_received_reports_total",
 						"Number of reports received from peers, by validation result",
+					),
+					&["result"],
+				)?,
+				registry,
+			)?,
+			sent_reports: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_price_oracle_sent_reports_total",
+						"Number of reports sent to peers, by result",
 					),
 					&["result"],
 				)?,

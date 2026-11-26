@@ -54,6 +54,11 @@ use tokio::time::MissedTickBehavior;
 pub(crate) const LOG_TARGET: &str = "price-oracle";
 
 /// How long sending a report waits for a peer to have room for it.
+///
+/// A send waits only when the peer's outbound queue is full, which takes the peer accepting
+/// nothing for many ticks. A peer that keeps up frees a slot in milliseconds, so this is a bound
+/// on the stall, not a time the sends normally take. The reports to all peers are sent at once,
+/// so this is also the most a tick's sending can take in total.
 const SEND_TIMEOUT: Duration = Duration::from_millis(200);
 
 /// Parameters of [`run`].
@@ -236,16 +241,37 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 						continue;
 					},
 				};
-				// Send the report to every recipient reachable now.
-				let mut sent = 0;
-				for peer in targets.reachable() {
-					let send = notification_service.send_async_notification(peer, encoded.clone());
-					match tokio::time::timeout(SEND_TIMEOUT, send).await {
-						Ok(Ok(())) => sent += 1,
-						Ok(Err(e)) => log::debug!(target: LOG_TARGET, "Cannot send the report to {peer}: {e}"),
-						Err(_) => log::debug!(target: LOG_TARGET, "Sending the report to {peer} timed out"),
+				// Send the report to every recipient reachable now, all at once, so that a peer
+				// whose queue is full delays this step by `SEND_TIMEOUT` at most.
+				let sends = targets.reachable().map(|peer| {
+					let sink = notification_service.message_sink(peer);
+					let encoded = encoded.clone();
+					let metrics = &metrics;
+					async move {
+						let Some(sink) = sink else {
+							log::debug!(target: LOG_TARGET, "Cannot send the report to {peer}: no substream");
+							metrics.on_sent_report("no_substream");
+							return false;
+						};
+						match tokio::time::timeout(SEND_TIMEOUT, sink.send_async_notification(encoded)).await {
+							Ok(Ok(())) => {
+								metrics.on_sent_report("sent");
+								true
+							},
+							Ok(Err(e)) => {
+								log::debug!(target: LOG_TARGET, "Cannot send the report to {peer}: {e}");
+								metrics.on_sent_report("error");
+								false
+							},
+							Err(_) => {
+								log::warn!(target: LOG_TARGET, "Sending the report to {peer} timed out");
+								metrics.on_sent_report("timed_out");
+								false
+							},
+						}
 					}
-				}
+				});
+				let sent = futures::future::join_all(sends).await.into_iter().filter(|sent| *sent).count();
 				if sent < targets.len() {
 					log::debug!(target: LOG_TARGET, "Sent the report to {sent} of {} peers", targets.len());
 				} else {
