@@ -32,6 +32,10 @@ use std::sync::Arc;
 /// Log target for this file.
 const LOG_TARGET: &str = "rpc-spec-v2";
 
+/// Bound quadratic base58 decoding work. A CIDv1 with a supported 32-byte digest fits
+/// even in base2, which uses eight characters per byte.
+const MAX_ENCODED_CID_LEN: usize = 512;
+
 /// Bitswap RPC implementation.
 pub struct Bitswap<Block, Client> {
 	client: Arc<Client>,
@@ -55,6 +59,10 @@ where
 	Client: BlockBackend<Block> + Send + Sync + 'static,
 {
 	fn bitswap_v1_get(&self, cid_str: String) -> RpcResult<String> {
+		if cid_str.len() > MAX_ENCODED_CID_LEN {
+			let reason = format!("encoded CID exceeds {MAX_ENCODED_CID_LEN} bytes");
+			return Err(Error::InvalidCid(reason).into());
+		}
 		let cid = Cid::try_from(cid_str.as_str()).map_err(|e| Error::InvalidCid(format!("{e}")))?;
 
 		// Only CIDv1 version is supported according to the spec.
