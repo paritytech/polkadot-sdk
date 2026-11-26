@@ -39,3 +39,5 @@ crates:
   bump: none
 - name: frame-system
   bump: none
+- name: cumulus-aura-authorizer-utils
+  bump: minor
