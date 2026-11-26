@@ -71,6 +71,11 @@
 //! that, so it is never re-applied.
 //!
 //! Deposits only ever live on this chain; the relay chain takes nothing.
+//!
+//! ## Migration
+//!
+//! Paras from the relay chain's `paras_registrar` arrive through [`ReceiveMigratedParas`], paying
+//! deposits at this chain's prices. A manager who cannot pay keeps the para without a deposit.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -81,11 +86,12 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
 	traits::{Consideration, EnsureOrigin, Footprint, Get},
+	weights::Weight,
 };
 use polkadot_primitives::AbridgedHostConfiguration;
 use registrar_primitives::{
-	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
-	ParaId,
+	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, MigratedPara,
+	MigratedParaState, Outcome, ParaId, ReceiveMigratedParas,
 };
 use scale_info::TypeInfo;
 use sp_core::H256;
@@ -376,6 +382,8 @@ pub mod pallet {
 		HeadUpdated { para_id: ParaId, message_id: u64 },
 		/// The relay chain refused the head.
 		HeadUpdateFailed { para_id: ParaId, message_id: u64, reason: FailureReason },
+		/// A para arrived from the relay chain's `paras_registrar`.
+		Migrated { para_id: ParaId, manager: T::AccountId },
 	}
 
 	/// A defensive check that failed, reported as [`Event::Unexpected`] so it is visible on chain
@@ -407,6 +415,8 @@ pub mod pallet {
 		ResponseNeverArrived { para_id: ParaId, message_id: u64 },
 		/// Releasing a deposit failed while applying a relay chain answer, so it is still held.
 		DepositNotReleased { para_id: ParaId, error: DispatchError },
+		/// A migrated para's manager could not pay a deposit, so the para is kept without it.
+		MigratedDepositNotTaken { para_id: ParaId, error: DispatchError },
 	}
 
 	#[pallet::error]
@@ -1002,6 +1012,19 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Take a deposit for a migrated para, reporting instead of failing if the manager can't pay.
+	fn take_or_report<C: Consideration<T::AccountId, Footprint>>(
+		who: &T::AccountId,
+		footprint: Footprint,
+		para_id: ParaId,
+	) -> Option<C> {
+		C::new(who, footprint)
+			.inspect_err(|&error| {
+				Self::report_unexpected(UnexpectedKind::MigratedDepositNotTaken { para_id, error })
+			})
+			.ok()
+	}
+
 	/// Take the id for the next message to the relay chain.
 	fn next_message_id() -> u64 {
 		NextMessageId::<T>::mutate(|next| {
@@ -1228,5 +1251,57 @@ impl<T: Config> Pallet<T> {
 			Err(reason) => Event::HeadUpdateFailed { para_id, message_id, reason },
 		});
 		Ok(())
+	}
+}
+
+impl<T: Config> ReceiveMigratedParas<T::AccountId> for Pallet<T> {
+	fn receive_para(para: MigratedPara<T::AccountId>) -> DispatchResult {
+		let MigratedPara { para_id, manager, state, locked } = para;
+		ensure!(!Paras::<T>::contains_key(para_id), Error::<T>::AlreadyRegistered);
+		let system = Self::is_system(para_id);
+
+		// Nothing fails once a deposit is taken, so an `Err` leaves nothing behind.
+		let state = match state {
+			MigratedParaState::Reserved => {
+				ensure!(!system, Error::<T>::SystemParaId);
+				RegistrationState::Reserved
+			},
+			MigratedParaState::Registered { .. } if system => {
+				RegistrationState::Registered { ticket: None }
+			},
+			MigratedParaState::Registered { head_len } => {
+				let config = T::HostConfiguration::get().ok_or(Error::<T>::NoHostConfiguration)?;
+				let footprint = Self::registration_footprint(head_len, &config);
+				RegistrationState::Registered {
+					ticket: Self::take_or_report(&manager, footprint, para_id),
+				}
+			},
+		};
+		let reservation = if system {
+			None
+		} else {
+			Self::take_or_report(&manager, Self::reservation_footprint(), para_id)
+		};
+
+		Paras::<T>::insert(
+			para_id,
+			ParaInfo { manager: manager.clone(), reservation, state, locked },
+		);
+		Self::receive_next_free_para_id(para_id.saturating_add(1));
+
+		Self::deposit_event(Event::Migrated { para_id, manager });
+		Ok(())
+	}
+
+	fn receive_next_free_para_id(para_id: ParaId) {
+		NextFreeParaId::<T>::mutate(|next| *next = (*next).max(para_id));
+	}
+
+	fn weight_of_receive_para() -> Weight {
+		T::WeightInfo::receive_migrated_para()
+	}
+
+	fn weight_of_receive_next_free_para_id() -> Weight {
+		T::WeightInfo::receive_next_free_para_id()
 	}
 }

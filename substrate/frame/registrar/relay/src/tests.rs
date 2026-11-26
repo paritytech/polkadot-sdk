@@ -1267,6 +1267,21 @@ mod head_noted {
 	}
 
 	#[test]
+	fn a_migrated_para_is_reported_on_its_first_head_only() {
+		new_test_ext().execute_with(|| {
+			Registrar::note_migrated_awaiting_first_head(PARA_A);
+
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert_eq!(
+				take_sent(),
+				vec![MessageToPara::V1(MessageToParaV1::HeadNoted { para_id: PARA_A })]
+			);
+		});
+	}
+
+	#[test]
 	fn a_later_head_is_not_reported_again() {
 		new_test_ext().execute_with(|| {
 			awaiting(PARA_A);
