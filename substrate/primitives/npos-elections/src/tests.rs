@@ -612,6 +612,28 @@ fn elect_has_no_entry_barrier() {
 }
 
 #[test]
+fn seq_phragmen_ignores_voters_who_only_approve_losers() {
+	let ElectionResult::<_, Perbill> { winners, assignments } =
+		seq_phragmen(1, vec![1, 2], vec![(1, 100, vec![1]), (2, 10, vec![2])], None)
+			.expect("voters approving losing candidates should not fail the election");
+
+	assert_eq!(winners, vec![(1, 100)]);
+	assert_eq!(assignments.len(), 1);
+	assert_eq!(assignments[0].who, 1);
+	assert_eq!(assignments[0].distribution, vec![(1, Perbill::from_percent(100))]);
+}
+
+#[test]
+fn seq_phragmen_with_no_seats_returns_no_winners_or_assignments() {
+	let ElectionResult::<_, Perbill> { winners, assignments } =
+		seq_phragmen(0, vec![1], vec![(1, 100, vec![1])], None)
+			.expect("an election with no seats should succeed");
+
+	assert!(winners.is_empty());
+	assert!(assignments.is_empty());
+}
+
+#[test]
 fn phragmen_self_votes_should_be_kept() {
 	let candidates = vec![5, 10, 20, 30];
 	let voters = vec![(5, vec![5]), (10, vec![10]), (20, vec![20]), (1, vec![10, 20])];

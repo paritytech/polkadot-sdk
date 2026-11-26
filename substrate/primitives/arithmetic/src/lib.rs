@@ -197,8 +197,8 @@ impl<P: PerThing> Normalizable<P> for Vec<P> {
 /// All in all, the complicated case above is rare to happen in most use cases within this repo ,
 /// hence we opt for it due to its simplicity.
 ///
-/// This function will return an error is if length of `input` cannot fit in `T`, or if `sum(input)`
-/// cannot fit inside `T`.
+/// This function returns an error if `input` is empty and `targeted_sum` is nonzero, if the length
+/// of `input` cannot fit in `T`, or if `sum(input)` cannot fit inside `T`.
 ///
 /// * This proof is used in the implementation as well.
 pub fn normalize<T>(input: &[T], targeted_sum: T) -> Result<Vec<T>, &'static str>
@@ -215,8 +215,11 @@ where
 	let count = input.len();
 	let count_t: T = count.try_into().map_err(|_| "length of `inputs` cannot fit in `T`")?;
 
-	// Nothing to do here.
+	// An empty input has a zero sum.
 	if count.is_zero() {
+		if !targeted_sum.is_zero() {
+			return Err("cannot normalize empty input to nonzero sum");
+		}
 		return Ok(Vec::<T>::new());
 	}
 
@@ -339,6 +342,16 @@ mod normalize_tests {
 		test_for!(u32);
 		test_for!(u16);
 		test_for!(u8);
+	}
+
+	#[test]
+	fn empty_input_cannot_normalize_to_nonzero_sum() {
+		assert!(normalize::<u32>(&[], 1).is_err());
+	}
+
+	#[test]
+	fn empty_input_normalizes_to_zero_sum() {
+		assert_eq!(normalize::<u32>(&[], 0), Ok(vec![]));
 	}
 
 	#[test]

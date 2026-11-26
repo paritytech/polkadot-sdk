@@ -632,3 +632,31 @@ fn supports_sorted_truncate_from_works() {
 	assert_eq!(winners_removed, 1);
 	assert_eq!(backers_removed, 3);
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+#[test]
+fn quick_dirty_solver_output_is_normalizable_with_losing_only_voters() {
+	use crate::{NposSolver, QuickDirtySolver};
+
+	let result = QuickDirtySolver::<u32, sp_runtime::Perbill>::solve(
+		1,
+		vec![1, 2],
+		vec![(10, 10, vec![2]), (11, 20, vec![1])],
+	)
+	.expect("a losing-only voter should not fail the election");
+
+	assert_eq!(result.winners, vec![(1, 20)]);
+	let staked =
+		sp_npos_elections::assignment_ratio_to_staked_normalized(result.assignments, |who| {
+			match *who {
+				10 => 10,
+				11 => 20,
+				_ => 0,
+			}
+		})
+		.expect("solver assignments should normalize with voter stakes");
+	assert_eq!(
+		sp_npos_elections::to_supports(&staked),
+		vec![(1, Support { total: 20, voters: vec![(11, 20)] })]
+	);
+}
