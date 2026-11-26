@@ -381,16 +381,6 @@ pub mod pallet {
 		pub fn set_invulnerables(origin: OriginFor<T>, new: Vec<T::AccountId>) -> DispatchResult {
 			T::UpdateOrigin::ensure_origin(origin)?;
 
-			// don't wipe out the collator set
-			if new.is_empty() {
-				// Casting `u32` to `usize` should be safe on all machines running this.
-				ensure!(
-					CandidateList::<T>::decode_len().unwrap_or_default() >=
-						T::MinEligibleCollators::get() as usize,
-					Error::<T>::TooFewEligibleCollators
-				);
-			}
-
 			// Will need to check the length again when putting into a bounded vec, but this
 			// prevents the iterator from having too many elements.
 			ensure!(
@@ -425,6 +415,17 @@ pub mod pallet {
 				}
 
 				new_with_keys.push(account_id.clone());
+			}
+
+			// Don't wipe out the collator set. This must be checked after filtering, since
+			// accounts without registered keys are skipped above.
+			if new_with_keys.is_empty() {
+				// Casting `u32` to `usize` should be safe on all machines running this.
+				ensure!(
+					CandidateList::<T>::decode_len().unwrap_or_default() >=
+						T::MinEligibleCollators::get() as usize,
+					Error::<T>::TooFewEligibleCollators
+				);
 			}
 
 			// should never fail since `new_with_keys` must be equal to or shorter than `new`
