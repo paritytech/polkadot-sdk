@@ -70,7 +70,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		transaction_pool: Default::default(),
 		network: network_config,
 		keystore: KeystoreConfig::InMemory,
-		database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128 },
+		database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128, transaction_column_path: None },
 		trie_cache_maximum_size: Some(64 * 1024 * 1024),
 		warm_up_trie_cache: None,
 		state_pruning: Some(PruningMode::ArchiveAll),
