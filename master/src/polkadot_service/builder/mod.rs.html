@@ -937,124 +937,127 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#787 id=787 data-nosnippet>787</a>				links: beefy_links,
 <a href=#788 id=788 data-nosnippet>788</a>				on_demand_justifications_handler: beefy_on_demand_justifications_handler,
 <a href=#789 id=789 data-nosnippet>789</a>				is_authority: role.is_authority(),
-<a href=#790 id=790 data-nosnippet>790</a>			};
-<a href=#791 id=791 data-nosnippet>791</a>
-<a href=#792 id=792 data-nosnippet>792</a>			<span class="kw">let </span>gadget = sc_consensus_beefy::start_beefy_gadget::&lt;
-<a href=#793 id=793 data-nosnippet>793</a>				<span class="kw">_</span>,
-<a href=#794 id=794 data-nosnippet>794</a>				<span class="kw">_</span>,
-<a href=#795 id=795 data-nosnippet>795</a>				<span class="kw">_</span>,
+<a href=#790 id=790 data-nosnippet>790</a>				offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
+<a href=#791 id=791 data-nosnippet>791</a>					transaction_pool.clone(),
+<a href=#792 id=792 data-nosnippet>792</a>				),
+<a href=#793 id=793 data-nosnippet>793</a>			};
+<a href=#794 id=794 data-nosnippet>794</a>
+<a href=#795 id=795 data-nosnippet>795</a>			<span class="kw">let </span>gadget = sc_consensus_beefy::start_beefy_gadget::&lt;
 <a href=#796 id=796 data-nosnippet>796</a>				<span class="kw">_</span>,
 <a href=#797 id=797 data-nosnippet>797</a>				<span class="kw">_</span>,
 <a href=#798 id=798 data-nosnippet>798</a>				<span class="kw">_</span>,
 <a href=#799 id=799 data-nosnippet>799</a>				<span class="kw">_</span>,
-<a href=#800 id=800 data-nosnippet>800</a>				ecdsa_crypto::AuthorityId,
-<a href=#801 id=801 data-nosnippet>801</a>			&gt;(beefy_params);
-<a href=#802 id=802 data-nosnippet>802</a>
-<a href=#803 id=803 data-nosnippet>803</a>			<span class="comment">// BEEFY is part of consensus, if it fails we'll bring the node down with it to make
-<a href=#804 id=804 data-nosnippet>804</a>			// sure it is noticed.
-<a href=#805 id=805 data-nosnippet>805</a>			</span>task_manager
-<a href=#806 id=806 data-nosnippet>806</a>				.spawn_essential_handle()
-<a href=#807 id=807 data-nosnippet>807</a>				.spawn_blocking(<span class="string">"beefy-gadget"</span>, <span class="prelude-val">None</span>, gadget);
-<a href=#808 id=808 data-nosnippet>808</a>		}
-<a href=#809 id=809 data-nosnippet>809</a>		<span class="comment">// When offchain indexing is enabled, MMR gadget should also run.
-<a href=#810 id=810 data-nosnippet>810</a>		</span><span class="kw">if </span>is_offchain_indexing_enabled {
-<a href=#811 id=811 data-nosnippet>811</a>			task_manager.spawn_essential_handle().spawn_blocking(
-<a href=#812 id=812 data-nosnippet>812</a>				<span class="string">"mmr-gadget"</span>,
-<a href=#813 id=813 data-nosnippet>813</a>				<span class="prelude-val">None</span>,
-<a href=#814 id=814 data-nosnippet>814</a>				MmrGadget::start(
-<a href=#815 id=815 data-nosnippet>815</a>					client.clone(),
-<a href=#816 id=816 data-nosnippet>816</a>					backend.clone(),
-<a href=#817 id=817 data-nosnippet>817</a>					sp_mmr_primitives::INDEXING_PREFIX.to_vec(),
-<a href=#818 id=818 data-nosnippet>818</a>				),
-<a href=#819 id=819 data-nosnippet>819</a>			);
-<a href=#820 id=820 data-nosnippet>820</a>		}
-<a href=#821 id=821 data-nosnippet>821</a>
-<a href=#822 id=822 data-nosnippet>822</a>		<span class="kw">let </span>config = sc_consensus_grandpa::Config {
-<a href=#823 id=823 data-nosnippet>823</a>			<span class="comment">// FIXME substrate#1578 make this available through chainspec
-<a href=#824 id=824 data-nosnippet>824</a>			// Grandpa performance can be improved a bit by tuning this parameter, see:
-<a href=#825 id=825 data-nosnippet>825</a>			// https://github.com/paritytech/polkadot/issues/5464
-<a href=#826 id=826 data-nosnippet>826</a>			</span>gossip_duration: Duration::from_millis(<span class="number">1000</span>),
-<a href=#827 id=827 data-nosnippet>827</a>			justification_generation_period: GRANDPA_JUSTIFICATION_PERIOD,
-<a href=#828 id=828 data-nosnippet>828</a>			name: <span class="prelude-val">Some</span>(name),
-<a href=#829 id=829 data-nosnippet>829</a>			observer_enabled: <span class="bool-val">false</span>,
-<a href=#830 id=830 data-nosnippet>830</a>			keystore: keystore_opt,
-<a href=#831 id=831 data-nosnippet>831</a>			local_role: role,
-<a href=#832 id=832 data-nosnippet>832</a>			telemetry: telemetry.as_ref().map(|x| x.handle()),
-<a href=#833 id=833 data-nosnippet>833</a>			protocol_name: grandpa_protocol_name,
-<a href=#834 id=834 data-nosnippet>834</a>		};
-<a href=#835 id=835 data-nosnippet>835</a>
-<a href=#836 id=836 data-nosnippet>836</a>		<span class="kw">let </span>enable_grandpa = !disable_grandpa;
-<a href=#837 id=837 data-nosnippet>837</a>		<span class="kw">if </span>enable_grandpa {
-<a href=#838 id=838 data-nosnippet>838</a>			<span class="comment">// start the full GRANDPA voter
-<a href=#839 id=839 data-nosnippet>839</a>			// NOTE: unlike in substrate we are currently running the full
-<a href=#840 id=840 data-nosnippet>840</a>			// GRANDPA voter protocol for all full nodes (regardless of whether
-<a href=#841 id=841 data-nosnippet>841</a>			// they're validators or not). at this point the full voter should
-<a href=#842 id=842 data-nosnippet>842</a>			// provide better guarantees of block and vote data availability than
-<a href=#843 id=843 data-nosnippet>843</a>			// the observer.
-<a href=#844 id=844 data-nosnippet>844</a>
-<a href=#845 id=845 data-nosnippet>845</a>			</span><span class="kw">let </span><span class="kw-2">mut </span>voting_rules_builder = sc_consensus_grandpa::VotingRulesBuilder::default();
-<a href=#846 id=846 data-nosnippet>846</a>
-<a href=#847 id=847 data-nosnippet>847</a>			<span class="attr">#[cfg(not(feature = <span class="string">"malus"</span>))]
-<a href=#848 id=848 data-nosnippet>848</a>			</span><span class="kw">let </span>_malus_finality_delay = <span class="prelude-val">None</span>;
+<a href=#800 id=800 data-nosnippet>800</a>				<span class="kw">_</span>,
+<a href=#801 id=801 data-nosnippet>801</a>				<span class="kw">_</span>,
+<a href=#802 id=802 data-nosnippet>802</a>				<span class="kw">_</span>,
+<a href=#803 id=803 data-nosnippet>803</a>				ecdsa_crypto::AuthorityId,
+<a href=#804 id=804 data-nosnippet>804</a>			&gt;(beefy_params);
+<a href=#805 id=805 data-nosnippet>805</a>
+<a href=#806 id=806 data-nosnippet>806</a>			<span class="comment">// BEEFY is part of consensus, if it fails we'll bring the node down with it to make
+<a href=#807 id=807 data-nosnippet>807</a>			// sure it is noticed.
+<a href=#808 id=808 data-nosnippet>808</a>			</span>task_manager
+<a href=#809 id=809 data-nosnippet>809</a>				.spawn_essential_handle()
+<a href=#810 id=810 data-nosnippet>810</a>				.spawn_blocking(<span class="string">"beefy-gadget"</span>, <span class="prelude-val">None</span>, gadget);
+<a href=#811 id=811 data-nosnippet>811</a>		}
+<a href=#812 id=812 data-nosnippet>812</a>		<span class="comment">// When offchain indexing is enabled, MMR gadget should also run.
+<a href=#813 id=813 data-nosnippet>813</a>		</span><span class="kw">if </span>is_offchain_indexing_enabled {
+<a href=#814 id=814 data-nosnippet>814</a>			task_manager.spawn_essential_handle().spawn_blocking(
+<a href=#815 id=815 data-nosnippet>815</a>				<span class="string">"mmr-gadget"</span>,
+<a href=#816 id=816 data-nosnippet>816</a>				<span class="prelude-val">None</span>,
+<a href=#817 id=817 data-nosnippet>817</a>				MmrGadget::start(
+<a href=#818 id=818 data-nosnippet>818</a>					client.clone(),
+<a href=#819 id=819 data-nosnippet>819</a>					backend.clone(),
+<a href=#820 id=820 data-nosnippet>820</a>					sp_mmr_primitives::INDEXING_PREFIX.to_vec(),
+<a href=#821 id=821 data-nosnippet>821</a>				),
+<a href=#822 id=822 data-nosnippet>822</a>			);
+<a href=#823 id=823 data-nosnippet>823</a>		}
+<a href=#824 id=824 data-nosnippet>824</a>
+<a href=#825 id=825 data-nosnippet>825</a>		<span class="kw">let </span>config = sc_consensus_grandpa::Config {
+<a href=#826 id=826 data-nosnippet>826</a>			<span class="comment">// FIXME substrate#1578 make this available through chainspec
+<a href=#827 id=827 data-nosnippet>827</a>			// Grandpa performance can be improved a bit by tuning this parameter, see:
+<a href=#828 id=828 data-nosnippet>828</a>			// https://github.com/paritytech/polkadot/issues/5464
+<a href=#829 id=829 data-nosnippet>829</a>			</span>gossip_duration: Duration::from_millis(<span class="number">1000</span>),
+<a href=#830 id=830 data-nosnippet>830</a>			justification_generation_period: GRANDPA_JUSTIFICATION_PERIOD,
+<a href=#831 id=831 data-nosnippet>831</a>			name: <span class="prelude-val">Some</span>(name),
+<a href=#832 id=832 data-nosnippet>832</a>			observer_enabled: <span class="bool-val">false</span>,
+<a href=#833 id=833 data-nosnippet>833</a>			keystore: keystore_opt,
+<a href=#834 id=834 data-nosnippet>834</a>			local_role: role,
+<a href=#835 id=835 data-nosnippet>835</a>			telemetry: telemetry.as_ref().map(|x| x.handle()),
+<a href=#836 id=836 data-nosnippet>836</a>			protocol_name: grandpa_protocol_name,
+<a href=#837 id=837 data-nosnippet>837</a>		};
+<a href=#838 id=838 data-nosnippet>838</a>
+<a href=#839 id=839 data-nosnippet>839</a>		<span class="kw">let </span>enable_grandpa = !disable_grandpa;
+<a href=#840 id=840 data-nosnippet>840</a>		<span class="kw">if </span>enable_grandpa {
+<a href=#841 id=841 data-nosnippet>841</a>			<span class="comment">// start the full GRANDPA voter
+<a href=#842 id=842 data-nosnippet>842</a>			// NOTE: unlike in substrate we are currently running the full
+<a href=#843 id=843 data-nosnippet>843</a>			// GRANDPA voter protocol for all full nodes (regardless of whether
+<a href=#844 id=844 data-nosnippet>844</a>			// they're validators or not). at this point the full voter should
+<a href=#845 id=845 data-nosnippet>845</a>			// provide better guarantees of block and vote data availability than
+<a href=#846 id=846 data-nosnippet>846</a>			// the observer.
+<a href=#847 id=847 data-nosnippet>847</a>
+<a href=#848 id=848 data-nosnippet>848</a>			</span><span class="kw">let </span><span class="kw-2">mut </span>voting_rules_builder = sc_consensus_grandpa::VotingRulesBuilder::default();
 <a href=#849 id=849 data-nosnippet>849</a>
-<a href=#850 id=850 data-nosnippet>850</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(delay) = _malus_finality_delay {
-<a href=#851 id=851 data-nosnippet>851</a>				<span class="macro">info!</span>(<span class="question-mark">?</span>delay, <span class="string">"Enabling malus finality delay"</span>,);
-<a href=#852 id=852 data-nosnippet>852</a>				voting_rules_builder =
-<a href=#853 id=853 data-nosnippet>853</a>					voting_rules_builder.add(sc_consensus_grandpa::BeforeBestBlockBy(delay));
-<a href=#854 id=854 data-nosnippet>854</a>			};
-<a href=#855 id=855 data-nosnippet>855</a>
-<a href=#856 id=856 data-nosnippet>856</a>			<span class="kw">let </span>grandpa_config = sc_consensus_grandpa::GrandpaParams {
-<a href=#857 id=857 data-nosnippet>857</a>				config,
-<a href=#858 id=858 data-nosnippet>858</a>				link: link_half,
-<a href=#859 id=859 data-nosnippet>859</a>				network: network.clone(),
-<a href=#860 id=860 data-nosnippet>860</a>				sync: sync_service.clone(),
-<a href=#861 id=861 data-nosnippet>861</a>				voting_rule: voting_rules_builder.build(),
-<a href=#862 id=862 data-nosnippet>862</a>				prometheus_registry: prometheus_registry.clone(),
-<a href=#863 id=863 data-nosnippet>863</a>				shared_voter_state,
-<a href=#864 id=864 data-nosnippet>864</a>				telemetry: telemetry.as_ref().map(|x| x.handle()),
-<a href=#865 id=865 data-nosnippet>865</a>				notification_service: grandpa_notification_service,
-<a href=#866 id=866 data-nosnippet>866</a>				offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
-<a href=#867 id=867 data-nosnippet>867</a>					transaction_pool.clone(),
-<a href=#868 id=868 data-nosnippet>868</a>				),
-<a href=#869 id=869 data-nosnippet>869</a>			};
-<a href=#870 id=870 data-nosnippet>870</a>
-<a href=#871 id=871 data-nosnippet>871</a>			task_manager.spawn_essential_handle().spawn_blocking(
-<a href=#872 id=872 data-nosnippet>872</a>				<span class="string">"grandpa-voter"</span>,
-<a href=#873 id=873 data-nosnippet>873</a>				<span class="prelude-val">None</span>,
-<a href=#874 id=874 data-nosnippet>874</a>				sc_consensus_grandpa::run_grandpa_voter(grandpa_config)<span class="question-mark">?</span>,
-<a href=#875 id=875 data-nosnippet>875</a>			);
-<a href=#876 id=876 data-nosnippet>876</a>		}
-<a href=#877 id=877 data-nosnippet>877</a>
-<a href=#878 id=878 data-nosnippet>878</a>		<span class="prelude-val">Ok</span>(NewFull {
-<a href=#879 id=879 data-nosnippet>879</a>			task_manager,
-<a href=#880 id=880 data-nosnippet>880</a>			client,
-<a href=#881 id=881 data-nosnippet>881</a>			overseer_handle,
-<a href=#882 id=882 data-nosnippet>882</a>			network,
-<a href=#883 id=883 data-nosnippet>883</a>			sync_service,
-<a href=#884 id=884 data-nosnippet>884</a>			rpc_handlers,
-<a href=#885 id=885 data-nosnippet>885</a>			backend,
-<a href=#886 id=886 data-nosnippet>886</a>		})
-<a href=#887 id=887 data-nosnippet>887</a>	}
-<a href=#888 id=888 data-nosnippet>888</a>}
-<a href=#889 id=889 data-nosnippet>889</a>
-<a href=#890 id=890 data-nosnippet>890</a><span class="doccomment">/// Create a new full node of arbitrary runtime and executor.
-<a href=#891 id=891 data-nosnippet>891</a>///
-<a href=#892 id=892 data-nosnippet>892</a>/// This is an advanced feature and not recommended for general use. Generally, `build_full` is
-<a href=#893 id=893 data-nosnippet>893</a>/// a better choice.
+<a href=#850 id=850 data-nosnippet>850</a>			<span class="attr">#[cfg(not(feature = <span class="string">"malus"</span>))]
+<a href=#851 id=851 data-nosnippet>851</a>			</span><span class="kw">let </span>_malus_finality_delay = <span class="prelude-val">None</span>;
+<a href=#852 id=852 data-nosnippet>852</a>
+<a href=#853 id=853 data-nosnippet>853</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(delay) = _malus_finality_delay {
+<a href=#854 id=854 data-nosnippet>854</a>				<span class="macro">info!</span>(<span class="question-mark">?</span>delay, <span class="string">"Enabling malus finality delay"</span>,);
+<a href=#855 id=855 data-nosnippet>855</a>				voting_rules_builder =
+<a href=#856 id=856 data-nosnippet>856</a>					voting_rules_builder.add(sc_consensus_grandpa::BeforeBestBlockBy(delay));
+<a href=#857 id=857 data-nosnippet>857</a>			};
+<a href=#858 id=858 data-nosnippet>858</a>
+<a href=#859 id=859 data-nosnippet>859</a>			<span class="kw">let </span>grandpa_config = sc_consensus_grandpa::GrandpaParams {
+<a href=#860 id=860 data-nosnippet>860</a>				config,
+<a href=#861 id=861 data-nosnippet>861</a>				link: link_half,
+<a href=#862 id=862 data-nosnippet>862</a>				network: network.clone(),
+<a href=#863 id=863 data-nosnippet>863</a>				sync: sync_service.clone(),
+<a href=#864 id=864 data-nosnippet>864</a>				voting_rule: voting_rules_builder.build(),
+<a href=#865 id=865 data-nosnippet>865</a>				prometheus_registry: prometheus_registry.clone(),
+<a href=#866 id=866 data-nosnippet>866</a>				shared_voter_state,
+<a href=#867 id=867 data-nosnippet>867</a>				telemetry: telemetry.as_ref().map(|x| x.handle()),
+<a href=#868 id=868 data-nosnippet>868</a>				notification_service: grandpa_notification_service,
+<a href=#869 id=869 data-nosnippet>869</a>				offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
+<a href=#870 id=870 data-nosnippet>870</a>					transaction_pool.clone(),
+<a href=#871 id=871 data-nosnippet>871</a>				),
+<a href=#872 id=872 data-nosnippet>872</a>			};
+<a href=#873 id=873 data-nosnippet>873</a>
+<a href=#874 id=874 data-nosnippet>874</a>			task_manager.spawn_essential_handle().spawn_blocking(
+<a href=#875 id=875 data-nosnippet>875</a>				<span class="string">"grandpa-voter"</span>,
+<a href=#876 id=876 data-nosnippet>876</a>				<span class="prelude-val">None</span>,
+<a href=#877 id=877 data-nosnippet>877</a>				sc_consensus_grandpa::run_grandpa_voter(grandpa_config)<span class="question-mark">?</span>,
+<a href=#878 id=878 data-nosnippet>878</a>			);
+<a href=#879 id=879 data-nosnippet>879</a>		}
+<a href=#880 id=880 data-nosnippet>880</a>
+<a href=#881 id=881 data-nosnippet>881</a>		<span class="prelude-val">Ok</span>(NewFull {
+<a href=#882 id=882 data-nosnippet>882</a>			task_manager,
+<a href=#883 id=883 data-nosnippet>883</a>			client,
+<a href=#884 id=884 data-nosnippet>884</a>			overseer_handle,
+<a href=#885 id=885 data-nosnippet>885</a>			network,
+<a href=#886 id=886 data-nosnippet>886</a>			sync_service,
+<a href=#887 id=887 data-nosnippet>887</a>			rpc_handlers,
+<a href=#888 id=888 data-nosnippet>888</a>			backend,
+<a href=#889 id=889 data-nosnippet>889</a>		})
+<a href=#890 id=890 data-nosnippet>890</a>	}
+<a href=#891 id=891 data-nosnippet>891</a>}
+<a href=#892 id=892 data-nosnippet>892</a>
+<a href=#893 id=893 data-nosnippet>893</a><span class="doccomment">/// Create a new full node of arbitrary runtime and executor.
 <a href=#894 id=894 data-nosnippet>894</a>///
-<a href=#895 id=895 data-nosnippet>895</a>/// `workers_path` is used to get the path to the directory where auxiliary worker binaries reside.
-<a href=#896 id=896 data-nosnippet>896</a>/// If not specified, the main binary's directory is searched first, then `/usr/lib/polkadot` is
-<a href=#897 id=897 data-nosnippet>897</a>/// searched. If the path points to an executable rather then directory, that executable is used
-<a href=#898 id=898 data-nosnippet>898</a>/// both as preparation and execution worker (supposed to be used for tests only).
-<a href=#899 id=899 data-nosnippet>899</a></span><span class="kw">pub fn </span>new_full&lt;
-<a href=#900 id=900 data-nosnippet>900</a>	OverseerGenerator: OverseerGen,
-<a href=#901 id=901 data-nosnippet>901</a>	Network: sc_network::NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
-<a href=#902 id=902 data-nosnippet>902</a>&gt;(
-<a href=#903 id=903 data-nosnippet>903</a>	config: Configuration,
-<a href=#904 id=904 data-nosnippet>904</a>	params: NewFullParams&lt;OverseerGenerator&gt;,
-<a href=#905 id=905 data-nosnippet>905</a>) -&gt; <span class="prelude-ty">Result</span>&lt;NewFull, Error&gt; {
-<a href=#906 id=906 data-nosnippet>906</a>	PolkadotServiceBuilder::&lt;OverseerGenerator, Network&gt;::new(config, params)<span class="question-mark">?</span>.build()
-<a href=#907 id=907 data-nosnippet>907</a>}
+<a href=#895 id=895 data-nosnippet>895</a>/// This is an advanced feature and not recommended for general use. Generally, `build_full` is
+<a href=#896 id=896 data-nosnippet>896</a>/// a better choice.
+<a href=#897 id=897 data-nosnippet>897</a>///
+<a href=#898 id=898 data-nosnippet>898</a>/// `workers_path` is used to get the path to the directory where auxiliary worker binaries reside.
+<a href=#899 id=899 data-nosnippet>899</a>/// If not specified, the main binary's directory is searched first, then `/usr/lib/polkadot` is
+<a href=#900 id=900 data-nosnippet>900</a>/// searched. If the path points to an executable rather then directory, that executable is used
+<a href=#901 id=901 data-nosnippet>901</a>/// both as preparation and execution worker (supposed to be used for tests only).
+<a href=#902 id=902 data-nosnippet>902</a></span><span class="kw">pub fn </span>new_full&lt;
+<a href=#903 id=903 data-nosnippet>903</a>	OverseerGenerator: OverseerGen,
+<a href=#904 id=904 data-nosnippet>904</a>	Network: sc_network::NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
+<a href=#905 id=905 data-nosnippet>905</a>&gt;(
+<a href=#906 id=906 data-nosnippet>906</a>	config: Configuration,
+<a href=#907 id=907 data-nosnippet>907</a>	params: NewFullParams&lt;OverseerGenerator&gt;,
+<a href=#908 id=908 data-nosnippet>908</a>) -&gt; <span class="prelude-ty">Result</span>&lt;NewFull, Error&gt; {
+<a href=#909 id=909 data-nosnippet>909</a>	PolkadotServiceBuilder::&lt;OverseerGenerator, Network&gt;::new(config, params)<span class="question-mark">?</span>.build()
+<a href=#910 id=910 data-nosnippet>910</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
