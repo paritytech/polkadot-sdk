@@ -59,8 +59,10 @@ const TICK_MARGIN: Duration = Duration::from_millis(200);
 /// Reputation changes applied to peers for the reports they send.
 pub(crate) mod cost {
 	use sc_network::ReputationChange as Rep;
-	/// An honest peer does not send this. The peer is banned if it keeps sending several per
-	/// second, but not for one per tick.
+	/// An honest peer does not send this. The network bans a peer once its reputation drops
+	/// below about -1.5 billion, and it moves every reputation 0.5% back towards zero each second.
+	/// So at this cost a peer is banned after about 1,450 such reports within a few seconds, or
+	/// while it keeps sending about 7 per second. One per tick never gets it banned.
 	const MAJOR: i32 = -(1 << 20);
 	/// An honest peer may send this.
 	const MINOR: i32 = -(1 << 12);
