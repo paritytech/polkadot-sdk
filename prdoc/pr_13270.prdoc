@@ -1,0 +1,9 @@
+title: Replace `tracing-gum` with `tracing` on `polkadot-node-core-approval-voting-parallel`
+doc:
+- audience: Node Dev
+  description: |
+    This PR replaces the legacy `tracing-gum` wrapper with the standard `tracing`
+    crate on the `polkadot-node-core-approval-voting-parallel`.
+crates:
+- name: polkadot-node-core-approval-voting-parallel
+  bump: minor

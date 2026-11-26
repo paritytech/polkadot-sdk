@@ -14,7 +14,7 @@ workspace = true
 [dependencies]
 async-trait = { workspace = true }
 futures = { workspace = true }
-gum = { workspace = true }
+tracing = { workspace = true }
 itertools = { workspace = true }
 
 polkadot-approval-distribution = { workspace = true, default-features = true }
