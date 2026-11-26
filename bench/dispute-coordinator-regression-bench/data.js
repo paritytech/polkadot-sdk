@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795697526530,
+  "lastUpdate": 1795701187974,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "37865735+clangenb@users.noreply.github.com",
-            "name": "clangenb",
-            "username": "clangenb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f726bad79dbdb3db8be374cbdb272fe319b5d78c",
-          "message": "emulated integration tests cleanup (#12003)\n\nThis PR mostly consists of minor refactoring like introducing/centralize\nsome helpers and replacing some inlined functions with these helpers.\n\n---------\n\nCo-authored-by: clangenb <clangenb@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-05-14T07:02:34Z",
-          "tree_id": "37e2fa5221c8658d3aa080d2ab6bca210d449023",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f726bad79dbdb3db8be374cbdb272fe319b5d78c"
-        },
-        "date": 1778747208185,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002633361920000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00935162283999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010495819850000006,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.002582340569999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f90205d25073b64875981a8e364ce1f5e36683f6",
+          "message": "fix(beefy): submit equivocation reports through the offchain transaction pool (#13985)\n\nThe BEEFY fisherman calls\n`submit_report_double_voting_unsigned_extrinsic` without an offchain\ntransaction pool registered, so the runtime's `submit_transaction`\npanics with \"submit_transaction\ncan be called only in the offchain call context with TransactionPool\ncapabilities enabled\" and\nBEEFY equivocations are never reported. GRANDPA and BABE get the pool\nthrough their params.\n\nThis adds `offchain_tx_pool_factory` to `BeefyParams` and registers it\nbefore submitting a report.\nRuntime API mocks now ignore `register_extension` instead of panicking,\nsince the BEEFY tests\nreport through them.\n\nReproduced on a node whose runtime enables BEEFY equivocation reporting:\na signed double-voting\nreport with a valid key ownership proof fails as above without the pool,\nand reaches the pool with it.\n\nPrepared with AI assistance.\n\n---------\n\nSigned-off-by: Tomasz Bartos <tomasz.bartos@shielded.io>",
+          "timestamp": "2026-11-26T12:04:05Z",
+          "tree_id": "693d81b29a832642dd1f083f3bb386c3717c2cf6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f90205d25073b64875981a8e364ce1f5e36683f6"
+        },
+        "date": 1795701143814,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00251779191,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010538497429999991,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009301426399999967,
             "unit": "seconds"
           }
         ]
