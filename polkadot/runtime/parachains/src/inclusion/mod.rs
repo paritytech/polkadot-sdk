@@ -393,8 +393,8 @@ pub mod pallet {
 
 const LOG_TARGET: &str = "runtime::inclusion";
 
-/// Length of a sender's provides window. It must cover the authoring→inclusion pipeline, including
-/// elastic-scaling bursts, with ample slack.
+/// A sender adds at most one root per core per relay block. To retain its newest root from receiver
+/// authoring to the `Requires` check, the window must exceed `max_sender_cores * delay_in_blocks`.
 pub const MAX_PROVIDES_WINDOW_SIZE: u32 = 128;
 
 /// The reason that a candidate's outputs were rejected for.
