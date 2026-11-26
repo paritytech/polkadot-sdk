@@ -23,9 +23,7 @@ use crate::{
 };
 use pallet_revive::evm::TransactionSigned;
 use sp_core::{H256, U256};
-use sqlx::{
-	FromRow, QueryBuilder, Sqlite, SqliteConnection, SqlitePool, query, query_as, query_scalar,
-};
+use sqlx::{FromRow, QueryBuilder, Sqlite, SqlitePool, query, query_as, query_scalar};
 use std::{
 	collections::{BTreeMap, HashMap},
 	sync::Arc,
@@ -285,12 +283,11 @@ macro_rules! upsert_sync_label {
 /// transaction before calling this.
 async fn insert_block_mapping<'e, E: sqlx::Executor<'e, Database = Sqlite>>(
 	executor: E,
-	block_number: SubstrateBlockNumber,
+	block_number: i64,
 	block_map: &BlockHashMap,
 ) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
 	let ethereum_hash_ref = block_map.ethereum_hash.as_ref();
 	let substrate_hash_ref = block_map.substrate_hash.as_ref();
-	let block_number = block_number as i64;
 	query!(
 		r#"
 			INSERT OR REPLACE INTO eth_to_substrate_blocks
@@ -490,20 +487,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		log::debug!(target: LOG_TARGET, "Removing block hashes: {block_mappings:?}");
 
 		let mut db_tx = self.db_ctx.pool.begin().await?;
-		self.delete_blocks(&mut db_tx, block_mappings).await?;
-		db_tx.commit().await?;
-		Ok(())
-	}
 
-	/// Delete the given blocks' transaction hashes, logs, receipts and mappings on `conn`.
-	///
-	/// Runs on the caller's connection so the deletion can be part of a larger database
-	/// transaction.
-	async fn delete_blocks(
-		&self,
-		conn: &mut SqliteConnection,
-		block_mappings: &[BlockHashMap],
-	) -> Result<(), sqlx::Error> {
 		for chunk in block_mappings.chunks(self.db_ctx.max_variable_number) {
 			let placeholders = vec!["?"; chunk.len()].join(", ");
 			let sql_tx =
@@ -528,10 +512,85 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					delete_mappings_query.bind(block_map.substrate_hash.as_ref());
 			}
 
-			delete_tx_query.execute(&mut *conn).await?;
-			delete_logs_query.execute(&mut *conn).await?;
-			delete_receipts_query.execute(&mut *conn).await?;
-			delete_mappings_query.execute(&mut *conn).await?;
+			delete_tx_query.execute(&mut *db_tx).await?;
+			delete_logs_query.execute(&mut *db_tx).await?;
+			delete_receipts_query.execute(&mut *db_tx).await?;
+			delete_mappings_query.execute(&mut *db_tx).await?;
+		}
+
+		db_tx.commit().await?;
+		Ok(())
+	}
+
+	/// Delete the rows of every other block stored at the height of a finalized block.
+	///
+	/// A block at the height of a finalized block lost a fork to it. Call this for every finalized
+	/// block once it is indexed. Deleting siblings of a block that is not finalized could remove
+	/// the canonical block instead, as a best block can be retracted. Blocks indexed before the
+	/// `block_number` column existed have none and are kept.
+	///
+	/// Every statement writes, so the database transaction takes the write lock with its first
+	/// statement and waits for a concurrent writer instead of failing on a stale read snapshot.
+	pub async fn remove_forks_of_finalized(
+		&self,
+		block_number: SubstrateBlockNumber,
+		block_hash: &H256,
+	) -> Result<(), ClientError> {
+		let number = block_number as i64;
+		let hash = block_hash.as_ref();
+		let mut db_tx = self.db_ctx.pool.begin().await?;
+		query!(
+			r#"
+			DELETE FROM transaction_hashes WHERE block_hash IN (
+				SELECT substrate_block_hash FROM eth_to_substrate_blocks
+				WHERE block_number = $1 AND substrate_block_hash != $2
+			)
+			"#,
+			number,
+			hash,
+		)
+		.execute(&mut *db_tx)
+		.await?;
+		query!(
+			r#"
+			DELETE FROM logs WHERE block_hash IN (
+				SELECT ethereum_block_hash FROM eth_to_substrate_blocks
+				WHERE block_number = $1 AND substrate_block_hash != $2
+			)
+			"#,
+			number,
+			hash,
+		)
+		.execute(&mut *db_tx)
+		.await?;
+		query!(
+			r#"
+			DELETE FROM receipts WHERE block_hash IN (
+				SELECT substrate_block_hash FROM eth_to_substrate_blocks
+				WHERE block_number = $1 AND substrate_block_hash != $2
+			)
+			"#,
+			number,
+			hash,
+		)
+		.execute(&mut *db_tx)
+		.await?;
+		let removed = query!(
+			r#"
+			DELETE FROM eth_to_substrate_blocks
+			WHERE block_number = $1 AND substrate_block_hash != $2
+			"#,
+			number,
+			hash,
+		)
+		.execute(&mut *db_tx)
+		.await?
+		.rows_affected();
+		db_tx.commit().await?;
+		if removed > 0 {
+			log::debug!(target: LOG_TARGET,
+				"Removed {removed} blocks at the height of finalized block #{block_number} \
+				 ({block_hash:?})");
 		}
 		Ok(())
 	}
@@ -815,7 +874,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 	/// Like [`Self::insert_block_receipts`] but writes only to the DB (no cache update).
 	///
-	/// Used for historic sync. Like every insert, it replaces a block stored at the same height.
+	/// Used for historic sync. The block must be finalized: the blocks stored at its height are
+	/// removed, see [`Self::remove_forks_of_finalized`].
 	pub async fn insert_block_receipts_past(
 		&self,
 		block: &SubstrateBlock,
@@ -826,10 +886,13 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.extract_from_block_with_eth_hash(block, *ethereum_hash)
 			.await?;
 		self.insert_into_db(block, &receipts, ethereum_hash).await?;
-		Ok(())
+		self.remove_forks_of_finalized(block.block_number(), &block.block_hash()).await
 	}
 
 	/// Insert pre-extracted receipts and update the block cache (with fork detection).
+	///
+	/// Fork detection only covers the blocks in the cache. For a finalized block, also call
+	/// [`Self::remove_forks_of_finalized`].
 	pub async fn insert_block_receipts(
 		&self,
 		block: &SubstrateBlock,
@@ -909,11 +972,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Insert receipts into the database without updating the in-memory block cache.
-	///
-	/// In the same database transaction, deletes the rows of every other block stored at the
-	/// same height: it lost a fork to this block. The in-memory map only catches forks among the
-	/// blocks it holds, which it does not after a restart or for blocks indexed by historic sync.
-	/// Blocks whose mapping has no block number, indexed before the column existed, are kept.
 	async fn insert_into_db(
 		&self,
 		block: &impl BlockInfo,
@@ -948,29 +1006,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		}
 
 		let mut db_tx = self.db_ctx.pool.begin().await?;
-
-		let siblings = query!(
-			r#"
-			SELECT substrate_block_hash, ethereum_block_hash
-			FROM eth_to_substrate_blocks
-			WHERE block_number = $1 AND substrate_block_hash != $2
-			"#,
-			block_number,
-			substrate_hash_ref,
-		)
-		.map(|row| {
-			BlockHashMap::new(
-				H256::from_slice(&row.substrate_block_hash),
-				H256::from_slice(&row.ethereum_block_hash),
-			)
-		})
-		.fetch_all(&mut *db_tx)
-		.await?;
-		if !siblings.is_empty() {
-			log::debug!(target: LOG_TARGET,
-				"Block #{block_number} ({substrate_block_hash:?}) replaces {siblings:?}");
-			self.delete_blocks(&mut db_tx, &siblings).await?;
-		}
 
 		for chunk in receipts.chunks(self.db_ctx.tx_insert_chunk_size) {
 			let mut query_builder = QueryBuilder::<Sqlite>::new(
@@ -1037,7 +1072,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		}
 
 		let block_map = BlockHashMap::new(substrate_block_hash, *ethereum_hash);
-		insert_block_mapping(&mut *db_tx, block.number(), &block_map).await?;
+		insert_block_mapping(&mut *db_tx, block_number, &block_map).await?;
 
 		db_tx.commit().await?;
 		log::trace!(target: LOG_TARGET, "Inserted {} receipts for block #{block_number} ethereum: {ethereum_hash:?} substrate: {substrate_block_hash:?}", receipts.len());
@@ -1574,9 +1609,10 @@ mod tests {
 		]
 	}
 
-	/// Two blocks at height 1 contain the same transaction. Indexing the second one after a
-	/// restart, with the in-memory map cleared, removes the first one's rows: the transaction
-	/// resolves to the second block's receipt, and the first block's receipt is no longer served.
+	/// Two blocks at height 1 contain the same transaction. After a restart, with the in-memory
+	/// map cleared, the second one is indexed and finalized as the finalized-block subscription
+	/// does. The first one's rows are removed: the transaction resolves to the second block's
+	/// receipt, and the first block's receipt is no longer served.
 	#[sqlx::test]
 	async fn test_reorg_same_transaction_hash(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
@@ -1593,6 +1629,7 @@ mod tests {
 		assert_eq!(provider.find_transaction(&tx_hash).await, Some((block_a.hash, 0)));
 		provider.block_number_to_hashes.lock().await.clear();
 		provider.insert(&block_b, &receipts_b, &ethereum_hash_b).await?;
+		provider.remove_forks_of_finalized(block_b.number, &block_b.hash).await?;
 
 		assert_eq!(block_rows(&provider, &block_a, ethereum_hash_a).await, [0; 4]);
 		assert_eq!(block_rows(&provider, &block_b, ethereum_hash_b).await, [1; 4]);
@@ -1604,9 +1641,9 @@ mod tests {
 		Ok(())
 	}
 
-	/// After a restart, with the in-memory map cleared, a block replacing another at its height
-	/// without the other's transaction removes the other block's rows: the transaction is unknown
-	/// instead of served with the replaced block's receipt.
+	/// After a restart, with the in-memory map cleared, a finalized block at the height of another
+	/// one and without the other's transaction removes the other block's rows: the transaction is
+	/// unknown instead of served with the replaced block's receipt.
 	#[sqlx::test]
 	async fn reorg_to_a_block_without_the_transaction_forgets_it(
 		pool: SqlitePool,
@@ -1623,6 +1660,7 @@ mod tests {
 		assert_eq!(provider.receipt_by_hash(&tx_hash).await, Some(receipts_a[0].1.clone()));
 		provider.block_number_to_hashes.lock().await.clear();
 		provider.insert(&block_b, &[], &ethereum_hash_b).await?;
+		provider.remove_forks_of_finalized(block_b.number, &block_b.hash).await?;
 
 		assert_eq!(block_rows(&provider, &block_a, ethereum_hash_a).await, [0; 4]);
 		assert_eq!(block_rows(&provider, &block_b, ethereum_hash_b).await, [0, 0, 0, 1]);
@@ -1633,11 +1671,11 @@ mod tests {
 		Ok(())
 	}
 
-	/// A block indexed without updating the in-memory map, as historic sync does through
+	/// A finalized block indexed without updating the in-memory map, as historic sync does through
 	/// [`ReceiptProvider::insert_block_receipts_past`], removes the rows of another block at its
 	/// height. Blocks at other heights keep theirs.
 	#[sqlx::test]
-	async fn indexing_without_the_map_removes_a_block_at_the_same_height(
+	async fn finalized_block_from_historic_sync_removes_a_block_at_its_height(
 		pool: SqlitePool,
 	) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
@@ -1657,6 +1695,7 @@ mod tests {
 			.insert(&other_height, &receipts_other_height, &ethereum_hash_other_height)
 			.await?;
 		provider.insert_into_db(&block_b, &receipts_b, &ethereum_hash_b).await?;
+		provider.remove_forks_of_finalized(block_b.number, &block_b.hash).await?;
 
 		assert_eq!(block_rows(&provider, &block_a, ethereum_hash_a).await, [0; 4]);
 		assert_eq!(block_rows(&provider, &block_b, ethereum_hash_b).await, [1; 4]);
@@ -1665,6 +1704,138 @@ mod tests {
 		assert_eq!(provider.node_calls(), 0);
 		assert_eq!(provider.receipt_by_block_hash_and_index(&block_a.hash, 0).await, None);
 		assert_eq!(provider.node_calls(), 1);
+		Ok(())
+	}
+
+	/// A best block arriving after the finalized block at its height was stored by historic
+	/// sync, so not in the in-memory map, keeps the finalized block's rows: only finalized blocks
+	/// remove other blocks at their height.
+	#[sqlx::test]
+	async fn best_block_keeps_a_block_stored_at_its_height(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let finalized = MockBlockInfo { hash: H256::repeat_byte(1), number: 1 };
+		let ethereum_hash_finalized = H256::repeat_byte(2);
+		let receipts_finalized = indexed_receipts(&finalized, ethereum_hash_finalized, &[1]);
+		let best = MockBlockInfo { hash: H256::repeat_byte(3), number: 1 };
+		let ethereum_hash_best = H256::repeat_byte(4);
+		let receipts_best = make_receipts(100, 1, 1);
+		let tx_hash = receipts_finalized[0].1.transaction_hash;
+
+		provider
+			.insert_into_db(&finalized, &receipts_finalized, &ethereum_hash_finalized)
+			.await?;
+		provider.remove_forks_of_finalized(finalized.number, &finalized.hash).await?;
+		provider.insert(&best, &receipts_best, &ethereum_hash_best).await?;
+
+		assert_eq!(block_rows(&provider, &finalized, ethereum_hash_finalized).await, [1; 4]);
+		assert_eq!(block_rows(&provider, &best, ethereum_hash_best).await, [1; 4]);
+		assert_eq!(provider.find_transaction(&tx_hash).await, Some((finalized.hash, 0)));
+		assert_eq!(provider.receipt_by_hash(&tx_hash).await, Some(receipts_finalized[0].1.clone()));
+		Ok(())
+	}
+
+	/// A block indexed before the `block_number` column existed has none, and finalizing a block
+	/// does not remove it.
+	#[sqlx::test]
+	async fn block_without_a_block_number_survives_finalization(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let legacy_hash = H256::repeat_byte(1);
+		let legacy_ethereum_hash = H256::repeat_byte(2);
+		let legacy_tx_hash = H256::repeat_byte(3);
+		let finalized = MockBlockInfo { hash: H256::repeat_byte(4), number: 1 };
+		let ethereum_hash_finalized = H256::repeat_byte(5);
+		let receipts_finalized = indexed_receipts(&finalized, ethereum_hash_finalized, &[1]);
+		sqlx::query(
+			"INSERT INTO eth_to_substrate_blocks (ethereum_block_hash, substrate_block_hash) \
+			 VALUES (?, ?)",
+		)
+		.bind(legacy_ethereum_hash.as_ref())
+		.bind(legacy_hash.as_ref())
+		.execute(&provider.db_ctx.pool)
+		.await?;
+		sqlx::query(
+			"INSERT INTO transaction_hashes (transaction_hash, transaction_index, block_hash) \
+			 VALUES (?, 0, ?)",
+		)
+		.bind(legacy_tx_hash.as_ref())
+		.bind(legacy_hash.as_ref())
+		.execute(&provider.db_ctx.pool)
+		.await?;
+
+		provider
+			.insert(&finalized, &receipts_finalized, &ethereum_hash_finalized)
+			.await?;
+		provider.remove_forks_of_finalized(finalized.number, &finalized.hash).await?;
+
+		assert_eq!(provider.get_ethereum_hash(&legacy_hash).await, Some(legacy_ethereum_hash));
+		assert_eq!(provider.find_transaction(&legacy_tx_hash).await, Some((legacy_hash, 0)));
+		assert_eq!(block_rows(&provider, &finalized, ethereum_hash_finalized).await, [1; 4]);
+		Ok(())
+	}
+
+	/// Run `operation` while another connection holds the write lock and commits a change after
+	/// a delay.
+	///
+	/// In WAL mode, a database transaction whose first statement reads takes a snapshot; if the
+	/// other connection commits before its first write, the write fails with
+	/// `SQLITE_BUSY_SNAPSHOT` instead of waiting for the busy timeout.
+	async fn while_another_connection_writes(
+		pool: &SqlitePool,
+		operation: impl Future<Output = Result<(), ClientError>>,
+	) -> anyhow::Result<()> {
+		let mut writer = pool.acquire().await?;
+		sqlx::query("BEGIN IMMEDIATE").execute(&mut *writer).await?;
+		sqlx::query(
+			"INSERT OR REPLACE INTO sync_state (label, block_number) VALUES ('other-writer', 0)",
+		)
+		.execute(&mut *writer)
+		.await?;
+		let commit = async {
+			tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+			sqlx::query("COMMIT").execute(&mut *writer).await
+		};
+		let (committed, operated) = tokio::join!(commit, operation);
+		committed?;
+		operated?;
+		Ok(())
+	}
+
+	/// In a file-backed WAL database with a concurrent writer, as in archive mode, indexing a
+	/// finalized block and removing the blocks at its height wait for the writer to commit
+	/// instead of failing.
+	#[tokio::test]
+	async fn indexing_a_finalized_block_waits_for_a_concurrent_writer() -> anyhow::Result<()> {
+		let dir = tempfile::tempdir()?;
+		let options = sqlx::sqlite::SqliteConnectOptions::new()
+			.filename(dir.path().join("eth-rpc.db"))
+			.create_if_missing(true)
+			.journal_mode(sqlx::sqlite::SqliteJournalMode::Wal);
+		let pool = SqlitePool::connect_with(options).await?;
+		sqlx::migrate!().run(&pool).await?;
+		let provider = setup_sqlite_provider(pool.clone()).await;
+		let block_a = MockBlockInfo { hash: H256::repeat_byte(1), number: 1 };
+		let ethereum_hash_a = H256::repeat_byte(2);
+		let receipts_a = indexed_receipts(&block_a, ethereum_hash_a, &[1]);
+		let block_b = MockBlockInfo { hash: H256::repeat_byte(3), number: 1 };
+		let ethereum_hash_b = H256::repeat_byte(4);
+		let receipts_b = indexed_receipts(&block_b, ethereum_hash_b, &[1]);
+		provider.insert_into_db(&block_a, &receipts_a, &ethereum_hash_a).await?;
+
+		while_another_connection_writes(
+			&pool,
+			provider.insert_into_db(&block_b, &receipts_b, &ethereum_hash_b),
+		)
+		.await?;
+		while_another_connection_writes(
+			&pool,
+			provider.remove_forks_of_finalized(block_b.number, &block_b.hash),
+		)
+		.await?;
+
+		assert_eq!(block_rows(&provider, &block_a, ethereum_hash_a).await, [0; 4]);
+		assert_eq!(block_rows(&provider, &block_b, ethereum_hash_b).await, [1; 4]);
 		Ok(())
 	}
 

@@ -783,6 +783,7 @@ impl Client {
 							(Some(infos), eth_block.hash, Some(eth_block))
 						},
 					};
+					self.receipt_provider.remove_forks_of_finalized(block_number, &hash).await?;
 
 					self.update_and_announce_latest_block(block, eth_block, subscription_type)
 						.await;

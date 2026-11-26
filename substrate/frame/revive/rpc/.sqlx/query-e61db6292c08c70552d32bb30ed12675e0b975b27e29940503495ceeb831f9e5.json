@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n\t\t\tDELETE FROM transaction_hashes WHERE block_hash IN (\n\t\t\t\tSELECT substrate_block_hash FROM eth_to_substrate_blocks\n\t\t\t\tWHERE block_number = $1 AND substrate_block_hash != $2\n\t\t\t)\n\t\t\t",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "e61db6292c08c70552d32bb30ed12675e0b975b27e29940503495ceeb831f9e5"
+}
