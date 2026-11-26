@@ -1,0 +1,10 @@
+title: Remove pallet::getter usage from pallet-derivatives
+doc:
+- audience: Runtime Dev
+  description: |-
+    Replaces the `#[pallet::getter]` attributes of `pallet-derivatives` with explicit public
+    functions on `Pallet<T, I>`. `original_to_derivative()`, `derivative_to_original()` and
+    `derivative_extra()` keep their signatures, so no changes are needed downstream.
+crates:
+- name: pallet-derivatives
+  bump: minor
