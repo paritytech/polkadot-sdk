@@ -1179,21 +1179,22 @@ fn check_speculative_messaging<T: crate::inclusion::Config>(
 		return false;
 	};
 
-	if let Some(requires) = signals.requires() {
-		if let Err((source, root)) = crate::inclusion::Pallet::<T>::requires_satisfied(requires) {
-			log::debug!(
-				target: LOG_TARGET,
-				"Dropping candidate {:?} for para {:?}: requires root {:?} not in source {:?}'s provides window.",
-				candidate.candidate().hash(),
-				candidate.descriptor().para_id(),
-				root,
-				source,
-			);
-			return false;
-		}
-	}
+        let Some(requires) = signals.requires() else {
+                return true;
+        };
+        let Err((source, root)) = crate::inclusion::Pallet::<T>::requires_satisfied(requires) else {
+                return true;
+        };
 
-	true
+        log::debug!(
+                target: LOG_TARGET,
+                "Dropping candidate {:?} for para {:?}: requires root {:?} not in source {:?}'s provides window.",
+                candidate.candidate().hash(),
+                candidate.descriptor().para_id(),
+                root,
+                source,
+        );
+        false
 }
 
 fn count_backed_candidates<B>(backed_candidates: &BTreeMap<ParaId, Vec<B>>) -> usize {
