@@ -84,10 +84,17 @@ module state {
   // --- Per-parachain log (design §3.1, capacity-bounded) -----------------
   type ParachainLog = List[(Timeslot, LogEntry)]
 
-  /// One recorded incoming transfer (§3.1). `toSupervisorBalance` is JAM's
-  /// `destsupervisor` flag: the amount went to the supervisor balance.
-  type IncomingTransfer =
+  /// A deferred transfer as JAM delivers it. `toSupervisorBalance` is JAM's
+  /// `destsupervisor` flag.
+  type ArrivingTransfer =
     { source: ServiceId, amount: Balance, toSupervisorBalance: bool, memo: Memo }
+
+  /// One recorded incoming transfer (§3.1).
+  type IncomingTransfer = { source: ServiceId, amount: Balance, memo: Memo }
+
+  /// The record kept for an arriving transfer.
+  pure def toRecord(t: ArrivingTransfer): IncomingTransfer =
+    { source: t.source, amount: t.amount, memo: t.memo }
 
   // --- Top-level service state -------------------------------------------
 

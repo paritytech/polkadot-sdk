@@ -753,21 +753,24 @@ module accumulate {
 
   /// §5.1 incoming-transfer processing for ONE accumulate invocation: admit `ts`
   /// in order, packing the admitted ones into buckets this invocation opens.
+  /// Transfers to the supervisor balance are forbidden: their amount is moved to
+  /// the regular balance and they are not recorded, ignoring their memo.
   pure def applyIncomingTransfers(
     s: ParachainServiceState,
-    ts: List[IncomingTransfer]
+    ts: List[ArrivingTransfer]
   ): ParachainServiceState = {
     // JAM credits every transfer before this service runs, recorded or not.
     val credited = ts.foldl(s, (acc, t) =>
-      { ...acc, jamAccount: acc.jamAccount.credit(t.amount, t.toSupervisorBalance) })
+      { ...acc, jamAccount: acc.jamAccount.credit(t.amount, false) })
     val start: (ParachainServiceState, Option[BucketId]) = (credited, None)
-    ts.foldl(start, (acc, t) => admitIncomingTransfer(acc._1, acc._2, t))._1
+    ts.select(t => not(t.toSupervisorBalance))
+      .foldl(start, (acc, t) => admitIncomingTransfer(acc._1, acc._2, t.toRecord()))._1
   }
 
   /// One transfer arriving on its own, i.e. an invocation carrying just it.
   pure def applyIncomingTransfer(
     s: ParachainServiceState,
-    t: IncomingTransfer
+    t: ArrivingTransfer
   ): ParachainServiceState = applyIncomingTransfers(s, List(t))
 
   /// §5.1: fire up to `budget` due `assign`s.
@@ -803,7 +806,7 @@ module accumulate {
   pure def accumulateTransfers(
     s: ParachainServiceState,
     now: Timeslot,
-    ts: List[IncomingTransfer],
+    ts: List[ArrivingTransfer],
     budget: AssignBudget
   ): { state: ParachainServiceState, assigns: List[AssignCall] } = {
     val flushed = alwaysAccumulateFlush(s, now, budget.flush)

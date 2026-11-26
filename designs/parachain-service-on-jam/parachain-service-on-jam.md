@@ -436,8 +436,6 @@ type IncomingTransfers = BoundedVec<IncomingTransfer, MAX_TRANSFERS_PER_BUCKET>;
 struct IncomingTransfer {
     source: ServiceId,
     amount: Compact<Amount>,
-    /// Whether the amount went to the supervisor balance (JAM `destsupervisor`).
-    to_supervisor_balance: bool,
     memo: Memo,
 }
 
@@ -883,6 +881,10 @@ service's code runs and even if that code panics or runs out of gas. The service
 therefore **cannot refuse or fail an incoming transfer**. Its only decision is whether to
 *record* it in `incoming_transfers` for Asset Hub to act on. Recording is **best effort**,
 and the funds are kept either way.
+
+Transfers to the Parachain Service's supervisor balance (JAM `destsupervisor`) are
+**forbidden**. If one still arrives, the service moves its amount to its regular balance
+and does not record it, ignoring its memo.
 
 `MAX_INCOMING_TRANSFERS` is the portion of the queue Asset Hub pre-provisions in its
 baseline (§6.1), not a hard cap. While the queue holds fewer than that many transfers, a
@@ -1421,22 +1423,22 @@ transfer, so bounding the transfer count also bounds the bucket count.
 
 ```
 incoming_transfers: Map<BucketId, IncomingTransfers>  (worst case N items)
-  N × (34 + 9 (key) + 1 + 142 (transfer))                       186 × N
+  N × (34 + 9 (key) + 1 + 141 (transfer))                       185 × N
   N storage items × 10                                           10 × N
                                                               ---------
-                                                              196 × N
+                                                              195 × N
 ```
 
 The whole reservation is therefore
 
 ```
-asset_hub_global_items = 1 237 356 + 196 × N
+asset_hub_global_items = 1 237 356 + 195 × N
 ```
 
 `N` is provisional until `min_memo_gas` is benchmarked and the bound derived from it
 (§5.1), and it is the only input that moves. Entries past `N` are not part of this
 reservation. Each is charged to Asset Hub as it arrives and refunded as it drains
-(§5.1). At `N = 1000` the reservation is `1 237 356 + 196 000 = 1 433 356`, or
+(§5.1). At `N = 1000` the reservation is `1 237 356 + 195 000 = 1 432 356`, or
 **≈ 1.37 MiB**, on top of the generic per-para baseline.
 
 #### Key-Value storage footprint

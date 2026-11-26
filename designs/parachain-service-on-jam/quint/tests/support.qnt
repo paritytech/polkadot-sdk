@@ -176,7 +176,7 @@ module support {
   /// accumulate invocation produces.
   pure val fullIncomingTransfersFixture: BucketId -> List[IncomingTransfer] =
     range(0, MaxIncomingTransfers).foldl(Map(), (acc, i) =>
-      acc.put(i, List({ source: MkServiceId(0), amount: 1000 + i, toSupervisorBalance: false, memo: 0 })))
+      acc.put(i, List({ source: MkServiceId(0), amount: 1000 + i, memo: 0 })))
 
   pure val fullTransferQueue: ParachainServiceState = {
     ...initialState,
@@ -329,7 +329,7 @@ module support {
   /// present and every id lies between them, so only the contiguity conjunct
   /// rules it out.
   pure val oneTransfer: List[IncomingTransfer] =
-    List({ source: MkServiceId(0), amount: 1, toSupervisorBalance: false, memo: 0 })
+    List({ source: MkServiceId(0), amount: 1, memo: 0 })
 
   pure val gappedBucketsState: ParachainServiceState = {
     ...initialState,

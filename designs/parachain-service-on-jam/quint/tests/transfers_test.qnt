@@ -65,12 +65,12 @@ module transfers_test {
     // Two invocations carrying one each.
     val apart = applyIncomingTransfer(applyIncomingTransfer(initialState, t1), t2)
     all {
-      assert(together.incomingTransfers == Map(0 -> List(t1, t2))),
+      assert(together.incomingTransfers == Map(0 -> List(t1.toRecord(), t2.toRecord()))),
       assert(together.incomingTransferBuckets ==
         Some({ firstBucket: 0, lastBucket: 0, count: 2 })),
       assert(queuedTransferCount(together) == 2),
       // Closed by the invocation boundary, so `t2` lands in bucket 1.
-      assert(apart.incomingTransfers == Map(0 -> List(t1), 1 -> List(t2))),
+      assert(apart.incomingTransfers == Map(0 -> List(t1.toRecord()), 1 -> List(t2.toRecord()))),
       assert(apart.incomingTransferBuckets ==
         Some({ firstBucket: 0, lastBucket: 1, count: 2 })),
       init
@@ -411,20 +411,17 @@ module transfers_test {
       .then(setSvc(contiguousBucketsState))
       .then(expectThat(incoming_transfers_buckets_consistent))
 
-  /// §3.1: the record keeps JAM's `destsupervisor` flag, since any service may
-  /// credit either balance with a deferred transfer and Asset Hub must know
-  /// which one to move the funds on from.
-  run incomingTransferRecordsSupervisorBalanceTest = {
+  /// §5.1: transfers to the supervisor balance are forbidden. One that still
+  /// arrives is moved to the regular balance and not recorded, ignoring its memo.
+  run incomingTransferToSupervisorBalanceIgnoredTest = {
     val toSup = { source: MkServiceId(0), amount: 500, toSupervisorBalance: true, memo: 0 }
     val toReg = { ...toSup, toSupervisorBalance: false, memo: 1 }
     val s = applyIncomingTransfers(initialState, List(toSup, toReg))
     all {
-      assert(s.incomingTransfers.get(0) == List(toSup, toReg)),
-      assert(s.incomingTransfers.get(0)[0].toSupervisorBalance),
-      assert(not(s.incomingTransfers.get(0)[1].toSupervisorBalance)),
-      // Each lands in the balance it names.
-      assert(s.jamAccount.supervisorBalance == initialState.jamAccount.supervisorBalance + 500),
-      assert(s.jamAccount.balance == initialState.jamAccount.balance + 500),
+      assert(s.incomingTransfers == Map(0 -> List({ source: MkServiceId(0), amount: 500, memo: 1 }))),
+      assert(s.incomingTransferBuckets == Some({ firstBucket: 0, lastBucket: 0, count: 1 })),
+      assert(s.jamAccount.supervisorBalance == initialState.jamAccount.supervisorBalance),
+      assert(s.jamAccount.balance == initialState.jamAccount.balance + 1000),
       init
     }
   }

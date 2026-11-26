@@ -307,7 +307,7 @@ module main {
   /// If it is the timeslot's first invocation, due assigns are flushed first
   /// (§5.1), within `budget`.
   action incomingTransferInvocation(
-    ts: List[IncomingTransfer], budget: AssignBudget
+    ts: List[ArrivingTransfer], budget: AssignBudget
   ): bool = {
     val out = accumulateTransfers(svc, now, ts, budget)
     all {
@@ -332,7 +332,7 @@ module main {
     nondet senderId = oneOf(senderPool)
     nondet amount = oneOf(Set(0, 100, 10000))
     nondet memo = oneOf(Set(0, 1, 2))
-    // Any service may credit either balance with a deferred transfer.
+    // A deferred transfer may still target the forbidden supervisor balance.
     nondet toSup = oneOf(Set(false, true))
     // Batch sizes above one exercise the in-invocation packing.
     nondet extra = oneOf(Set(0, 1))

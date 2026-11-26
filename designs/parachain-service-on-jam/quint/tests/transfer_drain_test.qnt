@@ -75,7 +75,7 @@ module transfer_drain_test {
       // The two it read are gone; the one it never saw survives intact.
       assert(out.state.incomingTransfers.keys() == Set(2)),
       assert(out.state.incomingTransfers.get(2) ==
-        List({ source: from, amount: big, toSupervisorBalance: false, memo: 2 })),
+        List({ source: from, amount: big, memo: 2 })),
       assert(out.state.incomingTransferBuckets ==
         Some({ firstBucket: 2, lastBucket: 2, count: 1 })),
       init
