@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795636839962,
+  "lastUpdate": 1795697280381,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0d98056f335694d823786748d234867449fd6eac",
-          "message": "statement-store: remove statement-latency-bench crate (#12102)\n\nThe benchmarking tooling has moved to its own repository at\nhttps://github.com/paritytech/statement-store-tools.",
-          "timestamp": "2026-05-19T13:20:47Z",
-          "tree_id": "3ddaffd6bb47c126f6361a6b211cc70bd6540c9f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0d98056f335694d823786748d234867449fd6eac"
-        },
-        "date": 1779204649257,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.1904791577,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1357630875,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13095523486666663,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "80d49d4cb5397906d139f3cfad41df81833266ff",
+          "message": "pallet-child-bounties: allow forced cleanup after parent deactivation (#13406)\n\n`close_child_bounty` documents that `RejectOrigin` can force cleanup\nregardless of the parent bounty state, but the implementation checks\nthat the parent is active before applying the origin-specific\nauthorization. After the parent curator is unassigned, forced cleanup\ntherefore fails and child-bounty funds remain stranded.\n\nThis patch applies the active-parent check only to signed callers, keeps\nparent existence validation for `RejectOrigin`, and adds regression\ncoverage for cleanup after parent deactivation.\n\nNo API or storage migration is required.",
+          "timestamp": "2026-11-26T10:02:04Z",
+          "tree_id": "4a0dbe2e9b7b5aa5ab562790e438423ded850a7c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/80d49d4cb5397906d139f3cfad41df81833266ff"
+        },
+        "date": 1795697235903,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.273644113166664,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13219837083333336,
             "unit": "seconds"
           }
         ]
