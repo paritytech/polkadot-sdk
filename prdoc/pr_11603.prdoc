@@ -47,7 +47,7 @@ doc:
     - `MaxQueuedSpends` must not be lowered below the length of a live `PayoutQueue` without a
       migration: a longer stored queue no longer decodes, reads as empty, and the next spend for
       that asset kind overwrites it, dropping every queued spend from the payout order.
-    - `MaxSpendDelay` should be sized above the longest payout schedule governance uses (years,
+    - `MaxSpendDelay` should be sized above the longest payout schedule governance uses (months,
       not weeks): proposers with a far-future `valid_from` otherwise see their already-approved
       referenda fail at enactment with `SpendTooFarInFuture`.
 - audience: Runtime User
