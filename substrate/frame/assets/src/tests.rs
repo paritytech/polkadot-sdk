@@ -37,6 +37,7 @@ use sp_runtime::{
 	ArithmeticError, TokenError,
 };
 
+mod persistent;
 mod sets;
 
 fn asset_ids() -> Vec<u32> {
