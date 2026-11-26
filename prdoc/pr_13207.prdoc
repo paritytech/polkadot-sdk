@@ -1,0 +1,28 @@
+title: 'network-bridge: zero emptied peer-count version buckets'
+doc:
+- audience: Node Operator
+  description: |-
+    `polkadot_parachain_peer_count` no longer keeps reporting a stale, non-zero peer count
+    for a protocol version after that version's last peer disconnects. Every known version
+    is now published on each re-report, zero-filled when it has no peers, so series for
+    versions this node has never seen appear reporting 0, and rules such as
+    `polkadot_parachain_peer_count{protocol="collation/1"} == 0` can now fire.
+
+    `polkadot_parachain_peer_connectivity` is written by the same code path, so emptied
+    buckets now record an observation of 0. This is intentional - the histogram's bucket
+    list already starts at 0.0, a boundary that was previously unreachable - but it is
+    cumulative: `_count` now advances once per `ActiveLeaves` for every known version
+    rather than only populated ones, so `rate(_sum)/rate(_count)` shifts from "mean peers
+    while peers were present" to "mean peers including zeros" and steps down at upgrade.
+- audience: Node Dev
+  description: |-
+    `note_peers_count` now publishes a sample for every version returned by the new
+    `all_known_versions`, defaulting absent versions to zero, instead of only the versions
+    present in `count_peers_by_version`. Prometheus gauge children retain their last
+    written value, so a skipped bucket reported a stale count for the lifetime of the
+    process. `count_peers_by_version` is deliberately left as a strict partition with no
+    empty buckets. No public API change; `strum` moves from dev-dependencies to
+    dependencies.
+crates:
+- name: polkadot-network-bridge
+  bump: minor
