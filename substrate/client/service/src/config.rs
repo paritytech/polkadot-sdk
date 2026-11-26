@@ -78,6 +78,11 @@ pub struct Configuration {
 	///
 	/// NOTE: only finalized blocks are subject for removal!
 	pub blocks_pruning: BlocksPruning,
+	/// Whether to also prune block headers together with block bodies.
+	///
+	/// Only has an effect together with [`BlocksPruning::Some`]. See
+	/// [`sc_client_db::DatabaseSettings::header_pruning`] for details and caveats.
+	pub header_pruning: bool,
 	/// Chain configuration.
 	pub chain_spec: Box<dyn ChainSpec>,
 	/// Runtime executor configuration.
@@ -236,6 +241,7 @@ impl Configuration {
 			source: self.database.clone(),
 			blocks_pruning: self.blocks_pruning,
 			pruning_filters: Default::default(),
+			header_pruning: self.header_pruning,
 			metrics_registry: self.prometheus_registry().cloned(),
 		}
 	}

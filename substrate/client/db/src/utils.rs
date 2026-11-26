@@ -59,6 +59,8 @@ pub mod meta_keys {
 	pub const BLOCK_GAP: &[u8; 3] = b"gap";
 	/// Block gap version.
 	pub const BLOCK_GAP_VERSION: &[u8; 7] = b"gap_ver";
+	/// Next block number to inspect for historical header pruning.
+	pub const HEADER_PRUNING_CURSOR: &[u8; 6] = b"hprune";
 	/// Genesis block hash.
 	pub const GENESIS_HASH: &[u8; 3] = b"gen";
 	/// Leaves prefix list key.
