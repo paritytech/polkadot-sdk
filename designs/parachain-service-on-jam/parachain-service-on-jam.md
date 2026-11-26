@@ -884,7 +884,8 @@ and the funds are kept either way.
 
 Transfers to the Parachain Service's supervisor balance (JAM `destsupervisor`) are
 **forbidden**. If one still arrives, the service moves its amount to its regular balance
-and does not record it, ignoring its memo.
+and records it like any other transfer, but with an all-zero memo, ignoring the one it
+carried.
 
 `MAX_INCOMING_TRANSFERS` is the portion of the queue Asset Hub pre-provisions in its
 baseline (§6.1), not a hard cap. While the queue holds fewer than that many transfers, a

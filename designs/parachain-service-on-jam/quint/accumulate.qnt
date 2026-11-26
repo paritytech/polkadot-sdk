@@ -754,7 +754,7 @@ module accumulate {
   /// §5.1 incoming-transfer processing for ONE accumulate invocation: admit `ts`
   /// in order, packing the admitted ones into buckets this invocation opens.
   /// Transfers to the supervisor balance are forbidden: their amount is moved to
-  /// the regular balance and they are not recorded, ignoring their memo.
+  /// the regular balance and they are recorded with an empty memo.
   pure def applyIncomingTransfers(
     s: ParachainServiceState,
     ts: List[ArrivingTransfer]
@@ -763,8 +763,7 @@ module accumulate {
     val credited = ts.foldl(s, (acc, t) =>
       { ...acc, jamAccount: acc.jamAccount.credit(t.amount, false) })
     val start: (ParachainServiceState, Option[BucketId]) = (credited, None)
-    ts.select(t => not(t.toSupervisorBalance))
-      .foldl(start, (acc, t) => admitIncomingTransfer(acc._1, acc._2, t.toRecord()))._1
+    ts.foldl(start, (acc, t) => admitIncomingTransfer(acc._1, acc._2, t.toRecord()))._1
   }
 
   /// One transfer arriving on its own, i.e. an invocation carrying just it.

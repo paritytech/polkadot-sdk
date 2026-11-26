@@ -412,16 +412,19 @@ module transfers_test {
       .then(expectThat(incoming_transfers_buckets_consistent))
 
   /// §5.1: transfers to the supervisor balance are forbidden. One that still
-  /// arrives is moved to the regular balance and not recorded, ignoring its memo.
-  run incomingTransferToSupervisorBalanceIgnoredTest = {
-    val toSup = { source: MkServiceId(0), amount: 500, toSupervisorBalance: true, memo: 0 }
-    val toReg = { ...toSup, toSupervisorBalance: false, memo: 1 }
+  /// arrives is moved to the regular balance and recorded with an empty memo.
+  run incomingTransferToSupervisorBalanceEmptyMemoTest = {
+    val toSup = { source: MkServiceId(0), amount: 500, toSupervisorBalance: true, memo: 7 }
+    val toReg = { source: MkServiceId(3), amount: 600, toSupervisorBalance: false, memo: 1 }
     val s = applyIncomingTransfers(initialState, List(toSup, toReg))
     all {
-      assert(s.incomingTransfers == Map(0 -> List({ source: MkServiceId(0), amount: 500, memo: 1 }))),
-      assert(s.incomingTransferBuckets == Some({ firstBucket: 0, lastBucket: 0, count: 1 })),
+      assert(s.incomingTransfers == Map(0 -> List(
+        { source: MkServiceId(0), amount: 500, memo: 0 },
+        { source: MkServiceId(3), amount: 600, memo: 1 }
+      ))),
+      assert(s.incomingTransferBuckets == Some({ firstBucket: 0, lastBucket: 0, count: 2 })),
       assert(s.jamAccount.supervisorBalance == initialState.jamAccount.supervisorBalance),
-      assert(s.jamAccount.balance == initialState.jamAccount.balance + 1000),
+      assert(s.jamAccount.balance == initialState.jamAccount.balance + toSup.amount + toReg.amount),
       init
     }
   }

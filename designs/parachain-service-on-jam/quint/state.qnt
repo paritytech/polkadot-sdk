@@ -92,9 +92,10 @@ module state {
   /// One recorded incoming transfer (§3.1).
   type IncomingTransfer = { source: ServiceId, amount: Balance, memo: Memo }
 
-  /// The record kept for an arriving transfer.
+  /// The record kept for an arriving transfer. One to the forbidden supervisor
+  /// balance keeps an empty memo (§5.1).
   pure def toRecord(t: ArrivingTransfer): IncomingTransfer =
-    { source: t.source, amount: t.amount, memo: t.memo }
+    { source: t.source, amount: t.amount, memo: if (t.toSupervisorBalance) 0 else t.memo }
 
   // --- Top-level service state -------------------------------------------
 
