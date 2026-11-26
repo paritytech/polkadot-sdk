@@ -1,0 +1,31 @@
+title: 'fix(babe): make BABE aware of duplicated authorities'
+doc:
+- audience: Node Dev
+  description: |-
+    An authority listed more than once in the BABE authority set now has the summed weight of all its
+    entries when its primary slot threshold is calculated. This matches how GRANDPA's `VoterSet` and
+    BEEFY's `RoundTracker` (https://github.com/paritytech/polkadot-sdk/pull/8964) handle duplicated
+    authorities.
+
+    The BABE VRF output depends only on the authority key, the slot, the epoch index and the epoch
+    randomness, not on the authority's index. A key listed `k` times therefore had a single primary
+    draw at the threshold of one entry, while secondary slot assignment counts every entry.
+    With the summed weight, its primary threshold is `1 - (1 - c)^(k/n)`, the same as `k` independent
+    entries.
+
+    Authority sets without duplicates are unaffected.
+- audience: Runtime Dev
+  description: |-
+    `sp_consensus_babe::check_equivocation_proof` no longer requires both headers to carry the same
+    authority index. Both seals are still verified against the offender's key. An authority listed
+    more than once could otherwise equivocate under two of its entries without a valid proof.
+- audience: Node Operator
+  description: |-
+    On chains whose BABE authority set contains duplicated keys, nodes with this change accept primary
+    blocks that nodes without it reject. All block producers and importers of such a chain must
+    upgrade together.
+crates:
+- name: sc-consensus-babe
+  bump: patch
+- name: sp-consensus-babe
+  bump: patch
