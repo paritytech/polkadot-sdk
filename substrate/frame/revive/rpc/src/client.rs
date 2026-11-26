@@ -337,14 +337,14 @@ pub struct Client {
 	runtime_api_provider: VersionAwareRuntimeApiProvider,
 }
 
-/// A request to backfill a range of missed blocks (both bounds inclusive).
+/// A request to backfill a range of missed blocks: the parents of `above` down to
+/// `to_inclusive`.
 pub(crate) struct GapFillRequest {
 	/// Hash of the finalized block right above the gap.
 	///
 	/// The backfill walks the parents of this block, so it only indexes finalized blocks. A
 	/// lookup by number could return a cached best block on a fork instead.
 	pub above: H256,
-	pub from_inclusive: SubstrateBlockNumber,
 	pub to_inclusive: SubstrateBlockNumber,
 }
 
@@ -382,10 +382,7 @@ impl SubscriptionGapQueue {
 		let to_inclusive = last.saturating_add(1);
 		let gap_len = from_inclusive.saturating_sub(to_inclusive) + 1;
 		self.pending.fetch_add(1, Ordering::Release);
-		match self
-			.tx
-			.try_send(GapFillRequest { above: current_hash, from_inclusive, to_inclusive })
-		{
+		match self.tx.try_send(GapFillRequest { above: current_hash, to_inclusive }) {
 			Ok(_) => {
 				log::info!(target: LOG_TARGET,
 					"🔄 Subscription gap queue: queued #{from_inclusive} down to #{to_inclusive} ({gap_len} blocks)");

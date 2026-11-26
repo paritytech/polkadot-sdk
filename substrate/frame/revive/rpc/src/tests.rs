@@ -443,6 +443,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_state_override_trace_call,
 		test_subscription_gap_filler_backfills_queued_range,
 		test_finalized_subscription_removes_forks_at_its_height,
+		test_best_block_at_the_finalized_height_is_not_indexed,
 	);
 
 	log::debug!(target: LOG_TARGET, "All tests completed successfully!");
@@ -4118,6 +4119,37 @@ async fn test_finalized_subscription_removes_forks_at_its_height() -> anyhow::Re
 	.await?;
 	best.abort();
 	finalized.abort();
+
+	Ok(())
+}
+
+/// A best block at or below the latest finalized block is not indexed.
+///
+/// The dev node finalizes every block when it seals it. A client started after the head was
+/// sealed caches the head as its finalized block, and its best-block subscription receives the
+/// head as its first block. Nothing else indexes it, as no finalized subscription runs.
+async fn test_best_block_at_the_finalized_height_is_not_indexed() -> anyhow::Result<()> {
+	submit_evm_transfers(1).await?;
+	let (client, _gap_fill_rx, _pool) =
+		create_sync_test_client_with_subscription_gap_queue().await?;
+	let head = client.latest_finalized_block().await.block_hash();
+	let best = {
+		let client = client.clone();
+		tokio::spawn(async move {
+			client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks).await
+		})
+	};
+
+	let indexed = tokio::time::timeout(
+		tokio::time::Duration::from_secs(3),
+		wait_until("the best subscription indexed the finalized head", || {
+			let client = client.clone();
+			async move { client.receipt_provider().get_ethereum_hash(&head).await.is_some() }
+		}),
+	)
+	.await;
+	best.abort();
+	assert!(indexed.is_err(), "the best subscription indexed the finalized head {head:?}");
 
 	Ok(())
 }

@@ -465,8 +465,8 @@ impl Client {
 	pub(crate) async fn run_subscription_gap_filler(&self, mut rx: mpsc::Receiver<GapFillRequest>) {
 		log::info!(target: LOG_TARGET, "🔄 Subscription gap filler started");
 
-		while let Some(GapFillRequest { above, from_inclusive, to_inclusive }) = rx.recv().await {
-			log::info!(target: LOG_TARGET, "🔄 Subscription gap filler: processing #{from_inclusive} down to #{to_inclusive}");
+		while let Some(GapFillRequest { above, to_inclusive }) = rx.recv().await {
+			log::info!(target: LOG_TARGET, "🔄 Subscription gap filler: processing the parents of {above:?} down to #{to_inclusive}");
 			let fill = async {
 				self.sync_backward_range(BackwardSyncRange {
 					from: self.parent_hash(&above).await?,
@@ -481,9 +481,9 @@ impl Client {
 				.await
 			};
 			if let Err(err) = fill.await {
-				log::error!(target: LOG_TARGET, "🔄 Subscription gap fill failed for #{from_inclusive}..#{to_inclusive}: {err:?}");
+				log::error!(target: LOG_TARGET, "🔄 Subscription gap fill failed for the parents of {above:?} down to #{to_inclusive}: {err:?}");
 			} else {
-				log::info!(target: LOG_TARGET, "🔄 Subscription gap filler: done with #{from_inclusive}..#{to_inclusive}");
+				log::info!(target: LOG_TARGET, "🔄 Subscription gap filler: done with the parents of {above:?} down to #{to_inclusive}");
 			}
 			// Mark done unconditionally — mirrors how subscribe_new_blocks handles
 			// callback errors: log and move on.
