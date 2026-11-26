@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795700947125,
+  "lastUpdate": 1795712720734,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
-            "name": "s0me0ne-unkn0wn",
-            "username": "s0me0ne-unkn0wn"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a809dd9d76250af2778744f77dc52ccc6627e589",
-          "message": "Refactor statement store index locking: stage 1 (#11480)\n\nImplements stage 1 changes from #10910.\n\nThe single `Index` struct with one `RwLock` was split into two\nindependent structures with separate locks:\n\n`ReadIndex` (topic/key-based filtering):\n- `by_topic` - topic to statement hash mapping\n- `by_dec_key` - decryption key to statement hash mapping  \n- `topics_and_keys` - reverse mapping for cleanup\n\n`WriteIndex` (constraint checking, entries, accounts):\n- `entries`, `expired`, `accounts`,\n`accounts_to_check_for_expiry_stmts`, `recent`, `options`, `total_size`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>",
-          "timestamp": "2026-05-19T19:44:03Z",
-          "tree_id": "c23f20e315507fe42199988e96945dd5c57f0a9a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a809dd9d76250af2778744f77dc52ccc6627e589"
-        },
-        "date": 1779227395329,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13948016263333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.137686666833334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.11839195943333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "12944c9666b91d876736e2509e4370db402877dc",
+          "message": "Staking: make slashing reward a function of report's delay (#13770)\n\nPartially addresses #13769.\n\n## Problem\n\nThe reporter of an offence is paid a flat `SlashRewardFraction` of the\nslash, however late the report arrives. Since an offender can report its\nown offences, it gains by holding them back: it stays in the validator\nset longer, piles up more offences (the reward grows with the total\nslash), and reports just before they become unreportable, which also\nleaves governance little time to cancel the slash.\n\n## Change\n\n`pallet-staking-async` gets a new config item, `type SlashRewardDecay:\nSlashRewardDecay`. It maps the delay of a report, in eras between the\noffence and its report, to the portion of the reward that is paid.\n\nThe unpaid part goes to `Config::Slash` with the rest of the slash. The\nslash itself is unchanged. No storage change or migration.\n\nCurves added as templates: \n- `()`: no decay, the previous behaviour. Default in\n`TestDefaultConfig`, and used by Asset Hub Westend.\n- `LinearDecay<Window>`: 100% for a report in the offence era, falling\nlinearly to 0% at `Window` eras late.\n- `HalvingDecay<HalfLife>`: the reward halves for every full `HalfLife`\neras of delay.\n\n## Suggested values for integrators\n\n- Polkadot: `type SlashRewardDecay = ();` (no decay)\n- Kusama: `type SlashRewardDecay =\npallet_staking_async::HalvingDecay<ConstU32<2>>;` (full reward for 2\neras, about 12h, then halving every 2 eras), or\n`LinearDecay<ConstU32<4>>`\n\n## What this does not do\n\n- Reports are accepted for as long as before. \n- Self-reporting still pays, only less when late. Dropping the reward\naltogether, or paying it only from the validator's own slash, were\ndiscussed below as alternatives. I am still against it, as if a\nvalidator self-reports, and their nominators are slashable (e.g Kusama),\nit is fair for the nominator to also lose money. Their job was to not\nelect a validator who would commit a slash and then self-report.\n- The second bug of #13769 (repeated offences across eras slashing more\nthan the exposure) is out of scope.\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-26T15:29:00Z",
+          "tree_id": "669d836279f29bd1da1d6b3ee3015335e9fc5158",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/12944c9666b91d876736e2509e4370db402877dc"
+        },
+        "date": 1795712683233,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.367041584433332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13174209280000002,
             "unit": "seconds"
           }
         ]
