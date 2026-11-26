@@ -1,0 +1,13 @@
+title: 'pallet-child-bounties: let RejectOrigin unassign a PendingPayout curator after parent deactivation'
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      Allow `RejectOrigin` to unassign the curator of a `PendingPayout` child bounty, and slash
+      their deposit, after the parent bounty has left the active state, as documented by the
+      pallet. Together with the `close_child_bounty` change in #13406, this lets governance clean
+      up a `PendingPayout` child without first re-staffing the parent. Signed callers still
+      require the parent bounty to be active and the caller to be its curator.
+      No storage migration is required.
+crates:
+  - name: pallet-child-bounties
+    bump: patch
