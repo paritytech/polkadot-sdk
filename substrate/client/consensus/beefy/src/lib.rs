@@ -39,6 +39,7 @@ use sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotificatio
 use sc_consensus::BlockImport;
 use sc_network::{NetworkRequest, NotificationService, ProtocolName};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
@@ -233,6 +234,8 @@ pub struct BeefyParams<B: Block, BE, C, N, P, R, S, AuthorityId: AuthorityIdBoun
 	pub on_demand_justifications_handler: BeefyJustifsRequestHandler<B, C>,
 	/// Whether running under "Authority" role.
 	pub is_authority: bool,
+	/// Transaction pool used to submit equivocation reports.
+	pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 }
 /// Helper object holding BEEFY worker communication/gossip components.
 ///
@@ -315,6 +318,7 @@ where
 		links: BeefyVoterLinks<B, AuthorityId>,
 		pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B, AuthorityId>>,
 		is_authority: bool,
+		offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 	) -> BeefyWorker<B, BE, P, R, S, N, AuthorityId> {
 		let key_store = Arc::new(self.key_store);
 		BeefyWorker {
@@ -323,7 +327,12 @@ where
 			key_store: key_store.clone(),
 			payload_provider,
 			sync,
-			fisherman: Arc::new(Fisherman::new(self.backend, self.runtime, key_store)),
+			fisherman: Arc::new(Fisherman::new(
+				self.backend,
+				self.runtime,
+				key_store,
+				offchain_tx_pool_factory,
+			)),
 			metrics: self.metrics,
 			persisted_state: self.persisted_state,
 			comms,
@@ -541,6 +550,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S, AuthorityId>(
 		links,
 		mut on_demand_justifications_handler,
 		is_authority,
+		offchain_tx_pool_factory,
 	} = beefy_params;
 
 	let BeefyNetworkParams {
@@ -628,6 +638,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S, AuthorityId>(
 			links.clone(),
 			BTreeMap::new(),
 			is_authority,
+			offchain_tx_pool_factory.clone(),
 		);
 
 		futures::select! {

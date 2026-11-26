@@ -62,7 +62,12 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 			});
 			// Classic validators — cap at collation protocol V3.
 			(0..2).fold(r, |acc, i| {
-				acc.with_validator(|node| node.with_name(&format!("validator-classic-{i}")))
+				acc.with_validator(|node| {
+					node.with_name(&format!("validator-classic-{i}")).with_args(vec![
+						("-lparachain=debug,parachain::collator-protocol=trace").into(),
+						("--experimental-collator-protocol=false").into(),
+					])
+				})
 			})
 		})
 		.with_parachain(|p| {

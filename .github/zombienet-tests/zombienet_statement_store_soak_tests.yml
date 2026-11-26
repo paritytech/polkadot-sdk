@@ -5,8 +5,20 @@
 
 # Sized down for paritytech/litep2p#665, which takes nodes down above 20 providers per key;
 # raise it again once the fix (paritytech/litep2p#666) ships.
-- job-name: "zombienet-statement-store-soak-0001-v2-dht"
-  test-filter: "zombie_ci::statement_store::v2_dht_soak::statement_store_v2_dht_soak"
+- job-name: "zombienet-statement-store-soak-0001-dht"
+  test-filter: "zombie_ci::statement_store::dht_soak::statement_store_dht_soak"
   cumulus-image: "polkadot-parachain-debug"
   soak-nodes: "40"
   soak-secs: "600"
+
+- job-name: "zombienet-statement-store-soak-0002-dht-mixed"
+  test-filter: "zombie_ci::statement_store::dht_mixed_soak::statement_store_dht_mixed_soak"
+  cumulus-image: "polkadot-parachain-debug"
+  soak-nodes: "40"
+  soak-dht-off-nodes: "4"
+  soak-secs: "600"
+
+- job-name: "zombienet-statement-store-soak-0003-dht-rollout"
+  test-filter: "zombie_ci::statement_store::dht_mixed_soak::statement_store_dht_rollout_soak"
+  cumulus-image: "polkadot-parachain-debug"
+  soak-nodes: "40"

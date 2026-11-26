@@ -1536,9 +1536,9 @@ impl<T: Config> Pallet<T> {
 				last_processed_msg.inc_reverse_idx();
 			}
 		}
-		match hashed_messages.first() {
-			Some((_, first_hashed_msg)) => {
-				if first_hashed_msg.sent_at > last_processed_msg.sent_at() {
+		match unprocessed_messages.iter().chain(hashed_messages).next() {
+			Some((_, first_unprocessed_msg)) => {
+				if first_unprocessed_msg.sent_at > last_processed_msg.sent_at() {
 					last_processed_block = last_processed_block.max(last_processed_msg.sent_at());
 				}
 			},

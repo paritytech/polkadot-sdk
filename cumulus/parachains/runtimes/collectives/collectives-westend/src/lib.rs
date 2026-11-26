@@ -126,7 +126,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	authoring_version: 1,
-	spec_version: 1_024_001,
+	spec_version: 1_025_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -851,6 +851,7 @@ type Migrations = (
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 	cumulus_pallet_parachain_system::migration::v3::Migration<Runtime>,
 	cumulus_pallet_parachain_system::migration::MigrateV3ToV4<Runtime>,
+	pallet_collective::migrations::v5::MigrateToV5<Runtime, AllianceCollective>,
 );
 
 // Helpers for the core fellowship pallet v1->v2 storage migration.

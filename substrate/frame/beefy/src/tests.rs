@@ -782,7 +782,7 @@ fn report_double_voting_validate_unsigned_prevents_duplicates() {
 				&call,
 			),
 			TransactionValidity::Ok(ValidTransaction {
-				priority: TransactionPriority::max_value(),
+				priority: TransactionPriority::MAX,
 				requires: vec![],
 				provides: vec![("BeefyEquivocation", tx_tag).encode()],
 				longevity: ReportLongevity::get(),

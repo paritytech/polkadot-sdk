@@ -20,6 +20,7 @@ use crate::{
 	verifier::{Config, Event, FeasibilityError, Pallet, Status, StatusStorage},
 	CurrentPhase, Phase,
 };
+use alloc::vec::Vec;
 use frame_benchmarking::v2::*;
 use frame_election_provider_support::{ElectionProvider, NposSolution};
 use frame_support::{
@@ -27,7 +28,6 @@ use frame_support::{
 	traits::fungible::{Inspect, Mutate},
 };
 use sp_runtime::traits::Saturating;
-use sp_std::prelude::*;
 
 /// The currency configured on the signed pallet, which is what reward payouts are drawn from.
 type SignedCurrencyOf<T> = <T as crate::signed::Config>::Currency;

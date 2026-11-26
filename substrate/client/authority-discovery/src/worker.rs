@@ -588,7 +588,7 @@ where
 			metrics.publish.inc();
 			metrics
 				.amount_addresses_last_published
-				.set(addresses.len().try_into().unwrap_or(std::u64::MAX));
+				.set(addresses.len().try_into().unwrap_or(u64::MAX));
 		}
 
 		let serialized_record = serialize_authority_record(addresses, Some(build_creation_time()))?;
@@ -657,7 +657,7 @@ where
 		if let Some(metrics) = &self.metrics {
 			metrics
 				.requests_pending
-				.set(self.pending_lookups.len().try_into().unwrap_or(std::u64::MAX));
+				.set(self.pending_lookups.len().try_into().unwrap_or(u64::MAX));
 		}
 
 		Ok(())
@@ -677,7 +677,7 @@ where
 				metrics.requests.inc();
 				metrics
 					.requests_pending
-					.set(self.pending_lookups.len().try_into().unwrap_or(std::u64::MAX));
+					.set(self.pending_lookups.len().try_into().unwrap_or(u64::MAX));
 			}
 		}
 	}
@@ -961,7 +961,7 @@ where
 			if let Some(metrics) = &self.metrics {
 				metrics
 					.known_authorities_count
-					.set(self.addr_cache.num_authority_ids().try_into().unwrap_or(std::u64::MAX));
+					.set(self.addr_cache.num_authority_ids().try_into().unwrap_or(u64::MAX));
 			}
 		}
 		Ok(())

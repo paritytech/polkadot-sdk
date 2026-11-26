@@ -19,9 +19,9 @@
 //! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
-	BlockHeader, BlockInfoProvider, BoundedOneOrMany, ChainMetadata, DbContext, DebugRpcClient,
-	EthRpcClient, FilterResults, Log, ReceiptExtractor, ReceiptProvider, SubscriptionItem,
-	SubscriptionKind, SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
+	BlockHeader, BlockInfoProvider, ChainMetadata, DbContext, DebugRpcClient, EthRpcClient, Filter,
+	FilterResults, Log, ReceiptExtractor, ReceiptProvider, SubscriptionItem, SubscriptionKind,
+	SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
 	client::{
 		Client, GapFillRequest, SubscriptionGapQueue, connect,
@@ -32,9 +32,9 @@ use crate::{
 };
 use alloy_network::EthereumWallet;
 use alloy_primitives::{Address as AlloyAddress, B256, Bytes as AlloyBytes, U256 as AlloyU256};
-use alloy_provider::{Provider, ProviderBuilder, ext::DebugApi as _};
+use alloy_provider::{Provider, ProviderBuilder, WsConnect, ext::DebugApi as _};
 use alloy_rpc_types::{
-	BlockId, BlockNumberOrTag, Filter, TransactionRequest,
+	BlockId, BlockNumberOrTag, TransactionRequest,
 	state::{AccountOverride, StateOverride},
 };
 use alloy_signer_local::PrivateKeySigner;
@@ -60,7 +60,7 @@ use pallet_revive_types::runtime_api::{
 };
 use sp_runtime::BoundedVec;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use std::{sync::Arc, thread};
+use std::{collections::BTreeSet, num::NonZeroU32, sync::Arc, thread};
 use subxt::{
 	OnlineClient,
 	client::OnlineClientAtBlockImpl,
@@ -387,13 +387,15 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_block_hash_for_tag_with_block_tags_works,
 		test_earliest_block_tag,
 		test_get_logs_with_block_tags_works,
+		unknown_block_hash_returns_a_log_query_error,
 		test_multiple_transactions_in_block,
 		test_mixed_evm_substrate_transactions,
 		test_runtime_pallets_address_upload_code,
 		test_eip7702_delegation_flow,
-		test_subscribe_new_heads,
+		test_new_heads_subscription_delivers_matching_header_via_alloy,
 		test_subscribe_new_heads_multiple_blocks,
 		test_subscribe_logs,
+		test_log_subscription_respects_inclusive_block_bounds,
 		test_subscribe_logs_with_address_filter,
 		test_subscribe_logs_with_topic_filter,
 		test_subscribe_logs_address_filter_excludes_non_matching,
@@ -406,6 +408,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_gas_estimation_with_no_funds_and_with_gas_specified,
 		test_block_sync_fresh,
 		test_block_sync_resume_interrupted,
+		test_block_sync_honors_rate_limit,
 		test_block_sync_detects_corruption,
 		test_block_sync_picks_up_new_blocks,
 		test_state_override_balance,
@@ -649,8 +652,8 @@ async fn test_receipt_mixed_revert_and_logs_same_block() -> anyhow::Result<()> {
 	}
 
 	// Verify log data values
-	let ping_data = &emit_receipt.logs[0].data.as_ref().unwrap().0;
-	let pong_data = &emit_receipt.logs[1].data.as_ref().unwrap().0;
+	let ping_data = &emit_receipt.logs[0].data.0;
+	let pong_data = &emit_receipt.logs[1].data.0;
 	let ping = Ping::abi_decode_data(ping_data).expect("decode Ping data");
 	let pong = Pong::abi_decode_data(pong_data).expect("decode Pong data");
 	assert_eq!(ping.0, 1, "Ping value should be 1");
@@ -1028,23 +1031,34 @@ async fn test_get_logs_with_block_tags_works() -> anyhow::Result<()> {
 	};
 	let has_emitted_log = |logs: &[Log]| logs.iter().any(|log| log.block_number == emit_block);
 
-	// `<tag>..latest` range should span the emitted log.
+	// `<tag>..latest` range should span the emitted log, except `pending` which is rejected.
 	for from in BLOCK_TAGS {
+		let result = client
+			.get_logs(Some(Filter::new().from_block(from).to_block(BlockNumberOrTag::Latest)))
+			.await;
+		if matches!(from, BlockNumberOrTag::Pending) {
+			assert!(result.is_err(), "pending..latest should be rejected");
+			continue;
+		}
 		let logs = logs_of(
-			client
-				.get_logs(Some(Filter::new().from_block(from).to_block(BlockNumberOrTag::Latest)))
-				.await
+			result
 				.map_err(|err| anyhow::anyhow!("eth_getLogs {from:?}..latest failed: {err:?}"))?,
 		);
 		assert!(has_emitted_log(&logs), "{from:?}..latest should include the emitted log");
 	}
 
-	// `earliest..<tag>` range should span the emitted log for every tag except `earliest`.
+	// `earliest..<tag>` range should span the emitted log for every tag except `earliest`,
+	// while `pending` is rejected.
 	for to in BLOCK_TAGS {
+		let result = client
+			.get_logs(Some(Filter::new().from_block(BlockNumberOrTag::Earliest).to_block(to)))
+			.await;
+		if matches!(to, BlockNumberOrTag::Pending) {
+			assert!(result.is_err(), "earliest..pending should be rejected");
+			continue;
+		}
 		let logs = logs_of(
-			client
-				.get_logs(Some(Filter::new().from_block(BlockNumberOrTag::Earliest).to_block(to)))
-				.await
+			result
 				.map_err(|err| anyhow::anyhow!("eth_getLogs earliest..{to:?} failed: {err:?}"))?,
 		);
 		if matches!(to, BlockNumberOrTag::Earliest) {
@@ -1057,6 +1071,36 @@ async fn test_get_logs_with_block_tags_works() -> anyhow::Result<()> {
 		}
 	}
 
+	Ok(())
+}
+
+async fn unknown_block_hash_returns_a_log_query_error() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let ethan = Account::from(subxt_signer::eth::dev::ethan());
+	let receipt = TransactionBuilder::new(client.clone())
+		.to(ethan.address())
+		.value(U256::from(1))
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+
+	// Act
+	let known_block_logs =
+		client.get_logs(Some(Filter::new().at_block_hash(receipt.block_hash))).await?;
+	let error = client
+		.get_logs(Some(Filter::new().at_block_hash(H256::repeat_byte(0xff))))
+		.await
+		.unwrap_err();
+
+	// Assert
+	assert_eq!(known_block_logs, FilterResults::default());
+	let ClientError::Call(error) = error else {
+		panic!("Expected a JSON-RPC error, got {error:?}");
+	};
+	assert_eq!(error.code(), jsonrpsee::types::error::CALL_EXECUTION_FAILED_CODE);
+	assert_eq!(error.message(), "Failed to filter logs: unknown block");
 	Ok(())
 }
 
@@ -1244,7 +1288,7 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 		"upload_code",
 		vec![
 			subxt::dynamic::Value::from_bytes(&bytecode),
-			subxt::dynamic::Value::u128(u128::max_value()), // storage_deposit_limit
+			subxt::dynamic::Value::u128(u128::MAX), // storage_deposit_limit
 		],
 	);
 	let encoded_call = node_client.tx().await?.call_data(&upload_call)?;
@@ -1482,16 +1526,17 @@ async fn test_state_override_delegation_indicator_to_pvm() -> anyhow::Result<()>
 	.await
 }
 
-/// Verify that subscribing to `newHeads` delivers a block header matching the
-/// corresponding block fetched via `eth_getBlockByNumber` after a transaction
-/// triggers a new block.
-async fn test_subscribe_new_heads() -> anyhow::Result<()> {
+/// Verify that Alloy can subscribe to `newHeads` and receive the transaction's block header.
+async fn test_new_heads_subscription_delivers_matching_header_via_alloy() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
+	let provider = ProviderBuilder::new()
+		.connect_ws(WsConnect::new("ws://localhost:45788"))
+		.await?;
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 	let value = U256::from(1_000_000_000_000u128);
 
-	let mut sub = client.eth_subscribe(SubscriptionKind::NewBlockHeaders, None).await?;
+	let mut sub = provider.subscribe_blocks().await?;
 
 	// Act
 	let tx = TransactionBuilder::new(client.clone())
@@ -1499,29 +1544,25 @@ async fn test_subscribe_new_heads() -> anyhow::Result<()> {
 		.to(ethan.address())
 		.send()
 		.await?;
-	tx.wait_for_receipt().await?;
+	let receipt = tx.wait_for_receipt().await?;
 
-	let notification = tokio::time::timeout(tokio::time::Duration::from_secs(10), sub.next())
+	let header = tokio::time::timeout(tokio::time::Duration::from_secs(10), sub.recv_result())
 		.await
 		.expect("Timed out waiting for newHeads notification")
 		.expect("Subscription stream ended unexpectedly")
-		.expect("Subscription returned an error");
-
-	let header = match notification {
-		SubscriptionItem::BlockHeader(header) => header,
-		other => panic!("Expected BlockHeader, got: {other:?}"),
-	};
+		.expect("Alloy should deserialize the newHeads notification");
 
 	let block = client
-		.get_block_by_number(BlockNumberOrTag::Number(header.number.as_u64()), false)
+		.get_block_by_number(BlockNumberOrTag::Number(header.number), false)
 		.await?
 		.expect("Block should exist");
 
 	// Assert
-	assert!(header.number > U256::zero(), "Block number should be > 0");
-	assert_ne!(header.hash, H256::zero(), "Block hash should not be zero");
-	assert_ne!(header.parent_hash, H256::zero(), "Parent hash should not be zero");
+	assert_eq!(U256::from(header.number), receipt.block_number);
+	assert_eq!(H256(header.hash.0), receipt.block_hash);
+	assert_ne!(header.parent_hash, B256::ZERO, "Parent hash should not be zero");
 
+	let header = serde_json::from_value::<BlockHeader>(serde_json::to_value(header)?)?;
 	let expected_header = BlockHeader::from(block);
 	assert_eq!(
 		header, expected_header,
@@ -1572,7 +1613,7 @@ async fn test_subscribe_logs() -> anyhow::Result<()> {
 		other => panic!("Expected Log, got: {other:?}"),
 	};
 
-	let filter = Filter::new().at_block_hash(B256::from(call_receipt.block_hash.0));
+	let filter = Filter::new().at_block_hash(call_receipt.block_hash);
 	let rpc_logs = client.get_logs(Some(filter)).await?;
 	let rpc_logs: Vec<Log> = match rpc_logs {
 		FilterResults::Logs(logs) => logs,
@@ -1598,6 +1639,74 @@ async fn test_subscribe_logs() -> anyhow::Result<()> {
 	Ok(())
 }
 
+async fn test_log_subscription_respects_inclusive_block_bounds() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"SimpleReceiver",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let deployment = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
+	let deployment_receipt = deployment.wait_for_receipt().await?;
+	let contract_address = deployment_receipt.contract_address.expect("Contract was deployed");
+	let from_block = deployment_receipt.block_number.as_u64() + 2;
+	let to_block = from_block + 1;
+	let filter = Filter::new()
+		.from_block(from_block)
+		.to_block(to_block)
+		.address([contract_address]);
+	let mut sub = client
+		.eth_subscribe(SubscriptionKind::Logs, Some(SubscriptionOptions::LogsOptions(filter)))
+		.await?;
+
+	// Act
+	let mut receipts = Vec::new();
+	for _ in 0..4 {
+		let tx = TransactionBuilder::new(client.clone())
+			.to(contract_address)
+			.value(U256::from(1_000_000_000_000u128))
+			.send()
+			.await?;
+		receipts.push(tx.wait_for_receipt().await?);
+	}
+	let logs = tokio::time::timeout(tokio::time::Duration::from_secs(10), async {
+		let mut logs = Vec::new();
+		for _ in 0..2 {
+			let notification = sub.next().await.expect("Subscription ended before both bounds")?;
+			match notification {
+				SubscriptionItem::Log(log) => logs.push(log),
+				other => panic!("Expected Log, got: {other:?}"),
+			}
+		}
+		anyhow::Ok(logs)
+	})
+	.await
+	.expect("Timed out waiting for logs at both window bounds")?;
+	let extra_notification =
+		tokio::time::timeout(tokio::time::Duration::from_secs(1), sub.next()).await;
+
+	// Assert
+	assert_eq!(
+		receipts.iter().map(|receipt| receipt.block_number).collect::<Vec<_>>(),
+		[from_block - 1, from_block, to_block, to_block + 1].map(U256::from),
+	);
+	for receipt in &receipts {
+		assert_eq!(receipt.logs.len(), 1, "Each transaction must emit a log to exercise its bound");
+	}
+	assert_eq!(
+		logs,
+		receipts[1..=2]
+			.iter()
+			.flat_map(|receipt| receipt.logs.iter().cloned())
+			.collect::<Vec<_>>(),
+	);
+	assert!(
+		matches!(extra_notification, Err(_) | Ok(None)),
+		"Unexpected notification outside the block window: {extra_notification:?}",
+	);
+	Ok(())
+}
+
 /// Verify that subscribing to `logs` with an address filter only delivers logs
 /// emitted from the specified contract address.
 async fn test_subscribe_logs_with_address_filter() -> anyhow::Result<()> {
@@ -1615,10 +1724,12 @@ async fn test_subscribe_logs_with_address_filter() -> anyhow::Result<()> {
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
 	assert_eq!(Some(contract_address), receipt.contract_address);
 
-	let options = SubscriptionOptions::LogsOptions {
-		address: Some(BoundedOneOrMany::One(contract_address)),
-		topics: None,
-	};
+	let options = SubscriptionOptions::LogsOptions(Filter {
+		addresses: BTreeSet::from([contract_address])
+			.try_into()
+			.expect("Single address is within bounds"),
+		..Default::default()
+	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
 
 	// Act
@@ -1666,13 +1777,15 @@ async fn test_subscribe_logs_with_topic_filter() -> anyhow::Result<()> {
 	assert_eq!(Some(contract_address), receipt.contract_address);
 
 	let event_signature = H256(sp_io::hashing::keccak_256(b"Received(address,uint256)"));
-	let options = SubscriptionOptions::LogsOptions {
-		address: None,
-		topics: Some(
-			BoundedVec::try_from(vec![Some(BoundedOneOrMany::One(event_signature))])
-				.expect("Single topic filter is within bounds"),
-		),
-	};
+	let options = SubscriptionOptions::LogsOptions(Filter {
+		topics: BoundedVec::try_from(vec![
+			BTreeSet::from([event_signature])
+				.try_into()
+				.expect("Single topic set is within bounds"),
+		])
+		.expect("Single topic filter is within bounds"),
+		..Default::default()
+	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
 
 	// Act
@@ -1798,10 +1911,12 @@ async fn test_subscribe_logs_address_filter_excludes_non_matching() -> anyhow::R
 	assert_eq!(Some(contract_b), receipt_b.contract_address);
 	assert_ne!(contract_a, contract_b, "The two contracts must have different addresses");
 
-	let options = SubscriptionOptions::LogsOptions {
-		address: Some(BoundedOneOrMany::One(contract_a)),
-		topics: None,
-	};
+	let options = SubscriptionOptions::LogsOptions(Filter {
+		addresses: BTreeSet::from([contract_a])
+			.try_into()
+			.expect("Single address is within bounds"),
+		..Default::default()
+	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
 
 	// Act
@@ -1866,13 +1981,12 @@ async fn test_subscribe_logs_with_multiple_addresses_filter() -> anyhow::Result<
 	let contract_b = create1(&account.address(), nonce_b.try_into().unwrap());
 	assert_eq!(Some(contract_b), receipt_b.contract_address);
 
-	let options = SubscriptionOptions::LogsOptions {
-		address: Some(BoundedOneOrMany::Many(
-			BoundedVec::try_from(vec![contract_a, contract_b])
-				.expect("Two addresses is within bounds"),
-		)),
-		topics: None,
-	};
+	let options = SubscriptionOptions::LogsOptions(Filter {
+		addresses: BTreeSet::from([contract_a, contract_b])
+			.try_into()
+			.expect("Two addresses are within bounds"),
+		..Default::default()
+	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
 
 	// Act
@@ -1985,22 +2099,32 @@ async fn test_subscribe_logs_no_event_transaction_ignored() -> anyhow::Result<()
 	Ok(())
 }
 
-/// Verify that calling `eth_subscribe("newHeads")` with `LogsOptions`
-/// returns an error, since `newHeads` does not accept filter options.
+/// Reject filter options on header subscriptions and block hashes on log subscriptions.
 async fn test_subscribe_with_invalid_params_rejected() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
 
-	let options = SubscriptionOptions::LogsOptions {
-		address: Some(BoundedOneOrMany::One(Account::default().address())),
-		topics: None,
-	};
+	let options = SubscriptionOptions::LogsOptions(Filter {
+		addresses: BTreeSet::from([Account::default().address()])
+			.try_into()
+			.expect("Single address is within bounds"),
+		..Default::default()
+	});
 
 	// Act
 	let result = client.eth_subscribe(SubscriptionKind::NewBlockHeaders, Some(options)).await;
 
 	// Assert
 	assert!(result.is_err(), "newHeads with LogsOptions should be rejected");
+
+	let options =
+		SubscriptionOptions::LogsOptions(Filter::new().at_block_hash(H256::repeat_byte(1)));
+	let result = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await;
+	let Err(ClientError::Call(error)) = result else {
+		panic!("Expected an invalid-params rejection for blockHash log subscriptions");
+	};
+	assert_eq!(error.code(), jsonrpsee::types::error::INVALID_PARAMS_CODE);
+	assert_eq!(error.message(), "Invalid subscription parameters");
 
 	Ok(())
 }
@@ -2403,7 +2527,8 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		.await?;
 
 	let runtime_api_provider = VersionAwareRuntimeApiProvider::new(api.clone(), rpc_client.clone());
-	let receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone()).await?;
+	let chain_id = crate::chain_id(&api).await?;
+	let receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone(), chain_id);
 	let receipt_provider = ReceiptProvider::new(
 		DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER),
 		block_provider.clone(),
@@ -2422,6 +2547,7 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		true,
 		subscription_gap_queue,
 		runtime_api_provider,
+		chain_id,
 	)
 	.await?;
 	Ok((client, gap_fill_rx))
@@ -2454,7 +2580,7 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	let finalized_before_sync = client.latest_finalized_block().await.block_number();
 
 	// Run the full backward sync.
-	client.sync_backward().await?;
+	client.sync_backward(None).await?;
 
 	// Genesis label must match the chain.
 	let genesis = client
@@ -2508,7 +2634,7 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	);
 
 	// Re-syncing should complete without errors (exercises the resume path).
-	client.sync_backward().await?;
+	client.sync_backward(None).await?;
 	let sync_head_after = client
 		.receipt_provider()
 		.get_sync_label(SyncLabel::Head)
@@ -2576,7 +2702,7 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 	let client = create_sync_test_client().await?;
 
 	// Complete a fresh sync so the DB has all blocks and labels.
-	client.sync_backward().await?;
+	client.sync_backward(None).await?;
 
 	// Pick two blocks to simulate partial coverage: tail at 1/3, head at 2/3.
 	let chain_len = client.latest_finalized_block().await.block_number();
@@ -2612,7 +2738,7 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 	let finalized_before_resume = client.latest_finalized_block().await.block_number();
 
 	// Resume sync — fills top gap and bottom gap.
-	client.sync_backward().await?;
+	client.sync_backward(None).await?;
 
 	// After resume, Head should be at the finalized block that was current at resume start.
 	let new_head = client
@@ -2650,6 +2776,55 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 	Ok(())
 }
 
+/// Checks that the historical block sync honors the rate limit.
+async fn test_block_sync_honors_rate_limit() -> anyhow::Result<()> {
+	use crate::block_sync::SyncCheckpoint;
+
+	const GAP_BLOCKS: u64 = 3;
+	// At 1 block/s, the first block passes at once and each other block waits a second.
+	let min_sync_time = std::time::Duration::from_secs(GAP_BLOCKS - 1);
+
+	// The gap needs this many blocks above genesis, also when the test runs on its own.
+	submit_evm_transfers(GAP_BLOCKS as usize).await?;
+
+	let client = create_sync_test_client().await?;
+
+	// With Tail at genesis and Head `GAP_BLOCKS` below the finalized block, the resume syncs only
+	// the blocks above Head.
+	let finalized = client.latest_finalized_block().await.block_number();
+	for (label, block_number) in [(SyncLabel::Tail, 0), (SyncLabel::Head, finalized - GAP_BLOCKS)] {
+		let block = client
+			.block_provider()
+			.block_by_number(block_number)
+			.await?
+			.expect("the block is below the finalized block");
+		client
+			.receipt_provider()
+			.set_sync_label(label, SyncCheckpoint::new(block_number, block.block_hash()))
+			.await?;
+	}
+
+	let start = std::time::Instant::now();
+	client.sync_backward(Some(NonZeroU32::MIN)).await?;
+	let sync_elapsed = start.elapsed();
+
+	// `sync_backward` returns `Ok` even when a transient error stops the sync.
+	let head_after_sync = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::Head)
+		.await?
+		.expect("the test stored Head before the sync");
+	assert_eq!(head_after_sync.block_number, finalized, "the sync did not complete the gap",);
+
+	// 100ms of slack: the limiter and the test read different clocks.
+	assert!(
+		sync_elapsed + std::time::Duration::from_millis(100) >= min_sync_time,
+		"the sync took {sync_elapsed:?}, expected at least {min_sync_time:?}",
+	);
+
+	Ok(())
+}
+
 /// Corrupted sync labels should be detected on resume:
 /// - Fake Genesis hash → `ChainMismatch`
 /// - Fake Head hash → `SyncBoundaryMismatch`
@@ -2662,7 +2837,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 	let client = create_sync_test_client().await?;
 
 	// Complete a fresh sync so all labels are stored.
-	client.sync_backward().await?;
+	client.sync_backward(None).await?;
 
 	// --- ChainMismatch: overwrite Genesis with a fake hash ---
 	let fake_genesis = SyncCheckpoint::new(0, H256::from([0xdeu8; 32]));
@@ -2671,7 +2846,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 		.set_sync_label(ChainMetadata::Genesis, fake_genesis)
 		.await?;
 
-	let err = client.sync_backward().await.unwrap_err();
+	let err = client.sync_backward(None).await.unwrap_err();
 	assert!(matches!(err, ClientError::ChainMismatch), "Expected ChainMismatch, got: {err:?}");
 
 	// Restore the real genesis so we can test the next corruption.
@@ -2689,7 +2864,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 		.set_sync_label(SyncLabel::Head, corrupted_upper)
 		.await?;
 
-	let err = client.sync_backward().await.unwrap_err();
+	let err = client.sync_backward(None).await.unwrap_err();
 	assert!(
 		matches!(err, ClientError::SyncBoundaryMismatch),
 		"Expected SyncBoundaryMismatch, got: {err:?}"
@@ -2705,7 +2880,7 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 	let client1 = create_sync_test_client().await?;
 	let finalized1 = client1.latest_finalized_block().await.block_number();
 
-	client1.sync_backward().await?;
+	client1.sync_backward(None).await?;
 
 	// Submit a transaction to produce at least one new block.
 	submit_evm_transfers(1).await?;
@@ -2714,7 +2889,7 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 	let client2 = create_sync_test_client().await?;
 	let finalized2 = client2.latest_finalized_block().await;
 
-	client2.sync_backward().await?;
+	client2.sync_backward(None).await?;
 	assert!(
 		finalized2.block_number() > finalized1,
 		"Second finalized #{} should be higher than first #{finalized1}",
@@ -3761,7 +3936,7 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 	submit_evm_transfers(1).await?;
 
 	let (sync_client, gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
-	sync_client.sync_backward().await?;
+	sync_client.sync_backward(None).await?;
 
 	let head_after_sync = sync_client
 		.receipt_provider()

@@ -416,7 +416,7 @@ impl<AccountId: IdentifierT> Voter<AccountId> {
 	/// ### Errors
 	///
 	/// This will return only if the internal `normalize` fails. This can happen if the sum of the
-	/// weights exceeds `ExtendedBalance::max_value()`.
+	/// weights exceeds `ExtendedBalance::MAX`.
 	pub fn try_normalize(&mut self) -> Result<(), &'static str> {
 		let edge_weights = self.edges.iter().map(|e| e.weight).collect::<Vec<_>>();
 		edge_weights.normalize(self.budget).map(|normalized| {
@@ -565,7 +565,7 @@ pub trait Backings {
 
 /// General evaluation of a list of backings that returns an election score.
 pub fn evaluate_support(backings: impl Iterator<Item = impl Backings>) -> ElectionScore {
-	let mut minimal_stake = ExtendedBalance::max_value();
+	let mut minimal_stake = ExtendedBalance::MAX;
 	let mut sum_stake: ExtendedBalance = Zero::zero();
 	// NOTE: The third element might saturate but fine for now since this will run on-chain and
 	// need to be fast.

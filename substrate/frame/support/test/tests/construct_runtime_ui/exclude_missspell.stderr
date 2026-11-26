@@ -1,5 +1,5 @@
 error: Unexpected tokens, expected one of `::$ident` `::{`, `exclude_parts`, `use_parts`, `=`, `,`
-  --> tests/construct_runtime_ui/exclude_missspell.rs:26:24
+  --> tests/construct_runtime_ui/exclude_missspell.rs:22:24
    |
-26 |         System: frame_system exclude_part { Call },
+22 |         System: frame_system exclude_part { Call },
    |                              ^^^^^^^^^^^^

@@ -197,6 +197,8 @@ pub enum InvalidReason {
 	},
 	/// Statement has already expired. The expiry field is in the past.
 	AlreadyExpired,
+	/// Statement has no topics, so topic-based routing cannot deliver it.
+	NoTopics,
 }
 
 impl InvalidReason {
@@ -207,6 +209,7 @@ impl InvalidReason {
 			InvalidReason::BadProof => "bad_proof",
 			InvalidReason::EncodingTooLarge { .. } => "encoding_too_large",
 			InvalidReason::AlreadyExpired => "already_expired",
+			InvalidReason::NoTopics => "no_topics",
 		}
 	}
 }
@@ -307,6 +310,8 @@ pub enum SubmitInvalidReason {
 	},
 	/// Statement has already expired. The expiry field is in the past.
 	AlreadyExpired,
+	/// Statement has no topics, so topic-based routing cannot deliver it.
+	NoTopics,
 }
 
 impl From<InvalidReason> for SubmitInvalidReason {
@@ -318,6 +323,7 @@ impl From<InvalidReason> for SubmitInvalidReason {
 				SubmitInvalidReason::EncodingTooLarge { submitted_size, max_size }
 			},
 			InvalidReason::AlreadyExpired => SubmitInvalidReason::AlreadyExpired,
+			InvalidReason::NoTopics => SubmitInvalidReason::NoTopics,
 		}
 	}
 }
@@ -408,8 +414,19 @@ pub trait StatementStore: Send + Sync {
 	/// first, and clear the internal index.
 	///
 	/// This consumes and clears the recently received statements,
-	/// allowing new statements to be collected from this point forward.
+	/// allowing new statements to be collected from this point forward. Every returned
+	/// statement comes with one hold, see [`Self::hold_statements`], for the caller to release.
 	fn take_recent_statements(&self) -> Result<Vec<(u64, Hash, Statement)>>;
+
+	/// Keep the statements from removal as propagated, one hold per occurrence of a hash. A
+	/// statement may leave the store once its last hold is released, so only a caller still
+	/// holding a hash can extend its holds.
+	///
+	/// Does nothing by default, for stores that never remove propagated statements.
+	fn hold_statements(&self, _hashes: &[Hash]) {}
+
+	/// Release one hold per occurrence of a hash, ignoring hashes without holds.
+	fn release_statements(&self, _hashes: &[Hash]) {}
 
 	/// Get statement by hash.
 	fn statement(&self, hash: &Hash) -> Result<Option<Statement>>;

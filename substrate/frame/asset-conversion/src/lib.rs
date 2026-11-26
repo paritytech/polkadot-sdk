@@ -414,6 +414,9 @@ pub mod pallet {
 		PoolEmpty,
 		/// The fee exceeds [`Config::MaxSwapFee`].
 		FeeTooHigh,
+		/// The pool account can't send one of its assets (e.g. the asset class is frozen or the
+		/// pool account is blocked).
+		PoolUnavailable,
 	}
 
 	#[pallet::hooks]
@@ -1151,7 +1154,17 @@ pub mod pallet {
 			};
 
 			let (credit_in, credit_change) = credit_in.split(amount_in);
-			let credit_out = Self::credit_swap(credit_in, &path)?;
+			let credit_out = match Self::credit_swap(credit_in, &path) {
+				Ok(credit_out) => credit_out,
+				Err((mut credit_in, e)) => {
+					// Return the initial `credit_in` in full. `credit_change` must not be dropped
+					// here, since the caller rolls back storage on error, including the issuance
+					// change of the drop. Both halves come from the same `split`, so they share
+					// the asset and `subsume` cannot fail.
+					let _ = credit_in.subsume(credit_change);
+					return Err((credit_in, e));
+				},
+			};
 
 			Self::deposit_event(Event::SwapCreditExecuted { amount_in, amount_out, path });
 
@@ -1266,6 +1279,21 @@ pub mod pallet {
 		/// fungible. Returns a value in the form of an `Balance`.
 		pub(crate) fn get_balance(owner: &T::AccountId, asset: T::AssetKind) -> T::Balance {
 			T::Assets::balance(asset, owner)
+		}
+
+		/// Ensures nothing like a freeze or block stops `pool_account` from sending its `asset`.
+		pub(crate) fn ensure_pool_can_send(
+			pool_account: &T::AccountId,
+			asset: T::AssetKind,
+		) -> Result<(), Error<T>> {
+			let balance = T::Assets::balance(asset.clone(), pool_account);
+			let minimum = T::Assets::minimum_balance(asset.clone());
+			let spendable = T::Assets::reducible_balance(asset, pool_account, Preserve, Polite);
+			// Only a pool that can't send anything above its minimum balance counts as blocked.
+			// Partial restrictions like locks are ignored, since anyone can add them.
+			let blocked = balance > minimum && spendable.is_zero();
+			ensure!(!blocked, Error::<T>::PoolUnavailable);
+			Ok(())
 		}
 
 		/// Resolve the effective swap fee for `pool_id`.
@@ -1503,12 +1531,15 @@ pub mod pallet {
 			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2)
 				.map_err(|_| Error::<T>::InvalidAssetPair)?;
 
-			let balance1 = Self::get_balance(&pool_account, asset1);
-			let balance2 = Self::get_balance(&pool_account, asset2);
+			let balance1 = Self::get_balance(&pool_account, asset1.clone());
+			let balance2 = Self::get_balance(&pool_account, asset2.clone());
 
 			if balance1.is_zero() || balance2.is_zero() {
 				Err(Error::<T>::PoolEmpty)?;
 			}
+
+			Self::ensure_pool_can_send(&pool_account, asset1)?;
+			Self::ensure_pool_can_send(&pool_account, asset2)?;
 
 			Ok((balance1, balance2))
 		}

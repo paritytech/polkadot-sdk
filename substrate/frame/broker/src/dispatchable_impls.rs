@@ -423,11 +423,14 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Returns the number of timeslices whose history was checked: the consumed ones plus the
+	/// one that stopped the claim.
 	pub(crate) fn do_claim_revenue(
 		mut region: RegionId,
 		max_timeslices: Timeslice,
-	) -> DispatchResult {
+	) -> Result<Timeslice, DispatchError> {
 		ensure!(max_timeslices > 0, Error::<T>::NoClaimTimeslices);
+		let first = region.begin;
 		let mut contribution =
 			InstaPoolContribution::<T>::take(region).ok_or(Error::<T>::UnknownContribution)?;
 		let contributed_parts = region.mask.count_ones();
@@ -436,12 +439,26 @@ impl<T: Config> Pallet<T> {
 
 		let mut payout = BalanceOf::<T>::zero();
 		let last = region.begin + contribution.length.min(max_timeslices);
+		let last_committed_timeslice = Status::<T>::get()
+			.map(|status| status.last_committed_timeslice)
+			.unwrap_or_default();
 		for r in region.begin..last {
+			let Some(mut pool_record) = InstaPoolHistory::<T>::get(r) else {
+				// History exists for every committed timeslice, so a missing entry at or before
+				// the last committed one was dropped after `contribution_timeout` and its revenue
+				// is gone. A later one is not committed yet: stop and leave it for a future claim.
+				if r > last_committed_timeslice {
+					break;
+				}
+				region.begin = r + 1;
+				contribution.length.saturating_dec();
+				continue;
+			};
+			let Some(total_payout) = pool_record.maybe_payout else { break };
+
 			region.begin = r + 1;
 			contribution.length.saturating_dec();
 
-			let Some(mut pool_record) = InstaPoolHistory::<T>::get(r) else { continue };
-			let Some(total_payout) = pool_record.maybe_payout else { break };
 			let p = total_payout
 				.saturating_mul(contributed_parts.into())
 				.checked_div(&pool_record.private_contributions.into())
@@ -469,13 +486,13 @@ impl<T: Config> Pallet<T> {
 		// transfer fails, the error must revert them. The storage changes and the payment
 		// must both happen, or neither.
 		T::Currency::transfer(&Self::account_id(), &contribution.payee, payout, Expendable)?;
-		let next = if last < region.begin + contribution.length { Some(region) } else { None };
+		let next = if contribution.length > 0 { Some(region) } else { None };
 		Self::deposit_event(Event::RevenueClaimPaid {
 			who: contribution.payee,
 			amount: payout,
 			next,
 		});
-		Ok(())
+		Ok(region.begin.saturating_sub(first).saturating_add(1))
 	}
 
 	pub(crate) fn do_purchase_credit(
@@ -602,14 +619,17 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::TaskNotInWorkload.into());
 		};
 
-		// We are sorting auto renewals by `CoreIndex`.
-		AutoRenewals::<T>::try_mutate(|renewals| {
-			let pos = renewals
-				.binary_search_by(|r: &AutoRenewalRecord| r.core.cmp(&core))
-				.unwrap_or_else(|e| e);
-			renewals.try_insert(pos, AutoRenewalRecord { core, task, next_renewal })
-		})
-		.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
+		// Auto renewals are kept sorted by and unique per `CoreIndex`.
+		AutoRenewals::<T>::try_mutate(|renewals| -> DispatchResult {
+			let pos = match renewals.binary_search_by(|r: &AutoRenewalRecord| r.core.cmp(&core)) {
+				Ok(_) => return Err(Error::<T>::AutoRenewalAlreadyEnabled.into()),
+				Err(pos) => pos,
+			};
+			renewals
+				.try_insert(pos, AutoRenewalRecord { core, task, next_renewal })
+				.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
+			Ok(())
+		})?;
 
 		Self::deposit_event(Event::AutoRenewalEnabled { core, task });
 		Ok(())

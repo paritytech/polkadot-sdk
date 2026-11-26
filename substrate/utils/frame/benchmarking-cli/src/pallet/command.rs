@@ -43,6 +43,7 @@ use sp_core::{
 		testing::{TestOffchainExt, TestTransactionPoolExt},
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
+	storage::StateVersion,
 	traits::{CallContext, CodeExecutor, ReadRuntimeVersionExt, WrappedRuntimeCode},
 	Hasher,
 };
@@ -327,6 +328,8 @@ impl PalletCmd {
 				&mut Self::build_extensions(executor.clone(), state.recorder()),
 				&runtime_code,
 				CallContext::Offchain,
+				// `Core_version` doesn't compute storage roots.
+				StateVersion::default(),
 			),
 			"Could not find `Core::version` runtime api.",
 		)?;
@@ -355,6 +358,7 @@ impl PalletCmd {
 					&mut Self::build_extensions(executor.clone(), state.recorder()),
 					&runtime_code,
 					CallContext::Offchain,
+					runtime_version.state_version(),
 				),
 				ERROR_API_NOT_FOUND,
 			)?;
@@ -479,6 +483,7 @@ impl PalletCmd {
 								&mut Self::build_extensions(executor.clone(), state.recorder()),
 								&runtime_code,
 								CallContext::Offchain,
+								runtime_version.state_version(),
 							),
 							"dispatch a benchmark",
 						) {
@@ -512,6 +517,7 @@ impl PalletCmd {
 								&mut Self::build_extensions(executor.clone(), state.recorder()),
 								&runtime_code,
 								CallContext::Offchain,
+								runtime_version.state_version(),
 							),
 							"dispatch a benchmark",
 						) {
@@ -547,6 +553,7 @@ impl PalletCmd {
 							&mut Self::build_extensions(executor.clone(), state.recorder()),
 							&runtime_code,
 							CallContext::Offchain,
+							runtime_version.state_version(),
 						),
 						"dispatch a benchmark",
 					) {

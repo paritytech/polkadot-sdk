@@ -1,0 +1,16 @@
+title: 'sp-api: write back `transaction_depth` after `execute_in_transaction`'
+doc:
+- audience: Node Dev
+  description: |-
+    `ApiExt::execute_in_transaction` in the generated client-side `RuntimeApiImpl` incremented
+    `transaction_depth` but discarded the result of `checked_sub(1)`, so the counter never
+    returned to zero. Every later plain runtime API call on the same instance then skipped its
+    own transaction, and overlay changes of a call returning `ApiError` were kept instead of
+    being rolled back.
+
+    The decremented value is now written back. On an API instance that has already completed
+    an `execute_in_transaction` scope, a failing plain runtime API call has its overlay changes
+    discarded again, as documented for `ProvideRuntimeApi::runtime_api`.
+crates:
+- name: sp-api-proc-macro
+  bump: patch

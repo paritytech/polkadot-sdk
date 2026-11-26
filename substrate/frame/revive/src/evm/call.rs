@@ -25,14 +25,17 @@ use crate::{
 		fees::{InfoT, compute_max_integer_quotient},
 		runtime::SetWeightLimit,
 	},
-	extract_code_and_data,
+	extract_code_and_data, limits,
 	metering::EthTxInfo,
 };
 use alloc::{boxed::Box, vec::Vec};
-use codec::DecodeLimit;
+use codec::{DecodeLimit, Input, MemTrackingInput};
 use frame_support::MAX_EXTRINSIC_DEPTH;
 use sp_core::{Get, U256};
-use sp_runtime::{SaturatedConversion, Saturating, transaction_validity::InvalidTransaction};
+use sp_runtime::{
+	SaturatedConversion, Saturating, generic::DEFAULT_MAX_CALL_SIZE,
+	transaction_validity::InvalidTransaction,
+};
 
 /// Result of decoding an eth transaction into a dispatchable call.
 pub struct CallInfo<T: Config> {
@@ -52,6 +55,16 @@ pub struct CallInfo<T: Config> {
 	pub eth_gas_limit: U256,
 	/// EIP-7702: List of authorization tuples to process
 	pub authorization_list: Vec<crate::evm::AuthorizationListEntry>,
+}
+
+/// Reject an ethereum transaction whose RLP encoded payload is larger than
+/// [`limits::MAX_TRANSACTION_PAYLOAD_SIZE`], with [`InvalidTransaction::ExhaustsResources`].
+pub fn ensure_transaction_payload_size(payload: &[u8]) -> Result<(), InvalidTransaction> {
+	if payload.len() > limits::MAX_TRANSACTION_PAYLOAD_SIZE as usize {
+		log::debug!(target: LOG_TARGET, "Transaction payload too large: {} bytes", payload.len());
+		return Err(InvalidTransaction::ExhaustsResources);
+	}
+	Ok(())
 }
 
 /// Mode for creating a call from an ethereum transaction.
@@ -181,6 +194,9 @@ impl GenericTransaction {
 					InvalidTransaction::Call
 				})?;
 				let transaction_encoded = unsigned_tx.dummy_signed_payload();
+				// Submission checks the signed payload, see `EthExtra::try_into_checked_extrinsic`.
+				// The maximized one checked here is at most a few bytes longer.
+				ensure_transaction_payload_size(&transaction_encoded)?;
 
 				let eth_transact_call =
 					crate::Call::<T>::eth_transact { payload: transaction_encoded.clone() };
@@ -192,9 +208,13 @@ impl GenericTransaction {
 
 		let mut call = if let Some(dest) = self.to {
 			if dest == RUNTIME_PALLETS_ADDR {
-				let call =
-					CallOf::<T>::decode_all_with_depth_limit(MAX_EXTRINSIC_DEPTH, &mut &data[..])
-						.map_err(|_| {
+				let mut encoded = &data[..];
+				let mut input =
+					MemTrackingInput::new(&mut encoded, DEFAULT_MAX_CALL_SIZE.saturating_add(1));
+				let call = CallOf::<T>::decode_with_depth_limit(MAX_EXTRINSIC_DEPTH, &mut input)
+					.ok()
+					.filter(|_| matches!(input.remaining_len(), Ok(Some(0))))
+					.ok_or_else(|| {
 						log::debug!(target: LOG_TARGET, "Failed to decode data as Call");
 						InvalidTransaction::Call
 					})?;

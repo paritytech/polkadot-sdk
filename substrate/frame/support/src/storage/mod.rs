@@ -1802,7 +1802,7 @@ mod test {
 			assert_eq!(MyStorage::iter_values().collect::<Vec<_>>(), vec![1, 2, 3, 4]);
 
 			// test removal
-			let _ = MyStorage::clear(u32::max_value(), None);
+			let _ = MyStorage::clear(u32::MAX, None);
 			assert!(MyStorage::iter_values().collect::<Vec<_>>().is_empty());
 
 			// test migration
@@ -1812,7 +1812,7 @@ mod test {
 			assert!(MyStorage::iter_values().collect::<Vec<_>>().is_empty());
 			MyStorage::translate_values(|v: u32| Some(v as u64));
 			assert_eq!(MyStorage::iter_values().collect::<Vec<_>>(), vec![1, 2]);
-			let _ = MyStorage::clear(u32::max_value(), None);
+			let _ = MyStorage::clear(u32::MAX, None);
 
 			// test migration 2
 			unhashed::put(&[&k[..], &vec![1][..]].concat(), &1u128);
@@ -1824,7 +1824,7 @@ mod test {
 			assert_eq!(MyStorage::iter_values().collect::<Vec<_>>(), vec![1, 2, 3]);
 			MyStorage::translate_values(|v: u128| Some(v as u64));
 			assert_eq!(MyStorage::iter_values().collect::<Vec<_>>(), vec![1, 2, 3]);
-			let _ = MyStorage::clear(u32::max_value(), None);
+			let _ = MyStorage::clear(u32::MAX, None);
 
 			// test that other values are not modified.
 			assert_eq!(unhashed::get(&key_before[..]), Some(32u64));

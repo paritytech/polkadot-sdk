@@ -126,6 +126,12 @@ mod rep {
 	/// Mild, since the peer may still be backfilling its own block history.
 	pub const NO_GAP_BODIES: Rep = Rep::new(-(1 << 26), "No gap sync bodies");
 
+	/// Peer returned an empty response for a range of blocks we requested from it.
+	/// Mild, since the peer's announced best number is not a claim to hold the whole
+	/// history below it: bodies are pruned oldest-first, and a warp-synced node may
+	/// still be backfilling its gap.
+	pub const NO_BLOCKS_IN_RANGE: Rep = Rep::new(-(1 << 26), "No blocks in requested range");
+
 	/// Reputation change for peers which send us a block with bad justifications.
 	pub const BAD_JUSTIFICATION: Rep = Rep::new(-(1 << 16), "Bad justification");
 
@@ -143,6 +149,7 @@ struct Metrics {
 	queued_blocks: Gauge<U64>,
 	fork_targets: Gauge<U64>,
 	block_collection: BlockCollectionMetrics,
+	empty_block_responses: Counter<U64>,
 	gap_body_empty_responses: Counter<U64>,
 	gap_header_only_downgrades: Counter<U64>,
 	gap_oldest_required_body: Gauge<U64>,
@@ -161,6 +168,14 @@ impl Metrics {
 				register(g, r)?
 			},
 			block_collection: BlockCollectionMetrics::register(r)?,
+			empty_block_responses: {
+				let c = Counter::new(
+					"substrate_sync_empty_block_responses_total",
+					"Number of empty responses to block requests, i.e. peers that did \
+					 not have the requested range; each drops the responding peer",
+				)?;
+				register(c, r)?
+			},
 			gap_body_empty_responses: {
 				let c = Counter::new(
 					"substrate_sync_gap_body_empty_responses_total",
@@ -302,25 +317,12 @@ pub enum ChainSyncMode {
 	LightState {
 		/// Skip state proof download and verification.
 		skip_proofs: bool,
-		/// Download indexed transactions for recent blocks.
-		storage_chain_mode: bool,
 	},
 }
 
-impl ChainSyncMode {
-	/// Returns the base block attributes required for this sync mode.
-	pub fn required_block_attributes(&self) -> BlockAttributes {
-		match self {
-			ChainSyncMode::Full | ChainSyncMode::LightState { storage_chain_mode: false, .. } => {
-				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY
-			},
-			ChainSyncMode::LightState { storage_chain_mode: true, .. } => {
-				BlockAttributes::HEADER |
-					BlockAttributes::JUSTIFICATION |
-					BlockAttributes::INDEXED_BODY
-			},
-		}
-	}
+/// Returns the base block attributes required for chain sync.
+fn required_block_attributes() -> BlockAttributes {
+	BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY
 }
 
 /// Which block bodies gap sync downloads while backfilling the block history below a
@@ -1372,6 +1374,26 @@ where
 					PeerSyncState::DownloadingNew(_) => {
 						self.blocks.clear_peer_download(peer_id);
 						peer.state = PeerSyncState::Available;
+						if blocks.is_empty() {
+							// The peer holds no block of the range. The range is inferred
+							// from the peer's announced best number, which is not a claim to
+							// hold the history below it (bodies are pruned oldest-first, and
+							// a warp-synced node may still be backfilling), so this is not
+							// misbehavior. Disconnect it anyway to hand the range - already
+							// freed above - to a peer that has it; the mild penalty lets it
+							// come back. Checked on `blocks` rather than the parsed header so
+							// that a malformed non-empty response still gets the harsh
+							// `NOT_REQUESTED` verdict from `validate_blocks` below.
+							debug!(
+								target: LOG_TARGET,
+								"Peer {peer_id} sent an empty response for block request \
+								 {request:?}; disconnecting it",
+							);
+							if let Some(metrics) = &self.metrics {
+								metrics.empty_block_responses.inc();
+							}
+							return Err(BadPeer(*peer_id, rep::NO_BLOCKS_IN_RANGE));
+						}
 						if let Some(start_block) =
 							validate_blocks::<B>(&blocks, peer_id, Some(request))?
 						{
@@ -1398,6 +1420,23 @@ where
 								gap_sync.blocks.clear_peer_download(peer_id);
 							}
 							return Err(BadPeer(*peer_id, rep::NO_GAP_BODIES));
+						} else if blocks.is_empty() {
+							// Header-only gap request, so the body check above does not
+							// apply: the peer holds no header of the range either. Same
+							// honest cause (its own history below the warp target may be
+							// pruned or not yet backfilled), same treatment.
+							debug!(
+								target: LOG_TARGET,
+								"Peer {peer_id} sent an empty response for header-only gap \
+								 block request {request:?}; disconnecting it",
+							);
+							if let Some(metrics) = &self.metrics {
+								metrics.empty_block_responses.inc();
+							}
+							if let Some(gap_sync) = &mut self.gap_sync {
+								gap_sync.blocks.clear_peer_download(peer_id);
+							}
+							return Err(BadPeer(*peer_id, rep::NO_BLOCKS_IN_RANGE));
 						}
 						if let Some(gap_sync) = &mut self.gap_sync {
 							gap_sync.blocks.clear_peer_download(peer_id);
@@ -1443,7 +1482,6 @@ where
 										hash: block_data.block.hash,
 										header: block_data.block.header,
 										body: block_data.block.body,
-										indexed_body: block_data.block.indexed_body,
 										justifications,
 										origin: block_data.origin,
 										allow_missing_state: true,
@@ -1495,7 +1533,6 @@ where
 									hash: b.hash,
 									header: b.header,
 									body: b.body,
-									indexed_body: None,
 									justifications,
 									origin: Some(*peer_id),
 									allow_missing_state: true,
@@ -1637,7 +1674,6 @@ where
 							hash: b.hash,
 							header: b.header,
 							body: b.body,
-							indexed_body: None,
 							justifications,
 							origin: Some(*peer_id),
 							allow_missing_state: true,
@@ -2020,7 +2056,6 @@ where
 					hash: block_data.block.hash,
 					header: block_data.block.header,
 					body: block_data.block.body,
-					indexed_body: block_data.block.indexed_body,
 					justifications,
 					origin: block_data.origin,
 					allow_missing_state: true,
@@ -2066,7 +2101,7 @@ where
 		&self,
 		finalized_number: NumberFor<B>,
 	) -> (BlockAttributes, Option<NumberFor<B>>) {
-		let attrs = self.mode.required_block_attributes();
+		let attrs = required_block_attributes();
 		match self.gap_sync_body_policy {
 			GapSyncBodyPolicy::HeadersOnly => (attrs & !BlockAttributes::BODY, None),
 			GapSyncBodyPolicy::All => (attrs, None),
@@ -2093,7 +2128,6 @@ where
 			return Vec::new();
 		}
 		let is_major_syncing = self.status().state.is_major_syncing();
-		let mode = self.mode;
 		let finalized_number = self.client.info().finalized_number;
 		let (gap_attrs, gap_body_cutoff) = self.gap_request_attributes(finalized_number);
 		if let (Some(metrics), Some(cutoff), Some(gap)) =
@@ -2160,7 +2194,7 @@ where
 					&id,
 					peer,
 					blocks,
-					mode.required_block_attributes(),
+					required_block_attributes(),
 					max_parallel,
 					max_blocks_per_request,
 					last_finalized,
@@ -2181,7 +2215,7 @@ where
 					fork_targets,
 					best_queued,
 					last_finalized,
-					mode.required_block_attributes(),
+					required_block_attributes(),
 					|hash| {
 						if queue_blocks.contains(hash) {
 							BlockStatus::Queued
@@ -2307,7 +2341,6 @@ where
 					hash,
 					header: Some(header),
 					body,
-					indexed_body: None,
 					justifications,
 					origin: None,
 					allow_missing_state: true,

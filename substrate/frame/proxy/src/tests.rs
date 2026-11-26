@@ -26,12 +26,62 @@ use frame::testing_prelude::*;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
+// Mock pallet to control the post-dispatch info of inner calls.
+#[frame::pallet(dev_mode)]
+pub mod mock_pallet {
+	use frame::prelude::*;
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(0)]
+		#[pallet::weight(*declared_weight)]
+		pub fn succeed(
+			origin: OriginFor<T>,
+			declared_weight: Weight,
+			actual_weight: Option<Weight>,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+			let _ = declared_weight; // No need to check the weight witness.
+			Ok(actual_weight.into())
+		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(*declared_weight)]
+		pub fn fail(
+			origin: OriginFor<T>,
+			declared_weight: Weight,
+			actual_weight: Option<Weight>,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+			let _ = declared_weight; // No need to check the weight witness.
+			Err(DispatchErrorWithPostInfo {
+				post_info: actual_weight.into(),
+				error: DispatchError::Other("inner call failed"),
+			})
+		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(Weight::zero())]
+		pub fn pays_no(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+			Ok(Pays::No.into())
+		}
+	}
+}
+
 construct_runtime!(
 	pub struct Test {
 		System: frame_system,
 		Balances: pallet_balances,
 		Proxy: proxy,
 		Utility: pallet_utility,
+		MockPallet: mock_pallet,
 	}
 );
 
@@ -54,6 +104,8 @@ impl pallet_utility::Config for Test {
 	type PalletsOrigin = OriginCaller;
 	type WeightInfo = ();
 }
+
+impl mock_pallet::Config for Test {}
 
 #[derive(
 	Copy,
@@ -137,6 +189,12 @@ use pallet_balances::{Call as BalancesCall, Error as BalancesError, Event as Bal
 use pallet_utility::{Call as UtilityCall, Event as UtilityEvent};
 
 type SystemError = frame_system::Error<Test>;
+type MockPalletCall = mock_pallet::Call<Test>;
+
+/// Declared weight of the inner call.
+const DECLARED_WEIGHT: Weight = Weight::from_parts(100, 100);
+/// Weight the inner call reports as actually used.
+const ACTUAL_WEIGHT: Weight = Weight::from_parts(75, 50);
 
 pub fn new_test_ext() -> TestState {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
@@ -167,6 +225,33 @@ fn expect_events(e: Vec<RuntimeEvent>) {
 
 fn call_transfer(dest: u64, value: u64) -> RuntimeCall {
 	RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest, value })
+}
+
+fn call_succeed(declared_weight: Weight, actual_weight: Option<Weight>) -> RuntimeCall {
+	RuntimeCall::MockPallet(MockPalletCall::succeed { declared_weight, actual_weight })
+}
+
+fn call_fail(declared_weight: Weight, actual_weight: Option<Weight>) -> RuntimeCall {
+	RuntimeCall::MockPallet(MockPalletCall::fail { declared_weight, actual_weight })
+}
+
+fn call_pays_no() -> RuntimeCall {
+	RuntimeCall::MockPallet(MockPalletCall::pays_no {})
+}
+
+fn call_proxy(real: u64, call: RuntimeCall) -> RuntimeCall {
+	RuntimeCall::Proxy(ProxyCall::proxy { real, force_proxy_type: None, call: Box::new(call) })
+}
+
+/// Announces `call` from `delegate` and returns the `proxy_announced` call executing it.
+fn announce_call(delegate: u64, real: u64, call: RuntimeCall) -> RuntimeCall {
+	assert_ok!(Proxy::announce(RuntimeOrigin::signed(delegate), real, BlakeTwo256::hash_of(&call)));
+	RuntimeCall::Proxy(ProxyCall::proxy_announced {
+		delegate,
+		real,
+		force_proxy_type: None,
+		call: Box::new(call),
+	})
 }
 
 #[test]
@@ -559,6 +644,126 @@ fn proxying_works() {
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(3), 1, None, call.clone()));
 		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
 		assert_eq!(Balances::free_balance(6), 2);
+	});
+}
+
+#[test]
+fn proxying_charges_full_weight() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+
+		let call = call_proxy(1, call_succeed(DECLARED_WEIGHT, None));
+		let info = call.get_dispatch_info();
+		let post_info = call.dispatch(RuntimeOrigin::signed(2)).unwrap();
+		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
+		assert_eq!(post_info.calc_actual_weight(&info), info.call_weight);
+
+		let call = call_proxy(1, call_fail(DECLARED_WEIGHT, None));
+		let info = call.get_dispatch_info();
+		let post_info = call.dispatch(RuntimeOrigin::signed(2)).unwrap();
+		System::assert_last_event(
+			ProxyEvent::ProxyExecuted { result: Err(DispatchError::Other("")) }.into(),
+		);
+		assert_eq!(post_info.calc_actual_weight(&info), info.call_weight);
+	});
+}
+
+#[test]
+fn proxying_refunds_unused_weight() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+
+		let call = call_proxy(1, call_succeed(DECLARED_WEIGHT, Some(ACTUAL_WEIGHT)));
+		let info = call.get_dispatch_info();
+		let post_info = call.dispatch(RuntimeOrigin::signed(2)).unwrap();
+		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
+		assert_eq!(
+			post_info.calc_actual_weight(&info),
+			info.call_weight - DECLARED_WEIGHT + ACTUAL_WEIGHT
+		);
+
+		let call = call_proxy(1, call_fail(DECLARED_WEIGHT, Some(ACTUAL_WEIGHT)));
+		let info = call.get_dispatch_info();
+		let post_info = call.dispatch(RuntimeOrigin::signed(2)).unwrap();
+		System::assert_last_event(
+			ProxyEvent::ProxyExecuted { result: Err(DispatchError::Other("")) }.into(),
+		);
+		assert_eq!(
+			post_info.calc_actual_weight(&info),
+			info.call_weight - DECLARED_WEIGHT + ACTUAL_WEIGHT
+		);
+	});
+}
+
+#[test]
+fn proxying_doesnt_inherit_pays_no() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+
+		let call = call_proxy(1, call_pays_no());
+		let post_info = call.dispatch(RuntimeOrigin::signed(2)).unwrap();
+		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
+		assert_eq!(post_info.pays_fee, Pays::Yes);
+	});
+}
+
+#[test]
+fn proxy_announced_charges_full_weight() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+
+		let call = announce_call(2, 1, call_succeed(DECLARED_WEIGHT, None));
+		let info = call.get_dispatch_info();
+		let post_info = call.dispatch(RuntimeOrigin::signed(0)).unwrap();
+		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
+		assert_eq!(post_info.calc_actual_weight(&info), info.call_weight);
+
+		let call = announce_call(2, 1, call_fail(DECLARED_WEIGHT, None));
+		let info = call.get_dispatch_info();
+		let post_info = call.dispatch(RuntimeOrigin::signed(0)).unwrap();
+		System::assert_last_event(
+			ProxyEvent::ProxyExecuted { result: Err(DispatchError::Other("")) }.into(),
+		);
+		assert_eq!(post_info.calc_actual_weight(&info), info.call_weight);
+	});
+}
+
+#[test]
+fn proxy_announced_refunds_unused_weight() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+
+		let call = announce_call(2, 1, call_succeed(DECLARED_WEIGHT, Some(ACTUAL_WEIGHT)));
+		let info = call.get_dispatch_info();
+		let post_info = call.dispatch(RuntimeOrigin::signed(0)).unwrap();
+		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
+		assert_eq!(
+			post_info.calc_actual_weight(&info),
+			info.call_weight - DECLARED_WEIGHT + ACTUAL_WEIGHT
+		);
+
+		let call = announce_call(2, 1, call_fail(DECLARED_WEIGHT, Some(ACTUAL_WEIGHT)));
+		let info = call.get_dispatch_info();
+		let post_info = call.dispatch(RuntimeOrigin::signed(0)).unwrap();
+		System::assert_last_event(
+			ProxyEvent::ProxyExecuted { result: Err(DispatchError::Other("")) }.into(),
+		);
+		assert_eq!(
+			post_info.calc_actual_weight(&info),
+			info.call_weight - DECLARED_WEIGHT + ACTUAL_WEIGHT
+		);
+	});
+}
+
+#[test]
+fn proxy_announced_doesnt_inherit_pays_no() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+
+		let call = announce_call(2, 1, call_pays_no());
+		let post_info = call.dispatch(RuntimeOrigin::signed(0)).unwrap();
+		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
+		assert_eq!(post_info.pays_fee, Pays::Yes);
 	});
 }
 

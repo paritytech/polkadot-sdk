@@ -72,7 +72,8 @@ impl SchedulingInfoPayload {
 ///
 /// Single source of truth shared by the collator and the PVF (`validate_block`) so their tails
 /// can't drift. The relay decoder (`CandidateCommitments::ump_signals`) rejects a repeated variant
-/// or any third signal, and parses only the run after the first `UMP_SEPARATOR`.
+/// or more than `MAX_UMP_SIGNALS` signals, and parses only the run after the first
+/// `UMP_SEPARATOR`.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct SchedulingSignals {
 	select_core: Option<(CoreSelector, ClaimQueueOffset)>,
@@ -100,6 +101,9 @@ impl SchedulingSignals {
 						panic!("Parachain emitted more than one `ApprovedPeer` UMP signal");
 					}
 				},
+				UMPSignal::Provides(_) | UMPSignal::Requires(_) => panic!(
+					"Parachain emitted a speculative-messaging UMP signal, which `validate_block` does not yet forward"
+				),
 			}
 		}
 		signals
@@ -107,7 +111,7 @@ impl SchedulingSignals {
 
 	/// Build the tail from a verified `SignedSchedulingInfo`, replacing the block's own signals
 	/// wholesale. Assumes every `UMPSignal` is a scheduling signal; guarded by
-	/// `all_ump_signals_are_scheduling_signals`.
+	/// `every_ump_signal_is_classified`.
 	pub fn from_scheduling_info(signed_info: &SignedSchedulingInfo) -> Self {
 		let payload = &signed_info.payload;
 		Self {
@@ -372,17 +376,14 @@ mod tests {
 		assert!(!SchedulingSignals::from_scheduling_info(&signed).into_ump_messages().is_empty());
 	}
 
-	/// Compile-time tripwire for [`SchedulingSignals::from_scheduling_info`]: it wholesale-replaces
-	/// the UMP tail with only the scheduling signals, which is correct only while *every*
-	/// `UMPSignal` variant is a scheduling signal. This exhaustive match (no `_` arm) stops
-	/// compiling the moment a new variant is added — decide then whether `from_scheduling_info`
-	/// must first become selective (merge the block's non-scheduling signals) so it is not
-	/// silently dropped on resubmissions.
+	/// Stops compiling when a `UMPSignal` variant is added. Then decide whether it must survive
+	/// [`SchedulingSignals::from_scheduling_info`], which keeps only scheduling signals.
 	#[test]
-	fn all_ump_signals_are_scheduling_signals() {
+	fn every_ump_signal_is_classified() {
 		fn classify(signal: UMPSignal) {
 			match signal {
 				UMPSignal::SelectCore(..) | UMPSignal::ApprovedPeer(..) => {},
+				UMPSignal::Provides(..) | UMPSignal::Requires(..) => {},
 			}
 		}
 		let _ = classify;

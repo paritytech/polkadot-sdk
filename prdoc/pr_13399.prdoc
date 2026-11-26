@@ -1,0 +1,22 @@
+title: 'Cleanup: Remove unused INDEXED_BODY attribute'
+doc:
+- audience: Node Dev
+  description: |-
+    Removed deprecated code from the Substrate backend and chain syncing implementation.
+crates:
+- name: cumulus-client-pov-recovery
+  bump: major
+- name: sc-client-api
+  bump: major
+- name: sc-cli
+  bump: major
+- name: sc-consensus
+  bump: major
+- name: sc-client-db
+  bump: major
+- name: sc-network-common
+  bump: major
+- name: sc-network-sync
+  bump: major
+- name: sc-service
+  bump: major

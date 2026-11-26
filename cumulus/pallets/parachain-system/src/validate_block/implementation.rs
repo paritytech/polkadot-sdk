@@ -179,6 +179,7 @@ where
 	let mut head_data = None;
 	let mut new_validation_code = None;
 	let num_blocks = blocks.len();
+	let state_version = <PSC as frame_system::Config>::Version::get().state_version();
 
 	// Create the db
 	let mut db = match proof.to_memory_db(parent_header.state_root()) {
@@ -211,6 +212,7 @@ where
 		)
 		.build();
 		run_with_externalities_and_recorder::<B, _, _>(
+			state_version,
 			&parent_backend,
 			&mut Default::default(),
 			&mut Default::default(),
@@ -250,6 +252,7 @@ where
 		parent_header = block.header().clone();
 
 		run_with_externalities_and_recorder::<B, _, _>(
+			state_version,
 			&backend,
 			&mut Default::default(),
 			&mut Default::default(),
@@ -259,6 +262,7 @@ where
 		);
 
 		run_with_externalities_and_recorder::<B, _, _>(
+			state_version,
 			&execute_backend,
 			// Here is the only place where we want to use the recorder.
 			// We want to ensure that we not accidentally read something from the proof, that
@@ -283,6 +287,7 @@ where
 			)
 		}
 		run_with_externalities_and_recorder::<B, _, _>(
+			state_version,
 			&backend,
 			&mut Default::default(),
 			// We are only reading here, but need to know what the old block has written. Thus, we
@@ -342,10 +347,7 @@ where
 
 		if block_index + 1 != num_blocks {
 			let mut changes = overlay
-				.drain_storage_changes(
-					&backend,
-					<PSC as frame_system::Config>::Version::get().state_version(),
-				)
+				.drain_storage_changes(&backend, state_version)
 				.expect("Failed to get drain storage changes from the overlay.");
 
 			drop(backend);
@@ -505,12 +507,13 @@ fn build_seed_from_head_data<B: BlockT>(
 
 /// Run the given closure with the externalities and recorder set.
 fn run_with_externalities_and_recorder<Block: BlockT, R, F: FnOnce() -> R>(
+	state_version: StateVersion,
 	backend: &impl sp_state_machine::Backend<HashingFor<Block>>,
 	recorder: &mut SizeOnlyRecorderProvider<HashingFor<Block>>,
 	overlay: &mut OverlayedChanges<HashingFor<Block>>,
 	execute: F,
 ) -> R {
-	let mut ext = Ext::<Block, _>::new(overlay, backend);
+	let mut ext = Ext::<Block, _>::new(overlay, backend, state_version);
 
 	recorder::using(recorder, || set_and_run_with_externalities(&mut ext, || execute()))
 }
@@ -549,7 +552,7 @@ fn host_storage_proof_size() -> u64 {
 }
 
 fn host_storage_root(version: StateVersion) -> Vec<u8> {
-	with_externalities(|ext| ext.storage_root(version))
+	with_externalities(|ext| ext.storage_root_with_version(version))
 }
 
 fn host_storage_clear_prefix(prefix: &[u8], limit: Option<u32>) -> KillStorageResult {
@@ -638,7 +641,7 @@ fn host_default_child_storage_clear_prefix(
 
 fn host_default_child_storage_root(storage_key: &[u8], version: StateVersion) -> Vec<u8> {
 	let child_info = ChildInfo::new_default(storage_key);
-	with_externalities(|ext| ext.child_storage_root(&child_info, version))
+	with_externalities(|ext| ext.child_storage_root_with_version(&child_info, version))
 }
 
 fn host_default_child_storage_next_key(storage_key: &[u8], key: &[u8]) -> Option<Vec<u8>> {

@@ -291,8 +291,8 @@ parameter_types! {
 	pub static MinerMaxWeight: Weight = BlockWeights::get().max_block;
 	pub static MinerMaxLength: u32 = 256;
 	pub static MockWeightInfo: MockedWeightInfo = MockedWeightInfo::Real;
-	pub static MaxElectingVoters: VoterIndex = u32::max_value();
-	pub static MaxElectableTargets: TargetIndex = TargetIndex::max_value();
+	pub static MaxElectingVoters: VoterIndex = u32::MAX;
+	pub static MaxElectableTargets: TargetIndex = TargetIndex::MAX;
 
 	#[derive(Debug)]
 	pub static MaxWinners: u32 = 200;

@@ -35,6 +35,7 @@ pub mod pallet_session;
 pub mod pallet_timestamp;
 pub mod pallet_transaction_payment;
 pub mod pallet_utility;
+pub mod pallet_validator_collators;
 pub mod pallet_verify_signature;
 pub mod pallet_xcm;
 pub mod paritydb_weights;

@@ -166,7 +166,13 @@ impl<T: Config> EraRewardManager<T> {
 			return;
 		}
 
-		let remaining = T::Currency::balance(&pot_account);
+		// Anyone can lock funds in a pot with a vested transfer. Leave them in place, otherwise the
+		// lock would short the payouts of the next era reusing this slot.
+		let remaining = T::Currency::reducible_balance(
+			&pot_account,
+			Preservation::Expendable,
+			Fortitude::Polite,
+		);
 
 		if remaining.is_zero() {
 			return;
@@ -177,7 +183,7 @@ impl<T: Config> EraRewardManager<T> {
 			remaining,
 			Precision::BestEffort,
 			Preservation::Expendable,
-			Fortitude::Force,
+			Fortitude::Polite,
 		) {
 			Ok(credit) => {
 				T::UnclaimedRewardHandler::on_unbalanced(credit);

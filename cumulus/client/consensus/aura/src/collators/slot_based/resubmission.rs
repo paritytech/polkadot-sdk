@@ -29,9 +29,9 @@ use cumulus_client_resubmission_store::{
 use cumulus_primitives_core::{
 	relay_chain::{
 		BlockId, BlockNumber as RelayBlockNumber, Hash as RelayHash, Header as RelayHeader,
-		SessionIndex,
+		OccupiedCoreAssumption, SessionIndex,
 	},
-	CumulusDigestItem, RelayBlockIdentifier,
+	CumulusDigestItem, ParaId, RelayBlockIdentifier,
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 use futures::{FutureExt, StreamExt};
@@ -112,6 +112,7 @@ pub(crate) async fn run_resubmission_backfill<Block, RClient, Client>(
 	mut block_import_handle: SlotBasedBlockImportHandle<Block>,
 	relay_client: RClient,
 	para_client: Arc<Client>,
+	para_id: ParaId,
 ) where
 	Block: BlockT,
 	RClient: RelayChainInterface,
@@ -128,6 +129,11 @@ pub(crate) async fn run_resubmission_backfill<Block, RClient, Client>(
 	}
 
 	let mut finality_notifications = para_client.finality_notification_stream();
+
+	tracing::debug!(
+		target: LOG_TARGET,
+		"Resubmission backfill task started; awaiting imported blocks.",
+	);
 
 	loop {
 		let import_fut = block_import_handle.next().fuse();
@@ -150,11 +156,18 @@ pub(crate) async fn run_resubmission_backfill<Block, RClient, Client>(
 				}
 			},
 			(block, proof) = import_fut => {
+				tracing::trace!(
+					target: LOG_TARGET,
+					block_hash = ?block.header().hash(),
+					number = ?block.header().number(),
+					"Backfilling resubmission entry for imported block.",
+				);
 				backfill_resubmission_entry(
 					&relay_client,
 					&*para_client,
 					block.header(),
 					proof,
+					para_id,
 				)
 				.await;
 			},
@@ -170,6 +183,7 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 	para_client: &Client,
 	header: &Block::Header,
 	proof: Arc<StorageProof>,
+	para_id: ParaId,
 ) where
 	Block: BlockT,
 	R: RelayChainInterface + ?Sized,
@@ -179,6 +193,12 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 	let number = *header.number();
 
 	if number <= para_client.info().finalized_number {
+		tracing::trace!(
+			target: LOG_TARGET,
+			?block_hash,
+			?number,
+			"Imported block is already finalized; no resubmission entry needed.",
+		);
 		return;
 	}
 
@@ -217,14 +237,37 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 		},
 	};
 	if number <= para_client.info().finalized_number {
+		tracing::trace!(
+			target: LOG_TARGET,
+			?block_hash,
+			?number,
+			"Block finalized while resolving relay data; dropping resubmission entry.",
+		);
 		return;
 	}
+
+	// Capture `max_pov_size` for the stored entry, so resubmission can rebuild the block's PVD.
+	let max_pov_size = match relay_client
+		.persisted_validation_data(relay_parent, para_id, OccupiedCoreAssumption::TimedOut)
+		.await
+	{
+		Ok(Some(pvd)) => pvd.max_pov_size,
+		Ok(None) | Err(_) => {
+			tracing::debug!(
+				target: LOG_TARGET,
+				?block_hash,
+				"Could not fetch max_pov_size for relay parent; skipping resubmission entry.",
+			);
+			return;
+		},
+	};
 
 	let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
 		block_hash,
 		proof,
 		relay_parent_header,
 		relay_parent_session,
+		max_pov_size,
 	)
 	.collect();
 	let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();

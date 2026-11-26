@@ -26,7 +26,6 @@ name = "proc_main"
 
 [dependencies]
 Inflector = { workspace = true }
-cfg-expr = { workspace = true }
 derive-syn-parse = { workspace = true }
 docify = { workspace = true }
 expander = { workspace = true }

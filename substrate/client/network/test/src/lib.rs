@@ -30,6 +30,7 @@ mod sync;
 
 use std::{
 	collections::HashMap,
+	num::NonZeroUsize,
 	pin::Pin,
 	sync::{
 		atomic::{AtomicU32, Ordering},
@@ -90,7 +91,7 @@ use sp_consensus::{
 	block_validation::{BlockAnnounceValidator, DefaultBlockAnnounceValidator},
 	BlockOrigin, Error as ConsensusError, SyncOracle,
 };
-use sp_core::H256;
+use sp_core::{testing::TaskExecutor, H256};
 use sp_runtime::{
 	codec::{Decode, Encode},
 	generic::BlockId,
@@ -777,8 +778,6 @@ pub struct FullPeerConfig {
 	pub sync_mode: SyncMode,
 	/// Extra genesis storage.
 	pub extra_storage: Option<sp_core::storage::Storage>,
-	/// Enable transaction indexing.
-	pub storage_chain: bool,
 	/// Optional target block header to sync to
 	pub target_header: Option<<Block as BlockT>::Header>,
 	/// Force genesis even in case of warp & light state sync.
@@ -833,11 +832,9 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 	/// Add a full peer.
 	fn add_full_peer_with_config(&mut self, config: FullPeerConfig) {
-		let mut test_client_builder = match (config.blocks_pruning, config.storage_chain) {
-			(Some(blocks_pruning), true) => TestClientBuilder::with_tx_storage(blocks_pruning),
-			(None, true) => TestClientBuilder::with_tx_storage(u32::MAX),
-			(Some(blocks_pruning), false) => TestClientBuilder::with_pruning_window(blocks_pruning),
-			(None, false) => TestClientBuilder::with_default_backend(),
+		let mut test_client_builder = match config.blocks_pruning {
+			Some(blocks_pruning) => TestClientBuilder::with_pruning_window(blocks_pruning),
+			None => TestClientBuilder::with_default_backend(),
 		};
 		if let Some(storage) = config.extra_storage {
 			let genesis_extra_storage = test_client_builder.genesis_init_mut().extra_storage();
@@ -862,11 +859,12 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 		let justification_import =
 			if config.disable_justification_import { None } else { justification_import };
+		let executor = TaskExecutor::new();
 		let import_queue = Box::new(BasicQueue::new(
 			verifier.clone(),
 			Box::new(block_import.clone()),
 			justification_import,
-			&sp_core::testing::TaskExecutor::new(),
+			&executor,
 			None,
 		));
 
@@ -937,14 +935,18 @@ pub trait TestNetFactory: Default + Sized + Send {
 			protocol_config
 		};
 
-		let light_client_request_protocol_config =
-			{
-				let (handler, protocol_config) = LightClientRequestHandler::new::<
-					NetworkWorker<_, _>,
-				>(&protocol_id, None, client.clone());
-				self.spawn_task(handler.run().boxed());
-				protocol_config
-			};
+		let light_client_request_protocol_config = {
+			let (handler, protocol_config) = LightClientRequestHandler::new::<NetworkWorker<_, _>>(
+				&protocol_id,
+				None,
+				client.clone(),
+				None,
+				NonZeroUsize::MIN,
+				None,
+			);
+			self.spawn_task(handler.run(executor).boxed());
+			protocol_config
+		};
 
 		let warp_sync = Arc::new(TestWarpSyncProvider(client.clone()));
 

@@ -49,7 +49,7 @@
 //! Information about the actually used protocol will be returned alongside the raw response, so
 //! that you know how to decode it.
 
-use std::{collections::HashMap, time::Duration, u64};
+use std::{collections::HashMap, time::Duration};
 
 use sc_network::{NetworkBackend, MAX_RESPONSE_SIZE};
 use sp_runtime::traits::Block;

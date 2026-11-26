@@ -25,6 +25,14 @@ use std::{
 	time,
 };
 
+/// Default inbound slots for full peers on the statement protocol with the DHT path on. Light
+/// peers get the node's `--in-peers-light` on top.
+pub const DEFAULT_IN_PEERS: u32 = 50;
+
+/// Default outbound slots on the statement protocol with the DHT path on. Peer steering dials
+/// its peers through the reserved set, so the protocol controller dials none of its own.
+pub const DEFAULT_OUT_PEERS: u32 = 0;
+
 /// Interval at which we propagate statements;
 pub(crate) const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis(1000);
 
@@ -51,7 +59,7 @@ pub const MAX_SEND_IN_FLIGHT_BYTES: u64 = 16 * MAX_STATEMENT_NOTIFICATION_SIZE;
 pub const INITIAL_SYNC_RESERVED_BYTES: u64 = 4 * MAX_STATEMENT_NOTIFICATION_SIZE;
 
 /// Maximum number of statement hashes queued for propagation to one peer.
-/// On overflow the oldest hashes are dropped first.
+/// A full outbox refuses new hashes.
 pub const MAX_PROPAGATION_OUTBOX_LEN: usize = 64 * 1024;
 
 /// Maximum number of statement validation request we keep at any moment.
@@ -76,17 +84,17 @@ pub const AFFINITY_UPDATES_BURST: NonZeroU32 =
 /// peers enforce at decode, with no practical gain in routing precision.
 pub const DEFAULT_BLOOM_FALSE_POS_RATE: f64 = 0.001;
 
-/// Default replication factor (K) for v2 DHT-affinity routing: number of statement-protocol peers
+/// Default replication factor (K) for DHT-affinity routing: number of statement-protocol peers
 /// responsible for storing a given topic.
 pub const DEFAULT_REPLICATION_FACTOR: NonZeroUsize = NonZeroUsize::new(20).expect("20 is non-zero");
 
-/// Default gossip target for v2 DHT-affinity routing: maximum number of connected non-replica
+/// Default gossip target for DHT-affinity routing: maximum number of connected non-replica
 /// peers a statement is routed to for a given topic, on top of the topic's connected replicas.
 pub const DEFAULT_GOSSIP_TARGET: NonZeroUsize = NonZeroUsize::new(3).expect("3 is non-zero");
 
-/// Parameters of the v2 DHT statement path.
+/// Parameters of the DHT statement path.
 #[derive(Clone, Debug)]
-pub struct V2DhtConfig {
+pub struct DhtConfig {
 	/// Topics the node stores in full, regardless of DHT affinity.
 	pub affinity_topics: Vec<Topic>,
 	/// Topics from a file, added to [`Self::affinity_topics`].
@@ -106,9 +114,11 @@ pub struct V2DhtConfig {
 	/// Maximum total data size in bytes of the transient statements, kept until propagated, or the
 	/// store's size limit when `None`.
 	pub transient_max_size: Option<usize>,
+	/// Inbound slots for full peers on the statement protocol.
+	pub in_peers: u32,
 }
 
-impl Default for V2DhtConfig {
+impl Default for DhtConfig {
 	fn default() -> Self {
 		Self {
 			affinity_topics: Vec::new(),
@@ -119,6 +129,7 @@ impl Default for V2DhtConfig {
 			gossip_target: DEFAULT_GOSSIP_TARGET,
 			dht_affinity_max_size: None,
 			transient_max_size: None,
+			in_peers: DEFAULT_IN_PEERS,
 		}
 	}
 }

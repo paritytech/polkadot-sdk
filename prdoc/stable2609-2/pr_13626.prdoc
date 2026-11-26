@@ -1,0 +1,22 @@
+title: 'pallet-psm: simplify PSM account handling'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      PSMs no longer manage provider refs on their reserve account and fee destination, so both
+      follow the standard account rules.
+
+      - `create_psm` and `remove_psm` no longer touch provider refs.
+      - `mint` and `redeem` waive the fee when the fee destination can't receive it.
+      - `add_external_asset` requires the reserve account to be able to receive the external
+        asset, and fails with `ReserveCannotReceive` otherwise. For a non-sufficient asset, create
+        the reserve's asset account first (e.g. with `touch_other`).
+      - New `reserve_account` view function returns the reserve account of a PSM instance.
+
+crates:
+  - name: pallet-psm
+    bump: major
+  - name: pallet-assets
+    bump: none
+  - name: asset-hub-westend-runtime
+    bump: patch

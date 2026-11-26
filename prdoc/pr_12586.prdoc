@@ -1,0 +1,21 @@
+title: Remove deprecated build-spec CLI subcommand
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+    Remove the deprecated `build-spec` subcommand and `BuildSpecCmd` from `sc-cli`;
+    use `export-chain-spec` instead.
+
+    - `export-chain-spec` no longer defaults `--chain` to `local`; pass it explicitly.
+    - `export-chain-spec` has no `--dev` and adds no default bootnode; use `--chain dev`.
+    - `polkadot-omni-node` has no `export-chain-spec`; use `chain-spec-builder` instead.
+crates:
+- name: sc-cli
+  bump: major
+- name: polkadot-cli
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
+- name: staging-chain-spec-builder
+  bump: patch
+- name: sc-transaction-pool
+  bump: none

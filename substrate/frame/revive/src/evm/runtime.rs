@@ -332,6 +332,9 @@ pub trait EthExtra {
 	/// and ensure that the fees from the Ethereum transaction correspond to the fees computed from
 	/// the encoded_len and the injected weight_limit.
 	///
+	/// A payload larger than [`crate::limits::MAX_TRANSACTION_PAYLOAD_SIZE`] is rejected with
+	/// [`InvalidTransaction::ExhaustsResources`], as is a dry run of such a transaction.
+	///
 	/// # Parameters
 	/// - `payload`: The RLP-encoded Ethereum transaction.
 	/// - `encoded_len`: The encoded length of the extrinsic.
@@ -351,6 +354,8 @@ pub trait EthExtra {
 		<Self::Config as frame_system::Config>::Nonce: TryFrom<U256>,
 		CallOf<Self::Config>: SetWeightLimit,
 	{
+		crate::evm::ensure_transaction_payload_size(payload)?;
+
 		let tx = TransactionSigned::decode(&payload).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");
 			InvalidTransaction::Call
@@ -734,6 +739,57 @@ mod test {
 		);
 	}
 
+	/// An `eth_transact` whose payload is larger than `MAX_TRANSACTION_PAYLOAD_SIZE` is invalid
+	/// before its payload is decoded. A payload at the limit passes the size check and is decoded.
+	#[test]
+	fn check_eth_transact_payload_size() {
+		let check = |len: u32| {
+			ExtBuilder::default().build().execute_with(|| {
+				let call = RuntimeCall::Contracts(crate::Call::eth_transact {
+					payload: vec![0u8; len as usize],
+				});
+				let uxt: UncheckedExtrinsic = generic::UncheckedExtrinsic::new_bare(call).into();
+				uxt.check(&TestContext {}).map(|_| ())
+			})
+		};
+		let limit = crate::limits::MAX_TRANSACTION_PAYLOAD_SIZE;
+
+		assert_eq!(
+			check(limit + 1),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::ExhaustsResources))
+		);
+		assert_eq!(check(limit), Err(TransactionValidityError::Invalid(InvalidTransaction::Call)));
+	}
+
+	/// A dry run of a transaction whose payload is larger than `MAX_TRANSACTION_PAYLOAD_SIZE`
+	/// fails with the error its submission is rejected with.
+	#[test]
+	fn dry_run_eth_transact_payload_size() {
+		ExtBuilder::default().build().execute_with(|| {
+			let exhausts_resources = |input_len: u32| {
+				let result = crate::Pallet::<Test>::dry_run_eth_transact(
+					GenericTransaction {
+						from: Some(ALICE_ADDR),
+						to: Some(BOB_ADDR),
+						input: vec![0u8; input_len as usize].into(),
+						..Default::default()
+					},
+					None,
+					false,
+					None,
+				);
+				matches!(
+					result,
+					Err(crate::EthTransactError::Message(msg)) if msg.contains("ExhaustsResources")
+				)
+			};
+			let limit = crate::limits::MAX_TRANSACTION_PAYLOAD_SIZE;
+
+			assert!(exhausts_resources(limit));
+			assert!(!exhausts_resources(limit - 1024));
+		});
+	}
+
 	#[test]
 	fn check_transaction_fees() {
 		let scenarios: Vec<(_, Box<dyn FnOnce(&mut GenericTransaction)>, _)> = vec![
@@ -814,6 +870,58 @@ mod test {
 			},
 			_ => panic!("Expected the RuntimeCall::Contracts variant, got: {:?}", call),
 		}
+	}
+
+	#[test]
+	fn check_runtime_pallets_addr_rejects_invalid_calls() {
+		use frame_support::MAX_EXTRINSIC_DEPTH;
+		use sp_runtime::generic::DEFAULT_MAX_CALL_SIZE;
+
+		let check = |data: Vec<u8>| {
+			UncheckedExtrinsicBuilder::call_with(RUNTIME_PALLETS_ADDR)
+				.data(data)
+				.mutate_estimate_and_check(Box::new(|tx| {
+					tx.gas = Some(1_000_000_000_000u64.into())
+				}))
+				.map(|_| ())
+		};
+		let dry_run = |data: Vec<u8>| {
+			ExtBuilder::default().build().execute_with(|| {
+				let tx = GenericTransaction {
+					from: Some(Account::default().address()),
+					chain_id: Some(<Test as Config>::ChainId::get().into()),
+					to: Some(RUNTIME_PALLETS_ADDR),
+					input: Bytes(data).into(),
+					..Default::default()
+				};
+				Pallet::<Test>::dry_run_eth_transact(tx, None, true, None).is_err()
+			})
+		};
+
+		// Trailing bytes after a valid call.
+		let remark: RuntimeCall = frame_system::Call::<Test>::remark { remark: vec![] }.into();
+		let mut data = remark.encode();
+		data.push(0);
+		assert_eq!(check(data.clone()), Err(InvalidTransaction::Call.into()));
+		assert!(dry_run(data));
+
+		// Nested deeper than `MAX_EXTRINSIC_DEPTH`.
+		let mut call: RuntimeCall = frame_system::Call::<Test>::remark { remark: vec![] }.into();
+		for _ in 0..=MAX_EXTRINSIC_DEPTH {
+			call = pallet_utility::Call::<Test>::as_derivative { index: 0, call: Box::new(call) }
+				.into();
+		}
+		let data = call.encode();
+		assert_eq!(check(data.clone()), Err(InvalidTransaction::Call.into()));
+		assert!(dry_run(data));
+
+		// A batch that decodes to more than `DEFAULT_MAX_CALL_SIZE` bytes.
+		let len = DEFAULT_MAX_CALL_SIZE / core::mem::size_of::<RuntimeCall>() + 1;
+		let batch: RuntimeCall =
+			pallet_utility::Call::<Test>::batch { calls: vec![remark; len] }.into();
+		let data = batch.encode();
+		assert_eq!(check(data.clone()), Err(InvalidTransaction::Call.into()));
+		assert!(dry_run(data));
 	}
 
 	/// The raw bytes seen in this test is of a deployment transaction from [eip-2470] which publish

@@ -16,11 +16,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Topic affinity filters for the `statement/2` protocol.
+//! Topic affinity filters for the `statement/2` and `statement/3` protocols.
 //!
 //! A peer can advertise the set of topics it is interested in as a space-efficient bloom filter
 //! ([`AffinityFilter`]). Once a peer has advertised one, only statements whose topics match the
-//! filter are propagated to it; statements with no topics always match, as they are broadcasts.
+//! filter are propagated to it.
 //!
 //! Filters received from the network are validated against `MAX_BLOOM_BITS` and `MAX_NUM_HASHES`
 //! to bound the memory and CPU a malicious peer can force. Hashing is platform-independent so that
@@ -149,7 +149,6 @@ pub struct AffinityFilter {
 
 impl AffinityFilter {
 	/// Create an empty filter sized for `expected_items` topics at the given false-positive rate.
-	#[allow(dead_code)]
 	pub(crate) fn new(seed: u128, false_pos: f64, expected_items: usize) -> Self {
 		let bloom = BloomFilter::with_false_pos(false_pos)
 			.hasher(PortableBuildHasher::seeded(seed))
@@ -158,7 +157,6 @@ impl AffinityFilter {
 	}
 
 	/// Insert a topic into the bloom filter.
-	#[allow(dead_code)]
 	pub(crate) fn insert(&mut self, topic: &[u8; 32]) {
 		self.bloom.insert(topic);
 	}
@@ -167,7 +165,6 @@ impl AffinityFilter {
 	///
 	/// An empty topic set yields a filter that matches nothing, not everything;
 	/// use [`Self::match_all`] for the latter.
-	#[allow(dead_code)]
 	pub(crate) fn from_topics<'a>(
 		topics: impl Iterator<Item = &'a [u8; 32]>,
 		seed: u128,
@@ -183,7 +180,6 @@ impl AffinityFilter {
 	}
 
 	/// Build a filter that matches every topic, for a node that wants the full statement stream.
-	#[allow(dead_code)]
 	pub(crate) fn match_all(seed: u128) -> Self {
 		let bloom = BloomFilter::from_vec(vec![u64::MAX; 16])
 			.hasher(PortableBuildHasher::seeded(seed))
@@ -199,15 +195,20 @@ impl AffinityFilter {
 	/// Check if a statement matches this affinity filter.
 	///
 	/// A statement matches if any of its topics is present in the bloom filter.
-	/// Statements with no topics always match (they are broadcast statements).
 	pub(crate) fn matches_statement(&self, statement: &Statement) -> bool {
-		let topics = statement.topics();
-		if topics.is_empty() {
-			return true;
-		}
-		topics.iter().any(|topic| self.contains(topic))
+		statement.topics().iter().any(|topic| self.contains(topic))
 	}
 }
+
+impl PartialEq for AffinityFilter {
+	fn eq(&self, other: &Self) -> bool {
+		self.seed == other.seed &&
+			self.bloom.num_hashes() == other.bloom.num_hashes() &&
+			self.bloom.as_slice() == other.bloom.as_slice()
+	}
+}
+
+impl Eq for AffinityFilter {}
 
 impl Encode for AffinityFilter {
 	fn encode_to<T: codec::Output + ?Sized>(&self, dest: &mut T) {
@@ -324,15 +325,6 @@ mod tests {
 		// A non-inserted item should not match.
 		let absent: [u8; 32] = [0xFF; 32];
 		assert!(!decoded.contains(&absent), "absent item must not match");
-	}
-
-	#[test]
-	fn matches_statement_no_topics_always_matches() {
-		let filter = AffinityFilter::new(BLOOM_SEED, 0.01, 10);
-
-		let mut stmt = Statement::new();
-		stmt.set_plain_data(b"broadcast".to_vec());
-		assert!(filter.matches_statement(&stmt));
 	}
 
 	#[test]
@@ -485,11 +477,6 @@ mod tests {
 		stmt.set_plain_data(b"specific".to_vec());
 		stmt.set_topic(0, [0x01; 32].into());
 		assert!(!filter.matches_statement(&stmt));
-
-		// Topic-less (broadcast) statements still match — independent of affinity.
-		let mut broadcast = Statement::new();
-		broadcast.set_plain_data(b"broadcast".to_vec());
-		assert!(filter.matches_statement(&broadcast));
 	}
 
 	#[test]

@@ -15,17 +15,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::construct_runtime;
+use frame_support::derive_impl;
 
-construct_runtime! {
-	pub struct Runtime where
-		UncheckedExtrinsic = UncheckedExtrinsic,
-		Block = Block,
-		NodeBlock = Block,
-	{
-		System: system::{},
-		Pallet1: pallet1::{} = 0,
-	}
+#[frame_support::pallet(dev_mode)]
+pub mod pallet {
+	#[pallet::pallet]
+	pub struct Pallet<T, I = ()>(_);
+
+	#[pallet::config]
+	pub trait Config<I: 'static = ()>: frame_system::Config {}
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+impl frame_system::Config for Runtime {
+	type Block = frame_system::mocking::MockBlock<Runtime>;
+}
+
+impl pallet::Config<pallet::Instance1> for Runtime {}
+impl pallet::Config<pallet::Instance2> for Runtime {}
+
+frame_support::construct_runtime!(
+	pub enum Runtime {
+		System: frame_system,
+		Pallet1: pallet::<Instance1> = 1,
+		Pallet2: pallet::<Instance2> = 1,
+	}
+);
 
 fn main() {}

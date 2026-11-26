@@ -57,41 +57,67 @@ jobs:
           fi
           echo "Latest quarterly: $latest; latest patch: ${patches[-1]:-none}"
 
+      # Generator logs are tee'd into changelog-preview/*.log (and the artifact) so the
+      # summary step below can list the unknown explicit `topic:` values they mention.
       - name: Render changelog for the latest stable release (strict)
         run: |
+          set -o pipefail; mkdir -p changelog-preview
           python3 scripts/release/changelog/generate.py \
             --prdoc-dir "${{ steps.folders.outputs.latest }}" \
             --topics prdoc/topics.yaml \
             --output-dir changelog-preview/latest-stable \
             --tag "polkadot-$(basename "${{ steps.folders.outputs.latest }}")" \
-            --check
+            --check 2>&1 | tee changelog-preview/latest-stable.log
 
       - name: Render changelog for the latest patch release (tolerant)
         if: steps.folders.outputs.latest_patch != ''
         run: |
+          set -o pipefail; mkdir -p changelog-preview
           python3 scripts/release/changelog/generate.py \
             --prdoc-dir "${{ steps.folders.outputs.latest_patch }}" \
             --topics prdoc/topics.yaml \
             --output-dir changelog-preview/latest-patch \
-            --tag "polkadot-$(basename "${{ steps.folders.outputs.latest_patch }}")"
+            --tag "polkadot-$(basename "${{ steps.folders.outputs.latest_patch }}")" \
+            2>&1 | tee changelog-preview/latest-patch.log
 
       - name: Render changelog for the pending prdocs (tolerant)
         run: |
+          set -o pipefail; mkdir -p changelog-preview
           if ls prdoc/pr_*.prdoc >/dev/null 2>&1; then
             python3 scripts/release/changelog/generate.py \
               --prdoc-dir prdoc \
               --topics prdoc/topics.yaml \
-              --output-dir changelog-preview/pending
+              --output-dir changelog-preview/pending \
+              2>&1 | tee changelog-preview/pending.log
           else
             echo "No pending prdocs in prdoc/ - skipping"
           fi
 
       - name: Render changelog for a legacy release (old prdoc format, tolerant)
         run: |
+          set -o pipefail; mkdir -p changelog-preview
           python3 scripts/release/changelog/generate.py \
             --prdoc-dir prdoc/1.6.0 \
             --topics prdoc/topics.yaml \
-            --output-dir changelog-preview/legacy
+            --output-dir changelog-preview/legacy \
+            2>&1 | tee changelog-preview/legacy.log
+
+      # An unknown explicit `topic:` is deliberately not fatal (the PR check only warns), so
+      # make it visible here instead of leaving it as a stderr line in a collapsed log.
+      - name: Surface unknown explicit topics in the job summary
+        if: always()
+        run: |
+          if grep -qs '^notice: .*unknown topic' changelog-preview/*.log; then
+            {
+              echo "### Unknown explicit \`topic:\` values (fell back to crate derivation)"
+              echo
+              echo '```'
+              grep -H '^notice: .*unknown topic' changelog-preview/*.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No unknown explicit topics in the rendered folders."
+          fi
 
       - name: Build the full release draft end-to-end (tera included)
         run: |

@@ -45,7 +45,6 @@ jobs:
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
-    continue-on-error: true # this rarely triggers in practice
     env:
       SKIP_WASM_BUILD: 1
     steps:
@@ -77,3 +76,21 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: script
         run: forklift cargo check --all --benches --quiet
+
+  confirm-required-tests-jobs-passed:
+    runs-on: ubuntu-latest
+    name: All quick tests passed
+    # Jobs listed here are blocking. cargo-check-all-benches is not required and
+    # stays advisory. Add a job here to make it blocking.
+    needs: [preflight, quick-benchmarks, test-syscalls]
+    if: always() && !cancelled()
+    steps:
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi

@@ -34,6 +34,11 @@ on:
         description: Overwrite existing PrDoc
         default: true
         required: true
+      topic:
+        type: string
+        description: Optional changelog topic, an id from prdoc/topics.yaml (derived from the crates when empty)
+        default: ""
+        required: false
 
 concurrency:
   group: command-prdoc
@@ -62,10 +67,13 @@ jobs:
           pr-number: ${{ inputs.pr }}
           GH_TOKEN: ${{ github.token }}
       - name: Generate PrDoc
+        env:
+          # Free-text input: passed through the environment, never interpolated into the script.
+          TOPIC: ${{ inputs.topic }}
         run: |
-          python3 -m pip install -q cargo-workspace PyGithub whatthepatch pyyaml toml
+          python3 -m pip install --break-system-packages -q cargo-workspace PyGithub whatthepatch pyyaml toml
 
-          python3 .github/scripts/generate-prdoc.py --pr "${{ inputs.pr }}" --bump "${{ inputs.bump }}" --audience "${{ inputs.audience }}" --force "${{ inputs.overwrite }}"
+          python3 .github/scripts/generate-prdoc.py --pr "${{ inputs.pr }}" --bump "${{ inputs.bump }}" --audience "${{ inputs.audience }}" ${{ inputs.overwrite && '--force' || '' }} ${TOPIC:+--topic "$TOPIC"}
 
       - name: Report failure
         if: ${{ failure() }}

@@ -15,7 +15,6 @@ why it matters how to read it and what problems it helps diagnose.
   - [Network Overview](#network-overview)
   - [Network Throughput & Bandwidth](#network-throughput--bandwidth)
   - [Operation Latency](#operation-latency)
-  - [Network Health Indicators](#network-health-indicators)
   - [Statement Expiration & Cleanup](#statement-expiration--cleanup)
   - [Initial Sync](#initial-sync)
 ---
@@ -42,6 +41,18 @@ of statements in the database
 - **What it measures:** Total bytes consumed by statement data in the store.
 - **Why it matters:** Metric detects byte-level saturation independently of count.
 - **How to read:** Color thresholds match statement count: green/yellow/red at 70%/90% of capacity.
+
+#### Storage Used by Retention Track
+- **Metric:** `substrate_sub_statement_store_bytes_by_retention{track}`
+- **Type:** Gauge, refreshed by store maintenance (every 29s)
+- **What it measures:** Bytes of statement data per retention track:
+  - `persistent`: kept for DHT affinity, or with no retention limit (a node without the DHT path keeps
+    everything here)
+  - `explicit`: kept only for explicit (subscription) affinity
+  - `transient`: kept only until propagated to the replicas
+- **Why it matters:** During the DHT rollout this shows the share of the store a node holds for its own DHT range
+  next to what it relays.
+- **How to read:** Stacked area; the tracks sum to `bytes_total`.
 
 #### Unique Accounts
 - **Metric:** `substrate_sub_statement_store_accounts_total`
@@ -78,7 +89,7 @@ of statements in the database
 - **Labels:** `reason` = `persistent` | `transient` | `dht` | `explicit` | `both`
 - **What it measures:** Successful new statement submissions per second, broken down by the
   retention reason chosen at admission:
-  - **`persistent`**: No v2 retention resolver is installed (v2 DHT disabled); the statement is
+  - **`persistent`**: No retention resolver is installed (DHT path off); the statement is
     kept under the normal retention rules.
   - **`transient`**: The node has no affinity for any of the statement's topics; it is kept only
     until the first maintenance sweep after propagation.
@@ -91,7 +102,7 @@ of statements in the database
   for the total across reasons.
 - **Problems it solves:**
   - Detect throughput degradation after a release (compare before/after deployment).
-  - Tell whether the v2 affinity oracles drive retention: a v2 node admitting only `transient`
+  - Tell whether the DHT affinity oracles drive retention: a DHT node admitting only `transient`
     statements keeps nothing by affinity.
 
 #### Throughput vs Errors
@@ -113,12 +124,13 @@ of statements in the database
 #### Invalid Validations Rate
 - **Metric:** `rate(substrate_sub_statement_store_validations_invalid[$__rate_interval])` with label `reason`
 - **Type:** CounterVec (displayed as rate; use `sum by (reason)` for breakdown)
-- **Labels:** `reason` = `no_proof` | `bad_proof` | `encoding_too_large` | `already_expired`
+- **Labels:** `reason` = `no_proof` | `bad_proof` | `encoding_too_large` | `already_expired` | `no_topics`
 - **What it measures:** Statements that failed validation during submission, broken down by reason:
   - **`no_proof`**: Statement has no account / missing proof so it cannot be attributed.
   - **`bad_proof`**: Signature verification failed — tampered or malformed proof.
   - **`encoding_too_large`**: Encoded statement exceeds `MAX_STATEMENT_SIZE`.
   - **`already_expired`**: Statement's expiration timestamp was already in the past at submission time.
+  - **`no_topics`**: Statement carries no topic, so topic-based routing cannot deliver it.
 - **Why it matters:** Invalid statements consume validation resources
   (CPU for signature verification) without producing useful work. High rates indicate
   malicious actors submitting garbage, network corruption, or client bugs. Breakdown by
@@ -231,9 +243,14 @@ bandwidth, latency, and network health indicators.
 - **What it measures:** Actual network bandwidth consumed by the statement protocol.
 - **Why it matters:** Metric for sizing network requirements.
 - **How to read:** Two-line chart in bytes/sec. Compare sent vs received for balance.
+- **Labels:** `statements_received`, `propagated_statements`, `bytes_sent_total` and `bytes_received_total`
+  carry `route`: `dht` for peers served through the DHT path, `legacy` for the rest (v1 peers and full
+  v2 peers). A peer counts as `dht` only once its affinity filter applies, so a `statement/3` peer counts as
+  `legacy` until its filter arrives. A node without the DHT path reports every peer as `legacy`.
 - **Problems it solves:**
   - Detect bandwidth issues
   - Compare bandwidth across releases to measure protocol efficiency improvements
+  - Show the `legacy` share of a DHT node's traffic during the rollout
 
 ---
 
@@ -271,10 +288,6 @@ percentiles, making it easy to spot tail latency regressions.
 
 ---
 
-### Network Health Indicators
-
----
-
 ### Statement Expiration & Cleanup
 
 #### Expiration Check Latency
@@ -303,6 +316,10 @@ percentiles, making it easy to spot tail latency regressions.
 ---
 
 ### Initial Sync
+
+`initial_sync_statements_sent` and `initial_sync_bursts_total` carry a `route` label (`dht` or
+`legacy`), read when each burst runs. A flapping peer without the DHT path that gets a full store replay
+on every reconnect shows as a high `bursts_total{route="legacy"}` rate.
 
 #### Initial Sync Active Peers
 - **Metric:** `substrate_sync_initial_sync_peers_active`

@@ -24,14 +24,6 @@ use std::path::PathBuf;
 #[allow(missing_docs)]
 #[derive(Debug, Parser)]
 pub enum Subcommand {
-	/// Build a chain specification.
-	/// DEPRECATED: `build-spec` command will be removed after 1/04/2026. Use `export-chain-spec`
-	/// command instead.
-	#[deprecated(
-		note = "build-spec command will be removed after 1/04/2026. Use export-chain-spec command instead"
-	)]
-	BuildSpec(sc_cli::BuildSpecCmd),
-
 	/// Export the chain specification.
 	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
@@ -72,18 +64,6 @@ pub enum Subcommand {
 pub struct RunCmd {
 	#[clap(flatten)]
 	pub base: sc_cli::RunCmd,
-
-	/// Force using Kusama native runtime.
-	#[arg(long = "force-kusama")]
-	pub force_kusama: bool,
-
-	/// Force using Westend native runtime.
-	#[arg(long = "force-westend")]
-	pub force_westend: bool,
-
-	/// Force using Rococo native runtime.
-	#[arg(long = "force-rococo")]
-	pub force_rococo: bool,
 
 	/// Disable the BEEFY gadget.
 	///
@@ -167,8 +147,7 @@ pub struct RunCmd {
 	#[arg(long, hide = true)]
 	pub collator_protocol_hold_off: Option<u64>,
 
-	/// Enable experimental collator protocol. TESTING ONLY! Don't use on production
-	/// Defaults to enabled on Kusama and disabled everywhere else. Pass `=false` to opt out.
+	/// Enable experimental collator protocol. Defaults to enabled. Pass `=false` to opt out.
 	#[arg(
 		long,
 		hide = true,
@@ -185,9 +164,9 @@ pub struct RunCmd {
 
 	/// Collator reputation persistence interval in seconds.
 	/// If not specified, defaults to 600 seconds (10 minutes).
-	/// This should be used only with experimental_collator_protocol
-	/// and only on validators.
-	#[arg(long, requires = "experimental_collator_protocol", requires = "validator")]
+	/// Requires the experimental collator protocol (enabled by default, see
+	/// `--experimental-collator-protocol`) and only applies to validators.
+	#[arg(long, requires = "validator")]
 	pub collator_reputation_persist_interval: Option<u64>,
 }
 

@@ -444,8 +444,8 @@ pub mod pallet {
 
 			// Fixed overhead for storage ops outside the per-item loop:
 			// counter reads (ListNodes, PendingRebag), Lock read, cursor read
-			// (NextNodeAutoRebagged), cursor-update contains_key read, and cursor write.
-			let overhead = T::DbWeight::get().reads_writes(5, 1);
+			// (NextNodeAutoRebagged), and cursor write.
+			let overhead = T::DbWeight::get().reads_writes(4, 1);
 
 			// Early exit: not enough weight for overhead + at least one rebag.
 			if meter.try_consume(overhead.saturating_add(per_item)).is_err() {
@@ -494,15 +494,12 @@ pub mod pallet {
 			let combined_iter = PendingRebag::<T, I>::iter_keys().chain(regular_iter);
 
 			let accounts: Vec<_> = combined_iter.take((rebag_budget + 1) as usize).collect();
-
-			// Safe split: if we reached (or passed) the tail of the list, we don't want to panic.
-			let (to_process, next_cursor) = if accounts.len() <= rebag_budget as usize {
-				// This guarantees we either get the next account to process
-				// or gracefully receive None.
-				(accounts.as_slice(), &[][..])
-			} else {
-				accounts.split_at(rebag_budget as usize)
-			};
+			// `pending_count` was read above before any accounts were collected or processed,
+			// and nothing mutates `PendingRebag` in between, so it is exactly the number of
+			// pending accounts this batch actually captured: all of them if there were few
+			// enough to fit the budget, otherwise the whole batch (pending entries sort first,
+			// see the chain above).
+			let pending_len = core::cmp::min(pending_count as usize, accounts.len());
 
 			let mut processed = 0u32;
 			let mut successful_rebags = 0u32;
@@ -510,7 +507,7 @@ pub mod pallet {
 			let mut pending_processed = 0u32;
 
 			// First item's weight was already consumed above.
-			for (i, account) in to_process.iter().enumerate() {
+			for (i, account) in accounts.iter().enumerate() {
 				// Consume weight for every item after the first.
 				if i > 0 && meter.try_consume(per_item).is_err() {
 					break;
@@ -544,31 +541,19 @@ pub mod pallet {
 				}
 			}
 
-			// Update cursor - only track regular ListNodes accounts, not PendingRebag
-			let next_regular_account =
-				next_cursor.iter().find(|account| !PendingRebag::<T, I>::contains_key(account));
+			// Resume at the first regular (non-pending) account the loop didn't reach yet.
+			// Pending accounts sort first in `accounts`, so that's whichever of `processed` /
+			// `pending_len` is further along.
+			let next_index = core::cmp::max(processed as usize, pending_len);
 
-			match next_regular_account {
-				// Defensive check: prevents re-processing the same node multiple times within a
-				// single block. This situation should not occur during normal execution, but
-				// can happen in test environments or if `on_idle()` is invoked more than once
-				// per block (e.g. via custom test harnesses or manual calls).
-				Some(next) if to_process.contains(next) => {
-					NextNodeAutoRebagged::<T, I>::kill();
-					defensive!("Loop detected: {:?} already processed — cursor killed", next);
-				},
-				// Normal case: save the next regular node as a cursor for the following block.
+			match accounts.get(next_index) {
+				// Save the next regular node as a cursor for the following block.
 				Some(next) => {
 					NextNodeAutoRebagged::<T, I>::put(next);
 					log!(debug, "Saved next node to be processed in rebag cursor: {:?}", next);
 				},
-				// End of regular list reached: no cursor needed.
-				// This happens when either:
-				// 1. We've processed all regular accounts in the list, OR
-				// 2. We've collected fewer than budget+1 accounts (meaning the iterator was
-				//    exhausted)
-				// Since pending accounts are processed first and not tracked in the cursor,
-				// this simply means there are no more regular accounts to process.
+				// No regular account left in this batch (it may have been entirely pending, or
+				// the list is exhausted). Kill the cursor; the next run resumes from the head.
 				None => {
 					NextNodeAutoRebagged::<T, I>::kill();
 					log!(debug, "End of regular list reached — cursor killed");

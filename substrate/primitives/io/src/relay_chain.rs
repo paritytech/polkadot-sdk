@@ -260,7 +260,7 @@ pub trait Storage {
 	///
 	/// Returns a `Vec<u8>` that holds the SCALE encoded hash.
 	fn root(&mut self) -> AllocateAndReturnFatPointer<Vec<u8>> {
-		self.storage_root(StateVersion::V0)
+		self.storage_root_with_version(StateVersion::V0)
 	}
 
 	/// "Commit" all existing operations and compute the resulting storage root.
@@ -270,7 +270,7 @@ pub trait Storage {
 	/// Returns a `Vec<u8>` that holds the SCALE encoded hash.
 	#[version(2)]
 	fn root(&mut self, version: PassAs<StateVersion, u8>) -> AllocateAndReturnFatPointer<Vec<u8>> {
-		self.storage_root(version)
+		self.storage_root_with_version(version)
 	}
 
 	/// Always returns `None`. This function exists for compatibility reasons.
@@ -517,7 +517,7 @@ pub trait DefaultChildStorage {
 		storage_key: PassFatPointerAndRead<&[u8]>,
 	) -> AllocateAndReturnFatPointer<Vec<u8>> {
 		let child_info = ChildInfo::new_default(storage_key);
-		self.child_storage_root(&child_info, StateVersion::V0)
+		self.child_storage_root_with_version(&child_info, StateVersion::V0)
 	}
 
 	/// Default child root calculation.
@@ -533,7 +533,7 @@ pub trait DefaultChildStorage {
 		version: PassAs<StateVersion, u8>,
 	) -> AllocateAndReturnFatPointer<Vec<u8>> {
 		let child_info = ChildInfo::new_default(storage_key);
-		self.child_storage_root(&child_info, version)
+		self.child_storage_root_with_version(&child_info, version)
 	}
 
 	/// Child storage key iteration.
@@ -2193,5 +2193,41 @@ mod tests {
 		let signature = make_high_s(&pair.sign_prehashed(&prehash));
 		assert!(!ecdsa::is_signature_normalized(&signature.0));
 		assert!(crypto::ecdsa_verify_prehashed(&signature, &prehash, &pair.public()));
+	}
+
+	#[test]
+	fn storage_root_uses_passed_version() {
+		// A value of 64 bytes exceeds `TRIE_VALUE_NODE_THRESHOLD`, so V0 and V1 produce
+		// different roots. The legacy host functions must follow the passed version, not the one
+		// the externalities were configured with.
+		let value = vec![42u8; 64];
+		let mut ext =
+			TestExternalities::new_with_state_version(Storage::default(), StateVersion::V1);
+
+		ext.execute_with(|| {
+			storage::set(b"key", &value);
+
+			// `TestExternalities` always inserts the (empty) `:code` entry.
+			let top = vec![(b":code".to_vec(), Vec::new()), (b"key".to_vec(), value.clone())];
+			assert_eq!(
+				storage::root(StateVersion::V0),
+				LayoutV0::<sp_core::Blake2Hasher>::trie_root(top.clone()).as_ref().to_vec()
+			);
+			assert_eq!(
+				storage::root(StateVersion::V1),
+				LayoutV1::<sp_core::Blake2Hasher>::trie_root(top).as_ref().to_vec()
+			);
+
+			default_child_storage::set(b"child", b"ck", &value);
+			let child = vec![(b"ck".to_vec(), value.clone())];
+			assert_eq!(
+				default_child_storage::root(b"child", StateVersion::V0),
+				LayoutV0::<sp_core::Blake2Hasher>::trie_root(child.clone()).as_ref().to_vec()
+			);
+			assert_eq!(
+				default_child_storage::root(b"child", StateVersion::V1),
+				LayoutV1::<sp_core::Blake2Hasher>::trie_root(child).as_ref().to_vec()
+			);
+		});
 	}
 }
