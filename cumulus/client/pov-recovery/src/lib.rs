@@ -519,6 +519,7 @@ where
 				origin: None,
 				skip_execution: false,
 				state: None,
+				additional_data: None,
 			});
 
 			if let Some(waiting) = self.waiting_for_parent.remove(&block_hash) {
