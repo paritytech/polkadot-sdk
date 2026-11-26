@@ -1,0 +1,31 @@
+title: Remove deprecated `relay_dispatch_queue_size` well-known keys
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Removes the long-deprecated `relay_dispatch_queue_size` and
+      `relay_dispatch_queue_size_typed` helpers from `polkadot_primitives::well_known_keys`.
+      Use `relay_dispatch_queue_remaining_capacity` instead, which exposes the remaining
+      capacity of a parachain's upward message queue rather than its raw size.
+
+      As part of this, the relay chain no longer writes the deprecated
+      `relay_dispatch_queue_size` storage entry from `pallet-inclusion`'s
+      `on_queue_changed` hook; only `relay_dispatch_queue_remaining_capacity` is written.
+  - audience: Node Dev
+    description: |
+      The parachain inherent no longer includes the deprecated `relay_dispatch_queue_size`
+      key in the relay chain storage proof. When reading the messaging state snapshot,
+      `cumulus-pallet-parachain-system` now reads `relay_dispatch_queue_remaining_capacity`
+      directly, falling back to the full configured queue capacity when the entry is absent
+      (i.e. a parachain that has never sent an upward message). `Decode`/`Proof` errors are
+      still rejected. This removes the previous fallback to the deprecated queue-size key.
+
+crates:
+  - name: polkadot-primitives
+    bump: major
+  - name: polkadot-runtime-parachains
+    bump: minor
+  - name: cumulus-pallet-parachain-system
+    bump: minor
+  - name: cumulus-client-parachain-inherent
+    bump: patch
