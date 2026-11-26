@@ -229,6 +229,7 @@ impl<B: BlockT> StateStrategy<B> {
 					import_existing: true,
 					skip_execution: true,
 					state: Some(state),
+					additional_data: None,
 				};
 				debug!(target: LOG_TARGET, "State download is complete. Import is queued");
 				self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });
@@ -785,6 +786,7 @@ mod test {
 			import_existing: true,
 			skip_execution: true,
 			state: Some(state),
+			additional_data: None,
 		};
 		let expected_blocks = vec![expected_block];
 

@@ -46,6 +46,7 @@ use crate::{
 	},
 	metrics::Metrics,
 };
+use sp_additional_data::AdditionalData;
 
 pub use basic_queue::BasicQueue;
 
@@ -91,6 +92,8 @@ pub struct IncomingBlock<B: BlockT> {
 	pub import_existing: bool,
 	/// Do not compute new state, but rather set it to the given set.
 	pub state: Option<ImportedState<B>>,
+	/// Additional data carried with the block, if any.
+	pub additional_data: Option<AdditionalData>,
 }
 
 /// Verify a justification of a block
@@ -332,8 +335,10 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	// Skip block verification for warp synced blocks.
 	// They have been verified within warp sync proof verification.
 	if matches!(block_origin, BlockOrigin::WarpSync) {
+		let mut import_block = BlockImportParams::new(block_origin, header);
+		import_block.additional_data = block.additional_data;
 		return Ok(SingleBlockVerificationOutcome::Verified(SingleBlockImportParameters {
-			import_block: BlockImportParams::new(block_origin, header),
+			import_block,
 			hash: block.hash,
 			block_origin: peer,
 			verification_time: Duration::ZERO,
@@ -370,6 +375,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	import_block.justifications = justifications;
 	import_block.post_hash = Some(hash);
 	import_block.import_existing = block.import_existing;
+	import_block.additional_data = block.additional_data;
 
 	if let Some(state) = block.state {
 		let changes = crate::block_import::StorageChanges::Import(state);
@@ -431,4 +437,81 @@ pub(crate) async fn import_single_block_metered<Block: BlockT>(
 	}
 
 	import_handler::<Block>(number, hash, parent_hash, block_origin, imported)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_test_primitives::{Block, Header};
+
+	struct UnknownBlock;
+
+	#[async_trait::async_trait]
+	impl BlockImport<Block> for UnknownBlock {
+		type Error = ConsensusError;
+
+		async fn check_block(
+			&self,
+			_: BlockCheckParams<Block>,
+		) -> Result<ImportResult, ConsensusError> {
+			Ok(ImportResult::imported(false))
+		}
+
+		async fn import_block(
+			&self,
+			_: BlockImportParams<Block>,
+		) -> Result<ImportResult, ConsensusError> {
+			unreachable!("verification does not import")
+		}
+	}
+
+	struct PassVerifier;
+
+	#[async_trait::async_trait]
+	impl Verifier<Block> for PassVerifier {
+		async fn verify(
+			&self,
+			block: BlockImportParams<Block>,
+		) -> Result<BlockImportParams<Block>, String> {
+			Ok(block)
+		}
+	}
+
+	#[test]
+	fn additional_data_reaches_the_import_params() {
+		let data: AdditionalData = [("test".to_string(), vec![1u8, 2, 3])].into();
+		let header = Header::new(
+			1,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		);
+
+		for origin in [BlockOrigin::WarpSync, BlockOrigin::NetworkInitialSync] {
+			let block = IncomingBlock::<Block> {
+				hash: header.hash(),
+				header: Some(header.clone()),
+				body: None,
+				justifications: None,
+				origin: None,
+				allow_missing_state: false,
+				skip_execution: false,
+				import_existing: false,
+				state: None,
+				additional_data: Some(data.clone()),
+			};
+			let outcome = futures::executor::block_on(verify_single_block_metered(
+				&UnknownBlock,
+				origin,
+				block,
+				&PassVerifier,
+				None,
+			));
+			let Ok(SingleBlockVerificationOutcome::Verified(params)) = outcome else {
+				panic!("block was not verified for {origin:?}");
+			};
+			assert_eq!(params.import_block.additional_data, Some(data.clone()));
+		}
+	}
 }

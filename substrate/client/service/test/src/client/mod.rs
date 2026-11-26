@@ -32,6 +32,7 @@ use sc_consensus::{
 use sc_executor::WasmExecutor;
 use sc_service::client::{new_with_backend, Client, LocalCallExecutor};
 use sp_api::ProvideRuntimeApi;
+use sp_blockchain::Backend as _;
 use sp_consensus::{BlockOrigin, Error as ConsensusError, SelectChain};
 use sp_core::{testing::TaskExecutor, traits::CallContext, H256};
 use sp_runtime::{
@@ -2503,4 +2504,144 @@ fn forged_body_is_rejected_when_applying_storage_changes() {
 	assert_forged_body_rejected_without_execution(|_, built| {
 		StateAction::ApplyChanges(StorageChanges::Changes(built.storage_changes))
 	});
+}
+
+fn additional_data() -> sp_additional_data::AdditionalData {
+	[("test".to_string(), vec![1u8, 2, 3])].into()
+}
+
+/// Build block `#1` and add the commitment to [`additional_data`] to its header.
+///
+/// The runtime keeps only pre-runtime logs it is given, so a block carrying this log cannot be
+/// executed. Paths that execute are only used to check rejection, which happens before execution.
+fn block_committing_to_additional_data(
+	client: &substrate_test_runtime_client::TestClient,
+) -> sc_block_builder::BuiltBlock<Block> {
+	let mut built = BlockBuilderBuilder::new(client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap();
+	let commitment = sp_additional_data::hash_additional_data(&additional_data()).unwrap();
+	built.block.header.digest.push(sp_additional_data::digest_item(commitment));
+	built
+}
+
+fn import_with_additional_data(
+	client: &substrate_test_runtime_client::TestClient,
+	block: Block,
+	state_action: StateAction<Block>,
+	data: Option<sp_additional_data::AdditionalData>,
+) -> Result<ImportResult, ConsensusError> {
+	let (header, body) = block.deconstruct();
+	let mut import = BlockImportParams::new(BlockOrigin::Own, header);
+	import.body = Some(body);
+	import.state_action = state_action;
+	import.additional_data = data;
+	import.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+	block_on(client.import_block(import))
+}
+
+#[test]
+fn additional_data_is_stored_with_an_authored_block() {
+	let (client, backend) = TestClientBuilder::new().build_with_backend();
+	let built = block_committing_to_additional_data(&client);
+	let hash = built.block.hash();
+	let changes = StateAction::ApplyChanges(StorageChanges::Changes(built.storage_changes));
+
+	let result =
+		import_with_additional_data(&client, built.block, changes, Some(additional_data()));
+	assert!(matches!(result, Ok(ImportResult::Imported(_))), "{result:?}");
+	assert_eq!(backend.blockchain().block_additional_data(hash).unwrap(), Some(additional_data()));
+}
+
+#[test]
+fn additional_data_is_stored_when_execution_is_skipped() {
+	let (client, backend) = TestClientBuilder::new().build_with_backend();
+	let block = block_committing_to_additional_data(&client).block;
+	let hash = block.hash();
+
+	let result =
+		import_with_additional_data(&client, block, StateAction::Skip, Some(additional_data()));
+	assert!(matches!(result, Ok(ImportResult::Imported(_))), "{result:?}");
+	assert_eq!(backend.blockchain().block_additional_data(hash).unwrap(), Some(additional_data()));
+}
+
+#[test]
+fn block_without_additional_data_is_imported_unchanged() {
+	let (client, backend) = TestClientBuilder::new().build_with_backend();
+	let block = BlockBuilderBuilder::new(&client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let hash = block.hash();
+
+	let result = import_with_additional_data(&client, block, StateAction::Execute, None);
+	assert!(matches!(result, Ok(ImportResult::Imported(_))), "{result:?}");
+	assert_eq!(backend.blockchain().block_additional_data(hash).unwrap(), None);
+}
+
+#[test]
+fn additional_data_not_matching_the_commitment_is_rejected_on_every_path() {
+	let mut tampered = additional_data();
+	tampered.insert("extra".to_string(), vec![0xff]);
+
+	for data in [None, Some(tampered)] {
+		for skip in [false, true] {
+			let client = substrate_test_runtime_client::new();
+			let block = block_committing_to_additional_data(&client).block;
+			let hash = block.hash();
+			let state_action = if skip { StateAction::Skip } else { StateAction::Execute };
+
+			let result = import_with_additional_data(&client, block, state_action, data.clone());
+			assert!(
+				matches!(&result, Err(ConsensusError::ClientImport(e)) if e.contains("additional data")),
+				"{result:?}",
+			);
+			assert_eq!(client.header(hash).unwrap(), None);
+		}
+	}
+}
+
+#[test]
+fn additional_data_without_a_commitment_is_rejected() {
+	let client = substrate_test_runtime_client::new();
+	let block = BlockBuilderBuilder::new(&client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let hash = block.hash();
+
+	let result =
+		import_with_additional_data(&client, block, StateAction::Execute, Some(additional_data()));
+	assert!(
+		matches!(&result, Err(ConsensusError::ClientImport(e)) if e.contains("additional data")),
+		"{result:?}",
+	);
+	assert_eq!(client.header(hash).unwrap(), None);
+}
+
+/// Warp-proof headers and header-only gap sync import neither a body nor additional data.
+#[test]
+fn header_only_import_without_additional_data_is_accepted() {
+	let client = substrate_test_runtime_client::new();
+	let (header, _) = block_committing_to_additional_data(&client).block.deconstruct();
+	let hash = header.hash();
+
+	let mut import = BlockImportParams::new(BlockOrigin::NetworkInitialSync, header);
+	import.state_action = StateAction::Skip;
+	import.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+	let result = block_on(client.import_block(import));
+	assert!(matches!(result, Ok(ImportResult::Imported(_))), "{result:?}");
+	assert!(client.header(hash).unwrap().is_some());
 }

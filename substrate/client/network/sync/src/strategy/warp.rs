@@ -416,6 +416,7 @@ where
 					// Shouldn't already exist in the database.
 					import_existing: false,
 					state: None,
+					additional_data: None,
 				}
 			};
 
@@ -1358,6 +1359,7 @@ mod test {
 				skip_execution: true,
 				import_existing: false,
 				state: None,
+				additional_data: None,
 			}
 		);
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
@@ -1477,6 +1479,7 @@ mod test {
 				skip_execution: true,
 				import_existing: false,
 				state: None,
+				additional_data: None,
 			}
 		);
 		assert!(matches!(&warp_sync.phase, Phase::TargetBlock(header) if *header == target_header));
