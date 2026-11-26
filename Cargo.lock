@@ -27251,6 +27251,7 @@ dependencies = [
  "pretty_assertions",
  "rand 0.8.8",
  "regex",
+ "sc-service",
  "sc-service-test",
  "scale-info",
  "serde",
