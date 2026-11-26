@@ -271,7 +271,6 @@ pub trait WeightInfo {
 	fn instr_load_chain_7(r: u32, ) -> Weight;
 	fn instr_indirect_jump(r: u32, ) -> Weight;
 	fn extcodecopy(n: u32, ) -> Weight;
-	fn v1_migration_step() -> Weight;
 	fn v2_migration_step() -> Weight;
 	fn v3_migration_step() -> Weight;
 	fn v4_code_upload_step() -> Weight;
@@ -2647,19 +2646,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(1_035, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
-	}
-	/// Storage: UNKNOWN KEY `0x735f040a5d490f1107ad9c56f5ca00d2060e99e5378e562537cf3bc983e17b91` (r:2 w:1)
-	/// Proof: UNKNOWN KEY `0x735f040a5d490f1107ad9c56f5ca00d2060e99e5378e562537cf3bc983e17b91` (r:2 w:1)
-	/// Storage: `Revive::AccountInfoOf` (r:0 w:1)
-	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `MaxEncodedLen`)
-	fn v1_migration_step() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `136`
-		//  Estimated: `6076`
-		// Minimum execution time: 10_200_000 picoseconds.
-		Weight::from_parts(11_142_000, 6076)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
@@ -5277,19 +5263,6 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(1_035, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
-	}
-	/// Storage: UNKNOWN KEY `0x735f040a5d490f1107ad9c56f5ca00d2060e99e5378e562537cf3bc983e17b91` (r:2 w:1)
-	/// Proof: UNKNOWN KEY `0x735f040a5d490f1107ad9c56f5ca00d2060e99e5378e562537cf3bc983e17b91` (r:2 w:1)
-	/// Storage: `Revive::AccountInfoOf` (r:0 w:1)
-	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `MaxEncodedLen`)
-	fn v1_migration_step() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `136`
-		//  Estimated: `6076`
-		// Minimum execution time: 10_200_000 picoseconds.
-		Weight::from_parts(11_142_000, 6076)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
