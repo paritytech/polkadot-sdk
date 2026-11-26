@@ -1,0 +1,27 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc v1.0.0)
+# See doc at https://raw.githubusercontent.com/paritytech/prdoc/master/prdoc_schema_user.json
+
+title: 'sp-arithmetic: make compact encoding bounds explicit'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `BaseArithmetic` and the signed-or-unsigned arithmetic traits no longer imply SCALE compact
+      encoding. Compact encoding remains required on the unsigned arithmetic traits and on the
+      call sites that actually compact-encode values.
+
+      This allows signed integer types to satisfy the general arithmetic traits while keeping the
+      existing compact-encoding requirements explicit. Downstream generic code that relied on
+      `BaseArithmetic` or `AtLeast32Bit` implying `HasCompact` should add an explicit
+      `HasCompact` bound, or use the appropriate unsigned arithmetic trait when compact encoding
+      is required.
+
+crates:
+  - name: sp-arithmetic
+    bump: major
+  - name: pallet-timestamp
+    bump: major
+  - name: pallet-indices
+    bump: major
+  - name: bp-runtime
+    bump: major
