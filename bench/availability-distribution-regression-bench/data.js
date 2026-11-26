@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795697343355,
+  "lastUpdate": 1795701006718,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a46d804b9d219c242da648da872eab278c496101",
-          "message": "staking-async / WAH: use div_ceil for VoterSnapshotPerBlock (#12100)\n\nFloor division could undersize the paged voter snapshot relative to\n`MaxElectingVoters`. Switched to `div_ceil` so `VoterSnapshotPerBlock *\nPages >= MaxElectingVoters` holds for any configured values, and added\ninvariant tests for both fake presets.\n\nAligned AH-Westend and the fake DOT/KSM presets with PAH and KAH in the\nruntimes repo, which already use `div_ceil`.\n\n\nExample in staking-async testnet configuration: floor division\nundersized the paged voter snapshot by 4 voters:\n* DOT: floor(22_500 / 32) = 703 → 703 * 32 = 22_496 (4 short)\n* KSM: floor(12_500 / 16) = 781 → 781 * 16 = 12_496 (4 short)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-19T10:08:30Z",
-          "tree_id": "8222959a63e270e0d3e50b1bbe25edb4d8de9668",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a46d804b9d219c242da648da872eab278c496101"
-        },
-        "date": 1779198071786,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009940071399999972,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14594712614000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007783009306666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02349168562,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009890096780000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f90205d25073b64875981a8e364ce1f5e36683f6",
+          "message": "fix(beefy): submit equivocation reports through the offchain transaction pool (#13985)\n\nThe BEEFY fisherman calls\n`submit_report_double_voting_unsigned_extrinsic` without an offchain\ntransaction pool registered, so the runtime's `submit_transaction`\npanics with \"submit_transaction\ncan be called only in the offchain call context with TransactionPool\ncapabilities enabled\" and\nBEEFY equivocations are never reported. GRANDPA and BABE get the pool\nthrough their params.\n\nThis adds `offchain_tx_pool_factory` to `BeefyParams` and registers it\nbefore submitting a report.\nRuntime API mocks now ignore `register_extension` instead of panicking,\nsince the BEEFY tests\nreport through them.\n\nReproduced on a node whose runtime enables BEEFY equivocation reporting:\na signed double-voting\nreport with a valid key ownership proof fails as above without the pool,\nand reaches the pool with it.\n\nPrepared with AI assistance.\n\n---------\n\nSigned-off-by: Tomasz Bartos <tomasz.bartos@shielded.io>",
+          "timestamp": "2026-11-26T12:04:05Z",
+          "tree_id": "693d81b29a832642dd1f083f3bb386c3717c2cf6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f90205d25073b64875981a8e364ce1f5e36683f6"
+        },
+        "date": 1795700963278,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02416457031333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009347552660000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007725767533333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14464328224,
             "unit": "seconds"
           }
         ]
