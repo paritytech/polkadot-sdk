@@ -1819,10 +1819,31 @@ fn reject_origin_can_unassign_pending_payout_child_after_parent_deactivation() {
 			0,
 			account_id(8)
 		));
+		let expected_child_deposit = CuratorDepositMin::get();
+		assert_eq!(Balances::reserved_balance(account_id(8)), expected_child_deposit);
+
+		// While the parent is active, only its curator can unassign a `PendingPayout` child.
+		assert_noop!(
+			ChildBounties::unassign_curator(RuntimeOrigin::signed(account_id(8)), 0, 0),
+			BadOrigin
+		);
+		assert_noop!(
+			ChildBounties::unassign_curator(RuntimeOrigin::signed(account_id(3)), 0, 0),
+			BadOrigin
+		);
 
 		// Governance removes the parent curator: the parent is no longer active.
 		go_to_block(4);
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::root(), 0));
+
+		// Every signed caller is now refused, including the former parent curator and the
+		// child curator.
+		for who in [4, 8, 3] {
+			assert_noop!(
+				ChildBounties::unassign_curator(RuntimeOrigin::signed(account_id(who)), 0, 0),
+				Error::<Test>::ParentBountyNotActive
+			);
+		}
 
 		// Forced cleanup of a `PendingPayout` child goes through `unassign_curator` first
 		// (`close_child_bounty` returns `PendingPayout`). `RejectOrigin` must be able to
@@ -1832,10 +1853,12 @@ fn reject_origin_can_unassign_pending_payout_child_after_parent_deactivation() {
 			BountiesError::PendingPayout
 		);
 		assert_ok!(ChildBounties::unassign_curator(RuntimeOrigin::root(), 0, 0));
-		assert_eq!(
-			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap().status,
-			ChildBountyStatus::Added
-		);
+		let child_bounty = pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap();
+		assert_eq!(child_bounty.status, ChildBountyStatus::Added);
+		// The child curator's deposit is slashed.
+		assert_eq!(child_bounty.curator_deposit, 0);
+		assert_eq!(Balances::reserved_balance(account_id(8)), 0);
+		assert_eq!(Balances::free_balance(account_id(8)), 101 - expected_child_deposit);
 		assert_ok!(ChildBounties::close_child_bounty(RuntimeOrigin::root(), 0, 0));
 		assert!(!pallet_child_bounties::ChildBounties::<Test>::contains_key(0, 0));
 	});
