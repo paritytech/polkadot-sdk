@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795712973668,
+  "lastUpdate": 1795717450147,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f6fe95660ee9819b328aaa7ecb708a07ffff82a2",
-          "message": "ci: build container image for statement-store-tools (#12072)\n\nAdds a `statement-store-tools` docker image bundling the two binaries\nshipped by the `statement-latency-bench` crate\n(`statement-latency-bench` and `setup-allowances`) so the bench tools\ncan be run as a published image instead of building from source.",
-          "timestamp": "2026-05-15T10:59:45Z",
-          "tree_id": "cbf0fb78f19dc8518422b3c69ba5c5822f44c763",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6fe95660ee9819b328aaa7ecb708a07ffff82a2"
-        },
-        "date": 1778847953457,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010636178159999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009602797279999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027117450599999987,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009744442020000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "913974288a48522bcd9159583c1a0dff9b68ffd8",
+          "message": "frame-system: apply call filter to AuthorizeCall origin (#13365)\n\n# Description\n\n`AuthorizeCall` turns a `None` origin into `Authorized` when the call's\n`#[pallet::authorize]` callback\nsucceeds, but it did not consult the runtime call filter. Dispatch does\n(only Root bypasses it), so a\ncall the filter rejects (e.g. under safe mode or tx-pause) was still\nvalid at the pool and only failed\nlater with `CallFiltered`.\n\n`validate` now checks `filter_call` on the minted `Authorized` origin\nand returns\n`InvalidTransaction::Call` when it fails, so pool admission matches what\ndispatch will accept.\n\nSigned transactions aren't checked against the call filter at validation\neither, but they pay a fee for their failed dispatch. An authorized\ntransaction pays none, so a filtered one would take block space for\nfree.\n\nSurfaced while reviewing #12452.\n\n## Integration\n\nNo code change needed. Unsigned `#[pallet::authorize]` calls (im-online\nheartbeats today, and the\npending migrations of babe/grandpa/beefy/EPMP/disputes/claims) are\nrejected at validation while the\nruntime call filter blocks them, instead of failing at dispatch. A\nruntime that wants such a call to stay\nusable during safe mode / tx-pause must allow it in its filter, as it\nalready had to for dispatch.\n\n## Review Notes\n\nThe filter runs after the callback (the `Authorize` trait gives no\nearlier hook), so a filtered call still\ncosts its callback at validation. Regression test\n`filtered_call_is_not_authorized` adds a pausable\n`BaseCallFilter` to the extension's test runtime; it fails on master\n(`validate` returns `Ok`) and passes here.\n\n#13364 also appends a test to the end of this tests module; whichever of\nthe two lands second keeps both.",
+          "timestamp": "2026-11-26T16:40:28Z",
+          "tree_id": "a765d755e488e2ab83373b30be737046f72a7ed7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/913974288a48522bcd9159583c1a0dff9b68ffd8"
+        },
+        "date": 1795717401476,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009175009069999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00255891212,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009181672800000007,
             "unit": "seconds"
           }
         ]
