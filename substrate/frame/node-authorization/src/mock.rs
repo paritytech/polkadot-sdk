@@ -68,3 +68,10 @@ pub fn new_test_ext() -> TestState {
 	.unwrap();
 	t.into()
 }
+
+pub fn build_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		NodeAuthorization::do_try_state().expect("All invariants must hold after a test");
+	});
+}
