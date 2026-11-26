@@ -1,0 +1,16 @@
+title: "pallet-conviction-voting: stop counting nay capital as support in `Tally::from_vote`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `Tally::from_vote` set `support: capital` for every vote, so a standard nay vote produced
+      a tally whose support included the nay capital. `support` is documented as the number of
+      aye votes pre-conviction, and `Tally::add`, `remove`, `increase` and `reduce` all leave it
+      untouched for nay votes, so support seeded this way could never be removed again. It is now
+      zero unless the vote is aye, matching `Tally::add` on an empty tally.
+
+      `from_vote` has no callers in this repository, so no on-chain tally changes.
+
+crates:
+  - name: pallet-conviction-voting
+    bump: patch
