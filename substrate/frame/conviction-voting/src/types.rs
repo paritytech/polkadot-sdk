@@ -110,7 +110,7 @@ impl<
 		Self {
 			ayes: if vote.aye { votes } else { Zero::zero() },
 			nays: if vote.aye { Zero::zero() } else { votes },
-			support: capital,
+			support: if vote.aye { capital } else { Zero::zero() },
 			dummy: PhantomData,
 		}
 	}
