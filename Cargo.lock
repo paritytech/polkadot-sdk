@@ -23380,6 +23380,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "criterion",
+ "cumulus-zombienet-sdk-helpers",
  "env_logger 0.11.3",
  "futures",
  "futures-timer",
@@ -23414,6 +23415,8 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "tracing-subscriber 0.3.20",
+ "zombienet-configuration",
+ "zombienet-sdk",
 ]
 
 [[package]]
