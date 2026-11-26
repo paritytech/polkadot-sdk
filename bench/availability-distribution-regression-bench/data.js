@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795717229049,
+  "lastUpdate": 1795735494498,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
-            "name": "s0me0ne-unkn0wn",
-            "username": "s0me0ne-unkn0wn"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a809dd9d76250af2778744f77dc52ccc6627e589",
-          "message": "Refactor statement store index locking: stage 1 (#11480)\n\nImplements stage 1 changes from #10910.\n\nThe single `Index` struct with one `RwLock` was split into two\nindependent structures with separate locks:\n\n`ReadIndex` (topic/key-based filtering):\n- `by_topic` - topic to statement hash mapping\n- `by_dec_key` - decryption key to statement hash mapping  \n- `topics_and_keys` - reverse mapping for cleanup\n\n`WriteIndex` (constraint checking, entries, accounts):\n- `entries`, `expired`, `accounts`,\n`accounts_to_check_for_expiry_stmts`, `recent`, `options`, `total_size`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>",
-          "timestamp": "2026-05-19T19:44:03Z",
-          "tree_id": "c23f20e315507fe42199988e96945dd5c57f0a9a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a809dd9d76250af2778744f77dc52ccc6627e589"
-        },
-        "date": 1779227426916,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009842937446666627,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007891487266666669,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023544043206666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14547715626666674,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010073608859999974,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "95a9381f331607d6209e8ea076e4aec4ca354e23",
+          "message": "[pallet-revive] Charge the EIP-2565 modexp cost when the modulus length is zero (#13203)\n\nFixes #12691.\n\nThe modexp precompile returned an empty output for a zero-length modulus\nbefore charging its own EIP-2565 cost. It now reads the base and\nexponent as the general path does, charges the full EIP-2565 formula,\nand only then returns the empty output. This matches geth and revm. The\neven-modulus surcharge is not applied to an empty modulus, since the\nslow `modpow` never runs for it.",
+          "timestamp": "2026-11-26T21:47:52Z",
+          "tree_id": "4435321787992c00e863713cb30a4592645f7357",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/95a9381f331607d6209e8ea076e4aec4ca354e23"
+        },
+        "date": 1795735454694,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007997667466666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024376707873333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1456652095,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009847455353333309,
             "unit": "seconds"
           }
         ]
