@@ -692,6 +692,7 @@ async fn process_block_activated<Context>(
 
 	// determine_new_blocks is descending in block height
 	for (hash, header) in new_blocks.into_iter().rev() {
+		let number = header.number;
 		// it's important to commit the db transactions for a head before the next one is processed
 		// alternatively, we could utilize the OverlayBackend from approval-voting
 		let mut tx = DBTransaction::new();
@@ -706,7 +707,7 @@ async fn process_block_activated<Context>(
 			header,
 		)
 		.await?;
-		subsystem.known_blocks.insert(hash, block_number);
+		subsystem.known_blocks.insert(hash, number);
 		subsystem.db.write(tx)?;
 	}
 

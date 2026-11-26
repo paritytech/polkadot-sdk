@@ -1,0 +1,9 @@
+title: 'availability-store: track ancestors at their own block heights'
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |
+    Record every block processed during leaf activation at its own height so the
+    availability store drops its in-memory entry as soon as the block finalizes.
+crates:
+- name: polkadot-node-core-av-store
+  bump: patch

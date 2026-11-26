@@ -195,6 +195,75 @@ fn test_store() -> Arc<dyn Database> {
 }
 
 #[test]
+fn ancestors_are_pruned_at_their_own_height() {
+	let state = TestState::default();
+	let mut subsystem = AvailabilityStoreSubsystem::with_pruning_config_and_clock(
+		test_store(),
+		TEST_CONFIG,
+		state.pruning_config,
+		Arc::new(state.clock),
+		Box::new(NoSyncOracle),
+		Metrics::default(),
+	);
+	subsystem.finalized_number = Some(0);
+	let (mut context, mut overseer) =
+		test_helpers::make_subsystem_context(sp_core::testing::TaskExecutor::new());
+	let ancestor = Header {
+		parent_hash: Hash::zero(),
+		number: 1,
+		state_root: Hash::zero(),
+		extrinsics_root: Hash::zero(),
+		digest: Default::default(),
+	};
+	let ancestor_hash = ancestor.hash();
+	let leaf = Header { parent_hash: ancestor_hash, number: 2, ..ancestor.clone() };
+	let leaf_hash = leaf.hash();
+
+	let chain = async {
+		for header in [leaf, ancestor] {
+			assert_matches!(
+				overseer_recv(&mut overseer).await,
+				AllMessages::ChainApi(ChainApiMessage::BlockHeader(hash, tx)) => {
+					assert_eq!(hash, header.hash());
+					tx.send(Ok(Some(header))).expect("activation is waiting for the header");
+				}
+			);
+		}
+		for (hash, parent_hash) in [(ancestor_hash, Hash::zero()), (leaf_hash, ancestor_hash)] {
+			assert_matches!(
+				overseer_recv(&mut overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					at, RuntimeApiRequest::CandidateEvents(tx),
+				)) => {
+					assert_eq!(at, hash);
+					tx.send(Ok(Vec::new())).expect("activation is waiting for candidate events");
+				}
+			);
+			assert_matches!(
+				overseer_recv(&mut overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					at, RuntimeApiRequest::Validators(tx),
+				)) => {
+					assert_eq!(at, parent_hash);
+					tx.send(Ok(Vec::new())).expect("activation is waiting for validators");
+				}
+			);
+		}
+	};
+	let (result, ()) = executor::block_on(future::join(
+		process_block_activated(&mut context, &mut subsystem, leaf_hash),
+		chain,
+	));
+	result.expect("leaf and ancestor were processed");
+	assert!(subsystem.known_blocks.is_known(&ancestor_hash));
+	assert!(subsystem.known_blocks.is_known(&leaf_hash));
+
+	subsystem.known_blocks.prune_finalized(1);
+	assert!(!subsystem.known_blocks.is_known(&ancestor_hash));
+	assert!(subsystem.known_blocks.is_known(&leaf_hash));
+}
+
+#[test]
 fn runtime_api_error_does_not_stop_the_subsystem() {
 	let store = test_store();
 
