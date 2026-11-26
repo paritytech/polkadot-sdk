@@ -23,6 +23,7 @@ harness = false
 cfg-if = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 docify = { workspace = true }
+environmental = { workspace = true }
 frame-support = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
@@ -43,6 +44,7 @@ substrate-test-runtime-client = { workspace = true }
 default = ["std"]
 std = [
 	"codec/std",
+	"environmental/std",
 	"frame-support/std",
 	"log/std",
 	"scale-info/std",
