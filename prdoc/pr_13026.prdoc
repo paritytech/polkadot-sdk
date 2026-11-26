@@ -1,0 +1,14 @@
+title: Raise `max_code_size` in the `schedule_code_upgrade` benchmark
+doc:
+- audience: Runtime Dev
+  description: |-
+    The `paras_registrar::schedule_code_upgrade` benchmark sampled `b` up to the global
+    `MAX_CODE_SIZE` constant, while the extrinsic validates the code length against the
+    on-chain `max_code_size` host configuration. Runtimes that configure `max_code_size`
+    below `MAX_CODE_SIZE` failed the benchmark with `InvalidCode`.
+    The benchmark now raises the configured `max_code_size` during setup, so the worst case
+    it measures is accepted. `ActiveConfig` is whitelisted storage, so the recorded weight
+    is unchanged.
+crates:
+- name: polkadot-runtime-common
+  bump: patch
