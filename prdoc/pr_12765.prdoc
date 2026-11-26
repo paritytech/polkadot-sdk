@@ -1,0 +1,14 @@
+title: 'pallet-scheduler: postpone overweight tasks instead of silently dropping them'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    A scheduled task is now treated as permanently overweight (emitting `PermanentlyOverweight` and
+    no longer retried) only when its weight exceeds `9/10` of `Config::MaximumWeight`, meaning it
+    could never fit into a block. Any other task that does not fit into the current block is
+    postponed to a later block instead of being silently dropped, replacing the previous heuristic
+    that gave up on a task merely because it was the first one serviced in the block.
+
+crates:
+- name: pallet-scheduler
+  bump: patch
