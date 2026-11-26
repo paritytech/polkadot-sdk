@@ -41,7 +41,10 @@ use polkadot_node_subsystem::{
 	OverseerSignal,
 };
 
-use polkadot_node_subsystem_util::TimeoutExt;
+use polkadot_node_subsystem_util::{
+	runtime::{Config as RuntimeInfoConfig, RuntimeInfo},
+	TimeoutExt,
+};
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::AppCrypto;
 use sp_core::{sr25519::Pair, testing::TaskExecutor, Pair as PairT};
@@ -60,16 +63,17 @@ use polkadot_primitives::{
 	ApprovalVote, ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateEvent,
 	CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoalescedApprovalCandidateHashes,
 	CoreIndex, DisputeStatement, GroupIndex, Hash, HeadData, Header, IndexedVec,
-	MultiDisputeStatementSet, MutateDescriptorV2, NodeFeatures, ScrapedOnChainVotes, SessionIndex,
-	SessionInfo, SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
-	ValidatorSignature, ValidityAttestation,
+	InvalidDisputeStatementKind, MultiDisputeStatementSet, MutateDescriptorV2, NodeFeatures,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, SigningContext, ValidDisputeStatementKind,
+	ValidatorId, ValidatorIndex, ValidatorSignature, ValidityAttestation,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_v2_bad_sig, dummy_digest, dummy_hash,
 };
 
 use crate::{
-	backend::Backend,
+	backend::{Backend, BackendWriteOp, OverlayedBackend},
+	db::v1::CandidateVotes as DbCandidateVotes,
 	metrics::Metrics,
 	participation::{participation_full_happy_path, participation_missing_availability},
 	Config, DisputeCoordinatorSubsystem,
@@ -4302,6 +4306,130 @@ fn session_info_caching_on_startup_works() {
 			test_state
 		})
 	});
+}
+
+#[test]
+fn startup_recovers_dispute_with_its_own_session_validators() {
+	let mut state = TestState::default();
+	let dispute_session = 1;
+	let leaf_session = 2;
+	let receipt = make_another_valid_candidate_receipt(Hash::repeat_byte(0x61));
+	let candidate_hash = receipt.hash();
+	let valid = state.issue_explicit_statement_with_index(
+		ValidatorIndex(1),
+		candidate_hash,
+		dispute_session,
+		true,
+	);
+	let invalid = state.issue_explicit_statement_with_index(
+		ValidatorIndex(2),
+		candidate_hash,
+		dispute_session,
+		false,
+	);
+	let votes = DbCandidateVotes {
+		candidate_receipt: receipt.clone(),
+		valid: vec![(
+			ValidDisputeStatementKind::Explicit,
+			ValidatorIndex(1),
+			valid.into_validator_signature(),
+		)],
+		invalid: vec![(
+			InvalidDisputeStatementKind::Explicit,
+			ValidatorIndex(2),
+			invalid.into_validator_signature(),
+		)],
+	};
+	let mut disputes = BTreeMap::new();
+	disputes.insert((dispute_session, candidate_hash), DisputeStatus::Active);
+	let mut backend =
+		DbBackend::new(state.db.clone(), state.config.column_config(), Metrics::default());
+	backend
+		.write([
+			BackendWriteOp::WriteRecentDisputes(disputes),
+			BackendWriteOp::WriteCandidateVotes(dispute_session, candidate_hash, votes),
+		])
+		.unwrap();
+
+	// The local validator is absent from the newest session, but present in the dispute's session.
+	let mut newest_info = state.session_info();
+	let stranger = ValidatorId::from(Pair::from_string("//Stranger", None).unwrap().public());
+	*newest_info.validators.get_mut(ValidatorIndex(0)).unwrap() = stranger;
+
+	let header = Header {
+		parent_hash: state.last_block,
+		number: 1,
+		digest: dummy_digest(),
+		state_root: dummy_hash(),
+		extrinsics_root: dummy_hash(),
+	};
+	let leaf = header.hash();
+	state.headers.insert(leaf, header);
+	let subsystem = DisputeCoordinatorSubsystem::new(
+		state.db.clone(),
+		state.config,
+		state.subsystem_keystore.clone(),
+		Metrics::default(),
+	);
+	let (mut ctx, mut overseer) = make_buffered_subsystem_context(TaskExecutor::new(), 1);
+	let recovery = async {
+		let mut runtime = RuntimeInfo::new_with_config(RuntimeInfoConfig {
+			keystore: None,
+			session_cache_lru_size: DISPUTE_WINDOW.get(),
+		});
+		let mut overlay = OverlayedBackend::new(&backend);
+		subsystem
+			.handle_startup(&mut ctx, new_leaf(leaf, 1), &mut runtime, &mut overlay, &state.clock)
+			.await
+	};
+	let driver = async {
+		assert_matches!(overseer_recv(&mut overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+			tx.send(Ok(leaf_session)).unwrap();
+		});
+		for session in 0..=leaf_session {
+			assert_matches!(overseer_recv(&mut overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(requested, tx))) => {
+				assert_eq!(requested, session);
+				tx.send(Ok(Some(if session == leaf_session { newest_info.clone() } else { state.session_info() }))).unwrap();
+			});
+			assert_matches!(overseer_recv(&mut overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, tx))) => {
+				tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+			});
+			assert_matches!(overseer_recv(&mut overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, tx))) => {
+				tx.send(Ok(ApprovalVotingParams::default())).unwrap();
+			});
+		}
+		assert_matches!(overseer_recv(&mut overseer).await,
+			AllMessages::ChainApi(ChainApiMessage::FinalizedBlockNumber(tx)) => { tx.send(Ok(0)).unwrap(); });
+		assert_matches!(overseer_recv(&mut overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::CandidateEvents(tx))) => {
+			tx.send(Ok(vec![make_candidate_included_event(receipt.clone())])).unwrap();
+		});
+		assert_matches!(overseer_recv(&mut overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::FetchOnChainVotes(tx))) => {
+			tx.send(Ok(Some(ScrapedOnChainVotes {
+				session: leaf_session,
+				backing_validators_per_candidate: Vec::new(),
+				disputes: MultiDisputeStatementSet::default(),
+			}))).unwrap();
+		});
+		assert_matches!(overseer_recv(&mut overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::UnappliedSlashesV2(tx))) => {
+			tx.send(Ok(Vec::new())).unwrap();
+		});
+		assert_matches!(overseer_recv(&mut overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::DisabledValidators(tx))) => {
+			tx.send(Ok(Vec::new())).unwrap();
+		});
+	};
+	let (result, ()) = futures::executor::block_on(future::join(recovery, driver));
+	let (participations, ..) = result.unwrap();
+	assert_eq!(participations.len(), 1);
+	assert_eq!(participations[0].1.session(), dispute_session);
+	assert_eq!(*participations[0].1.candidate_hash(), candidate_hash);
 }
 
 // Underflow means that no more than `DISPUTE_WINDOW` sessions should be fetched on startup
