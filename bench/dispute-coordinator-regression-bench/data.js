@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795717450147,
+  "lastUpdate": 1795735686712,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "mail@skunert.dev",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1a69ade75f028819b70652a25a7ba4e9fa427076",
-          "message": "Allow calling `runtime_api` with supplied storage overlay (#12084)\n\nThis change allows users of `client.runtime_api()` to provide a custom\noverlay with changes before calling further runtime APIs.\n\nConcrete use-case is a future PR where I receive changes from a block\nexecution and want to call a runtime API on the post state of said block\neven before it hits the DB.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-18T06:58:50Z",
-          "tree_id": "5b6762465fa61cf0616b79cdbfd015eee7e3cbf7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1a69ade75f028819b70652a25a7ba4e9fa427076"
-        },
-        "date": 1779092644894,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009673707560000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002606875220000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009172921409999975,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009181672800000007,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "95a9381f331607d6209e8ea076e4aec4ca354e23",
+          "message": "[pallet-revive] Charge the EIP-2565 modexp cost when the modulus length is zero (#13203)\n\nFixes #12691.\n\nThe modexp precompile returned an empty output for a zero-length modulus\nbefore charging its own EIP-2565 cost. It now reads the base and\nexponent as the general path does, charges the full EIP-2565 formula,\nand only then returns the empty output. This matches geth and revm. The\neven-modulus surcharge is not applied to an empty modulus, since the\nslow `modpow` never runs for it.",
+          "timestamp": "2026-11-26T21:47:52Z",
+          "tree_id": "4435321787992c00e863713cb30a4592645f7357",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/95a9381f331607d6209e8ea076e4aec4ca354e23"
+        },
+        "date": 1795735648209,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010329207700000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025177759099999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009409059039999987,
             "unit": "seconds"
           }
         ]
