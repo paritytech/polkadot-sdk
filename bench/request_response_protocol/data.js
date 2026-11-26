@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795711904113,
+  "lastUpdate": 1795716237897,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -151523,6 +151523,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3005973829,
             "range": "± 113454675",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "913974288a48522bcd9159583c1a0dff9b68ffd8",
+          "message": "frame-system: apply call filter to AuthorizeCall origin (#13365)\n\n# Description\n\n`AuthorizeCall` turns a `None` origin into `Authorized` when the call's\n`#[pallet::authorize]` callback\nsucceeds, but it did not consult the runtime call filter. Dispatch does\n(only Root bypasses it), so a\ncall the filter rejects (e.g. under safe mode or tx-pause) was still\nvalid at the pool and only failed\nlater with `CallFiltered`.\n\n`validate` now checks `filter_call` on the minted `Authorized` origin\nand returns\n`InvalidTransaction::Call` when it fails, so pool admission matches what\ndispatch will accept.\n\nSigned transactions aren't checked against the call filter at validation\neither, but they pay a fee for their failed dispatch. An authorized\ntransaction pays none, so a filtered one would take block space for\nfree.\n\nSurfaced while reviewing #12452.\n\n## Integration\n\nNo code change needed. Unsigned `#[pallet::authorize]` calls (im-online\nheartbeats today, and the\npending migrations of babe/grandpa/beefy/EPMP/disputes/claims) are\nrejected at validation while the\nruntime call filter blocks them, instead of failing at dispatch. A\nruntime that wants such a call to stay\nusable during safe mode / tx-pause must allow it in its filter, as it\nalready had to for dispatch.\n\n## Review Notes\n\nThe filter runs after the callback (the `Authorize` trait gives no\nearlier hook), so a filtered call still\ncosts its callback at validation. Regression test\n`filtered_call_is_not_authorized` adds a pausable\n`BaseCallFilter` to the extension's test runtime; it fails on master\n(`validate` returns `Ok`) and passes here.\n\n#13364 also appends a test to the end of this tests module; whichever of\nthe two lands second keeps both.",
+          "timestamp": "2026-11-26T16:40:28Z",
+          "tree_id": "a765d755e488e2ab83373b30be737046f72a7ed7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/913974288a48522bcd9159583c1a0dff9b68ffd8"
+        },
+        "date": 1795716189475,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20151611,
+            "range": "± 247588",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20375245,
+            "range": "± 119506",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22014264,
+            "range": "± 292211",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26295073,
+            "range": "± 238544",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58630410,
+            "range": "± 574898",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 363217115,
+            "range": "± 7570082",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2530235664,
+            "range": "± 90445784",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17230165,
+            "range": "± 142632",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17606776,
+            "range": "± 239874",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17758697,
+            "range": "± 147400",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22140403,
+            "range": "± 259325",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60127131,
+            "range": "± 973805",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 358069865,
+            "range": "± 6630924",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2732109575,
+            "range": "± 37994799",
             "unit": "ns/iter"
           }
         ]
