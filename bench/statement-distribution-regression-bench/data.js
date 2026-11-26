@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795717376676,
+  "lastUpdate": 1795735622865,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "mail@skunert.dev",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "eafcc55352b027f9ca6f2156aaab3a9f22bccfc8",
-          "message": "ParityDB: Value should still be stored after transaction with store + reference (#12082)\n\nWhenever we would see a store + reference within the same database\ntransaction on a yet unknown value, parityDB would transform the\nreference into a dereference, which would give us invalid DB state.\nIntuitively, the value should be stored in the DB but was actually not\npresent.\n\nIn this PR we fix this by introducing a direct mapping to operations and\nadding test cases for this.\n\nNote: In chains with pallet-transaction-storage, the runtime would\nprevent this because you can not renew a transaction that was not\nalready present in a prior block. But at the low level this should still\nwork.",
-          "timestamp": "2026-05-18T08:09:00Z",
-          "tree_id": "dda373efb3f3a42289a4272c654f020c7bbc13f2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/eafcc55352b027f9ca6f2156aaab3a9f22bccfc8"
-        },
-        "date": 1779096839022,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.164,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03887130799799999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08761430089799996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0841594805799999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "95a9381f331607d6209e8ea076e4aec4ca354e23",
+          "message": "[pallet-revive] Charge the EIP-2565 modexp cost when the modulus length is zero (#13203)\n\nFixes #12691.\n\nThe modexp precompile returned an empty output for a zero-length modulus\nbefore charging its own EIP-2565 cost. It now reads the base and\nexponent as the general path does, charges the full EIP-2565 formula,\nand only then returns the empty output. This matches geth and revm. The\neven-modulus surcharge is not applied to an empty modulus, since the\nslow `modpow` never runs for it.",
+          "timestamp": "2026-11-26T21:47:52Z",
+          "tree_id": "4435321787992c00e863713cb30a4592645f7357",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/95a9381f331607d6209e8ea076e4aec4ca354e23"
+        },
+        "date": 1795735583181,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.12800000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039014760511999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08418795313199989,
             "unit": "seconds"
           }
         ]
