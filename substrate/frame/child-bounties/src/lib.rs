@@ -469,6 +469,10 @@ pub mod pallet {
 		/// work. We allow child-bounty curator and T::RejectOrigin to execute
 		/// this call irrespective of the parent bounty state.
 		///
+		/// In `PendingPayout` state, only `RejectOrigin` or the curator of an
+		/// active parent bounty can unassign, and the child-bounty curator
+		/// deposit is slashed.
+		///
 		/// If this function is called by the `RejectOrigin` or the
 		/// parent bounty curator, we assume that the child-bounty curator is
 		/// malicious or inactive. As a result, child-bounty curator deposit is
@@ -777,7 +781,8 @@ pub mod pallet {
 		/// unreserved.
 		///
 		/// If the state of child-bounty is `PendingPayout`, call fails &
-		/// returns `PendingPayout` error.
+		/// returns `PendingPayout` error. Unassign the child-bounty curator
+		/// first with `unassign_curator`.
 		///
 		/// For the origin other than T::RejectOrigin, parent bounty must be in
 		/// active state, for this child-bounty call to work. For origin
