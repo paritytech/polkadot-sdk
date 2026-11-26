@@ -29,3 +29,5 @@ crates:
   bump: patch
 - name: sp-consensus-babe
   bump: patch
+- name: pallet-babe
+  bump: none
