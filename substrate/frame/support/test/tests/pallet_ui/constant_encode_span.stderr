@@ -1,0 +1,25 @@
+error[E0277]: the trait bound `NotEncodable: Encode` is not satisfied
+  --> tests/pallet_ui/constant_encode_span.rs:26:8
+   |
+21 | #[frame_support::pallet]
+   | ------------------------ required by a bound introduced by this call
+...
+26 |         type Value: frame_support::traits::Get<super::NotEncodable>;
+   |              ^^^^^ unsatisfied trait bound
+   |
+help: the trait `WrapperTypeEncode` is not implemented for `NotEncodable`
+  --> tests/pallet_ui/constant_encode_span.rs:19:1
+   |
+19 | pub struct NotEncodable;
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+   = help: the following other types implement trait `WrapperTypeEncode`:
+             &T
+             &mut T
+             Arc<T>
+             Box<T>
+             Cow<'_, T>
+             Rc<T>
+             Vec<T>
+             bytes::bytes::Bytes
+           and $N others
+   = note: required for `NotEncodable` to implement `Encode`

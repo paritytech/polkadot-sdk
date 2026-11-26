@@ -40,7 +40,7 @@ pub fn derive_partial_eq_no_bound(input: proc_macro::TokenStream) -> proc_macro:
 					.unnamed
 					.iter()
 					.enumerate()
-					.map(|(i, _)| syn::Index::from(i))
+					.map(|(i, field)| super::field_index(i, field))
 					.map(|i| quote::quote_spanned!(i.span() => self.#i == other.#i ));
 
 				quote::quote!( true #( && #fields )* )

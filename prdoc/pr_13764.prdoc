@@ -1,0 +1,14 @@
+title: 'FRAME: point macro diagnostics at offending declarations'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Compiler errors when encoding pallet constants now highlight the associated type or
+    extra-constant function responsible for the error, rather than the outer pallet attribute.
+    Tuple-struct DebugNoBound, CloneNoBound, PartialEqNoBound, PartialOrdNoBound, and OrdNoBound
+    derives preserve field-type spans so missing-trait errors highlight the offending field.
+    Errors for invalid items and trait impls in extra_constants blocks now correctly identify
+    pallet::extra_constants instead of pallet::call. No source changes or storage migration
+    are required.
+crates:
+- name: frame-support-procedural
+  bump: patch

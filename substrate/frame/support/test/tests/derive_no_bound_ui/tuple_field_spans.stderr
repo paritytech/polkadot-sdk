@@ -1,0 +1,19 @@
+error[E0277]: `<T as Config>::C` doesn't implement `std::fmt::Debug`
+  --> tests/derive_no_bound_ui/tuple_field_spans.rs:25:30
+   |
+25 | struct Tuple<T: Config>(u32, T::C);
+   |                              ^ the trait `std::fmt::Debug` is not implemented for `<T as Config>::C`
+   |
+   = note: required for the cast from `&<T as Config>::C` to `&dyn std::fmt::Debug`
+
+error[E0277]: the trait bound `<T as Config>::C: Clone` is not satisfied
+  --> tests/derive_no_bound_ui/tuple_field_spans.rs:25:30
+   |
+25 | struct Tuple<T: Config>(u32, T::C);
+   |                              ^ the trait `Clone` is not implemented for `<T as Config>::C`
+
+error[E0369]: binary operation `==` cannot be applied to type `<T as Config>::C`
+  --> tests/derive_no_bound_ui/tuple_field_spans.rs:25:30
+   |
+25 | struct Tuple<T: Config>(u32, T::C);
+   |                              ^
