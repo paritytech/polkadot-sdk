@@ -1,0 +1,38 @@
+title: '[pallet-migrations] add a blanket `MaxMigrationSteps` limit'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-migrations` aborts a migration that exceeds its `SteppedMigration::max_steps`, but that
+    limit is opt-in and most migrations do not set one, so a migration that stops making progress
+    keeps the chain in migration mode - rejecting all non-mandatory extrinsics - forever.
+
+    The new `Config::MaxMigrationSteps` bounds every migration: a fallback for those that declare no
+    limit of their own, and an upper bound for those that declare a larger one. A migration advances
+    at most once per block, so the limit is effectively a per-migration duration.
+
+    Runtimes must now set `MaxMigrationSteps`; use `ConstU32<{ u32::MAX }>` to keep the previous
+    unbounded behaviour. The runtimes in this repository set it to one day.
+
+    Exceeding the limit counts as a failed migration: it is left partially applied, is not recorded
+    in `Historic`, and is handed to the `FailedMigrationHandler`. These runtimes therefore also
+    switch to `ForceUnstuckOnFailedMigration`, so that a timed out migration leaves the chain usable
+    instead of frozen.
+
+crates:
+- name: pallet-migrations
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: kitchensink-runtime
+  bump: major
+- name: pallet-staking-async-rc-runtime
+  bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: major
