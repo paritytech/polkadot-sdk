@@ -339,6 +339,11 @@ pub struct Client {
 
 /// A request to backfill a range of missed blocks (both bounds inclusive).
 pub(crate) struct GapFillRequest {
+	/// Hash of the finalized block right above the gap.
+	///
+	/// The backfill walks the parents of this block, so it only indexes finalized blocks. A
+	/// lookup by number could return a cached best block on a fork instead.
+	pub above: H256,
 	pub from_inclusive: SubstrateBlockNumber,
 	pub to_inclusive: SubstrateBlockNumber,
 }
@@ -361,8 +366,14 @@ impl SubscriptionGapQueue {
 		(Self { tx, pending: Arc::new(AtomicUsize::new(0)) }, rx)
 	}
 
-	/// If `current` is not consecutive to `last`, queue a gap-fill for the missing range.
-	pub fn detect_and_queue(&self, current: SubstrateBlockNumber, last: SubstrateBlockNumber) {
+	/// If the finalized block `current` with hash `current_hash` is not consecutive to `last`,
+	/// queue a gap-fill for the missing range.
+	pub fn detect_and_queue(
+		&self,
+		current: SubstrateBlockNumber,
+		current_hash: H256,
+		last: SubstrateBlockNumber,
+	) {
 		if current.saturating_sub(last) <= 1 {
 			return;
 		}
@@ -371,7 +382,10 @@ impl SubscriptionGapQueue {
 		let to_inclusive = last.saturating_add(1);
 		let gap_len = from_inclusive.saturating_sub(to_inclusive) + 1;
 		self.pending.fetch_add(1, Ordering::Release);
-		match self.tx.try_send(GapFillRequest { from_inclusive, to_inclusive }) {
+		match self
+			.tx
+			.try_send(GapFillRequest { above: current_hash, from_inclusive, to_inclusive })
+		{
 			Ok(_) => {
 				log::info!(target: LOG_TARGET,
 					"🔄 Subscription gap queue: queued #{from_inclusive} down to #{to_inclusive} ({gap_len} blocks)");
@@ -649,7 +663,11 @@ impl Client {
 			// Only check finalized blocks for gaps.
 			if subscription_type == SubscriptionType::FinalizedBlocks {
 				if let Some(last) = last_finalized_seen {
-					self.subscription_gap_queue.detect_and_queue(block_number, last);
+					self.subscription_gap_queue.detect_and_queue(
+						block_number,
+						block.block_hash(),
+						last,
+					);
 				}
 				// Update unconditionally — a callback failure doesn't mean the block was missed.
 				last_finalized_seen = Some(block_number);
@@ -741,6 +759,14 @@ impl Client {
 	}
 
 	/// Start the block subscription, and populate the block cache.
+	///
+	/// Best blocks are indexed only above the latest finalized block. A best block at or below
+	/// it is the finalized block, which the finalized subscription indexes, or a retracted fork,
+	/// which would never be removed as its height is already finalized. It is still announced.
+	///
+	/// Each finalized block removes the blocks stored at its height, see
+	/// [`ReceiptProvider::remove_forks_of_finalized`]. A failure there is logged and does not
+	/// keep the block from being announced.
 	pub async fn subscribe_and_cache_new_blocks(
 		&self,
 		subscription_type: SubscriptionType,
@@ -751,13 +777,19 @@ impl Client {
 
 			match subscription_type {
 				SubscriptionType::BestBlocks => {
-					let (eth_block, _) = self.process_block(&block).await?;
-					self.update_and_announce_latest_block(
-						block,
-						Some(eth_block),
-						subscription_type,
-					)
-					.await;
+					let block_number = block.block_number();
+					let finalized_number =
+						self.block_provider.latest_finalized_block().await.block_number();
+					let eth_block = if block_number <= finalized_number {
+						log::debug!(target: LOG_TARGET_SUBSCRIPTION,
+							"Not indexing best block #{block_number} ({hash:?}): at or below the \
+							 finalized block #{finalized_number}");
+						None
+					} else {
+						Some(self.process_block(&block).await?.0)
+					};
+					self.update_and_announce_latest_block(block, eth_block, subscription_type)
+						.await;
 
 					if let Some(sender) = &self.block_notifier {
 						if sender.receiver_count() > 0 {
@@ -783,7 +815,13 @@ impl Client {
 							(Some(infos), eth_block.hash, Some(eth_block))
 						},
 					};
-					self.receipt_provider.remove_forks_of_finalized(block_number, &hash).await?;
+					if let Err(err) =
+						self.receipt_provider.remove_forks_of_finalized(block_number, &hash).await
+					{
+						log::warn!(target: LOG_TARGET,
+							"Failed to remove the blocks at the height of finalized block \
+							 #{block_number} ({hash:?}): {err:?}");
+					}
 
 					self.update_and_announce_latest_block(block, eth_block, subscription_type)
 						.await;

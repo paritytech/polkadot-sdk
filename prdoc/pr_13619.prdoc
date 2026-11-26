@@ -12,7 +12,10 @@ doc:
     rest of a block's data when the block is pruned from the `eth-rpc` database or replaced by a
     fork. When the block at a height is finalized and indexed, the data of every other block
     stored at that height is removed, also after an `eth-rpc` restart and for blocks indexed by
-    historical sync. A block that lost a fork is served at most until then.
+    historical sync. Best blocks at or below the finalized block are not indexed, and historical
+    sync and the backfill of blocks missed during a node reconnect only walk back from finalized
+    blocks. A block that lost a fork is therefore served at most until the block at its height
+    is finalized and indexed, unless removing it fails, which `eth-rpc` logs as a warning.
 
     `eth_getTransactionReceipt`, `eth_getTransactionByHash` and
     `eth_getTransactionByBlockHashAndIndex` do not contact the node at all for a block with
