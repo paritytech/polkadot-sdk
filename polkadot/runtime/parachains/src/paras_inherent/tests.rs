@@ -5412,7 +5412,7 @@ mod sanitizers {
 mod speculative_admission_gate {
 	//! Candidate-level tests for the `check_speculative_messaging` sanitize gate, which matches a
 	//! candidate's `Requires` against the relay-side provides windows.
-	use super::{check_speculative_messaging, default_config};
+	use super::{backed_candidate_weight, check_speculative_messaging, default_config};
 	use crate::{
 		inclusion::tests::TestCandidateBuilder,
 		mock::{new_test_ext, Test},
@@ -5448,6 +5448,24 @@ mod speculative_admission_gate {
 			ccr.commitments.upward_messages.force_push(UMPSignal::Provides(p).encode());
 		}
 		BackedCandidate::new(ccr.into(), Default::default(), Default::default(), CoreIndex(0))
+	}
+
+	#[test]
+	fn requires_is_charged_per_entry() {
+		new_test_ext(default_config()).execute_with(|| {
+			let base = backed_candidate_weight::<Test>(&candidate(2000, None, None)).ref_time();
+			for entries in [1u32, 3, 7] {
+				let requires = RequiresSet::try_from_iter(
+					(0..entries).map(|i| (ParaId::from(1000 + i), sr(i as u8))),
+				)
+				.expect("test sources are distinct and within the entry limit");
+				let with_requires = candidate(2000, None, Some(requires));
+				assert_eq!(
+					backed_candidate_weight::<Test>(&with_requires).ref_time(),
+					base + u64::from(entries),
+				);
+			}
+		});
 	}
 
 	#[test]
