@@ -13,3 +13,13 @@ CREATE TABLE IF NOT EXISTS receipts (
 -- none. Blocks indexed before this migration keep 0. Receipts of a block whose version differs
 -- from the one eth-rpc writes are rebuilt from the node on request.
 ALTER TABLE eth_to_substrate_blocks ADD COLUMN receipts_version INTEGER NOT NULL DEFAULT 0;
+
+-- Substrate block number of the block. Indexing a block deletes the rows of every other block
+-- with the same number: two blocks at one height are forks of each other, and the receipts of
+-- the one indexed first would otherwise still be served after the chain moved to the other.
+-- Blocks indexed before this migration keep NULL; their receipts are rebuilt from the node.
+ALTER TABLE eth_to_substrate_blocks ADD COLUMN block_number INTEGER;
+
+CREATE INDEX IF NOT EXISTS idx_eth_to_substrate_blocks_block_number ON eth_to_substrate_blocks (
+	block_number
+);

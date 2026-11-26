@@ -23,7 +23,9 @@ use crate::{
 };
 use pallet_revive::evm::TransactionSigned;
 use sp_core::{H256, U256};
-use sqlx::{FromRow, QueryBuilder, Sqlite, SqlitePool, query, query_as, query_scalar};
+use sqlx::{
+	FromRow, QueryBuilder, Sqlite, SqliteConnection, SqlitePool, query, query_as, query_scalar,
+};
 use std::{
 	collections::{BTreeMap, HashMap},
 	sync::Arc,
@@ -283,19 +285,22 @@ macro_rules! upsert_sync_label {
 /// transaction before calling this.
 async fn insert_block_mapping<'e, E: sqlx::Executor<'e, Database = Sqlite>>(
 	executor: E,
+	block_number: SubstrateBlockNumber,
 	block_map: &BlockHashMap,
 ) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
 	let ethereum_hash_ref = block_map.ethereum_hash.as_ref();
 	let substrate_hash_ref = block_map.substrate_hash.as_ref();
+	let block_number = block_number as i64;
 	query!(
 		r#"
 			INSERT OR REPLACE INTO eth_to_substrate_blocks
-				(ethereum_block_hash, substrate_block_hash, receipts_version)
-			VALUES ($1, $2, $3)
+				(ethereum_block_hash, substrate_block_hash, receipts_version, block_number)
+			VALUES ($1, $2, $3, $4)
 			"#,
 		ethereum_hash_ref,
 		substrate_hash_ref,
 		RECEIPTS_VERSION,
+		block_number,
 	)
 	.execute(executor)
 	.await
@@ -485,7 +490,20 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		log::debug!(target: LOG_TARGET, "Removing block hashes: {block_mappings:?}");
 
 		let mut db_tx = self.db_ctx.pool.begin().await?;
+		self.delete_blocks(&mut db_tx, block_mappings).await?;
+		db_tx.commit().await?;
+		Ok(())
+	}
 
+	/// Delete the given blocks' transaction hashes, logs, receipts and mappings on `conn`.
+	///
+	/// Runs on the caller's connection so the deletion can be part of a larger database
+	/// transaction.
+	async fn delete_blocks(
+		&self,
+		conn: &mut SqliteConnection,
+		block_mappings: &[BlockHashMap],
+	) -> Result<(), sqlx::Error> {
 		for chunk in block_mappings.chunks(self.db_ctx.max_variable_number) {
 			let placeholders = vec!["?"; chunk.len()].join(", ");
 			let sql_tx =
@@ -510,13 +528,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					delete_mappings_query.bind(block_map.substrate_hash.as_ref());
 			}
 
-			delete_tx_query.execute(&mut *db_tx).await?;
-			delete_logs_query.execute(&mut *db_tx).await?;
-			delete_receipts_query.execute(&mut *db_tx).await?;
-			delete_mappings_query.execute(&mut *db_tx).await?;
+			delete_tx_query.execute(&mut *conn).await?;
+			delete_logs_query.execute(&mut *conn).await?;
+			delete_receipts_query.execute(&mut *conn).await?;
+			delete_mappings_query.execute(&mut *conn).await?;
 		}
-
-		db_tx.commit().await?;
 		Ok(())
 	}
 
@@ -798,7 +814,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Like [`Self::insert_block_receipts`] but writes only to the DB (no cache update).
-	/// Used for historic sync where fork detection is unnecessary.
+	///
+	/// Used for historic sync. Like every insert, it replaces a block stored at the same height.
 	pub async fn insert_block_receipts_past(
 		&self,
 		block: &SubstrateBlock,
@@ -892,6 +909,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Insert receipts into the database without updating the in-memory block cache.
+	///
+	/// In the same database transaction, deletes the rows of every other block stored at the
+	/// same height: it lost a fork to this block. The in-memory map only catches forks among the
+	/// blocks it holds, which it does not after a restart or for blocks indexed by historic sync.
+	/// Blocks whose mapping has no block number, indexed before the column existed, are kept.
 	async fn insert_into_db(
 		&self,
 		block: &impl BlockInfo,
@@ -926,6 +948,29 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		}
 
 		let mut db_tx = self.db_ctx.pool.begin().await?;
+
+		let siblings = query!(
+			r#"
+			SELECT substrate_block_hash, ethereum_block_hash
+			FROM eth_to_substrate_blocks
+			WHERE block_number = $1 AND substrate_block_hash != $2
+			"#,
+			block_number,
+			substrate_hash_ref,
+		)
+		.map(|row| {
+			BlockHashMap::new(
+				H256::from_slice(&row.substrate_block_hash),
+				H256::from_slice(&row.ethereum_block_hash),
+			)
+		})
+		.fetch_all(&mut *db_tx)
+		.await?;
+		if !siblings.is_empty() {
+			log::debug!(target: LOG_TARGET,
+				"Block #{block_number} ({substrate_block_hash:?}) replaces {siblings:?}");
+			self.delete_blocks(&mut db_tx, &siblings).await?;
+		}
 
 		for chunk in receipts.chunks(self.db_ctx.tx_insert_chunk_size) {
 			let mut query_builder = QueryBuilder::<Sqlite>::new(
@@ -992,7 +1037,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		}
 
 		let block_map = BlockHashMap::new(substrate_block_hash, *ethereum_hash);
-		insert_block_mapping(&mut *db_tx, &block_map).await?;
+		insert_block_mapping(&mut *db_tx, block.number(), &block_map).await?;
 
 		db_tx.commit().await?;
 		log::trace!(target: LOG_TARGET, "Inserted {} receipts for block #{block_number} ethereum: {ethereum_hash:?} substrate: {substrate_block_hash:?}", receipts.len());
@@ -1513,63 +1558,113 @@ mod tests {
 		return Ok(());
 	}
 
+	/// The rows the database holds for a block: its transaction hashes, logs, receipts and
+	/// mappings, in this order.
+	async fn block_rows(
+		provider: &ReceiptProvider<MockBlockInfoProvider>,
+		block: &MockBlockInfo,
+		ethereum_hash: H256,
+	) -> [usize; 4] {
+		let pool = &provider.db_ctx.pool;
+		[
+			count(pool, "transaction_hashes", Some(block.hash)).await,
+			count(pool, "logs", Some(ethereum_hash)).await,
+			count(pool, "receipts", Some(block.hash)).await,
+			provider.get_ethereum_hash(&block.hash).await.into_iter().count(),
+		]
+	}
+
+	/// Two blocks at height 1 contain the same transaction. Indexing the second one after a
+	/// restart, with the in-memory map cleared, removes the first one's rows: the transaction
+	/// resolves to the second block's receipt, and the first block's receipt is no longer served.
 	#[sqlx::test]
 	async fn test_reorg_same_transaction_hash(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
-
-		// Build two blocks at the same height with the same transaction hash
-		let tx_hash = H256::from([42u8; 32]);
-
-		// Block A at height 1
-		let block_a = MockBlockInfo { hash: H256::from([1u8; 32]), number: 1 };
-		let ethereum_hash_a = H256::from([2u8; 32]);
-		let receipts_a = vec![(
-			TransactionSigned::default(),
-			ReceiptInfo {
-				block_hash: ethereum_hash_a,
-				transaction_hash: tx_hash,
-				transaction_index: U256::from(0),
-				..Default::default()
-			},
-		)];
+		let block_a = MockBlockInfo { hash: H256::repeat_byte(1), number: 1 };
+		let ethereum_hash_a = H256::repeat_byte(2);
+		let receipts_a = indexed_receipts(&block_a, ethereum_hash_a, &[1]);
+		let block_b = MockBlockInfo { hash: H256::repeat_byte(3), number: 1 };
+		let ethereum_hash_b = H256::repeat_byte(4);
+		let receipts_b = indexed_receipts(&block_b, ethereum_hash_b, &[1]);
+		let tx_hash = receipts_a[0].1.transaction_hash;
+		assert_eq!(receipts_b[0].1.transaction_hash, tx_hash);
 
 		provider.insert(&block_a, &receipts_a, &ethereum_hash_a).await?;
-
-		// Verify transaction points to block A
-		let (found_hash, _) = provider.find_transaction(&tx_hash).await.unwrap();
-		assert_eq!(found_hash, block_a.hash);
-
-		// Clear the in-memory map to simulate server restart
+		assert_eq!(provider.find_transaction(&tx_hash).await, Some((block_a.hash, 0)));
 		provider.block_number_to_hashes.lock().await.clear();
-
-		// Block B at same height 1 (re-org) with SAME transaction
-		let block_b = MockBlockInfo { hash: H256::from([3u8; 32]), number: 1 };
-		let ethereum_hash_b = H256::from([4u8; 32]);
-		let receipts_b = vec![(
-			TransactionSigned::default(),
-			ReceiptInfo {
-				block_hash: ethereum_hash_b,
-				transaction_hash: tx_hash, // Same tx hash!
-				transaction_index: U256::from(0),
-				..Default::default()
-			},
-		)];
-
-		// This should NOT fail with UNIQUE constraint violation
 		provider.insert(&block_b, &receipts_b, &ethereum_hash_b).await?;
 
-		// Transaction should now point to block B
-		let (found_hash, _) = provider.find_transaction(&tx_hash).await.unwrap();
-		assert_eq!(found_hash, block_b.hash);
-
-		// Both blocks keep their own receipt; the transaction hash resolves to block B's.
-		assert_eq!(count(&provider.db_ctx.pool, "receipts", None).await, 2);
+		assert_eq!(block_rows(&provider, &block_a, ethereum_hash_a).await, [0; 4]);
+		assert_eq!(block_rows(&provider, &block_b, ethereum_hash_b).await, [1; 4]);
+		assert_eq!(provider.find_transaction(&tx_hash).await, Some((block_b.hash, 0)));
 		assert_eq!(provider.receipt_by_hash(&tx_hash).await, Some(receipts_b[0].1.clone()));
-		assert_eq!(
-			provider.receipt_by_block_hash_and_index(&block_a.hash, 0).await,
-			Some(receipts_a[0].1.clone())
-		);
+		assert_eq!(provider.node_calls(), 0);
+		assert_eq!(provider.receipt_by_block_hash_and_index(&block_a.hash, 0).await, None);
+		assert_eq!(provider.node_calls(), 1);
+		Ok(())
+	}
 
+	/// After a restart, with the in-memory map cleared, a block replacing another at its height
+	/// without the other's transaction removes the other block's rows: the transaction is unknown
+	/// instead of served with the replaced block's receipt.
+	#[sqlx::test]
+	async fn reorg_to_a_block_without_the_transaction_forgets_it(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let block_a = MockBlockInfo { hash: H256::repeat_byte(1), number: 1 };
+		let ethereum_hash_a = H256::repeat_byte(2);
+		let receipts_a = indexed_receipts(&block_a, ethereum_hash_a, &[1]);
+		let block_b = MockBlockInfo { hash: H256::repeat_byte(3), number: 1 };
+		let ethereum_hash_b = H256::repeat_byte(4);
+		let tx_hash = receipts_a[0].1.transaction_hash;
+
+		provider.insert(&block_a, &receipts_a, &ethereum_hash_a).await?;
+		assert_eq!(provider.receipt_by_hash(&tx_hash).await, Some(receipts_a[0].1.clone()));
+		provider.block_number_to_hashes.lock().await.clear();
+		provider.insert(&block_b, &[], &ethereum_hash_b).await?;
+
+		assert_eq!(block_rows(&provider, &block_a, ethereum_hash_a).await, [0; 4]);
+		assert_eq!(block_rows(&provider, &block_b, ethereum_hash_b).await, [0, 0, 0, 1]);
+		assert_eq!(provider.find_transaction(&tx_hash).await, None);
+		assert_eq!(provider.receipt_by_hash(&tx_hash).await, None);
+		assert_eq!(provider.transaction_by_hash(&tx_hash).await, None);
+		assert_eq!(provider.node_calls(), 0);
+		Ok(())
+	}
+
+	/// A block indexed without updating the in-memory map, as historic sync does through
+	/// [`ReceiptProvider::insert_block_receipts_past`], removes the rows of another block at its
+	/// height. Blocks at other heights keep theirs.
+	#[sqlx::test]
+	async fn indexing_without_the_map_removes_a_block_at_the_same_height(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let block_a = MockBlockInfo { hash: H256::repeat_byte(1), number: 1 };
+		let ethereum_hash_a = H256::repeat_byte(2);
+		let receipts_a = indexed_receipts(&block_a, ethereum_hash_a, &[1]);
+		let block_b = MockBlockInfo { hash: H256::repeat_byte(3), number: 1 };
+		let ethereum_hash_b = H256::repeat_byte(4);
+		let receipts_b = indexed_receipts(&block_b, ethereum_hash_b, &[1]);
+		let other_height = MockBlockInfo { hash: H256::repeat_byte(5), number: 2 };
+		let ethereum_hash_other_height = H256::repeat_byte(6);
+		let receipts_other_height = make_receipts(100, 1, 1);
+		let tx_hash = receipts_a[0].1.transaction_hash;
+
+		provider.insert(&block_a, &receipts_a, &ethereum_hash_a).await?;
+		provider
+			.insert(&other_height, &receipts_other_height, &ethereum_hash_other_height)
+			.await?;
+		provider.insert_into_db(&block_b, &receipts_b, &ethereum_hash_b).await?;
+
+		assert_eq!(block_rows(&provider, &block_a, ethereum_hash_a).await, [0; 4]);
+		assert_eq!(block_rows(&provider, &block_b, ethereum_hash_b).await, [1; 4]);
+		assert_eq!(block_rows(&provider, &other_height, ethereum_hash_other_height).await, [1; 4]);
+		assert_eq!(provider.receipt_by_hash(&tx_hash).await, Some(receipts_b[0].1.clone()));
+		assert_eq!(provider.node_calls(), 0);
+		assert_eq!(provider.receipt_by_block_hash_and_index(&block_a.hash, 0).await, None);
+		assert_eq!(provider.node_calls(), 1);
 		Ok(())
 	}
 
@@ -1911,7 +2006,7 @@ mod tests {
 		let block_map = BlockHashMap::new(substrate_hash, ethereum_hash);
 
 		// Insert mapping
-		insert_block_mapping(&provider.db_ctx.pool, &block_map).await?;
+		insert_block_mapping(&provider.db_ctx.pool, 1, &block_map).await?;
 
 		// Test forward lookup
 		let resolved = provider.get_substrate_hash(&ethereum_hash).await;
@@ -1935,8 +2030,8 @@ mod tests {
 		let block_map2 = BlockHashMap::new(substrate_hash2, ethereum_hash2);
 
 		// Insert mappings
-		insert_block_mapping(&provider.db_ctx.pool, &block_map1).await?;
-		insert_block_mapping(&provider.db_ctx.pool, &block_map2).await?;
+		insert_block_mapping(&provider.db_ctx.pool, 1, &block_map1).await?;
+		insert_block_mapping(&provider.db_ctx.pool, 2, &block_map2).await?;
 
 		// Verify they exist
 		assert_eq!(
@@ -1966,7 +2061,7 @@ mod tests {
 		let block_map = BlockHashMap::new(substrate_hash, ethereum_hash);
 
 		// Insert mapping
-		insert_block_mapping(&provider.db_ctx.pool, &block_map).await?;
+		insert_block_mapping(&provider.db_ctx.pool, 1, &block_map).await?;
 		assert_eq!(
 			provider.get_substrate_hash(&block_map.ethereum_hash).await,
 			Some(block_map.substrate_hash)
@@ -2037,8 +2132,8 @@ mod tests {
 		let block_map2 = BlockHashMap::new(H256::from([3u8; 32]), H256::from([4u8; 32]));
 
 		// Insert some mappings
-		insert_block_mapping(&provider.db_ctx.pool, &block_map1).await?;
-		insert_block_mapping(&provider.db_ctx.pool, &block_map2).await?;
+		insert_block_mapping(&provider.db_ctx.pool, 1, &block_map1).await?;
+		insert_block_mapping(&provider.db_ctx.pool, 2, &block_map2).await?;
 
 		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 2);
 

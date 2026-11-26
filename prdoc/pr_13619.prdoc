@@ -10,7 +10,9 @@ doc:
     database. They no longer fetch the block body and events from the node or make the
     `eth_receipt_data` and `eth_block_hash` runtime calls. Stored receipts are removed with the
     rest of a block's data when the block is pruned from the `eth-rpc` database or replaced by a
-    fork.
+    fork. Indexing a block removes the data of any other block stored at the same height, also
+    after an `eth-rpc` restart and for blocks indexed by historical sync, so receipts of a block
+    that lost a fork are not served.
 
     `eth_getTransactionReceipt`, `eth_getTransactionByHash` and
     `eth_getTransactionByBlockHashAndIndex` do not contact the node at all for a block with
@@ -26,7 +28,8 @@ doc:
     table's primary key index.
 
     On start, `eth-rpc` applies database migration `0005_create_receipts`. It creates the
-    `receipts` table and adds a `receipts_version` column to `eth_to_substrate_blocks`. Nothing
+    `receipts` table and adds the `receipts_version` and `block_number` columns to
+    `eth_to_substrate_blocks`. Nothing
     needs to be done by hand. Blocks indexed before the upgrade are not backfilled: their receipts
     are rebuilt from the node on request, as for any block without stored receipts. To store
     receipts for all blocks, index into a new database.
