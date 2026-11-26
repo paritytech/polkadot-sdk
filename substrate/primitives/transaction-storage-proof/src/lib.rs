@@ -285,7 +285,8 @@ pub mod registration {
 
 	/// Build a proof from the transaction sizes, loading only the selected transaction.
 	///
-	/// `load` is called once, with the index of the transaction that holds the selected chunk.
+	/// `sizes` are the sizes of the block's indexed transactions, in order. `load` is called
+	/// once, with the position in `sizes` of the transaction that holds the selected chunk.
 	pub fn build_proof_from_sizes(
 		random_hash: &[u8],
 		sizes: &[u32],
