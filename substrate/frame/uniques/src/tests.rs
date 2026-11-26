@@ -87,14 +87,14 @@ fn events() -> Vec<Event<Test>> {
 
 #[test]
 fn basic_setup_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_eq!(items(), vec![]);
 	});
 }
 
 #[test]
 fn basic_minting_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
 		assert_eq!(collections(), vec![(1, 0)]);
 		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 1));
@@ -109,7 +109,7 @@ fn basic_minting_should_work() {
 
 #[test]
 fn lifecycle_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 100);
 		assert_ok!(Uniques::create(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::reserved_balance(&1), 2);
@@ -157,7 +157,7 @@ fn lifecycle_should_work() {
 
 #[test]
 fn destroy_with_bad_witness_should_not_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 100);
 		assert_ok!(Uniques::create(RuntimeOrigin::signed(1), 0, 1));
 
@@ -169,7 +169,7 @@ fn destroy_with_bad_witness_should_not_work() {
 
 #[test]
 fn mint_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
 		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 1));
 		assert_eq!(Uniques::owner(0, 42).unwrap(), 1);
@@ -180,7 +180,7 @@ fn mint_should_work() {
 
 #[test]
 fn transfer_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
 		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 2));
 
@@ -198,7 +198,7 @@ fn transfer_should_work() {
 
 #[test]
 fn freezing_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
 		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 1));
 		assert_ok!(Uniques::freeze(RuntimeOrigin::signed(1), 0, 42));
@@ -215,7 +215,7 @@ fn freezing_should_work() {
 
 #[test]
 fn origin_guards_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
 		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 1));
 
@@ -246,7 +246,7 @@ fn origin_guards_should_work() {
 
 #[test]
 fn transfer_owner_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 100);
 		Balances::make_free_balance_be(&2, 100);
 		Balances::make_free_balance_be(&3, 100);
@@ -328,7 +328,7 @@ fn transfer_ownership_fails_when_deposit_is_locked() {
 
 #[test]
 fn set_team_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
 		assert_ok!(Uniques::set_team(RuntimeOrigin::signed(1), 0, 2, 3, 4));
 
@@ -342,7 +342,7 @@ fn set_team_should_work() {
 
 #[test]
 fn set_collection_metadata_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Cannot add metadata to unknown item
 		assert_noop!(
 			Uniques::set_collection_metadata(RuntimeOrigin::signed(1), 0, bvec![0u8; 20], false),
@@ -434,7 +434,7 @@ fn set_collection_metadata_should_work() {
 
 #[test]
 fn set_item_metadata_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 30);
 
 		// Cannot add metadata to unknown item
@@ -494,7 +494,7 @@ fn set_item_metadata_should_work() {
 
 #[test]
 fn set_attribute_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 100);
 
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, false));
@@ -557,7 +557,7 @@ fn set_attribute_should_work() {
 
 #[test]
 fn set_attribute_should_respect_freeze() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 100);
 
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, false));
@@ -619,7 +619,7 @@ fn set_attribute_should_respect_freeze() {
 
 #[test]
 fn force_item_status_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 100);
 
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, false));
@@ -664,7 +664,7 @@ fn force_item_status_should_work() {
 
 #[test]
 fn burn_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 100);
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, false));
 		assert_ok!(Uniques::set_team(RuntimeOrigin::signed(1), 0, 2, 3, 4));
@@ -695,7 +695,7 @@ fn burn_works() {
 
 #[test]
 fn approval_lifecycle_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
 		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 2));
 		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed(2), 0, 42, 3));
@@ -713,7 +713,7 @@ fn approval_lifecycle_works() {
 
 #[test]
 fn approved_account_gets_reset_after_transfer() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
 		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 2));
 
@@ -732,7 +732,7 @@ fn approved_account_gets_reset_after_transfer() {
 
 #[test]
 fn approved_account_gets_reset_after_buy_item() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let item = 1;
 		let price = 15;
 
@@ -757,7 +757,7 @@ fn approved_account_gets_reset_after_buy_item() {
 
 #[test]
 fn cancel_approval_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
 		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 2));
 
@@ -789,7 +789,7 @@ fn cancel_approval_works() {
 
 #[test]
 fn cancel_approval_works_with_admin() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
 		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 2));
 
@@ -817,7 +817,7 @@ fn cancel_approval_works_with_admin() {
 
 #[test]
 fn cancel_approval_works_with_force() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
 		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 2));
 
@@ -845,7 +845,7 @@ fn cancel_approval_works_with_force() {
 
 #[test]
 fn max_supply_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let collection_id = 0;
 		let user_id = 1;
 		let max_supply = 2;
@@ -895,7 +895,7 @@ fn max_supply_should_work() {
 
 #[test]
 fn set_price_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let user_id = 1;
 		let collection_id = 0;
 		let item_1 = 1;
@@ -955,7 +955,7 @@ fn set_price_should_work() {
 
 #[test]
 fn buy_item_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let user_1 = 1;
 		let user_2 = 2;
 		let user_3 = 3;
@@ -1093,7 +1093,7 @@ fn buy_item_should_work() {
 
 #[test]
 fn clear_collection_metadata_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Start with an account with 100 balance, 10 of which are reserved
 		Balances::make_free_balance_be(&1, 100);
 		Balances::reserve(&1, 10).unwrap();
@@ -1139,7 +1139,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn create_collection() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 
 			let collection_owner = 1;
@@ -1161,7 +1161,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn create_collection_check_origin() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let alice = 1;
 			let bob = 2;
 			let collection_admin = 3;
@@ -1211,7 +1211,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn destroy_collection_with_witness() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 
 			let collection_owner = 1;
@@ -1258,7 +1258,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn destroy_collection_if_owned_by_and_with_witness() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 
 			let collection_owner = 1;
@@ -1320,7 +1320,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn destroy_collection_check_origin() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 
 			let collection_owner = 1;
@@ -1418,7 +1418,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn inspect_collection_ownership() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 
 			let collection_owner = 1;
@@ -1443,7 +1443,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn inspect_collection_metadata() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 
 			let collection_owner = 1;
@@ -1491,7 +1491,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn inspect_collection_attributes() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 
 			let collection_owner = 1;
@@ -1602,7 +1602,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn mint_item() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 			let item_id = 111;
 
@@ -1633,7 +1633,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn mint_item_by_admin() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 			let item_id = 111;
 
@@ -1664,7 +1664,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn mint_item_check_origin() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 			let item_id = 111;
 
@@ -1720,7 +1720,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn transfer_item_unchecked() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 			let item_id = 111;
 
@@ -1754,7 +1754,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn transfer_item_check_origin() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 			let item_id = 111;
 
@@ -1840,7 +1840,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn transfer_item_from_to() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 			let item_id = 111;
 
@@ -1891,7 +1891,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn stash_item_unchecked() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 			let item_id = 111;
 
@@ -1958,7 +1958,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn stash_item_if_owned_by() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 			let item_id = 111;
 
@@ -2035,7 +2035,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn stash_item_if_check_origin() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 			let item_id = 111;
 
@@ -2145,7 +2145,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn inspect_item_ownership() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 			let item_id = 111;
 
@@ -2177,7 +2177,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn inspect_item_metadata() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 			let item_id = 111;
 
@@ -2232,7 +2232,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn inspect_item_attributes() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 			let item_id = 111;
 
@@ -2372,7 +2372,7 @@ mod asset_ops_tests {
 
 	#[test]
 	fn inspect_item_can_update_owner() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let collection_id = 10;
 			let item_id = 111;
 
