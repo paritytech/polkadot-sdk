@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795637089723,
+  "lastUpdate": 1795697526530,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "mail@skunert.dev",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "18b7361aed92d7ee8c24ed9fdd0f1e9bd2941477",
-          "message": "Network: Add bitswap client (#12038)\n\nAdds a public Bitswap client API to `sc-network`, centered around the\n`request_bitswap_*` helpers for fetching CID-addressed blocks and\nWANT-HAVE responses.\n\nThe API includes unverified variants for cases where the caller uses\nCID-shaped locators but cannot yet prove that the returned bytes hash to\nthe requested CID. These variants preserve request/response correlation\nwhile leaving the hash checking to the caller.\n\nThis also wires outbound Bitswap requests through the litep2p backend,\nincluding WANT-BLOCK/WANT-HAVE handling and local invalid-request\nreporting.\n\n`BitswapService` now handles both directions: serving inbound Bitswap\nrequests and coordinating outbound Bitswap client requests.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>",
-          "timestamp": "2026-05-13T15:18:09Z",
-          "tree_id": "b5f061ac05c8f1b299b7175adeada8a53a5e8752",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/18b7361aed92d7ee8c24ed9fdd0f1e9bd2941477"
-        },
-        "date": 1778690580923,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00265264176,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009257164089999988,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009957230469999993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009413807919999979,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "80d49d4cb5397906d139f3cfad41df81833266ff",
+          "message": "pallet-child-bounties: allow forced cleanup after parent deactivation (#13406)\n\n`close_child_bounty` documents that `RejectOrigin` can force cleanup\nregardless of the parent bounty state, but the implementation checks\nthat the parent is active before applying the origin-specific\nauthorization. After the parent curator is unassigned, forced cleanup\ntherefore fails and child-bounty funds remain stranded.\n\nThis patch applies the active-parent check only to signed callers, keeps\nparent existence validation for `RejectOrigin`, and adds regression\ncoverage for cleanup after parent deactivation.\n\nNo API or storage migration is required.",
+          "timestamp": "2026-11-26T10:02:04Z",
+          "tree_id": "4a0dbe2e9b7b5aa5ab562790e438423ded850a7c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/80d49d4cb5397906d139f3cfad41df81833266ff"
+        },
+        "date": 1795697481964,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011218264339999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009802894079999989,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002582340569999999,
             "unit": "seconds"
           }
         ]
