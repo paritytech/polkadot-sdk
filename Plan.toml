@@ -2534,8 +2534,8 @@ reason = "changed"
 [[crate]]
 # substrate/frame/beefy-mmr
 name = "pallet-beefy-mmr"
-from = "47.0.0"
-to = "47.1.0"
+from = "47.1.0"
+to = "47.2.0"
 bump = "minor"
 reason = "changed"
 
@@ -3050,9 +3050,9 @@ to = "1.0.0"
 [[crate]]
 # cumulus/pallets/xcmp-queue
 name = "cumulus-pallet-xcmp-queue"
-from = "0.26.0"
-to = "0.26.1"
-bump = "minor"
+from = "0.26.1"
+to = "0.26.2"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -3282,9 +3282,9 @@ reason = "changed"
 [[crate]]
 # polkadot/runtime/westend
 name = "westend-runtime"
-from = "31.0.0"
-to = "31.1.0"
-bump = "minor"
+from = "31.1.0"
+to = "31.1.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
