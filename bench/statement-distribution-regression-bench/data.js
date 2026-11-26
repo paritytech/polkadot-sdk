@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795637029565,
+  "lastUpdate": 1795697465127,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "37865735+clangenb@users.noreply.github.com",
-            "name": "clangenb",
-            "username": "clangenb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f726bad79dbdb3db8be374cbdb272fe319b5d78c",
-          "message": "emulated integration tests cleanup (#12003)\n\nThis PR mostly consists of minor refactoring like introducing/centralize\nsome helpers and replacing some inlined functions with these helpers.\n\n---------\n\nCo-authored-by: clangenb <clangenb@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-05-14T07:02:34Z",
-          "tree_id": "37e2fa5221c8658d3aa080d2ab6bca210d449023",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f726bad79dbdb3db8be374cbdb272fe319b5d78c"
-        },
-        "date": 1778747177489,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.09399999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038476349714,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08428080259999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08690432271399989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "80d49d4cb5397906d139f3cfad41df81833266ff",
+          "message": "pallet-child-bounties: allow forced cleanup after parent deactivation (#13406)\n\n`close_child_bounty` documents that `RejectOrigin` can force cleanup\nregardless of the parent bounty state, but the implementation checks\nthat the parent is active before applying the origin-specific\nauthorization. After the parent curator is unassigned, forced cleanup\ntherefore fails and child-bounty funds remain stranded.\n\nThis patch applies the active-parent check only to signed callers, keeps\nparent existence validation for `RejectOrigin`, and adds regression\ncoverage for cleanup after parent deactivation.\n\nNo API or storage migration is required.",
+          "timestamp": "2026-11-26T10:02:04Z",
+          "tree_id": "4a0dbe2e9b7b5aa5ab562790e438423ded850a7c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/80d49d4cb5397906d139f3cfad41df81833266ff"
+        },
+        "date": 1795697420784,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.13799999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038796016386,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09167432530399988,
             "unit": "seconds"
           }
         ]
