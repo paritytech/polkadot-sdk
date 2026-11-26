@@ -911,8 +911,12 @@ than increasing forever.
 This is safe as long as the JAM block Asset Hub references only moves forward. Asset Hub
 can then only name buckets it has seen, so nothing it has not read is removed.
 
-**`min_memo_gas` must be benchmarked** against the real cost of admitting one transfer,
-and `MAX_INCOMING_TRANSFERS` derived from it.
+**`min_memo_gas` must be benchmarked** against the worst-case cost of processing one
+transfer, and `MAX_INCOMING_TRANSFERS` derived from it. The worst case is a transfer to the
+supervisor balance, which also needs the internal transfer to the regular balance, arriving
+while the queue already holds `MAX_INCOMING_TRANSFERS` entries, so that admitting it also
+charges Asset Hub's state balance. JAM only guarantees that every transfer carries at least
+`min_memo_gas`, so a transfer costing more would eat into the gas of the work reports.
 
 #### Per-work-package work
 
