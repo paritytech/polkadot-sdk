@@ -1258,6 +1258,26 @@ pub mod pallet {
 			Self::finalize_eth_block(block_number);
 		}
 
+		/// Check the configuration against the weights and the memory limits.
+		///
+		/// The storage check bounds the bytes of new storage one block can write and asserts that
+		/// they fit half the difference between [`Config::PVFMemory`] and
+		/// [`Config::RuntimeMemory`]. Each term assumes the whole block ref_time is spent on it,
+		/// and the terms are summed:
+		///
+		/// - Contract storage items written by `set_storage`.
+		/// - Immutable data, each value paying for the cheapest PVM constructor run.
+		/// - EVM runtime code. Each `CREATE`, `CREATE2` or extrinsic that uploads EVM init code
+		///   stores a new `PristineCode` and `CodeInfoOf` entry of up to
+		///   [`revm::primitives::eip170::MAX_CODE_SIZE`] bytes and a new contract account. A
+		///   constructor can make every copy unique, so code deduplication is not counted. The
+		///   `CREATE` charge includes storing code of that size, see the `evm_instantiate`
+		///   benchmark. Skipped when [`Config::AllowEVMBytecode`] is false. Code taken from the
+		///   extrinsic payload (`upload_code`, PVM code) is bounded by the block length and not
+		///   counted here.
+		/// - The eth block builder.
+		///
+		/// Events are checked separately against the same limit.
 		fn integrity_test() {
 			assert!(T::ChainId::get() > 0, "ChainId must be greater than 0");
 
@@ -1337,19 +1357,20 @@ pub mod pallet {
 			// address, so each stored value costs at least the cheapest way to run a PVM
 			// constructor: a nested `instantiate` or one of the instantiate extrinsics. A
 			// successful eth instantiation is refunded its pre-charged revert event.
+			let min_instantiate_with_code_ref_time =
+				T::WeightInfo::instantiate_with_code(0, 0).ref_time().min(
+					T::WeightInfo::eth_instantiate_with_code(0, 0, 0)
+						.saturating_add(T::WeightInfo::on_finalize_block_per_tx(0))
+						.saturating_sub(T::WeightInfo::deposit_eth_extrinsic_revert_event())
+						.ref_time(),
+				);
 			let min_instantiate_ref_time = ref_time_of(RuntimeCosts::Instantiate {
 				input_data_len: 0,
 				balance_transfer: false,
 				dust_transfer: false,
 			})
 			.min(T::WeightInfo::instantiate(0).ref_time())
-			.min(T::WeightInfo::instantiate_with_code(0, 0).ref_time())
-			.min(
-				T::WeightInfo::eth_instantiate_with_code(0, 0, 0)
-					.saturating_add(T::WeightInfo::on_finalize_block_per_tx(0))
-					.saturating_sub(T::WeightInfo::deposit_eth_extrinsic_revert_event())
-					.ref_time(),
-			);
+			.min(min_instantiate_with_code_ref_time);
 			// Entries an instantiation creates under new keys: the contract's `AccountInfoOf` and
 			// `frame_system::Account` entries and, with PGAS deposits, its `NativeDepositOf`
 			// entry. Entries of the currency and asset pallets are not counted because their
@@ -1382,6 +1403,30 @@ pub mod pallet {
 					.saturating_add(max_immutable_key_size)
 					.saturating_add(instantiation_bytes),
 			);
+			let max_evm_code_size: u64 = if T::AllowEVMBytecode::get() {
+				let code_len = revm::primitives::eip170::MAX_CODE_SIZE;
+				let code_bytes = key_and_value_len(
+					PristineCode::<T>::hashed_key_for(H256::zero()),
+					code_len.saturating_add(
+						codec::Compact(code_len.saturated_into::<u32>()).encoded_size(),
+					),
+				)
+				.saturating_add(key_and_value_len(
+					CodeInfoOf::<T>::hashed_key_for(H256::zero()),
+					CodeInfo::<T>::max_encoded_len(),
+				));
+				max_per_block(
+					ref_time_of(RuntimeCosts::Create {
+						init_code_len: 0,
+						balance_transfer: false,
+						dust_transfer: false,
+					})
+					.min(min_instantiate_with_code_ref_time),
+				)
+				.saturating_mul(code_bytes.saturating_add(instantiation_bytes))
+			} else {
+				0
+			};
 
 			let max_pvf_mem: u64 = T::PVFMemory::get().into();
 			let storage_size_limit = max_pvf_mem.saturating_sub(max_runtime_mem) / 2;
@@ -1469,6 +1514,7 @@ pub mod pallet {
 			let max_storage_size = max_per_block(min_new_item_ref_time)
 				.saturating_mul(u64::from(limits::STORAGE_BYTES).saturating_add(max_key_size))
 				.saturating_add(max_immutable_size.into())
+				.saturating_add(max_evm_code_size)
 				.saturating_add(max_eth_block_builder_bytes.into());
 
 			assert!(
