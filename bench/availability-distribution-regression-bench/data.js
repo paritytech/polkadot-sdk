@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795712784796,
+  "lastUpdate": 1795717229049,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e3893c2c768456bf1f4081fb3bd3acd26744dd5b",
-          "message": "fix(statement-network): split peer metric by kind (#12080)\n\nImpl #12060 \n\n## Summary\n\n- Change `substrate_sync_statement_peers_connected` from a plain gauge\nto a `GaugeVec` labelled by `kind`\n- Report statement protocol peers as `kind=\"full\"` or `kind=\"light\"`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-19T18:49:44Z",
-          "tree_id": "292fb4423d0171b7f2af463bded9f4cef9c1ce19",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e3893c2c768456bf1f4081fb3bd3acd26744dd5b"
-        },
-        "date": 1779224592311,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007881534766666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14780433499333337,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024269253180000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010501520506666648,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010136286666666652,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "913974288a48522bcd9159583c1a0dff9b68ffd8",
+          "message": "frame-system: apply call filter to AuthorizeCall origin (#13365)\n\n# Description\n\n`AuthorizeCall` turns a `None` origin into `Authorized` when the call's\n`#[pallet::authorize]` callback\nsucceeds, but it did not consult the runtime call filter. Dispatch does\n(only Root bypasses it), so a\ncall the filter rejects (e.g. under safe mode or tx-pause) was still\nvalid at the pool and only failed\nlater with `CallFiltered`.\n\n`validate` now checks `filter_call` on the minted `Authorized` origin\nand returns\n`InvalidTransaction::Call` when it fails, so pool admission matches what\ndispatch will accept.\n\nSigned transactions aren't checked against the call filter at validation\neither, but they pay a fee for their failed dispatch. An authorized\ntransaction pays none, so a filtered one would take block space for\nfree.\n\nSurfaced while reviewing #12452.\n\n## Integration\n\nNo code change needed. Unsigned `#[pallet::authorize]` calls (im-online\nheartbeats today, and the\npending migrations of babe/grandpa/beefy/EPMP/disputes/claims) are\nrejected at validation while the\nruntime call filter blocks them, instead of failing at dispatch. A\nruntime that wants such a call to stay\nusable during safe mode / tx-pause must allow it in its filter, as it\nalready had to for dispatch.\n\n## Review Notes\n\nThe filter runs after the callback (the `Authorize` trait gives no\nearlier hook), so a filtered call still\ncosts its callback at validation. Regression test\n`filtered_call_is_not_authorized` adds a pausable\n`BaseCallFilter` to the extension's test runtime; it fails on master\n(`validate` returns `Ok`) and passes here.\n\n#13364 also appends a test to the end of this tests module; whichever of\nthe two lands second keeps both.",
+          "timestamp": "2026-11-26T16:40:28Z",
+          "tree_id": "a765d755e488e2ab83373b30be737046f72a7ed7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/913974288a48522bcd9159583c1a0dff9b68ffd8"
+        },
+        "date": 1795717179878,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024318103299999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14640825160000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007371553419999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010073608859999974,
             "unit": "seconds"
           }
         ]
