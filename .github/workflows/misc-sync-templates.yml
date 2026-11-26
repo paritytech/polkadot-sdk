@@ -78,18 +78,16 @@ jobs:
             if gh release download "${full_version}" \
               --repo paritytech/polkadot-sdk \
               --pattern 'chain-spec-builder' \
-              --skip-existing \
-              --dir . 2>/dev/null && [[ -f "chain-spec-builder" ]]; then
+              --dir . && [[ -f "chain-spec-builder" ]]; then
               echo "✓ Downloaded chain-spec-builder from ${full_version}"
             # If that fails and we have a patch, try the base version
             elif [[ -n "$patch_input" ]] && gh release download "${base_version}" \
               --repo paritytech/polkadot-sdk \
               --pattern 'chain-spec-builder' \
-              --skip-existing \
-              --dir . 2>/dev/null && [[ -f "chain-spec-builder" ]]; then
+              --dir . && [[ -f "chain-spec-builder" ]]; then
               echo "✓ Downloaded chain-spec-builder from ${base_version} (patch release has no changes)"
             else
-              echo "⚠ Could not download chain-spec-builder from releases, building from source..."
+              echo "⚠ Could not download chain-spec-builder from releases (see gh errors above), building from source..."
               cargo install --path substrate/bin/utils/chain-spec-builder --locked
               exit 0
             fi
