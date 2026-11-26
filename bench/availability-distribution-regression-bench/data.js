@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795636906746,
+  "lastUpdate": 1795697343355,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e7d08d2c89aef53d78491e79827ccee8f5c3460b",
-          "message": "[acf] Move py/trsry drain migration from pallet to Westend RC (#12092)\n\n`pallet-accumulate-and-forward` is meant to be generic and reusable.\nHard-coding a one-shot drain of the legacy `py/trsry` from RC to AH\naccount belongs in a runtime, not the generic pallet.\nTo achieve the above:\n- Removed `DrainLegacyTreasuryToAccumulationAccount` and its tests from\n`pallet-accumulate-and-forward`.\n- Added a runtime-local equivalent inside `westend-runtime`'s migrations\nmodule, with the same semantics: drain into the local `ACF` accumulation\naccount, where the existing `Forwarder` teleports to AssetHub's central\nDAP on the next forwarding interval.\n- Dropped the migration from BridgeHub / Collectives / Coretime / People\nWestend: `py/trsry` is empty there, so no migration is needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-19T08:05:16Z",
-          "tree_id": "de207240d71e7c0ae57e9ff71c92be63ef860226",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e7d08d2c89aef53d78491e79827ccee8f5c3460b"
-        },
-        "date": 1779183784594,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010465373099999975,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023951244886666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.008012754920000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14656218144666672,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.008057284986666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "80d49d4cb5397906d139f3cfad41df81833266ff",
+          "message": "pallet-child-bounties: allow forced cleanup after parent deactivation (#13406)\n\n`close_child_bounty` documents that `RejectOrigin` can force cleanup\nregardless of the parent bounty state, but the implementation checks\nthat the parent is active before applying the origin-specific\nauthorization. After the parent curator is unassigned, forced cleanup\ntherefore fails and child-bounty funds remain stranded.\n\nThis patch applies the active-parent check only to signed callers, keeps\nparent existence validation for `RejectOrigin`, and adds regression\ncoverage for cleanup after parent deactivation.\n\nNo API or storage migration is required.",
+          "timestamp": "2026-11-26T10:02:04Z",
+          "tree_id": "4a0dbe2e9b7b5aa5ab562790e438423ded850a7c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/80d49d4cb5397906d139f3cfad41df81833266ff"
+        },
+        "date": 1795697299505,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024608898646666662,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1487966466333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007857763360000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009890096780000003,
             "unit": "seconds"
           }
         ]
