@@ -87,6 +87,14 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	t.into()
 }
 
+/// Run `test` in a fresh externality, then assert the pallet invariants hold.
+pub fn new_test_ext_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		Preimage::do_try_state().expect("All invariants must hold after each test");
+	});
+}
+
 pub fn hashed(data: impl AsRef<[u8]>) -> H256 {
 	BlakeTwo256::hash(data.as_ref())
 }

@@ -56,7 +56,7 @@ pub fn make_bounded_values() -> (
 
 #[test]
 fn user_note_preimage_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(2), vec![1]));
 		assert_eq!(Balances::balance_on_hold(&PreimageHoldReason::get(), &2), 3);
 		assert_eq!(Balances::free_balance(2), 97);
@@ -78,7 +78,7 @@ fn user_note_preimage_works() {
 
 #[test]
 fn manager_note_preimage_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(1), vec![1]));
 		assert_eq!(Balances::reserved_balance(1), 0);
 		assert_eq!(Balances::free_balance(1), 100);
@@ -93,7 +93,7 @@ fn manager_note_preimage_works() {
 
 #[test]
 fn user_unnote_preimage_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(2), vec![1]));
 		assert_noop!(
 			Preimage::unnote_preimage(RuntimeOrigin::signed(3), hashed([1])),
@@ -118,7 +118,7 @@ fn user_unnote_preimage_works() {
 
 #[test]
 fn manager_unnote_preimage_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(1), vec![1]));
 		assert_ok!(Preimage::unnote_preimage(RuntimeOrigin::signed(1), hashed([1])));
 		assert_noop!(
@@ -134,7 +134,7 @@ fn manager_unnote_preimage_works() {
 
 #[test]
 fn manager_unnote_user_preimage_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(2), vec![1]));
 		assert_noop!(
 			Preimage::unnote_preimage(RuntimeOrigin::signed(3), hashed([1])),
@@ -155,7 +155,7 @@ fn manager_unnote_user_preimage_works() {
 
 #[test]
 fn requested_then_noted_preimage_cannot_be_unnoted() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(1), vec![1]));
 		assert_ok!(Preimage::request_preimage(RuntimeOrigin::signed(1), hashed([1])));
 		assert_ok!(Preimage::unnote_preimage(RuntimeOrigin::signed(1), hashed([1])));
@@ -181,7 +181,7 @@ fn request_note_order_makes_no_difference() {
 			PreimageFor::<Test>::iter().collect::<Vec<_>>(),
 		)
 	});
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(2), vec![1]));
 		assert_ok!(Preimage::request_preimage(RuntimeOrigin::signed(1), hashed([1])));
 		assert_ok!(Preimage::unnote_preimage(RuntimeOrigin::signed(2), hashed([1])));
@@ -195,7 +195,7 @@ fn request_note_order_makes_no_difference() {
 
 #[test]
 fn requested_then_user_noted_preimage_is_free() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Preimage::request_preimage(RuntimeOrigin::signed(1), hashed([1])));
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(2), vec![1]));
 		assert_eq!(Balances::reserved_balance(2), 0);
@@ -217,7 +217,7 @@ fn request_user_note_order_makes_no_difference() {
 			PreimageFor::<Test>::iter().collect::<Vec<_>>(),
 		)
 	});
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(2), vec![1]));
 		assert_ok!(Preimage::request_preimage(RuntimeOrigin::signed(1), hashed([1])));
 		assert_ok!(Preimage::unnote_preimage(RuntimeOrigin::signed(2), hashed([1])));
@@ -231,7 +231,7 @@ fn request_user_note_order_makes_no_difference() {
 
 #[test]
 fn unrequest_preimage_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Preimage::request_preimage(RuntimeOrigin::signed(1), hashed([1])));
 		assert_ok!(Preimage::request_preimage(RuntimeOrigin::signed(1), hashed([1])));
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(2), vec![1]));
@@ -253,7 +253,7 @@ fn unrequest_preimage_works() {
 
 #[test]
 fn user_noted_then_requested_preimage_is_refunded_once_only() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(2), vec![1; 3]));
 		assert_eq!(Balances::balance_on_hold(&PreimageHoldReason::get(), &2), 5);
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(2), vec![1]));
@@ -268,7 +268,7 @@ fn user_noted_then_requested_preimage_is_refunded_once_only() {
 
 #[test]
 fn noted_preimage_use_correct_map() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// Add one preimage per bucket...
 		for i in 0..7 {
 			assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(1), vec![0; 128 << (i * 2)]));
@@ -301,7 +301,7 @@ fn noted_preimage_use_correct_map() {
 /// The `StorePreimage` and `QueryPreimage` traits work together.
 #[test]
 fn query_and_store_preimage_workflow() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let _guard = StorageNoopGuard::default();
 		let data: Vec<u8> = vec![1; 512];
 		let encoded = data.encode();
@@ -368,7 +368,7 @@ fn query_and_store_preimage_workflow() {
 /// The request function behaves as expected.
 #[test]
 fn query_preimage_request_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let _guard = StorageNoopGuard::default();
 		let data: Vec<u8> = vec![1; 10];
 		let hash = <Test as frame_system::Config>::Hashing::hash(&data[..]).into();
@@ -406,7 +406,7 @@ fn query_preimage_request_works() {
 /// The `QueryPreimage` functions can be used together with `Bounded` values.
 #[test]
 fn query_preimage_hold_and_drop_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let _guard = StorageNoopGuard::default();
 		let (inline, lookup, legacy) = make_bounded_values();
 
@@ -436,7 +436,7 @@ fn query_preimage_hold_and_drop_work() {
 /// The `StorePreimage` trait works as expected.
 #[test]
 fn store_preimage_basic_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let _guard = StorageNoopGuard::default();
 		let data: Vec<u8> = vec![1; 512]; // Too large to inline.
 		let encoded = Cow::from(data.encode());
@@ -470,7 +470,7 @@ fn store_preimage_basic_works() {
 
 #[test]
 fn store_preimage_note_too_large_errors() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// Works with `MAX_LENGTH`.
 		let len = <Preimage as StorePreimage>::MAX_LENGTH;
 		let data = vec![0u8; len];
@@ -484,7 +484,7 @@ fn store_preimage_note_too_large_errors() {
 
 #[test]
 fn store_preimage_bound_too_large_errors() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// Using `MAX_LENGTH` number of bytes in a vector does not work
 		// since SCALE prepends the length.
 		let len = <Preimage as StorePreimage>::MAX_LENGTH;
