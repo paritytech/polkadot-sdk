@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795699467415,
+  "lastUpdate": 1795711839242,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -270335,6 +270335,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2406732917,
             "range": "± 15018434",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "12944c9666b91d876736e2509e4370db402877dc",
+          "message": "Staking: make slashing reward a function of report's delay (#13770)\n\nPartially addresses #13769.\n\n## Problem\n\nThe reporter of an offence is paid a flat `SlashRewardFraction` of the\nslash, however late the report arrives. Since an offender can report its\nown offences, it gains by holding them back: it stays in the validator\nset longer, piles up more offences (the reward grows with the total\nslash), and reports just before they become unreportable, which also\nleaves governance little time to cancel the slash.\n\n## Change\n\n`pallet-staking-async` gets a new config item, `type SlashRewardDecay:\nSlashRewardDecay`. It maps the delay of a report, in eras between the\noffence and its report, to the portion of the reward that is paid.\n\nThe unpaid part goes to `Config::Slash` with the rest of the slash. The\nslash itself is unchanged. No storage change or migration.\n\nCurves added as templates: \n- `()`: no decay, the previous behaviour. Default in\n`TestDefaultConfig`, and used by Asset Hub Westend.\n- `LinearDecay<Window>`: 100% for a report in the offence era, falling\nlinearly to 0% at `Window` eras late.\n- `HalvingDecay<HalfLife>`: the reward halves for every full `HalfLife`\neras of delay.\n\n## Suggested values for integrators\n\n- Polkadot: `type SlashRewardDecay = ();` (no decay)\n- Kusama: `type SlashRewardDecay =\npallet_staking_async::HalvingDecay<ConstU32<2>>;` (full reward for 2\neras, about 12h, then halving every 2 eras), or\n`LinearDecay<ConstU32<4>>`\n\n## What this does not do\n\n- Reports are accepted for as long as before. \n- Self-reporting still pays, only less when late. Dropping the reward\naltogether, or paying it only from the validator's own slash, were\ndiscussed below as alternatives. I am still against it, as if a\nvalidator self-reports, and their nominators are slashable (e.g Kusama),\nit is fair for the nominator to also lose money. Their job was to not\nelect a validator who would commit a slash and then self-report.\n- The second bug of #13769 (repeated offences across eras slashing more\nthan the exposure) is out of scope.\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-11-26T15:29:00Z",
+          "tree_id": "669d836279f29bd1da1d6b3ee3015335e9fc5158",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/12944c9666b91d876736e2509e4370db402877dc"
+        },
+        "date": 1795711801311,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4163420,
+            "range": "± 10334",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 304635,
+            "range": "± 1918",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4263549,
+            "range": "± 22645",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 376662,
+            "range": "± 3225",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 4909480,
+            "range": "± 37079",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 899899,
+            "range": "± 8592",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10468400,
+            "range": "± 65265",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4868458,
+            "range": "± 57895",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 45348521,
+            "range": "± 355018",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 37757195,
+            "range": "± 367045",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 362660186,
+            "range": "± 2551236",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 302582195,
+            "range": "± 2260663",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2562875242,
+            "range": "± 9495853",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2307079347,
+            "range": "± 20411716",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3491298,
+            "range": "± 25046",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1913724,
+            "range": "± 15046",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3603819,
+            "range": "± 90584",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1998412,
+            "range": "± 7622",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4349889,
+            "range": "± 21633",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2312775,
+            "range": "± 13510",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8094497,
+            "range": "± 62017",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5414810,
+            "range": "± 28041",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 39536048,
+            "range": "± 362759",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37289360,
+            "range": "± 566039",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 323277865,
+            "range": "± 3027517",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 288660844,
+            "range": "± 2509760",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2569912889,
+            "range": "± 14636719",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2413475106,
+            "range": "± 29288258",
             "unit": "ns/iter"
           }
         ]
