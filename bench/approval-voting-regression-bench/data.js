@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795712848976,
+  "lastUpdate": 1795717302465,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a46d804b9d219c242da648da872eab278c496101",
-          "message": "staking-async / WAH: use div_ceil for VoterSnapshotPerBlock (#12100)\n\nFloor division could undersize the paged voter snapshot relative to\n`MaxElectingVoters`. Switched to `div_ceil` so `VoterSnapshotPerBlock *\nPages >= MaxElectingVoters` holds for any configured values, and added\ninvariant tests for both fake presets.\n\nAligned AH-Westend and the fake DOT/KSM presets with PAH and KAH in the\nruntimes repo, which already use `div_ceil`.\n\n\nExample in staking-async testnet configuration: floor division\nundersized the paged voter snapshot by 4 voters:\n* DOT: floor(22_500 / 32) = 703 → 703 * 32 = 22_496 (4 short)\n* KSM: floor(12_500 / 16) = 781 → 781 * 16 = 12_496 (4 short)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-19T10:08:30Z",
-          "tree_id": "8222959a63e270e0d3e50b1bbe25edb4d8de9668",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a46d804b9d219c242da648da872eab278c496101"
-        },
-        "date": 1779198101902,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63620.87000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52935.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000021449769999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8209275410199192,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005871369600000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8256140710399995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021282139999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.912228150450001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.570692516472908,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021282139999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.631403448159915,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.802234828699999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000021449769999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.793493461090002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4710340262599946,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-db",
             "value": 2.39198649552,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "913974288a48522bcd9159583c1a0dff9b68ffd8",
+          "message": "frame-system: apply call filter to AuthorizeCall origin (#13365)\n\n# Description\n\n`AuthorizeCall` turns a `None` origin into `Authorized` when the call's\n`#[pallet::authorize]` callback\nsucceeds, but it did not consult the runtime call filter. Dispatch does\n(only Root bypasses it), so a\ncall the filter rejects (e.g. under safe mode or tx-pause) was still\nvalid at the pool and only failed\nlater with `CallFiltered`.\n\n`validate` now checks `filter_call` on the minted `Authorized` origin\nand returns\n`InvalidTransaction::Call` when it fails, so pool admission matches what\ndispatch will accept.\n\nSigned transactions aren't checked against the call filter at validation\neither, but they pay a fee for their failed dispatch. An authorized\ntransaction pays none, so a filtered one would take block space for\nfree.\n\nSurfaced while reviewing #12452.\n\n## Integration\n\nNo code change needed. Unsigned `#[pallet::authorize]` calls (im-online\nheartbeats today, and the\npending migrations of babe/grandpa/beefy/EPMP/disputes/claims) are\nrejected at validation while the\nruntime call filter blocks them, instead of failing at dispatch. A\nruntime that wants such a call to stay\nusable during safe mode / tx-pause must allow it in its filter, as it\nalready had to for dispatch.\n\n## Review Notes\n\nThe filter runs after the callback (the `Authorize` trait gives no\nearlier hook), so a filtered call still\ncosts its callback at validation. Regression test\n`filtered_call_is_not_authorized` adds a pausable\n`BaseCallFilter` to the extension's test runtime; it fails on master\n(`validate` returns `Ok`) and passes here.\n\n#13364 also appends a test to the end of this tests module; whichever of\nthe two lands second keeps both.",
+          "timestamp": "2026-11-26T16:40:28Z",
+          "tree_id": "a765d755e488e2ab83373b30be737046f72a7ed7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/913974288a48522bcd9159583c1a0dff9b68ffd8"
+        },
+        "date": 1795717253504,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63563.67,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7853154095399831,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000022497370000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000022497370000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6866215022199977,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.689696223759998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.970520755739978,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001983533,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001983533,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005006646389999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.736160188139997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7306749386400004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.456991012942588,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3370458470500006,
             "unit": "seconds"
           }
         ]
