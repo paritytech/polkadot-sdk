@@ -211,13 +211,7 @@ pub trait IndexedBody<B: BlockT> {
 	fn number(&self, hash: B::Hash) -> Result<Option<NumberFor<B>>, Error>;
 
 	/// Get one indexed transaction by its content hash.
-	///
-	/// Only [`registration::new_data_provider_from_indexed_transactions`] calls this. Errors by
-	/// default, so existing implementors keep compiling.
-	#[cfg(feature = "std")]
-	fn indexed_transaction(&self, _hash: &ContentHash) -> Result<Option<Vec<u8>>, Error> {
-		Err(Error::Application(Box::from("indexed_transaction is not supported")))
-	}
+	fn indexed_transaction(&self, hash: &ContentHash) -> Result<Option<Vec<u8>>, Error>;
 }
 
 #[cfg(feature = "std")]

@@ -6,10 +6,10 @@ doc:
     256-byte chunk. With renewals, that body can be about 1 GiB. The prover now uses the
     transaction sizes from `TransactionStorageApi::indexed_transactions` (v2) to pick the chunk
     and loads only the transaction that holds it. The proof is unchanged. Runtimes with API v1
-    keep the old path.
+    keep the old path. `IndexedBody` gains a required `indexed_transaction` method.
 crates:
 - name: sp-transaction-storage-proof
-  bump: minor
+  bump: major
 - name: sc-service
   bump: minor
 - name: polkadot-omni-node-lib
