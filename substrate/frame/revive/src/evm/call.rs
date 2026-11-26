@@ -31,14 +31,9 @@ use alloc::{boxed::Box, vec::Vec};
 use codec::{DecodeLimit, Input, MemTrackingInput};
 use frame_support::MAX_EXTRINSIC_DEPTH;
 use sp_core::{Get, U256};
-<<<<<<< HEAD
-use sp_runtime::{SaturatedConversion, transaction_validity::InvalidTransaction};
-=======
 use sp_runtime::{
-	SaturatedConversion, Saturating, generic::DEFAULT_MAX_CALL_SIZE,
-	transaction_validity::InvalidTransaction,
+	SaturatedConversion, generic::DEFAULT_MAX_CALL_SIZE, transaction_validity::InvalidTransaction,
 };
->>>>>>> cd193d6 (pallet-revive: align eth tx decoding and reuse decoded call in dry runs (#13947))
 
 /// Result of decoding an eth transaction into a dispatchable call.
 pub struct CallInfo<T: Config> {
