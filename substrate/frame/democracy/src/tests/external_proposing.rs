@@ -21,7 +21,7 @@ use super::*;
 
 #[test]
 fn veto_external_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2),));
 		assert!(NextExternal::<Test>::exists());
@@ -72,7 +72,7 @@ fn veto_external_works() {
 
 #[test]
 fn external_blacklisting_should_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 
 		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2),));
@@ -92,7 +92,7 @@ fn external_blacklisting_should_work() {
 
 #[test]
 fn external_referendum_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 		assert_noop!(
 			Democracy::external_propose(RuntimeOrigin::signed(1), set_balance_proposal(2),),
@@ -119,7 +119,7 @@ fn external_referendum_works() {
 
 #[test]
 fn external_majority_referendum_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 		assert_noop!(
 			Democracy::external_propose_majority(RuntimeOrigin::signed(1), set_balance_proposal(2)),
@@ -145,7 +145,7 @@ fn external_majority_referendum_works() {
 
 #[test]
 fn external_default_referendum_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 		assert_noop!(
 			Democracy::external_propose_default(RuntimeOrigin::signed(3), set_balance_proposal(2)),
@@ -171,7 +171,7 @@ fn external_default_referendum_works() {
 
 #[test]
 fn external_and_public_interleaving_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(1),));
 		assert_ok!(propose_set_balance(6, 2, 2));
