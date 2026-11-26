@@ -391,7 +391,11 @@ impl<Hash: hash::Hash + Member + Serialize, Ex> ReadyTransactions<Hash, Ex> {
 				// but since all the hard work is done, we only clear the provided_tag -> hash
 				// mapping.
 				let current_tag = &tag;
+				let mut seen_tags = HashSet::new();
 				for tag in &tx.provides {
+					if !seen_tags.insert(tag) {
+						continue;
+					}
 					let removed = self.provided_tags.remove(tag);
 					assert_eq!(
 						removed.as_ref(),

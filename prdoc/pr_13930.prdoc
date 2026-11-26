@@ -1,0 +1,8 @@
+title: 'Transaction pool: handle repeated provides tags during pruning'
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |
+    Transaction pool pruning now handles repeated provides tags without panicking.
+crates:
+- name: sc-transaction-pool
+  bump: patch
