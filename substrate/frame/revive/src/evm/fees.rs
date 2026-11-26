@@ -303,8 +303,13 @@ where
 
 	fn dispatch_info(call: &CallOf<E::Config>) -> DispatchInfo {
 		let mut dispatch_info = call.get_dispatch_info();
-		dispatch_info.extension_weight =
-			E::get_eth_extension(0u32.into(), 0u32.into()).weight(call);
+		// Must match the weight folded into the `CheckedExtrinsic` built by
+		// `EthExtra::try_into_checked_extrinsic`, otherwise the fee/weight estimated here
+		// (wallet balance check, gas estimation, execution weight limit) diverges from what is
+		// actually charged post-dispatch.
+		dispatch_info.extension_weight = E::get_eth_extension(0u32.into(), 0u32.into())
+			.weight(call)
+			.saturating_add(E::signature_weight());
 		dispatch_info
 	}
 

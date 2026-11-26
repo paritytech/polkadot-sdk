@@ -238,7 +238,7 @@ fn new_tx_ext() -> Tx {
 
 fn new_extrinsic() -> generic::CheckedExtrinsic<AccountId, RuntimeCall, Tx> {
 	generic::CheckedExtrinsic {
-		format: generic::ExtrinsicFormat::Signed(99, new_tx_ext()),
+		format: generic::ExtrinsicFormat::Signed(99, new_tx_ext(), Default::default()),
 		function: RuntimeCall::System(frame_system::Call::remark { remark: vec![] }),
 	}
 }

@@ -206,6 +206,12 @@ impl traits::Verify for UintAuthorityId {
 	}
 }
 
+impl traits::SignatureWeight for UintAuthorityId {
+	fn weight(&self) -> sp_weights::Weight {
+		sp_weights::Weight::zero()
+	}
+}
+
 /// A dummy signature type, to match `UintAuthorityId`.
 #[derive(
 	Eq,
@@ -227,6 +233,12 @@ impl traits::Verify for TestSignature {
 
 	fn verify<L: traits::Lazy<[u8]>>(&self, mut msg: L, signer: &u64) -> bool {
 		signer == &self.0 && msg.get() == &self.1[..]
+	}
+}
+
+impl traits::SignatureWeight for TestSignature {
+	fn weight(&self) -> sp_weights::Weight {
+		sp_weights::Weight::zero()
 	}
 }
 

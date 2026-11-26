@@ -88,9 +88,13 @@ pub mod fee {
 	impl WeightToFeePolynomial for WeightToFee {
 		type Balance = Balance;
 		fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-			// in Rococo, extrinsic base weight (smallest non-zero weight) is mapped to 1/10 CENT:
+			// in Rococo, extrinsic base weight (smallest non-zero weight) is mapped to 1/10 CENT.
+			// `ExtrinsicBaseWeight` no longer includes signature-verification weight (it is
+			// charged separately via `SignatureWeight`), so add it back here to keep the
+			// smallest non-zero weight, and thus `q`, unchanged.
 			let p = super::currency::CENTS;
-			let q = 10 * Balance::from(ExtrinsicBaseWeight::get().ref_time());
+			let q = 10 *
+				Balance::from(ExtrinsicBaseWeight::get().ref_time().saturating_add(42_814_000));
 			smallvec![WeightToFeeCoefficient {
 				degree: 1,
 				negative: false,
@@ -150,7 +154,7 @@ mod tests {
 		fee::WeightToFee,
 	};
 	use crate::weights::ExtrinsicBaseWeight;
-	use frame_support::weights::WeightToFee as WeightToFeeT;
+	use frame_support::weights::{Weight, WeightToFee as WeightToFeeT};
 	use polkadot_runtime_common::MAXIMUM_BLOCK_WEIGHT;
 
 	#[test]
@@ -165,9 +169,12 @@ mod tests {
 	#[test]
 	// This function tests that the fee for `ExtrinsicBaseWeight` of weight is correct
 	fn extrinsic_base_fee_is_correct() {
-		// `ExtrinsicBaseWeight` should cost 1/10 of a CENT
-		println!("Base: {}", ExtrinsicBaseWeight::get());
-		let x = WeightToFee::weight_to_fee(&ExtrinsicBaseWeight::get());
+		// The smallest non-zero weight of a dispatched extrinsic - `ExtrinsicBaseWeight` plus the
+		// signature weight it no longer includes - should cost 1/10 of a CENT.
+		let smallest_weight =
+			ExtrinsicBaseWeight::get().saturating_add(Weight::from_parts(42_814_000, 0));
+		println!("Base: {}", smallest_weight);
+		let x = WeightToFee::weight_to_fee(&smallest_weight);
 		let y = CENTS / 10;
 		assert!(x.max(y) - x.min(y) < MILLICENTS);
 	}

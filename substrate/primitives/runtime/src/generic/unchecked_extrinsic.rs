@@ -646,7 +646,7 @@ impl<
 where
 	LookupSource: Member + MaybeDisplay,
 	Call: Encode + Member + Dispatchable,
-	Signature: Member + traits::Verify,
+	Signature: Member + traits::Verify + traits::SignatureWeight,
 	<Signature as traits::Verify>::Signer: IdentifyAccount<AccountId = AccountId>,
 	ExtensionV0: Encode + TransactionExtension<Call>,
 	AccountId: Member + MaybeDisplay,
@@ -673,9 +673,12 @@ where
 				if !signature.verify(payload.as_ref(), &signed) {
 					return Err(InvalidTransaction::BadProof.into());
 				}
-
+				let signature_weight = traits::SignatureWeight::weight(&signature);
 				let (function, tx_ext, _) = raw_payload.deconstruct();
-				CheckedExtrinsic { format: ExtrinsicFormat::Signed(signed, tx_ext), function }
+				CheckedExtrinsic {
+					format: ExtrinsicFormat::Signed(signed, tx_ext, signature_weight),
+					function,
+				}
 			},
 			Preamble::General(tx_ext) => CheckedExtrinsic {
 				format: ExtrinsicFormat::General(tx_ext),
@@ -693,10 +696,11 @@ where
 		lookup: &Lookup,
 	) -> Result<Self::Checked, TransactionValidityError> {
 		Ok(match self.preamble {
-			Preamble::Signed(signed, _, tx_ext) => {
+			Preamble::Signed(signed, signature, tx_ext) => {
 				let signed = lookup.lookup(signed)?;
+				let signature_weight = traits::SignatureWeight::weight(&signature);
 				CheckedExtrinsic {
-					format: ExtrinsicFormat::Signed(signed, tx_ext),
+					format: ExtrinsicFormat::Signed(signed, tx_ext, signature_weight),
 					function: self.function,
 				}
 			},
@@ -747,6 +751,22 @@ where
 			Preamble::Bare(_) => Weight::zero(),
 			Preamble::Signed(_, _, ext) => ext.weight(&self.function),
 			Preamble::General(ext) => ext.weight(&self.function),
+		}
+	}
+}
+
+impl<Address, Call, Signature, ExtensionV0, const MAX_CALL_SIZE: usize, ExtensionOtherVersions>
+	UncheckedExtrinsic<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions, MAX_CALL_SIZE>
+where
+	Signature: traits::SignatureWeight,
+{
+	/// Returns the static signature-verification weight of this transaction's preamble.
+	///
+	/// Non-zero only for signed extrinsics; it is a static property of the signature type.
+	pub fn signature_weight(&self) -> Weight {
+		match &self.preamble {
+			Preamble::Signed(_, signature, _) => traits::SignatureWeight::weight(signature),
+			Preamble::Bare(_) | Preamble::General(_) => Weight::zero(),
 		}
 	}
 }
@@ -1379,7 +1399,7 @@ mod tests {
 		assert_eq!(
 			<Ex as Checkable<TestContext>>::check(ux, &Default::default()),
 			Ok(CEx {
-				format: ExtrinsicFormat::Signed(TEST_ACCOUNT, DummyExtension),
+				format: ExtrinsicFormat::Signed(TEST_ACCOUNT, DummyExtension, Default::default()),
 				function: Call::Raw(vec![0u8; 0]).into()
 			}),
 		);
@@ -1413,7 +1433,7 @@ mod tests {
 		assert_eq!(
 			<Ex as Checkable<TestContext>>::check(ux, &Default::default()),
 			Ok(CEx {
-				format: ExtrinsicFormat::Signed(TEST_ACCOUNT, DummyExtension),
+				format: ExtrinsicFormat::Signed(TEST_ACCOUNT, DummyExtension, Default::default()),
 				function: Call::Raw(large_call_data).into(),
 			}),
 		);
