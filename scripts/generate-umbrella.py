@@ -98,6 +98,8 @@ def main(path, version):
 	nostd_crates.sort(key=lambda x: x[0].name)
 
 	runtime_crates = [crate for crate in nostd_crates if 'frame' in crate[0].name or crate[0].name.startswith('sp-')]
+	# Test utilities stay in the umbrella behind their own optional-dependency feature, but are not bundled into `node`.
+	node_crates = [crate for crate in std_crates if not crate[0].metadata.get("polkadot-sdk.exclude-from-node-feature", False)]
 	all_crates = std_crates + nostd_crates
 	all_crates.sort(key=lambda x: x[0].name)
 	dependencies = {}
@@ -119,7 +121,7 @@ def main(path, version):
 		"with-tracing": [],
 		"runtime-full": list([f"{d.name}" for d, _ in nostd_crates]),
 		"runtime": list([f"{d.name}" for d, _ in runtime_crates]),
-		"node": ["std"] + list([f"{d.name}" for d, _ in std_crates]),
+		"node": ["std"] + list([f"{d.name}" for d, _ in node_crates]),
 		"tuples-96": [],
 		"tuples-128": [],
 	}

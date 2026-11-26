@@ -896,8 +896,6 @@ runtime = [
 	"sp-weights",
 ]
 node = [
-	"asset-test-utils",
-	"bridge-hub-test-utils",
 	"cumulus-client-bootnodes",
 	"cumulus-client-cli",
 	"cumulus-client-collator",
@@ -917,7 +915,6 @@ node = [
 	"cumulus-relay-chain-rpc-interface",
 	"cumulus-relay-chain-streams",
 	"cumulus-test-relay-sproof-builder",
-	"emulated-integration-tests-common",
 	"fork-tree",
 	"frame-benchmarking-cli",
 	"frame-remote-externalities",
@@ -927,7 +924,6 @@ node = [
 	"mmr-rpc",
 	"pallet-contracts-mock-network",
 	"pallet-transaction-payment-rpc",
-	"parachains-runtimes-test-utils",
 	"polkadot-approval-distribution",
 	"polkadot-availability-bitfield-distribution",
 	"polkadot-availability-distribution",
