@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795697404020,
+  "lastUpdate": 1795701067316,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "22e63b740b6943b4e39a3c6b779ca9e5408ca00c",
-          "message": "Update runner names in reusable-preflight.yml (#11832)",
-          "timestamp": "2026-05-18T11:39:36Z",
-          "tree_id": "0613011f07f943311055bbced989cf794fe2d1fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/22e63b740b6943b4e39a3c6b779ca9e5408ca00c"
-        },
-        "date": 1779109393671,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52943.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63630,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00518763116,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.83982807278,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.604330700249974,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8226173506900016,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.82271474712,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7922887425199779,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002182882,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002724882,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002724882,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.5238087562699953,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.2759026149529245,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.7978853997099984,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002182882,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-3",
             "value": 2.7063343644299995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f90205d25073b64875981a8e364ce1f5e36683f6",
+          "message": "fix(beefy): submit equivocation reports through the offchain transaction pool (#13985)\n\nThe BEEFY fisherman calls\n`submit_report_double_voting_unsigned_extrinsic` without an offchain\ntransaction pool registered, so the runtime's `submit_transaction`\npanics with \"submit_transaction\ncan be called only in the offchain call context with TransactionPool\ncapabilities enabled\" and\nBEEFY equivocations are never reported. GRANDPA and BABE get the pool\nthrough their params.\n\nThis adds `offchain_tx_pool_factory` to `BeefyParams` and registers it\nbefore submitting a report.\nRuntime API mocks now ignore `register_extension` instead of panicking,\nsince the BEEFY tests\nreport through them.\n\nReproduced on a node whose runtime enables BEEFY equivocation reporting:\na signed double-voting\nreport with a valid key ownership proof fails as above without the pool,\nand reaches the pool with it.\n\nPrepared with AI assistance.\n\n---------\n\nSigned-off-by: Tomasz Bartos <tomasz.bartos@shielded.io>",
+          "timestamp": "2026-11-26T12:04:05Z",
+          "tree_id": "693d81b29a832642dd1f083f3bb386c3717c2cf6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f90205d25073b64875981a8e364ce1f5e36683f6"
+        },
+        "date": 1795701022885,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63569.780000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.682480325520001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018582129999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001824027,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001824027,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018582129999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3545270016000064,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005141646570000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.735974612350002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7049690529799992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.000227775660003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7045463134400007,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.497809390342734,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.812588823199991,
             "unit": "seconds"
           }
         ]
