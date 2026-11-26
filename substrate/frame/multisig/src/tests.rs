@@ -138,6 +138,17 @@ pub fn new_test_ext() -> TestState {
 	ext
 }
 
+/// Run `test` in a fresh externality, then assert the pallet invariants hold.
+///
+/// The `do_try_state` check only runs under the `try-runtime` feature.
+fn new_test_ext_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		#[cfg(feature = "try-runtime")]
+		Multisig::do_try_state().expect("All invariants must hold after each test");
+	});
+}
+
 fn now() -> Timepoint<u32> {
 	Multisig::timepoint()
 }
@@ -148,7 +159,7 @@ fn call_transfer(dest: u64, value: u64) -> Box<RuntimeCall> {
 
 #[test]
 fn multisig_deposit_is_taken_and_returned() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), multi, 5));
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(2), multi, 5));
@@ -182,7 +193,7 @@ fn multisig_deposit_is_taken_and_returned() {
 
 #[test]
 fn cancel_multisig_returns_deposit() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15).encode();
 		let hash = blake2_256(&call);
 		assert_ok!(Multisig::approve_as_multi(
@@ -211,7 +222,7 @@ fn cancel_multisig_returns_deposit() {
 
 #[test]
 fn timepoint_checking_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), multi, 5));
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(2), multi, 5));
@@ -269,7 +280,7 @@ fn timepoint_checking_works() {
 
 #[test]
 fn approve_as_multi_requires_timepoint_after_first_approval() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15).encode();
 		let hash = blake2_256(&call);
 
@@ -310,7 +321,7 @@ fn approve_as_multi_requires_timepoint_after_first_approval() {
 
 #[test]
 fn multisig_2_of_3_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), multi, 5));
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(2), multi, 5));
@@ -355,7 +366,7 @@ fn multisig_2_of_3_works() {
 
 #[test]
 fn multisig_3_of_3_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 3);
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), multi, 5));
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(2), multi, 5));
@@ -396,7 +407,7 @@ fn multisig_3_of_3_works() {
 
 #[test]
 fn cancel_multisig_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15).encode();
 		let hash = blake2_256(&call);
 		assert_ok!(Multisig::approve_as_multi(
@@ -425,7 +436,7 @@ fn cancel_multisig_works() {
 
 #[test]
 fn cancel_as_multi_not_found_with_wrong_signatories() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15).encode();
 		let hash = blake2_256(&call);
 		// Create a multisig with signatories [1, 2, 3]
@@ -462,7 +473,7 @@ fn cancel_as_multi_not_found_with_wrong_signatories() {
 
 #[test]
 fn cancel_as_multi_not_found_with_wrong_call_hash() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15).encode();
 		let hash = blake2_256(&call);
 		// Create a multisig
@@ -494,7 +505,7 @@ fn cancel_as_multi_not_found_with_wrong_call_hash() {
 
 #[test]
 fn approve_as_multi_unexpected_timepoint_with_wrong_signatories() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15).encode();
 		let hash = blake2_256(&call);
 		// Create a multisig with signatories [1, 2, 3]
@@ -535,7 +546,7 @@ fn approve_as_multi_unexpected_timepoint_with_wrong_signatories() {
 
 #[test]
 fn approve_as_multi_unexpected_timepoint_with_wrong_call_hash() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15).encode();
 		let hash = blake2_256(&call);
 		// Create a multisig
@@ -577,7 +588,7 @@ fn approve_as_multi_unexpected_timepoint_with_wrong_call_hash() {
 
 #[test]
 fn as_multi_unexpected_timepoint_with_wrong_signatories() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15);
 		let hash = blake2_256(&call.encode());
 		// Create a multisig
@@ -620,7 +631,7 @@ fn as_multi_unexpected_timepoint_with_wrong_signatories() {
 
 #[test]
 fn multisig_2_of_3_as_multi_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), multi, 5));
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(2), multi, 5));
@@ -652,7 +663,7 @@ fn multisig_2_of_3_as_multi_works() {
 
 #[test]
 fn multisig_2_of_3_as_multi_with_many_calls_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), multi, 5));
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(2), multi, 5));
@@ -703,7 +714,7 @@ fn multisig_2_of_3_as_multi_with_many_calls_works() {
 
 #[test]
 fn multisig_2_of_3_cannot_reissue_same_call() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), multi, 5));
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(2), multi, 5));
@@ -762,7 +773,7 @@ fn multisig_2_of_3_cannot_reissue_same_call() {
 
 #[test]
 fn minimum_threshold_check_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15);
 		assert_noop!(
 			Multisig::as_multi(
@@ -791,7 +802,7 @@ fn minimum_threshold_check_works() {
 
 #[test]
 fn too_many_signatories_fails() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15);
 		assert_noop!(
 			Multisig::as_multi(
@@ -809,7 +820,7 @@ fn too_many_signatories_fails() {
 
 #[test]
 fn as_multi_with_signatories_out_of_order_fails() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15);
 		assert_noop!(
 			Multisig::as_multi(
@@ -827,7 +838,7 @@ fn as_multi_with_signatories_out_of_order_fails() {
 
 #[test]
 fn approve_as_multi_with_signatories_out_of_order_fails() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15).encode();
 		let hash = blake2_256(&call);
 		assert_noop!(
@@ -846,7 +857,7 @@ fn approve_as_multi_with_signatories_out_of_order_fails() {
 
 #[test]
 fn cancel_as_multi_with_signatories_out_of_order_fails() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15).encode();
 		let hash = blake2_256(&call);
 
@@ -885,7 +896,7 @@ fn cancel_as_multi_with_signatories_out_of_order_fails() {
 
 #[test]
 fn as_multi_with_sender_in_signatories_fails() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15);
 		assert_noop!(
 			Multisig::as_multi(
@@ -903,7 +914,7 @@ fn as_multi_with_sender_in_signatories_fails() {
 
 #[test]
 fn approve_as_multi_with_sender_in_signatories_fails() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15).encode();
 		let hash = blake2_256(&call);
 		// First, create a valid multisig with account 1
@@ -932,7 +943,7 @@ fn approve_as_multi_with_sender_in_signatories_fails() {
 
 #[test]
 fn cancel_as_multi_with_sender_in_signatories_fails() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15).encode();
 		let hash = blake2_256(&call);
 		// Create a multisig with account 1
@@ -960,7 +971,7 @@ fn cancel_as_multi_with_sender_in_signatories_fails() {
 
 #[test]
 fn duplicate_approvals_are_ignored() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15);
 		let hash = blake2_256(&call.encode());
 		assert_ok!(Multisig::approve_as_multi(
@@ -1018,7 +1029,7 @@ fn duplicate_approvals_are_ignored() {
 
 #[test]
 fn multisig_1_of_3_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 1);
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), multi, 5));
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(2), multi, 5));
@@ -1070,7 +1081,7 @@ fn multisig_1_of_3_works() {
 
 #[test]
 fn multisig_filters() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = Box::new(RuntimeCall::System(frame_system::Call::set_code { code: vec![] }));
 		assert_noop!(
 			Multisig::as_multi_threshold_1(RuntimeOrigin::signed(1), vec![2], call.clone()),
@@ -1081,7 +1092,7 @@ fn multisig_filters() {
 
 #[test]
 fn weight_check_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), multi, 5));
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(2), multi, 5));
@@ -1117,7 +1128,7 @@ fn multisig_handles_no_preimage_after_all_approve() {
 	// This test checks the situation where everyone approves a multi-sig, but no-one provides the
 	// call data. In the end, any of the multisig callers can approve again with the call data and
 	// the call will go through.
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 3);
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), multi, 5));
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(2), multi, 5));
@@ -1166,7 +1177,7 @@ fn multisig_handles_no_preimage_after_all_approve() {
 
 #[test]
 fn poke_deposit_fails_for_threshold_less_than_two() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15);
 		let hash = blake2_256(&call.encode());
 		assert_noop!(
@@ -1182,7 +1193,7 @@ fn poke_deposit_fails_for_threshold_less_than_two() {
 
 #[test]
 fn poke_deposit_fails_for_too_incorrect_number_of_signatories() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15);
 		let hash = blake2_256(&call.encode());
 		assert_noop!(
@@ -1198,7 +1209,7 @@ fn poke_deposit_fails_for_too_incorrect_number_of_signatories() {
 
 #[test]
 fn poke_deposit_fails_for_signatories_out_of_order() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15);
 		let hash = blake2_256(&call.encode());
 		let threshold = 2;
@@ -1226,7 +1237,7 @@ fn poke_deposit_fails_for_signatories_out_of_order() {
 
 #[test]
 fn poke_deposit_fails_for_non_existent_multisig() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_noop!(
 			Multisig::poke_deposit(RuntimeOrigin::signed(1), 2, vec![2, 3], [0; 32]),
 			Error::<Test>::NotFound
@@ -1236,7 +1247,7 @@ fn poke_deposit_fails_for_non_existent_multisig() {
 
 #[test]
 fn poke_deposit_fails_for_non_owner() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15);
 		let hash = blake2_256(&call.encode());
 		let threshold = 2;
@@ -1265,7 +1276,7 @@ fn poke_deposit_fails_for_non_owner() {
 
 #[test]
 fn poke_deposit_charges_fee_when_deposit_unchanged() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15);
 		let hash = blake2_256(&call.encode());
 		let threshold = 2;
@@ -1303,7 +1314,7 @@ fn poke_deposit_charges_fee_when_deposit_unchanged() {
 
 #[test]
 fn poke_deposit_works_when_deposit_increases() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15);
 		let hash = blake2_256(&call.encode());
 		let threshold = 2;
@@ -1373,7 +1384,7 @@ fn poke_deposit_works_when_deposit_increases() {
 
 #[test]
 fn poke_deposit_works_when_deposit_decreases() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// Start with higher deposit requirements
 		MultisigDepositBase::set(3);
 		MultisigDepositFactor::set(2);
@@ -1447,7 +1458,7 @@ fn poke_deposit_works_when_deposit_decreases() {
 
 #[test]
 fn poke_deposit_handles_insufficient_balance() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let call = call_transfer(6, 15);
 		let hash = blake2_256(&call.encode());
 		let threshold = 2;
