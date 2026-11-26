@@ -3796,15 +3796,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cfg-expr"
-version = "0.15.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03915af431787e6ffdcc74c645077518c6b6e01f80b761e0fbbfa288536311b3"
-dependencies = [
- "smallvec",
-]
-
-[[package]]
 name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4943,6 +4934,22 @@ checksum = "90eeab0aa92f3f9b4e87f258c72b139c207d251f9cbc1080a0086b86a8870dd3"
 dependencies = [
  "nix 0.29.0",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "cumulus-aura-authorizer-utils"
+version = "0.1.0"
+dependencies = [
+ "binary-merkle-tree 13.0.0",
+ "blake2b_simd",
+ "hash-db",
+ "hash256-std-hasher",
+ "jam-codec",
+ "jam-types",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "primitive-types 0.13.1",
+ "sp-crypto-hashing 0.1.0",
 ]
 
 [[package]]
@@ -7932,7 +7939,6 @@ name = "frame-support-procedural"
 version = "23.0.0"
 dependencies = [
  "Inflector",
- "cfg-expr",
  "derive-syn-parse",
  "derive-where",
  "docify",
@@ -16958,9 +16964,9 @@ dependencies = [
 
 [[package]]
 name = "polkadot-ckb-merkle-mountain-range"
-version = "0.8.3"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8abce4345790bc05f0dc56f55d8c6083bae43b58d0d96fd79d7e3aa99571ca1a"
+checksum = "a7981f73d570c8a4ef66f433f0b2060827f31130e2b9dbb8ac3f0983d3778d93"
 dependencies = [
  "cfg-if",
  "itertools 0.10.5",
@@ -18226,6 +18232,7 @@ dependencies = [
  "bridge-hub-common",
  "bridge-hub-test-utils",
  "bridge-runtime-common",
+ "cumulus-aura-authorizer-utils",
  "cumulus-client-bootnodes",
  "cumulus-client-cli",
  "cumulus-client-collator",
@@ -23217,7 +23224,9 @@ version = "2.0.0"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
+ "async-trait",
  "fdlimit",
+ "frame-system",
  "futures",
  "log",
  "parity-scale-codec",
@@ -23232,9 +23241,11 @@ dependencies = [
  "sc-service",
  "sc-transaction-pool-api 28.0.0",
  "sp-api 26.0.0",
+ "sp-block-builder",
  "sp-blockchain 28.0.0",
  "sp-consensus 0.32.0",
  "sp-core 28.0.0",
+ "sp-inherents 26.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
