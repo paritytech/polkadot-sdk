@@ -67,7 +67,7 @@
 //!
 //! - [`Currency`]: Functions for dealing with a fungible assets system.
 //! - [`ReservableCurrency`]
-//! - [`NamedReservableCurrency`](frame_support::traits::NamedReservableCurrency):
+//! - [`NamedReservableCurrency`]:
 //! Functions for dealing with assets that can be reserved from an account.
 //! - [`LockableCurrency`](frame_support::traits::LockableCurrency): Functions for
 //! dealing with accounts that allow liquidity restrictions.
@@ -170,7 +170,8 @@ use frame_support::{
 			Preservation::{Expendable, Preserve, Protect},
 			WithdrawConsequence,
 		},
-		Currency, Defensive, Get, OnUnbalanced, ReservableCurrency, StoredMap,
+		Currency, Defensive, Get, NamedReservableCurrency, OnUnbalanced, ReservableCurrency,
+		StoredMap,
 	},
 	BoundedSlice, WeakBoundedVec,
 };
@@ -465,6 +466,10 @@ pub mod pallet {
 	pub type TotalIssuance<T: Config<I>, I: 'static = ()> = StorageValue<_, T::Balance, ValueQuery>;
 
 	/// The total units of outstanding deactivated balance in the system.
+	///
+	/// This is not guaranteed to be less than or equal to [`TotalIssuance`]. Total issuance may be
+	/// reduced independently of this value, including while a reversible imbalance is outstanding.
+	/// Active issuance is therefore derived using saturating subtraction.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	pub type InactiveIssuance<T: Config<I>, I: 'static = ()> =
@@ -722,6 +727,9 @@ pub mod pallet {
 
 		/// Unreserve some balance from a user by force.
 		///
+		/// Only acts on the part of the reserved balance that does not back a hold or a named
+		/// reserve.
+		///
 		/// Can only be called by ROOT.
 		#[pallet::call_index(5)]
 		pub fn force_unreserve(
@@ -732,6 +740,31 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let who = T::Lookup::lookup(who)?;
 			let _leftover = <Self as ReservableCurrency<_>>::unreserve(&who, amount);
+			Ok(())
+		}
+
+		/// Unreserve some balance of the named reserve `id` from a user by force.
+		///
+		/// Only acts on that named reserve, and never on the part of the reserved balance that
+		/// backs a hold.
+		///
+		/// Can only be called by ROOT.
+		#[pallet::call_index(11)]
+		#[pallet::weight(
+			// `force_unreserve`, plus reading and writing the named reserves.
+			<T as Config<I>>::WeightInfo::force_unreserve()
+				.saturating_add(T::DbWeight::get().reads_writes(1, 1))
+		)]
+		pub fn force_unreserve_named(
+			origin: OriginFor<T>,
+			id: T::ReserveIdentifier,
+			who: AccountIdLookupOf<T>,
+			amount: T::Balance,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let who = T::Lookup::lookup(who)?;
+			let _leftover =
+				<Self as NamedReservableCurrency<_>>::unreserve_named(&id, &who, amount);
 			Ok(())
 		}
 
@@ -886,6 +919,37 @@ pub mod pallet {
 			who: &T::AccountId,
 		) -> BoundedVec<ReserveData<T::ReserveIdentifier, T::Balance>, T::MaxReserves> {
 			Reserves::<T, I>::get(who)
+		}
+
+		/// The most of `who`'s reserved balance that a [`ReservableCurrency`] operation can act on.
+		///
+		/// With `None`, this is the unnamed reserve: the part backing neither a hold nor a named
+		/// reserve. With `Some(id)`, this is the named reserve `id`, but never the part backing a
+		/// hold.
+		pub(crate) fn max_reserved_touchable(
+			who: &T::AccountId,
+			id: Option<&T::ReserveIdentifier>,
+		) -> T::Balance {
+			let held = Holds::<T, I>::get(who)
+				.iter()
+				.fold(T::Balance::zero(), |acc, hold| acc.saturating_add(hold.amount));
+			let not_held = Self::account(who).reserved.saturating_sub(held);
+			let reserves = Reserves::<T, I>::get(who);
+			match id {
+				// if we are operating on a non-identified reserve, we can never touch held or named
+				// reserves.
+				None => reserves
+					.iter()
+					.fold(not_held, |acc, reserve| acc.saturating_sub(reserve.amount)),
+				// if we are operating on a named reserve, we can only touch that named reserve. The
+				// `min` is a no-op as long as the reserved balance covers all holds and named
+				// reserves. It only matters for an account that is already under-backed, where it
+				// keeps the holds backed first.
+				Some(id) => reserves
+					.binary_search_by_key(id, |reserve| reserve.id)
+					.map_or(T::Balance::zero(), |index| reserves[index].amount)
+					.min(not_held),
+			}
 		}
 
 		fn ed() -> T::Balance {
@@ -1116,10 +1180,10 @@ pub mod pallet {
 				// Evaluates `maybe_dust`, which is `Some` containing the dust to be dropped, iff
 				// some dust should be dropped.
 				//
-				// We should never be dropping if reserved is non-zero. Reserved being non-zero
-				// should imply that we have a consumer ref, so this is economically safe.
+				// We should never be dropping if there are either reserves or freezes since that
+				// implies a consumer ref.
 				let ed = Self::ed();
-				let maybe_dust = if account.free < ed && account.reserved.is_zero() {
+				let maybe_dust = if account.free < ed && !does_consume {
 					if account.free.is_zero() {
 						None
 					} else {
@@ -1162,8 +1226,8 @@ pub mod pallet {
 			let freezes = Freezes::<T, I>::get(who);
 			let mut prev_frozen = Zero::zero();
 			let mut after_frozen = Zero::zero();
-			// We do not alter ED, so the account will not get dusted. Yet, consumer limit might be
-			// full, therefore we pass `true` into `mutate_account` to make sure this cannot fail
+			// The consumer limit might be full, therefore we pass `true` into `mutate_account` to
+			// make sure this cannot fail.
 			let res = Self::mutate_account(who, true, |b| {
 				prev_frozen = b.frozen;
 				b.frozen = Zero::zero();
@@ -1175,23 +1239,22 @@ pub mod pallet {
 				}
 				after_frozen = b.frozen;
 			});
-			match res {
-				Ok((_, None)) => {
-					// expected -- all good.
-				},
-				Ok((_, Some(_dust))) => {
-					Self::deposit_event(Event::Unexpected(UnexpectedKind::BalanceUpdated));
-					defensive!("caused unexpected dusting/balance update.");
-				},
-				_ => {
+			let maybe_dust = match res {
+				Ok((_, maybe_dust)) => maybe_dust,
+				Err(_) => {
 					Self::deposit_event(Event::Unexpected(UnexpectedKind::FailedToMutateAccount));
 					defensive!("errored in mutate_account");
+					None
 				},
-			}
+			};
 
 			match locks.is_empty() {
 				true => Locks::<T, I>::remove(who),
 				false => Locks::<T, I>::insert(who, bounded_locks),
+			}
+
+			if let Some(dust) = maybe_dust {
+				<Self as fungible::Unbalanced<_>>::handle_raw_dust(dust);
 			}
 
 			if prev_frozen > after_frozen {
@@ -1224,15 +1287,17 @@ pub mod pallet {
 				}
 				after_frozen = b.frozen;
 			})?;
-			if maybe_dust.is_some() {
-				Self::deposit_event(Event::Unexpected(UnexpectedKind::BalanceUpdated));
-				defensive!("caused unexpected dusting/balance update.");
-			}
+
 			if freezes.is_empty() {
 				Freezes::<T, I>::remove(who);
 			} else {
 				Freezes::<T, I>::insert(who, freezes);
 			}
+
+			if let Some(dust) = maybe_dust {
+				<Self as fungible::Unbalanced<_>>::handle_raw_dust(dust);
+			}
+
 			if prev_frozen > after_frozen {
 				let amount = prev_frozen.saturating_sub(after_frozen);
 				Self::deposit_event(Event::Thawed { who: who.clone(), amount });
@@ -1246,6 +1311,8 @@ pub mod pallet {
 		/// Move the reserved balance of one account into the balance of another, according to
 		/// `status`. This will respect freezes/locks only if `fortitude` is `Polite`.
 		///
+		/// Moves at most `max_reserved_touchable(slashed, id)`.
+		///
 		/// Is a no-op if the value to be moved is zero.
 		///
 		/// NOTE: returns actual amount of transferred value in `Ok` case.
@@ -1256,6 +1323,7 @@ pub mod pallet {
 			precision: Precision,
 			fortitude: Fortitude,
 			status: Status,
+			id: Option<&T::ReserveIdentifier>,
 		) -> Result<T::Balance, DispatchError> {
 			if value.is_zero() {
 				return Ok(Zero::zero());
@@ -1263,7 +1331,8 @@ pub mod pallet {
 
 			let max = <Self as fungible::InspectHold<_>>::reducible_total_balance_on_hold(
 				slashed, fortitude,
-			);
+			)
+			.min(Self::max_reserved_touchable(slashed, id));
 			let actual = match precision {
 				Precision::BestEffort => value.min(max),
 				Precision::Exact => value,
@@ -1271,7 +1340,9 @@ pub mod pallet {
 			ensure!(actual <= max, TokenError::FundsUnavailable);
 			if slashed == beneficiary {
 				return match status {
-					Status::Free => Ok(actual.saturating_sub(Self::unreserve(slashed, actual))),
+					Status::Free => {
+						Ok(actual.saturating_sub(Self::do_unreserve(slashed, actual, id)))
+					},
 					Status::Reserved => Ok(actual),
 				};
 			}

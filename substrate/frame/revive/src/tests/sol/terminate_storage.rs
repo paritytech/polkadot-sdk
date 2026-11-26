@@ -32,8 +32,7 @@ use pretty_assertions::assert_eq;
 use test_case::test_case;
 
 /// A call that writes storage and then terminates a contract must still charge and hold
-/// the storage deposit for those writes when the deposit limit only covers the writes
-/// themselves.
+/// the storage deposit for those writes.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn storage_written_before_terminate_is_charged(fixture_type: FixtureType) {
@@ -63,52 +62,57 @@ fn storage_written_before_terminate_is_charged(fixture_type: FixtureType) {
 		};
 		assert!(cost > 0);
 
-		// The inner contract starts with no balance, so its scheduled termination transfers
-		// nothing immediately; the caller funds it after scheduling.
-		let Contract { addr: inner, account_id: inner_account } =
-			builder::bare_instantiate(Code::Upload(inner_code)).build_and_unwrap_contract();
-		let inner_deposit = get_balance_on_hold(&storage_hold, &inner_account);
+		builder::bare_instantiate(Code::Upload(inner_code)).build_and_unwrap_contract();
 
 		// A second, identical caller (distinct salt for a distinct address) so its slots
 		// are fresh again. Funded so it can transfer to the inner contract.
-		let Contract { addr: caller, .. } = builder::bare_instantiate(Code::Upload(caller_code))
-			.native_value(1_000_000_000)
-			.salt(Some([1u8; 32]))
-			.build_and_unwrap_contract();
+		let Contract { addr: caller, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code.clone()))
+				.native_value(1_000_000_000)
+				.salt(Some([1u8; 32]))
+				.build_and_unwrap_contract();
 		let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller);
 
 		let beneficiary = H160::from([0x42u8; 20]);
 		let beneficiary_account = <Test as Config>::AddressMapper::to_account_id(&beneficiary);
-		assert_eq!(get_balance(&beneficiary_account), 0, "beneficiary must not exist yet");
 
 		// The storage deposit for the writes is held either from the origin or from the
 		// contract account, so track both.
 		let held_before = get_balance_on_hold(&storage_hold, &ALICE) +
 			get_balance_on_hold(&storage_hold, &caller_account);
 
+		let Contract { addr: probe, .. } = builder::bare_instantiate(Code::Upload(caller_code))
+			.native_value(1_000_000_000)
+			.salt(Some([2u8; 32]))
+			.build_and_unwrap_contract();
+		let call_data = TerminateStorageCaller::createWriteAndTerminateCall {
+			n,
+			beneficiary: beneficiary.0.into(),
+		}
+		.abi_encode();
+		let probe_result = builder::bare_call(probe).data(call_data.clone()).build();
+		assert!(probe_result.result.is_ok(), "probe call failed: {:?}", probe_result.result);
+		let limit = probe_result.max_storage_deposit.charge_or_zero();
+		let beneficiary_before = get_balance(&beneficiary_account);
+
 		let result = builder::bare_call(caller)
-			.data(
-				TerminateStorageCaller::writeAndTerminateCall {
-					inner: inner.0.into(),
-					n,
-					beneficiary: beneficiary.0.into(),
-				}
-				.abi_encode(),
-			)
+			.data(call_data)
 			.transaction_limits(TransactionLimits::WeightAndDeposit {
 				weight_limit: WEIGHT_LIMIT,
-				deposit_limit: cost,
+				deposit_limit: limit,
 			})
 			.build();
 
-		assert!(result.result.is_ok(), "call failed: {:?}", result.result);
-
-		// The writes are charged and backed by a real hold, not wiped to Charge(0). The inner
-		// contract's deposit is refunded on top.
-		assert_eq!(
-			result.storage_deposit,
-			StorageDeposit::Charge(cost).saturating_add(&StorageDeposit::Refund(inner_deposit)),
+		let output = result.result.expect("call failed");
+		assert!(!output.did_revert(), "call reverted: {:?}", output.data);
+		let inner = H160::from_slice(
+			&TerminateStorageCaller::createWriteAndTerminateCall::abi_decode_returns(&output.data)
+				.unwrap()
+				.0[..],
 		);
+		let inner_account = <Test as Config>::AddressMapper::to_account_id(&inner);
+
+		assert_eq!(result.storage_deposit, StorageDeposit::Charge(cost));
 		let held_after = get_balance_on_hold(&storage_hold, &ALICE) +
 			get_balance_on_hold(&storage_hold, &caller_account);
 		assert_eq!(held_after - held_before, cost, "the writes must be held");
@@ -118,11 +122,8 @@ fn storage_written_before_terminate_is_charged(fixture_type: FixtureType) {
 			"the caller's contract info deposit must match the hold",
 		);
 
-		// Sending the funds that arrived after scheduling would create the beneficiary, which
-		// the limit does not cover. The funds stay on the inner account and the inner contract
-		// is deleted anyway.
 		assert!(get_contract_checked(&inner).is_none(), "inner contract must be deleted");
-		assert_eq!(get_balance(&beneficiary_account), 0, "beneficiary must not be created");
-		assert!(get_balance(&inner_account) > 0, "the funds must stay on the inner account");
+		assert_eq!(get_balance(&beneficiary_account) - beneficiary_before, 1_000_000);
+		assert_eq!(get_balance(&inner_account), 0, "no funds stay on the inner account");
 	});
 }

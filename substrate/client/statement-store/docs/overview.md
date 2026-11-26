@@ -9,7 +9,7 @@ Key characteristics:
 - **Off-chain storage** — keeps the data off-chain to avoid blockchain state bloat.
 - **Gossip-based distribution** — statements propagate node-to-node over a notification protocol.
 - **Cryptographic verification** — every statement is signed and verified before acceptance.
-- **Topic-based indexing** — up to four topics per statement for efficient querying.
+- **Topic-based indexing** — one to four topics per statement for efficient querying.
 - **Account-based limits** — per-account quotas bound how much an account may store.
 - **Automatic eviction** — lower-priority statements are evicted when limits are reached.
 - **Multiple access methods** — reachable over JSON-RPC for applications and via the runtime API
@@ -67,8 +67,8 @@ When a submission would exceed either limit, the account's lowest-priority state
 the lowest expiry) are evicted to make room. If a single statement's data exceeds `max_size` it is
 rejected outright; and if, even after evicting every lower-priority statement, the new one still
 does not fit, it is rejected too. Global limits apply on top of per-account limits: the store holds
-at most `DEFAULT_MAX_TOTAL_STATEMENTS` statements and `DEFAULT_MAX_TOTAL_SIZE` of data. On the v2
-DHT path the statements kept for DHT affinity and the transient ones also have a size limit each,
+at most `DEFAULT_MAX_TOTAL_STATEMENTS` statements and `DEFAULT_MAX_TOTAL_SIZE` of data. On the DHT
+path the statements kept for DHT affinity and the transient ones also have a size limit each,
 and a full limit rejects only new statements of its own kind. Statements kept only for explicit
 affinity have no limit of their own.
 
@@ -93,7 +93,7 @@ priority-based eviction or expiry. The store does not prescribe how a channel id
 
 ## Topics
 
-Topics are the primary attribute used to query and filter statements. A statement carries up to
+Topics are the primary attribute used to query and filter statements. A statement carries one to
 `MAX_TOPICS` (4) topics, each a 32-byte identifier, and the store maintains a `topic -> statements`
 index for fast lookups.
 

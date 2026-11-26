@@ -448,6 +448,7 @@ impl pallet_staking_async::Config for Runtime {
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
+	type SlashRewardDecay = ();
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type EraPayout = ();
@@ -472,7 +473,7 @@ impl pallet_staking_async::Config for Runtime {
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
 	type RcClientInterface = StakingRcClient;
-	type IsValidatorInactive = ();
+	type IsValidatorInactive = pallet_staking_async::AllZero;
 	type OnEraStart = ();
 }
 

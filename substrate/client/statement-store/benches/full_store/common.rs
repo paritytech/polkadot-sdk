@@ -32,6 +32,8 @@
 //!   completing the `read_scaling` 1k/10k/50k curve at 4M);
 //! - `i >= 1000`               → one diverse topic `topic(1000 + i/8)` (~524k distinct topics, 8
 //!   statements each: a deep, realistic topic index).
+//! - none of the above         → one shared filler topic, because the store rejects a statement
+//!   without topics.
 //!
 //! Write benches use a dedicated 65th ("sacrificial") account with fresh high-range ids, so they
 //! never perturb the fixture accounts; the eviction bench reopens the store with a per-account
@@ -324,7 +326,7 @@ pub fn channel(data: u64) -> sp_statement_store::Channel {
 	channel
 }
 
-/// Like [`create_statement`] (topic-less), but carrying a channel: admitting such a
+/// Like [`create_statement`] with one filler topic, but carrying a channel: admitting such a
 /// statement forces the store to consult the account's full channel state.
 pub fn create_channel_statement(
 	id: u64,
@@ -338,6 +340,7 @@ pub fn create_channel_statement(
 	data[0..8].copy_from_slice(&id.to_le_bytes());
 	statement.set_plain_data(data);
 	statement.set_channel(chan);
+	statement.set_topic(0, topic(u64::MAX));
 	statement.set_expiry(expiry);
 	statement.sign_ed25519_private(keypair);
 	statement
@@ -356,6 +359,9 @@ pub fn fixture_statement(i: u64, keypairs: &[sp_core::ed25519::Pair]) -> Stateme
 	if i % 10 == 3 {
 		topics.push(topic(2));
 		topics.push(topic(3));
+	}
+	if topics.is_empty() {
+		topics.push(topic(u64::MAX));
 	}
 	create_statement(
 		i,

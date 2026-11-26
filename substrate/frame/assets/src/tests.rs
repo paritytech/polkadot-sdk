@@ -1706,6 +1706,34 @@ fn freezing_and_holds_work() {
 }
 
 #[test]
+fn releasing_hold_at_minimum_balance_keeps_freeze() {
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 1010));
+		set_balance_on_hold(0, 1, 1000);
+		set_frozen_balance(0, 1, 1000);
+
+		assert_eq!(Assets::balance(0, 1), 10);
+		assert_noop!(
+			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 10),
+			Error::<Test>::BalanceLow
+		);
+
+		clear_balance_on_hold(0, 1);
+		assert_eq!(Assets::balance(0, 1), 1010);
+		assert_eq!(TestFreezer::frozen_balance(0, &1), Some(1000));
+		assert_eq!(Assets::total_supply(0), 1010);
+		assert_noop!(
+			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 11),
+			Error::<Test>::BalanceLow
+		);
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 10));
+		assert_eq!(Assets::balance(0, 1), 1000);
+		assert_eq!(Assets::total_supply(0), 1010);
+	});
+}
+
+#[test]
 fn imbalances_should_work() {
 	use frame_support::traits::fungibles::Balanced;
 
@@ -2187,6 +2215,54 @@ fn balance_change_callbacks_fire_on_fungibles_paths() {
 			vec![(asset, dest, move_amount).encode()],
 			"fungibles `burn_from` must fire `burned` exactly once"
 		);
+	});
+}
+
+/// `burn_from` with `Expendable` on a balance that would be left below the minimum returns the
+/// dust as part of the burned amount and takes it out of the supply. Callers that reconcile
+/// against the returned amount, such as `pallet-psm`'s debt, rely on this.
+#[test]
+fn burn_from_expendable_returns_dust_in_burned_amount() {
+	use frame_support::traits::{
+		fungibles::Mutate,
+		tokens::{Fortitude, Precision, Preservation},
+	};
+	build_and_execute(|| {
+		let (asset, who, min_balance) = (0u32, 1u64, 10u64);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, 1, true, min_balance));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), asset, who, 109));
+
+		// Burning 100 leaves 9, below the minimum: the 9 go with it.
+		assert_eq!(
+			Assets::burn_from(
+				asset,
+				&who,
+				100,
+				Preservation::Expendable,
+				Precision::Exact,
+				Fortitude::Polite
+			),
+			Ok(109)
+		);
+		assert_eq!(Assets::balance(asset, who), 0);
+		assert_eq!(Assets::total_supply(asset), 0);
+		assert!(!Account::<Test>::contains_key(asset, who));
+
+		// Leaving exactly the minimum burns only what was asked.
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), asset, who, 110));
+		assert_eq!(
+			Assets::burn_from(
+				asset,
+				&who,
+				100,
+				Preservation::Expendable,
+				Precision::Exact,
+				Fortitude::Polite
+			),
+			Ok(100)
+		);
+		assert_eq!(Assets::balance(asset, who), min_balance);
+		assert_eq!(Assets::total_supply(asset), min_balance);
 	});
 }
 

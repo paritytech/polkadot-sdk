@@ -33,9 +33,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::traits::{ExecuteBlock, FindAuthor};
+use frame_support::traits::ExecuteBlock;
 use sp_application_crypto::RuntimeAppPublic;
-use sp_consensus_aura::{digests::CompatibleDigestItem, Slot};
+use sp_consensus_aura::{
+	digests::{find_pre_digest, take_seal},
+	Slot,
+};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, LazyBlock};
 
 pub mod consensus_hook;
@@ -133,26 +136,14 @@ where
 		// before any potential update.
 		let authorities = Authorities::<T>::get();
 
-		let mut seal = None;
-		header.digest_mut().logs.retain(|s| {
-			let s =
-				CompatibleDigestItem::<<T::AuthorityId as RuntimeAppPublic>::Signature>::as_aura_seal(s);
-			match (s, seal.is_some()) {
-				(Some(_), true) => panic!("Found multiple AuRa seal digests"),
-				(None, _) => true,
-				(Some(s), false) => {
-					seal = Some(s);
-					false
-				},
-			}
-		});
+		let (_, seal) =
+			take_seal::<<T::AuthorityId as RuntimeAppPublic>::Signature>(header.digest_mut())
+				.unwrap_or_else(|e| panic!("Invalid AuRa seal: {e:?}"));
 
-		let seal = seal.expect("Could not find an AuRa seal digest!");
+		let slot = find_pre_digest(header.digest())
+			.unwrap_or_else(|e| panic!("Invalid AuRa pre-digest: {e:?}"));
 
-		let author = Aura::<T>::find_author(
-			header.digest().logs().iter().filter_map(|d| d.as_pre_runtime()),
-		)
-		.expect("Could not find AuRa author index!");
+		let author = Aura::<T>::slot_author_index(slot).expect("Could not find AuRa author index!");
 
 		let pre_hash = header.hash();
 

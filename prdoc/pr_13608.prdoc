@@ -1,0 +1,10 @@
+title: 'network/litep2p: replay identified peers to a new event stream'
+doc:
+- audience: Node Dev
+  description: |-
+    With the litep2p backend, an event stream now receives a `PeerIdentified` for every connected
+    peer identified before it subscribed. A subscriber created after the network starts, such as the
+    statement handler, no longer misses the peers that connected and identified in between.
+crates:
+- name: sc-network
+  bump: patch

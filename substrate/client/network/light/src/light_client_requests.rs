@@ -28,6 +28,9 @@ use std::time::Duration;
 /// For incoming light client requests.
 pub mod handler;
 
+/// Timeout of a light client request, as seen by the requesting peer.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
+
 /// Generate the light client protocol name from the genesis hash and fork id.
 fn generate_protocol_name<Hash: AsRef<[u8]>>(genesis_hash: Hash, fork_id: Option<&str>) -> String {
 	let genesis_hash = genesis_hash.as_ref();
@@ -60,7 +63,7 @@ pub fn generate_protocol_config<
 		std::iter::once(generate_legacy_protocol_name(protocol_id).into()).collect(),
 		1 * 1024 * 1024,
 		MAX_RESPONSE_SIZE,
-		Duration::from_secs(15),
+		REQUEST_TIMEOUT,
 		Some(inbound_queue),
 	)
 }

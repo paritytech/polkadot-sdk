@@ -50,14 +50,18 @@ pub fn genesis(para_id: u32) -> Storage {
 			..Default::default()
 		},
 		collator_selection: penpal_runtime::CollatorSelectionConfig {
-			invulnerables: collators::invulnerables().iter().cloned().map(|(acc, _)| acc).collect(),
+			invulnerables: collators::invulnerables()
+				.iter()
+				.cloned()
+				.map(|(acc, _, _)| acc)
+				.collect(),
 			candidacy_bond: ED * 16,
 			..Default::default()
 		},
 		session: penpal_runtime::SessionConfig {
 			keys: collators::invulnerables()
 				.into_iter()
-				.map(|(acc, aura)| {
+				.map(|(acc, aura, _)| {
 					(
 						acc.clone(),                          // account id
 						acc,                                  // validator id

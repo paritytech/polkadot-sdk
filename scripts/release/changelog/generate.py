@@ -16,9 +16,11 @@ Produces three files in --output-dir:
                      is described by schema.json next to this script.
 
 Topics are resolved per prdoc: an explicit `topic:` field (matched case-insensitively
-against an id or label from --topics) wins; otherwise the topic is derived from the
+against an id, label or alias from --topics) wins; otherwise the topic is derived from the
 affected crates via the ordered glob patterns in --topics; otherwise the last topic
-(Misc) is used.
+(Misc) is used. The `topic:` field is free-form and only soft-validated on PRs
+(.github/scripts/check-prdoc.py), so an unknown value is a notice, not a warning, and
+falls back to derivation.
 
 Malformed prdocs (empty files, non-mapping YAML, unknown audiences) are tolerated with
 a warning so a single bad file cannot abort a release; --check turns warnings into a
@@ -113,18 +115,35 @@ def load_topics(path):
     for t in topics:
         if not t.get("id") or not t.get("label"):
             sys.exit(f"error: topic without id/label in {path}: {t}")
+        # YAML may type these (id: 2026); matching and rendering want text.
+        t["id"], t["label"] = str(t["id"]), str(t["label"])
         t.setdefault("patterns", [])
+        t["aliases"] = [str(a) for a in t.get("aliases") or []]
     return topics
 
 
-def resolve_topic(explicit, crates, topics, pr, warnings):
+def match_topic(value, topics):
+    """The topic whose id, label or alias equals `value` (case-insensitive, surrounding
+    whitespace ignored), or None. Shared with check-prdoc.py and generate-prdoc.py so
+    every tool accepts exactly the values the changelog accepts."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    wanted = value.strip().lower()
+    for t in topics:
+        if wanted in (n.lower() for n in (t["id"], t["label"], *t.get("aliases", []))):
+            return t
+    return None
+
+
+def resolve_topic(explicit, crates, topics, pr):
     fallback = topics[-1]
     if explicit:
-        wanted = str(explicit).strip().lower()
-        for t in topics:
-            if wanted in (t["id"].lower(), t["label"].lower()):
-                return t, "explicit"
-        warnings.append(f"pr_{pr}: unknown topic {explicit!r}, falling back to derivation")
+        matched = match_topic(explicit, topics)
+        if matched is not None:
+            return matched, "explicit"
+        # Not a warning: --check must not fail a release over a contributor's typo in a
+        # free-form field; the PR check (check-prdoc.py) already warned about it.
+        log(f"notice: pr_{pr}: unknown topic {explicit!r}, falling back to derivation")
     best = None
     for crate in crates:
         for idx, t in enumerate(topics):
@@ -216,7 +235,7 @@ def load_prdocs(prdoc_dir, topics, warnings):
                     "description": text_or_none(hf.get("description")),
                 })
 
-        topic, source = resolve_topic(content.get("topic"), crates, topics, pr, warnings)
+        topic, source = resolve_topic(content.get("topic"), crates, topics, pr)
         title = content.get("title")
         entries.append({
             "pr": pr,
@@ -809,7 +828,8 @@ def main():
                              "exact budget measured from the rendered outer document")
     parser.add_argument("--check", action="store_true",
                         help="fail (exit 1) on any warning-level problem, e.g. a skipped "
-                             "prdoc, unknown topic/audience, or body over budget")
+                             "prdoc, unknown audience, or body over budget (an unknown "
+                             "`topic:` is only a notice)")
     args = parser.parse_args()
 
     prdoc_dir = Path(args.prdoc_dir)

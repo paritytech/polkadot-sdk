@@ -1,0 +1,9 @@
+title: 'Approval distribution: reject empty assignment bitfields'
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |
+    Assignment sanitization now rejects empty candidate bitfields through the
+    existing invalid-message path.
+crates:
+- name: polkadot-approval-distribution
+  bump: patch

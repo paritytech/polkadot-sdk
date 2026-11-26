@@ -58,9 +58,8 @@ pub const VALIDATORS: &[Sr25519Keyring] = &[
 
 /// Size bounds shared by both chains.
 ///
-/// In production the parachain's copies are a mirror of the relay chain's live `configuration`,
-/// kept in step by governance. Here they are simply the same constants, and the relay chain's
-/// `configuration` genesis is built from them.
+/// The relay chain's `configuration` genesis is built from them, and the parachain sees the same
+/// values as its host configuration.
 pub const MIN_CODE_SIZE: u32 = 9;
 pub const MAX_CODE_SIZE: u32 = 3 * 1024;
 pub const MAX_HEAD_SIZE: u32 = 1024;

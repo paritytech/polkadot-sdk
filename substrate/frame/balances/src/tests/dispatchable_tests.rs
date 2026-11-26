@@ -382,3 +382,54 @@ fn burn_works() {
 		assert!(Balances::total_balance(&account).is_zero());
 	});
 }
+
+#[test]
+fn force_unreserve_and_force_unreserve_named_work() {
+	use frame_support::traits::{Currency, NamedReservableCurrency, ReservableCurrency};
+	ExtBuilder::default().build_and_execute_with(|| {
+		// given an account with a hold, two named reserves and an unnamed reserve.
+		let _ = Balances::deposit_creating(&ALICE, 100);
+		assert_ok!(Balances::hold(&TestId::Foo, &ALICE, 10));
+		assert_ok!(Balances::reserve_named(&TestId::Foo, &ALICE, 20));
+		assert_ok!(Balances::reserve_named(&TestId::Bar, &ALICE, 30));
+		assert_ok!(Balances::reserve(&ALICE, 5));
+		// (reserved, held for `Foo`, named reserve `Foo`, named reserve `Bar`).
+		let reserves = || {
+			(
+				Balances::reserved_balance(ALICE),
+				<Balances as fungible::InspectHold<_>>::balance_on_hold(&TestId::Foo, &ALICE),
+				Balances::reserved_balance_named(&TestId::Foo, &ALICE),
+				Balances::reserved_balance_named(&TestId::Bar, &ALICE),
+			)
+		};
+		assert_eq!(reserves(), (65, 10, 20, 30));
+
+		// when called by a non-root origin, both fail.
+		assert_noop!(Balances::force_unreserve(Some(ALICE).into(), ALICE, 100), BadOrigin);
+		assert_noop!(
+			Balances::force_unreserve_named(Some(ALICE).into(), TestId::Foo, ALICE, 100),
+			BadOrigin
+		);
+
+		// when root asks `force_unreserve` for more than the unnamed reserve, only that is
+		// released.
+		assert_ok!(Balances::force_unreserve(RuntimeOrigin::root(), ALICE, 100));
+		System::assert_last_event(RuntimeEvent::Balances(Event::Unreserved {
+			who: ALICE,
+			amount: 5,
+		}));
+		assert_eq!(reserves(), (60, 10, 20, 30));
+
+		// when root asks `force_unreserve_named` for more than the named reserve `Foo`, only that
+		// is released.
+		assert_ok!(Balances::force_unreserve_named(RuntimeOrigin::root(), TestId::Foo, ALICE, 100));
+		System::assert_last_event(RuntimeEvent::Balances(Event::Unreserved {
+			who: ALICE,
+			amount: 20,
+		}));
+		assert_eq!(reserves(), (40, 10, 0, 30));
+
+		// then the free balance has grown by what was released.
+		assert_eq!(Balances::free_balance(ALICE), 60);
+	});
+}

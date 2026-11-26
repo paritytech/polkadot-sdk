@@ -1,0 +1,7 @@
+title: '[pallet-revive] PVM performance: early return on mem read'
+doc:
+- audience: Runtime Dev
+  description: 'Small optimization: We can return early when the read would fail anyway.'
+crates:
+- name: pallet-revive
+  bump: patch

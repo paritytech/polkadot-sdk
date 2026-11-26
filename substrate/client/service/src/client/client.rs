@@ -23,6 +23,7 @@ use super::{
 	CodeProvider,
 };
 use crate::client::notification_pinning::NotificationPinningWorker;
+use codec::Encode;
 use log::{debug, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
@@ -68,7 +69,7 @@ use sp_core::{
 use sp_runtime::{
 	generic::{BlockId, SignedBlock},
 	traits::{
-		Block as BlockT, BlockIdTo, HashingFor, Header as HeaderT, NumberFor, One,
+		Block as BlockT, BlockIdTo, Hash as HashT, HashingFor, Header as HeaderT, NumberFor, One,
 		SaturatedConversion, Zero,
 	},
 	Justification, Justifications, StateVersion,
@@ -90,6 +91,30 @@ use std::{
 
 use super::call_executor::LocalCallExecutor;
 use sp_core::traits::CodeExecutor;
+
+/// Checks that `body` matches the extrinsics root of `header`.
+///
+/// The trie layout of the extrinsics root depends on the `system_version` of the runtime, which
+/// is not known when importing a block without state. Thus, both layouts are accepted.
+fn check_extrinsics_root<Block: BlockT>(
+	header: &Block::Header,
+	body: &[Block::Extrinsic],
+) -> sp_blockchain::Result<()> {
+	let extrinsics = body.iter().map(Encode::encode).collect::<Vec<_>>();
+	let expected = *header.extrinsics_root();
+	let v0_root = HashingFor::<Block>::ordered_trie_root(extrinsics.clone(), StateVersion::V0);
+
+	if v0_root == expected ||
+		HashingFor::<Block>::ordered_trie_root(extrinsics, StateVersion::V1) == expected
+	{
+		return Ok(());
+	}
+
+	Err(Error::ExtrinsicRootInvalid {
+		received: format!("{v0_root:?}"),
+		expected: format!("{expected:?}"),
+	})
+}
 
 type NotificationSinks<T> = Mutex<Vec<TracingUnboundedSender<T>>>;
 
@@ -833,6 +858,12 @@ where
 			(_, StateAction::Execute) => (true, None),
 			(_, StateAction::ExecuteIfPossible) => (true, None),
 		};
+
+		// Executed blocks have their extrinsics root checked by the runtime.
+		let execute = enact_state && storage_changes.is_none();
+		if let (false, Some(body)) = (execute, &import_block.body) {
+			check_extrinsics_root::<Block>(&import_block.header, body)?;
+		}
 
 		let storage_changes = match (enact_state, storage_changes, &import_block.body) {
 			// We have storage changes and should enact the state, so we don't need to do anything

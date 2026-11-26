@@ -947,8 +947,13 @@ where
 	)
 	.into_rpc();
 
-	// Bitswap RPC-v2 (do not confuse with v1 from `bitswap_v1_get`).
-	let bitswap_v2 = sc_rpc_spec_v2::bitswap::Bitswap::new(client.clone(), sync_oracle).into_rpc();
+	// Bitswap RPC-v2 (`bitswap_unstable_*`; `bitswap_v1_get` is registered as an alias of
+	// `bitswap_unstable_get` during the migration). Do not confuse with the Bitswap network
+	// protocol itself, which is the IPFS-style block-exchange wire format these methods may
+	// dispatch to.
+	let bitswap_v2 =
+		sc_rpc_spec_v2::bitswap::Bitswap::new(client.clone(), sync_oracle, task_executor.clone())
+			.into_rpc();
 
 	let author = sc_rpc::author::Author::new(
 		client.clone(),
@@ -1239,13 +1244,13 @@ where
 			fork_id,
 			client.clone(),
 			net_config.network_config.light_request_execution_timeout,
+			net_config.network_config.light_request_call_workers,
+			metrics_registry,
 		);
-		// Handling a request executes runtime code synchronously, see
-		// `LightClientRequestHandler::run`.
-		spawn_handle.spawn_blocking(
+		spawn_handle.spawn(
 			"light-client-request-handler",
 			Some("networking"),
-			handler.run(),
+			handler.run(spawn_handle.clone()),
 		);
 		protocol_config
 	};

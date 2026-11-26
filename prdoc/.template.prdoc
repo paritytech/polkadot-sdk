@@ -3,6 +3,9 @@
 
 title: ...
 
+# Optional: changelog topic, an id from prdoc/topics.yaml. Derived from `crates` when omitted.
+# topic: ...
+
 doc:
   - audience: ...
     description: |

@@ -58,6 +58,7 @@ class TestCmd(unittest.TestCase):
         self.patcher6 = patch('importlib.util.spec_from_file_location', return_value=MagicMock())
         self.patcher7 = patch('importlib.util.module_from_spec', return_value=MagicMock())
         self.patcher8 = patch('cmd.generate_prdoc.main', return_value=0)
+        self.patcher9 = patch.dict('os.environ', {'CHANGES_BUILD_SCRIPTS': 'false'})
 
         self.mock_open = self.patcher1.start()
         self.mock_json_load = self.patcher2.start()
@@ -67,6 +68,7 @@ class TestCmd(unittest.TestCase):
         self.mock_spec_from_file_location = self.patcher6.start()
         self.mock_module_from_spec = self.patcher7.start()
         self.mock_generate_prdoc_main = self.patcher8.start()
+        self.patcher9.start()
 
         # Ensure that cmd.py uses the mock_runtimes_matrix
         import cmd
@@ -81,6 +83,7 @@ class TestCmd(unittest.TestCase):
         self.patcher6.stop()
         self.patcher7.stop()
         self.patcher8.stop()
+        self.patcher9.stop()
 
     def test_bench_command_normal_execution_all_runtimes(self):
         self.mock_parse_args.return_value = (argparse.Namespace(
@@ -371,6 +374,38 @@ class TestCmd(unittest.TestCase):
 
             self.mock_system.assert_has_calls(expected_calls, any_order=True)
 
+    def bench_westend_args(self):
+        return (argparse.Namespace(
+            command='bench',
+            runtime=['westend'],
+            pallet=['pallet_balances'],
+            fail_fast=True,
+            quiet=False,
+            clean=False,
+            image=None
+        ), [])
+
+    def test_bench_refused_for_non_member_when_build_scripts_change(self):
+        self.mock_parse_args.return_value = self.bench_westend_args()
+        for changes_build_scripts in ['true', '']:
+            with self.subTest(changes_build_scripts=changes_build_scripts), \
+                    patch.dict('os.environ', {'CHANGES_BUILD_SCRIPTS': changes_build_scripts, 'IS_ORG_MEMBER': 'false'}), \
+                    patch('sys.exit', side_effect=SystemExit(1)):
+                import cmd
+                with self.assertRaises(SystemExit):
+                    cmd.main()
+                self.mock_system.assert_not_called()
+
+    @patch.dict('os.environ', {'CHANGES_BUILD_SCRIPTS': 'true', 'IS_ORG_MEMBER': 'true'})
+    def test_bench_allowed_for_member_when_build_scripts_change(self):
+        self.mock_parse_args.return_value = self.bench_westend_args()
+        self.mock_popen.return_value.read.return_value = "pallet_balances\n"
+        with patch('sys.exit') as mock_exit:
+            import cmd
+            cmd.main()
+            mock_exit.assert_not_called()
+            self.mock_system.assert_any_call("forklift cargo build -q -p westend-runtime --profile production --features=runtime-benchmarks")
+
     @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='fmt'), []))
     @patch('os.system', return_value=0)
     def test_fmt_command(self, mock_system, mock_parse_args):
@@ -378,8 +413,22 @@ class TestCmd(unittest.TestCase):
             import cmd
             cmd.main()
             mock_exit.assert_not_called()
-            mock_system.assert_any_call('cargo +nightly fmt')
+            mock_system.assert_has_calls([
+                call('rustup run nightly cargo-fmt'),
+                call('rustup run nightly cargo metadata --format-version=1 --locked > /dev/null'),
+                call('rustup run nightly zepter run default'),
+                call('taplo format --config .config/taplo.toml'),
+            ])
+
+    @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='fmt'), []))
+    @patch('os.system', side_effect=lambda command: 1 if command == 'rustup run nightly zepter run default' else 0)
+    def test_fmt_command_zepter_fails(self, mock_system, mock_parse_args):
+        with patch('sys.exit') as mock_exit:
+            import cmd
+            cmd.main()
+            # taplo still runs, but the command fails
             mock_system.assert_any_call('taplo format --config .config/taplo.toml')
+            mock_exit.assert_called_once_with(1)
 
     @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='update-ui'), []))
     @patch('os.system', return_value=0)
@@ -388,7 +437,7 @@ class TestCmd(unittest.TestCase):
             import cmd
             cmd.main()
             mock_exit.assert_not_called()
-            mock_system.assert_called_with('sh ./scripts/update-ui-tests.sh')
+            mock_system.assert_called_with(f"sh {os.path.join(cmd.SCRIPT_REPO_ROOT, 'scripts/update-ui-tests.sh')}")
 
     @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='prdoc'), []))
     @patch('os.system', return_value=0)
@@ -397,7 +446,21 @@ class TestCmd(unittest.TestCase):
             import cmd
             cmd.main()
             mock_exit.assert_not_called()
-            self.mock_generate_prdoc_main.assert_called_with(mock_parse_args.return_value[0])
+            self.mock_generate_prdoc_main.assert_called_with(mock_parse_args.return_value[0], log=cmd.print_and_log)
+
+    @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='prdoc'), []))
+    @patch('os.system', return_value=0)
+    def test_prdoc_command_failure(self, mock_system, mock_parse_args):
+        # generate-prdoc.py reports the reason through the `log` callback before returning 1.
+        def failing_main(args, log):
+            log('Error generating prdoc: boom')
+            return 1
+        self.mock_generate_prdoc_main.side_effect = failing_main
+        with patch('sys.exit') as mock_exit, patch('cmd.print_and_log') as mock_log:
+            import cmd
+            cmd.main()
+            mock_log.assert_has_calls([call('Error generating prdoc: boom'), call('❌ Failed to generate prdoc')])
+            mock_exit.assert_called_with(1)
 
     @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
     @patch('cmd.get_allowed_labels')

@@ -1,0 +1,13 @@
+title: 'statement-store: keep the no-DHT mark only while the peer''s substream is open'
+doc:
+- audience: Node Dev
+  description: |-
+    With the v2 DHT path on, a peer marked as without the DHT path now returns to the DHT index
+    when its statement substream closes, instead of staying out until a new substream opens. A
+    peer that restarts with the DHT path on is no longer left out of routing and replica choice.
+    A peer still without the DHT path is marked again once it reconnects and the grace period
+    passes. While its substream is open, a marked peer the node holds reserved stays reserved, so
+    the node keeps the connection instead of dropping it.
+crates:
+- name: sc-network-statement
+  bump: patch

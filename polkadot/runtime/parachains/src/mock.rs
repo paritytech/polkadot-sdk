@@ -20,6 +20,10 @@ use crate::{
 	configuration, coretime, disputes,
 	disputes::slashing as disputes_slashing,
 	dmp, hrmp,
+	hrmp::deposits::{
+		ChannelDepositProvider, DepositAction, DepositChangeRequest, DepositChangeResponse,
+		DepositError, OnDepositSet,
+	},
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, on_demand, origin, paras,
 	paras::ParaKind,
@@ -42,8 +46,8 @@ use frame_support_test::TestRandomness;
 use frame_system::{limits, EnsureRoot};
 use polkadot_primitives::{
 	slashing::DisputesTimeSlot, AuthorityDiscoveryId, Balance, BlockNumber, CandidateHash,
-	DisputeOffenceKind, Moment, SessionIndex, UpwardMessage, ValidationCode, ValidatorId,
-	ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
+	DisputeOffenceKind, HrmpChannelId, Moment, SessionIndex, UpwardMessage, ValidationCode,
+	ValidatorId, ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
 use sp_core::{crypto::KeyTypeId, ConstU32, H256};
 use sp_io::TestExternalities;
@@ -295,10 +299,217 @@ impl crate::hrmp::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = frame_system::EnsureRoot<u64>;
 	type Currency = pallet_balances::Pallet<Test>;
-	type DepositProvider = Hrmp;
+	type DepositProvider = MockDepositProvider;
 	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
 	type VersionWrapper = TestUsesOnlyStoredVersionWrapper;
 	type WeightInfo = crate::hrmp::TestWeightInfo;
+}
+
+/// One side of an HRMP channel, whose deposit is held on its own.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub enum ChannelSide {
+	Sender,
+	Recipient,
+}
+
+/// A remote chain holding the HRMP deposits, see [`MockDepositProvider`].
+#[derive(Default)]
+pub struct RemoteDeposits {
+	/// Whether the deposits are held on the remote chain.
+	pub enabled: bool,
+	/// The free balance of each para on the remote chain.
+	pub free: BTreeMap<ParaId, Balance>,
+	/// What each side of each channel holds on the remote chain.
+	pub held: BTreeMap<(HrmpChannelId, ChannelSide), Balance>,
+	/// The answers sent back by the remote chain, not delivered yet.
+	pub answers: Vec<(DepositChangeRequest, Result<(), DepositError>)>,
+}
+
+thread_local! {
+	pub static REMOTE_DEPOSITS: RefCell<RemoteDeposits> = RefCell::new(Default::default());
+}
+
+/// The requests sent to the remote chain, not processed yet.
+///
+/// Kept in storage, so that the request of a failed call is dropped along with the call, as a
+/// sent message would be.
+const REMOTE_DEPOSIT_REQUESTS: &[u8] = b":mock:remote_deposit_requests";
+
+/// The HRMP deposit provider of the mock.
+///
+/// By default it is the in-pallet provider: deposits are reserved on this chain within the call.
+///
+/// Once [`Self::use_remote_chain`] is called, the deposits are held on a remote chain instead. A
+/// request is queued to the remote chain and answered pending. The remote chain processes the
+/// requests in order for each side of a channel, see [`Self::process_request`], and queues
+/// back an answer, see [`Self::deliver_answer`]. Answers can be delivered in any order, or not
+/// at all. A release is answered applied, but is still queued like any other request.
+///
+/// The remote chain goes by its own records: it moves each side to the request's target.
+pub struct MockDepositProvider;
+
+impl MockDepositProvider {
+	/// Holds the deposits on the remote chain from now on.
+	pub fn use_remote_chain() {
+		REMOTE_DEPOSITS.with(|r| r.borrow_mut().enabled = true);
+	}
+
+	/// Sets the free balance of `para` on the remote chain.
+	pub fn set_remote_free(para: ParaId, balance: Balance) {
+		REMOTE_DEPOSITS.with(|r| r.borrow_mut().free.insert(para, balance));
+	}
+
+	/// The free balance of `para` on the remote chain.
+	pub fn remote_free(para: ParaId) -> Balance {
+		REMOTE_DEPOSITS.with(|r| r.borrow().free.get(&para).copied().unwrap_or_default())
+	}
+
+	/// What `side` of `channel_id` holds on the remote chain.
+	pub fn remote_held(channel_id: &HrmpChannelId, side: ChannelSide) -> Balance {
+		REMOTE_DEPOSITS
+			.with(|r| r.borrow().held.get(&(channel_id.clone(), side)).copied().unwrap_or_default())
+	}
+
+	/// The requests sent to the remote chain, not processed yet.
+	pub fn requests() -> Vec<DepositChangeRequest> {
+		frame_support::storage::unhashed::get_or_default(REMOTE_DEPOSIT_REQUESTS)
+	}
+
+	/// The answers sent back by the remote chain, not delivered yet.
+	pub fn answers() -> Vec<(DepositChangeRequest, Result<(), DepositError>)> {
+		REMOTE_DEPOSITS.with(|r| r.borrow().answers.clone())
+	}
+
+	/// The remote chain processes the request at `index` and queues back its answer, unless it
+	/// is a release. It moves each side to its target, or refuses the request if a para cannot
+	/// cover its side.
+	///
+	/// Panics if an earlier request is for one of its sides: those are processed in order.
+	pub fn process_request(index: usize) {
+		let mut requests = Self::requests();
+		let request = requests.remove(index);
+		for earlier in &requests[..index] {
+			assert!(
+				Self::sides(earlier).all(|side| Self::sides(&request).all(|s| s != side)),
+				"requests for the same side are processed in order"
+			);
+		}
+		frame_support::storage::unhashed::put(REMOTE_DEPOSIT_REQUESTS, &requests);
+
+		let channel_id = request.channel_id.clone();
+		let changes = [
+			(ChannelSide::Sender, channel_id.sender, request.sender),
+			(ChannelSide::Recipient, channel_id.recipient, request.recipient),
+		];
+		REMOTE_DEPOSITS.with(|r| {
+			let mut remote = r.borrow_mut();
+			let covered = changes.iter().all(|(side, para, change)| {
+				let Some(change) = change else { return true };
+				let held = remote.held.get(&(channel_id.clone(), *side)).copied();
+				let free = remote.free.get(para).copied().unwrap_or_default();
+				change.target <= held.unwrap_or_default() + free
+			});
+			let result = if covered {
+				for (side, para, change) in changes {
+					let Some(change) = change else { continue };
+					let held = remote.held.remove(&(channel_id.clone(), side)).unwrap_or_default();
+					let free = remote.free.entry(para).or_default();
+					*free = *free + held - change.target;
+					if change.target > 0 {
+						remote.held.insert((channel_id.clone(), side), change.target);
+					}
+				}
+				Ok(())
+			} else {
+				Err(DepositError::InsufficientFunds)
+			};
+			if request.action != DepositAction::Release {
+				remote.answers.push((request, result));
+			}
+		});
+	}
+
+	/// The remote chain processes all the requests, in order.
+	pub fn process_requests() {
+		while !Self::requests().is_empty() {
+			Self::process_request(0);
+		}
+	}
+
+	/// Delivers the answer at `index` to the pallet.
+	pub fn deliver_answer(index: usize) {
+		let (request, result) = REMOTE_DEPOSITS.with(|r| r.borrow_mut().answers.remove(index));
+		<Hrmp as OnDepositSet>::on_deposit_set(request, result);
+	}
+
+	/// Delivers all the answers, in order.
+	pub fn deliver_answers() {
+		while !Self::answers().is_empty() {
+			Self::deliver_answer(0);
+		}
+	}
+
+	/// Processes all the requests and delivers all the answers, until none is left. Answers may
+	/// send new requests, e.g. to give back a deposit.
+	pub fn settle() {
+		while !Self::requests().is_empty() || !Self::answers().is_empty() {
+			Self::process_requests();
+			Self::deliver_answers();
+		}
+	}
+
+	/// The sides that `request` changes.
+	fn sides(request: &DepositChangeRequest) -> impl Iterator<Item = (HrmpChannelId, ChannelSide)> {
+		let channel_id = request.channel_id.clone();
+		[
+			request.sender.map(|_| (channel_id.clone(), ChannelSide::Sender)),
+			request.recipient.map(|_| (channel_id, ChannelSide::Recipient)),
+		]
+		.into_iter()
+		.flatten()
+	}
+
+	/// Whether a request other than a release for `side` is not answered yet.
+	fn awaits_answer(side: &(HrmpChannelId, ChannelSide)) -> bool {
+		let not_release = |r: &DepositChangeRequest| r.action != DepositAction::Release;
+		let for_side = |r: &DepositChangeRequest| Self::sides(r).any(|s| &s == side);
+		Self::requests().iter().any(|r| not_release(r) && for_side(r)) ||
+			Self::answers().iter().any(|(r, _)| for_side(r))
+	}
+}
+
+impl ChannelDepositProvider for MockDepositProvider {
+	type OnDepositSet = Hrmp;
+
+	fn try_set_deposit(
+		request: DepositChangeRequest,
+	) -> Result<DepositChangeResponse, DispatchError> {
+		if !REMOTE_DEPOSITS.with(|r| r.borrow().enabled) {
+			return <Hrmp as ChannelDepositProvider>::try_set_deposit(request);
+		}
+
+		if request.action == DepositAction::Release {
+			Self::push_request(request);
+			return Ok(DepositChangeResponse::Applied);
+		}
+		if Self::sides(&request).any(|side| Self::awaits_answer(&side)) {
+			return Err(DispatchError::Other("a request for this side awaits its answer"));
+		}
+		Self::push_request(request);
+		Ok(DepositChangeResponse::Pending)
+	}
+
+	fn weight_of_try_set_deposit() -> Weight {
+		Weight::zero()
+	}
+}
+
+impl MockDepositProvider {
+	fn push_request(request: DepositChangeRequest) {
+		let mut requests = Self::requests();
+		requests.push(request);
+		frame_support::storage::unhashed::put(REMOTE_DEPOSIT_REQUESTS, &requests);
+	}
 }
 
 impl crate::disputes::Config for Test {
@@ -793,6 +1004,7 @@ pub fn new_test_ext(state: MockGenesisConfig) -> TestExternalities {
 
 	BACKING_REWARDS.with(|r| r.borrow_mut().clear());
 	AVAILABILITY_REWARDS.with(|r| r.borrow_mut().clear());
+	REMOTE_DEPOSITS.with(|r| *r.borrow_mut() = Default::default());
 
 	let mut t = state.system.build_storage().unwrap();
 	state.configuration.assimilate_storage(&mut t).unwrap();
