@@ -377,6 +377,7 @@ pub mod pallet {
 	/// Per-sender window of recently committed `StreamsRoot`s for speculative messaging, newest
 	/// last, at most [`MAX_PROVIDES_WINDOW_SIZE`]. A receiver's `Requires` matches a root in it.
 	/// Dropped when the sender offboards.
+	/// After `force_set_current_head`, roots from the old chain still match while in the window.
 	#[pallet::storage]
 	pub(crate) type RecentProvides<T: Config> = StorageMap<
 		_,
