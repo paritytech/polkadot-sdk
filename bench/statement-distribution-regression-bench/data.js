@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795697465127,
+  "lastUpdate": 1795701127682,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "evgeny@parity.io",
-            "name": "Evgeny Snitko",
-            "username": "AndWeHaveAPlan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6e063cc8b622c26fd0198d9ab45bba5c468cda2f",
-          "message": "node-bench-regression-guard condition fix (#12079)\n\njob has `needs: cargo-check-benches`, but `if: always()` overrides it",
-          "timestamp": "2026-05-14T16:17:23Z",
-          "tree_id": "6bb523684d61cbeedba6e9881cd82303977d48aa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6e063cc8b622c26fd0198d9ab45bba5c468cda2f"
-        },
-        "date": 1778780584927,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.138,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08298325229399998,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.039018600887999993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.09167432530399988,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f90205d25073b64875981a8e364ce1f5e36683f6",
+          "message": "fix(beefy): submit equivocation reports through the offchain transaction pool (#13985)\n\nThe BEEFY fisherman calls\n`submit_report_double_voting_unsigned_extrinsic` without an offchain\ntransaction pool registered, so the runtime's `submit_transaction`\npanics with \"submit_transaction\ncan be called only in the offchain call context with TransactionPool\ncapabilities enabled\" and\nBEEFY equivocations are never reported. GRANDPA and BABE get the pool\nthrough their params.\n\nThis adds `offchain_tx_pool_factory` to `BeefyParams` and registers it\nbefore submitting a report.\nRuntime API mocks now ignore `register_extension` instead of panicking,\nsince the BEEFY tests\nreport through them.\n\nReproduced on a node whose runtime enables BEEFY equivocation reporting:\na signed double-voting\nreport with a valid key ownership proof fails as above without the pool,\nand reaches the pool with it.\n\nPrepared with AI assistance.\n\n---------\n\nSigned-off-by: Tomasz Bartos <tomasz.bartos@shielded.io>",
+          "timestamp": "2026-11-26T12:04:05Z",
+          "tree_id": "693d81b29a832642dd1f083f3bb386c3717c2cf6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f90205d25073b64875981a8e364ce1f5e36683f6"
+        },
+        "date": 1795701083629,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.13999999999993,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03877089109200001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08953222027399989,
             "unit": "seconds"
           }
         ]
