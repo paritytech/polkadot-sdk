@@ -4133,6 +4133,11 @@ async fn test_best_block_at_the_finalized_height_is_not_indexed() -> anyhow::Res
 	let (client, _gap_fill_rx, _pool) =
 		create_sync_test_client_with_subscription_gap_queue().await?;
 	let head = client.latest_finalized_block().await.block_hash();
+	assert_eq!(
+		client.latest_block().await.block_hash(),
+		head,
+		"the best block must be the finalized block for the guard to apply"
+	);
 	let best = {
 		let client = client.clone();
 		tokio::spawn(async move {
