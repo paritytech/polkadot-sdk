@@ -25,6 +25,7 @@ use cumulus_zombienet_sdk_helpers::{
 };
 use serde_json::json;
 use sp_crypto_hashing::blake2_256;
+use sp_maybe_compressed_blob::{compress_weakly_as, decompress_as, MaybeCompressedBlobType};
 use zombienet_sdk::{
 	subxt::{
 		ext::scale_value::{value, Value},
@@ -138,7 +139,7 @@ fn inflate_runtime_wasm(
 	compressed_wasm: &[u8],
 	min_compressed_size: usize,
 ) -> Result<Vec<u8>, anyhow::Error> {
-	let mut wasm = sp_maybe_compressed_blob::decompress(compressed_wasm, 50 * 1024 * 1024)
+	let mut wasm = decompress_as(MaybeCompressedBlobType::Wasm, compressed_wasm, 50 * 1024 * 1024)
 		.map_err(|e| anyhow!("Decompression failed: {:?}", e))?
 		.into_owned();
 
@@ -168,7 +169,7 @@ fn inflate_runtime_wasm(
 		module.set_custom_section("padding", padding.clone());
 		wasm = parity_wasm::serialize(module).map_err(|e| anyhow!("wasm serialize: {e:?}"))?;
 
-		let compressed = sp_maybe_compressed_blob::compress_weakly(&wasm, 50 * 1024 * 1024)
+		let compressed = compress_weakly_as(MaybeCompressedBlobType::Wasm, &wasm, 50 * 1024 * 1024)
 			.ok_or_else(|| anyhow!("Compression failed"))?;
 		log::info!(
 			"Inflated WASM: uncompressed={} bytes, compressed={} bytes (target={})",
