@@ -730,6 +730,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		links: beefy_links,
 		on_demand_justifications_handler: beefy_on_demand_justifications_handler,
 		is_authority: role.is_authority(),
+		offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 	};
 
 	let beefy_gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _, _>(beefy_params);
