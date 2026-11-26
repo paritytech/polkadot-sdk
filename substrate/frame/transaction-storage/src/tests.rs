@@ -28,7 +28,7 @@ const MAX_DATA_SIZE: u32 = DEFAULT_MAX_TRANSACTION_SIZE;
 
 #[test]
 fn discards_data() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		run_to_block(1, || None);
 		let caller = 1;
 		assert_ok!(TransactionStorage::<Test>::store(
@@ -60,7 +60,7 @@ fn discards_data() {
 
 #[test]
 fn burns_fee() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		run_to_block(1, || None);
 		let caller = 1;
 		assert_noop!(
@@ -80,7 +80,7 @@ fn burns_fee() {
 
 #[test]
 fn checks_proof() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		run_to_block(1, || None);
 		let caller = 1;
 		assert_ok!(TransactionStorage::<Test>::store(
@@ -115,7 +115,7 @@ fn checks_proof() {
 
 #[test]
 fn verify_chunk_proof_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Prepare a bunch of transactions with variable chunk sizes.
 		let transactions = vec![
 			vec![0u8; CHUNK_SIZE - 1],
@@ -171,7 +171,7 @@ fn verify_chunk_proof_works() {
 
 #[test]
 fn renews_data() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		run_to_block(1, || None);
 		let caller = 1;
 		assert_noop!(
