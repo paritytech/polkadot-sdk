@@ -36,7 +36,7 @@ use sp_crypto_hashing::blake2_256;
 use sp_runtime::{ConsensusEngineId, Digest, DigestItem};
 use sp_runtime_interface::{pass_by::PassPointerAndWrite, runtime_interface};
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 pub use node::*;
 
 /// A block's additional data, keyed by producer.
@@ -97,7 +97,7 @@ pub fn commitment(digest: &Digest) -> Result<Option<H256>, CommitmentError> {
 /// Host functions of this crate.
 pub mod host {
 	use super::*;
-	#[cfg(feature = "std")]
+	#[cfg(not(substrate_runtime))]
 	use sp_externalities::ExternalitiesExt;
 
 	/// Host side of committing a block's additional data.
@@ -123,7 +123,7 @@ pub fn finalize() -> Option<H256> {
 	host::additional_data::finalize_into(&mut out).then_some(H256(out))
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 mod node {
 	use super::*;
 	use alloc::{boxed::Box, sync::Arc};
