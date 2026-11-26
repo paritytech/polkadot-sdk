@@ -283,10 +283,10 @@ pub mod registration {
 		Ok(InherentDataProvider::new(proof))
 	}
 
-	/// Build a proof from the transaction sizes, loading only the selected transaction.
+	/// Build a proof for one randomly selected chunk, loading only the transaction that holds it.
 	///
-	/// `sizes` are the sizes of the block's indexed transactions, in order. `load` is called
-	/// once, with the position in `sizes` of the transaction that holds the selected chunk.
+	/// `sizes` are the sizes of the block's indexed transactions, in block order. `load(i)` must
+	/// return the transaction at position `i` in `sizes`; it is called once.
 	pub fn build_proof_from_sizes(
 		random_hash: &[u8],
 		sizes: &[u32],
