@@ -1,0 +1,11 @@
+title: 'pallet-child-bounties: allow forced cleanup after parent deactivation'
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      Allow `RejectOrigin` to close a child bounty after its parent bounty has
+      left the active state, as documented by the pallet. Signed callers still
+      require the parent bounty to be active and the caller to be its curator.
+      No storage migration is required.
+crates:
+  - name: pallet-child-bounties
+    bump: patch
