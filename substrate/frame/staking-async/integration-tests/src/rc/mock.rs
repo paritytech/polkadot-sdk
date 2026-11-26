@@ -235,6 +235,7 @@ impl pallet_root_offences::Config for Runtime {
 pub enum OutgoingMessages {
 	SessionReport(rc_client::SessionReport<AccountId>),
 	OffenceReportPaged(Vec<(SessionIndex, rc_client::Offence<AccountId>)>),
+	KeysState { stash: AccountId, has_keys: bool },
 }
 
 parameter_types! {
@@ -334,6 +335,22 @@ impl ah_client::SendToAssetHub for DeliverToAH {
 					offences.clone(),
 				)
 				.unwrap();
+			});
+		}
+		Ok(())
+	}
+
+	fn relay_keys_state(stash: Self::AccountId, has_keys: bool) -> Result<(), ()> {
+		Self::ensure_delivery_guard()?;
+		if let Some(mut local_queue) = LocalQueue::get() {
+			local_queue
+				.push((System::block_number(), OutgoingMessages::KeysState { stash, has_keys }));
+			LocalQueue::set(Some(local_queue));
+		} else {
+			shared::in_ah(|| {
+				let origin = crate::ah::RuntimeOrigin::root();
+				rc_client::Pallet::<crate::ah::Runtime>::relay_keys_state(origin, stash, has_keys)
+					.unwrap();
 			});
 		}
 		Ok(())
