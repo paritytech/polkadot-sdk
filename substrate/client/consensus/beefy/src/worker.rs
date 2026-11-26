@@ -1109,6 +1109,7 @@ pub(crate) mod tests {
 	use sc_network_gossip::GossipEngine;
 	use sc_network_sync::SyncingService;
 	use sc_network_test::TestNetFactory;
+	use sc_transaction_pool_api::{OffchainTransactionPoolFactory, RejectAllTxPool};
 	use sp_blockchain::Backend as BlockchainBackendT;
 	use sp_consensus_beefy::{
 		ecdsa_crypto, known_payloads,
@@ -1225,7 +1226,12 @@ pub(crate) mod tests {
 			metrics,
 			payload_provider,
 			sync: Arc::new(sync),
-			fisherman: Arc::new(Fisherman::new(backend, api, key_store)),
+			fisherman: Arc::new(Fisherman::new(
+				backend,
+				api,
+				key_store,
+				OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
+			)),
 			links,
 			comms,
 			pending_justifications: BTreeMap::new(),
@@ -1652,6 +1658,7 @@ pub(crate) mod tests {
 			worker.backend.clone(),
 			worker.runtime.clone(),
 			worker.key_store.clone(),
+			OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
 		));
 
 		// let there be a block with num = 1:

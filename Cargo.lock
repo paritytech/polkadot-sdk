@@ -22024,6 +22024,7 @@ dependencies = [
  "sc-network-sync",
  "sc-network-test",
  "sc-network-types 0.10.0",
+ "sc-transaction-pool-api 28.0.0",
  "sc-utils 14.0.0",
  "serde",
  "sp-api 26.0.0",

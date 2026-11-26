@@ -53,6 +53,7 @@ use sc_network_test::{
 	Block, BlockImportAdapter, FullPeerConfig, PassThroughVerifier, Peer, PeersClient,
 	PeersFullClient, TestNetFactory,
 };
+use sc_transaction_pool_api::{OffchainTransactionPoolFactory, RejectAllTxPool};
 use sc_utils::{mpsc::TracingUnboundedReceiver, notification::NotificationReceiver};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
@@ -448,6 +449,9 @@ where
 			prometheus_registry: None,
 			on_demand_justifications_handler: on_demand_justif_handler,
 			is_authority: true,
+			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
+				RejectAllTxPool::default(),
+			),
 		};
 		let task = crate::start_beefy_gadget::<_, _, _, _, _, _, _, _>(beefy_params);
 
