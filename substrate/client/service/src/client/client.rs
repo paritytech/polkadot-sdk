@@ -1779,11 +1779,15 @@ where
 		let span = tracing::span!(tracing::Level::DEBUG, "import_block");
 		let _enter = span.enter();
 
-		check_additional_data(&import_block.header, import_block.additional_data.as_ref())
-			.map_err(|e| {
-				warn!("Block additional data error: {}", e);
-				ConsensusError::ClientImport(e)
-			})?;
+		check_additional_data(
+			&import_block.header,
+			import_block.additional_data.as_ref(),
+			import_block.body.is_some(),
+		)
+		.map_err(|e| {
+			warn!("Block additional data error: {}", e);
+			ConsensusError::ClientImport(e)
+		})?;
 
 		let storage_changes =
 			match self.prepare_block_storage_changes(&mut import_block).map_err(|e| {
@@ -1872,9 +1876,11 @@ where
 /// Check that `data` matches the additional-data commitment in `header`.
 ///
 /// This proves the data was not changed after authoring, not that its contents are true.
+/// Additional data travels with the body, so an import without a body may omit it.
 fn check_additional_data<H: HeaderT>(
 	header: &H,
 	data: Option<&AdditionalData>,
+	has_body: bool,
 ) -> Result<(), String> {
 	let commitment = sp_additional_data::commitment(header.digest())
 		.map_err(|e| format!("invalid additional data commitment: {e:?}"))?;
@@ -1886,6 +1892,7 @@ fn check_additional_data<H: HeaderT>(
 			Ok(())
 		},
 		(Some(_), Some(_)) => Err("additional data does not match the header commitment".into()),
+		(Some(_), None) if !has_body => Ok(()),
 		(Some(_), None) => Err("header commits to additional data the block does not carry".into()),
 		(None, Some(_)) => {
 			Err("block carries additional data the header does not commit to".into())
@@ -2214,42 +2221,49 @@ mod tests {
 
 	#[test]
 	fn no_commitment_and_no_data_is_accepted() {
-		assert_eq!(check_additional_data(&header(vec![]), None), Ok(()));
+		assert_eq!(check_additional_data(&header(vec![]), None, true), Ok(()));
 	}
 
 	#[test]
 	fn matching_data_is_accepted() {
-		assert_eq!(check_additional_data(&committed(), Some(&data())), Ok(()));
+		assert_eq!(check_additional_data(&committed(), Some(&data()), true), Ok(()));
 	}
 
 	#[test]
 	fn tampered_data_is_rejected() {
 		let mut tampered = data();
 		tampered.insert("extra".to_string(), vec![0xff]);
-		assert!(check_additional_data(&committed(), Some(&tampered)).is_err());
-		assert!(check_additional_data(&committed(), Some(&AdditionalData::new())).is_err());
+		assert!(check_additional_data(&committed(), Some(&tampered), true).is_err());
+		assert!(check_additional_data(&committed(), Some(&AdditionalData::new()), true).is_err());
 	}
 
 	#[test]
 	fn commitment_without_data_is_rejected() {
-		assert!(check_additional_data(&committed(), None).is_err());
+		assert!(check_additional_data(&committed(), None, true).is_err());
+	}
+
+	#[test]
+	fn header_only_import_may_omit_data() {
+		assert_eq!(check_additional_data(&committed(), None, false), Ok(()));
+		assert_eq!(check_additional_data(&committed(), Some(&data()), false), Ok(()));
+		assert!(check_additional_data(&header(vec![]), Some(&data()), false).is_err());
 	}
 
 	#[test]
 	fn data_without_commitment_is_rejected() {
-		assert!(check_additional_data(&header(vec![]), Some(&data())).is_err());
+		assert!(check_additional_data(&header(vec![]), Some(&data()), true).is_err());
 	}
 
 	#[test]
 	fn duplicate_or_malformed_commitment_is_rejected() {
 		let item = digest_item(hash_additional_data(&data()).unwrap());
 		let duplicate = header(vec![item.clone(), item]);
-		assert!(check_additional_data(&duplicate, Some(&data())).is_err());
+		assert!(check_additional_data(&duplicate, Some(&data()), true).is_err());
 
 		let malformed = header(vec![DigestItem::Consensus(
 			sp_additional_data::ADDITIONAL_DATA_ENGINE_ID,
 			vec![1],
 		)]);
-		assert!(check_additional_data(&malformed, None).is_err());
+		assert!(check_additional_data(&malformed, None, true).is_err());
 	}
 }

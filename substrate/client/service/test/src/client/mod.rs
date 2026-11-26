@@ -2630,3 +2630,18 @@ fn additional_data_without_a_commitment_is_rejected() {
 	);
 	assert_eq!(client.header(hash).unwrap(), None);
 }
+
+/// Warp-proof headers and header-only gap sync import neither a body nor additional data.
+#[test]
+fn header_only_import_without_additional_data_is_accepted() {
+	let client = substrate_test_runtime_client::new();
+	let (header, _) = block_committing_to_additional_data(&client).block.deconstruct();
+	let hash = header.hash();
+
+	let mut import = BlockImportParams::new(BlockOrigin::NetworkInitialSync, header);
+	import.state_action = StateAction::Skip;
+	import.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+	let result = block_on(client.import_block(import));
+	assert!(matches!(result, Ok(ImportResult::Imported(_))), "{result:?}");
+	assert!(client.header(hash).unwrap().is_some());
+}
