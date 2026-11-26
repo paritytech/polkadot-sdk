@@ -12,9 +12,9 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-sp-consensus-aura.workspace = true
-sp-core.workspace = true
-sp-runtime.workspace = true
+sp-consensus-aura = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
 
 [features]
 default = ["std"]

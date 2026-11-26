@@ -33,7 +33,7 @@ static_assertions = { workspace = true, default-features = true }
 criterion = { workspace = true, default-features = true }
 primitive-types = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
-sp-crypto-hashing = { default-features = true, path = "../crypto/hashing" }
+sp-crypto-hashing = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]
