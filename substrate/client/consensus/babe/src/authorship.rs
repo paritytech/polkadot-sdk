@@ -34,6 +34,9 @@ use sp_keystore::KeystorePtr;
 
 /// Calculates the primary selection threshold for a given authority, taking
 /// into account `c` (`1 - c` represents the probability of a slot being empty).
+///
+/// An authority listed more than once has the summed weight of all its entries: its VRF output
+/// does not depend on the entry, so each entry would otherwise give it the same single draw.
 pub(super) fn calculate_primary_threshold(
 	c: (u64, u64),
 	authorities: &[(AuthorityId, BabeAuthorityWeight)],
@@ -53,8 +56,14 @@ pub(super) fn calculate_primary_threshold(
 
 	let c = c.0 as f64 / c.1 as f64;
 
-	let theta = authorities[authority_index].1 as f64 /
-		authorities.iter().map(|(_, weight)| weight).sum::<u64>() as f64;
+	let authority_id = &authorities[authority_index].0;
+	let authority_weight = authorities
+		.iter()
+		.filter(|(id, _)| id == authority_id)
+		.map(|(_, weight)| weight)
+		.sum::<u64>();
+	let theta =
+		authority_weight as f64 / authorities.iter().map(|(_, weight)| weight).sum::<u64>() as f64;
 
 	assert!(theta > 0.0, "authority with weight 0.");
 
@@ -307,6 +316,24 @@ mod tests {
 
 		epoch.authorities.push((valid_public_key.into(), 10));
 		assert_eq!(claim_slot(10.into(), &epoch, &keystore).unwrap().1, valid_public_key.into());
+	}
+
+	#[test]
+	fn primary_threshold_sums_weights_of_duplicated_authorities() {
+		let a = AuthorityId::from(Pair::generate().0.public());
+		let b = AuthorityId::from(Pair::generate().0.public());
+		let c = (1, 4);
+
+		let duplicated = vec![(a.clone(), 1), (b.clone(), 1), (a.clone(), 1)];
+		let merged = vec![(a, 2), (b, 1)];
+
+		let expected = calculate_primary_threshold(c, &merged, 0);
+		assert_eq!(calculate_primary_threshold(c, &duplicated, 0), expected);
+		assert_eq!(calculate_primary_threshold(c, &duplicated, 2), expected);
+		assert_eq!(
+			calculate_primary_threshold(c, &duplicated, 1),
+			calculate_primary_threshold(c, &merged, 1)
+		);
 	}
 
 	#[test]
