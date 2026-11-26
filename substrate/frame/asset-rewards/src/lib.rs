@@ -193,7 +193,7 @@ pub mod pallet {
 	use sp_runtime::{
 		traits::{
 			AccountIdConversion, BadOrigin, EnsureAdd, EnsureAddAssign, EnsureDiv, EnsureMul,
-			EnsureSub, EnsureSubAssign,
+			EnsureSub, EnsureSubAssign, Saturating,
 		},
 		DispatchResult,
 	};
@@ -791,9 +791,10 @@ pub mod pallet {
 				return Ok(pool_info.reward_per_token_stored);
 			}
 
+			// Zero once the pool was last updated after expiry.
 			let rewardable_blocks_elapsed: u32 =
 				match Self::last_block_reward_applicable(pool_info.expiry_block)
-					.ensure_sub(pool_info.last_update_block)?
+					.saturating_sub(pool_info.last_update_block)
 					.try_into()
 				{
 					Ok(b) => b,
