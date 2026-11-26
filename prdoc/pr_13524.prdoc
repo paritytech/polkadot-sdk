@@ -1,0 +1,11 @@
+title: "pov-recovery: preserve full ancestry recovery at unannounced ancestors"
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      Continue full parachain candidate recovery after reaching an ancestor that
+      was not announced as a pending candidate. This preserves the collected
+      ancestry and queues it for recovery instead of silently abandoning the
+      request. No API changes or migration are required.
+crates:
+  - name: cumulus-client-pov-recovery
+    bump: patch
