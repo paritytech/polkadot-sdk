@@ -502,6 +502,51 @@ fn report_equivocation_current_session_works() {
 }
 
 #[test]
+fn report_equivocation_with_different_authority_indices_works() {
+	build_and_execute_with_pairs(3, |pairs| {
+		start_era(1);
+
+		let authorities = Authorities::<Test>::get();
+		let offending_validator_index = 1;
+		let offending_validator_id = Session::validators()[offending_validator_index];
+		let offending_authority_pair = pairs
+			.into_iter()
+			.find(|p| p.public() == authorities[offending_validator_index].0)
+			.unwrap();
+
+		// An authority listed more than once can sign one header under each of its entries.
+		let slot = CurrentSlot::<Test>::get();
+		let first = generate_equivocation_proof(
+			offending_validator_index as u32,
+			&offending_authority_pair,
+			slot,
+		);
+		let second = generate_equivocation_proof(
+			offending_validator_index as u32 + 1,
+			&offending_authority_pair,
+			slot,
+		);
+		let equivocation_proof =
+			sp_consensus_babe::EquivocationProof { second_header: second.second_header, ..first };
+
+		let key = (sp_consensus_babe::KEY_TYPE, &offending_authority_pair.public());
+		let key_owner_proof = Historical::prove(key).unwrap();
+
+		Babe::report_equivocation_unsigned(
+			RuntimeOrigin::none(),
+			Box::new(equivocation_proof),
+			key_owner_proof,
+		)
+		.unwrap();
+
+		start_era(2);
+
+		assert_eq!(Balances::total_balance(&offending_validator_id), 10_000_000 - 10_000);
+		assert_eq!(Staking::slashable_balance_of(&offending_validator_id), 0);
+	})
+}
+
+#[test]
 fn report_equivocation_old_session_works() {
 	build_and_execute_with_pairs(3, |pairs| {
 		start_era(1);

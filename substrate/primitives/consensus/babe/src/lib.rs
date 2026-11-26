@@ -317,13 +317,9 @@ where
 			return None;
 		}
 
-		// both headers must have been authored by the same authority
-		if first_pre_digest.authority_index() != second_pre_digest.authority_index() {
-			return None;
-		}
-
 		// we finally verify that the expected authority has signed both headers and
-		// that the signature is valid.
+		// that the signature is valid. The authority indices of the headers are not
+		// compared: an authority listed more than once can sign under any of its entries.
 		verify_seal_signature(proof.first_header, &proof.offender)?;
 		verify_seal_signature(proof.second_header, &proof.offender)?;
 
