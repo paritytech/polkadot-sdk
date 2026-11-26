@@ -253,8 +253,8 @@ pub mod registration {
 	/// Like [`new_data_provider`], but reads only the transaction holding the selected chunk.
 	///
 	/// `indexed_transactions` returns the target block's transactions in runtime order, e.g.
-	/// from `TransactionStorageApi::indexed_transactions` (v2). The proof is the same as
-	/// [`new_data_provider`] gives, without reading the whole indexed body.
+	/// from `TransactionStorageApi::indexed_transactions` (v2). The chunk is selected from their
+	/// sizes, so the proof is the same as [`new_data_provider`] gives.
 	pub fn new_data_provider_from_indexed_transactions<B, C>(
 		client: &C,
 		parent: &B::Hash,
@@ -272,50 +272,57 @@ pub mod registration {
 			return Ok(InherentDataProvider::new(None));
 		}
 
+		// Select the chunk to prove.
 		let infos = indexed_transactions(number)?;
-		let sizes: Vec<u32> = infos.iter().map(|info| info.size).collect();
-		let proof = build_proof_from_sizes(parent.as_ref(), &sizes, |index| {
-			let hash = &infos[index].content_hash;
-			client.indexed_transaction(hash)?.ok_or_else(|| {
-				Error::Application(Box::from(format!("Missing indexed transaction {hash:?}")))
-			})
+		let Some((tx_index, tx_chunk_index)) =
+			select_chunk(parent.as_ref(), infos.iter().map(|info| info.size))
+		else {
+			// Nothing was indexed in that block.
+			return Ok(InherentDataProvider::new(None));
+		};
+
+		// Load the transaction holding the chunk.
+		let info = &infos[tx_index];
+		let hash = sp_core::H256::from(info.content_hash);
+		let transaction = client.indexed_transaction(&info.content_hash)?.ok_or_else(|| {
+			Error::Application(Box::from(format!("Missing indexed transaction {hash:?}")))
 		})?;
-		Ok(InherentDataProvider::new(proof))
+		if transaction.len() != info.size as usize {
+			return Err(Error::Application(Box::from(format!(
+				"Indexed transaction {hash:?} has {} bytes, expected {}",
+				transaction.len(),
+				info.size,
+			))));
+		}
+
+		// Build the proof.
+		transaction_proof(&transaction, tx_chunk_index)
+			.map(|proof| InherentDataProvider::new(Some(proof)))
 	}
 
-	/// Build a proof from the transaction sizes, loading only the selected transaction.
+	/// Select the random chunk of a block from the sizes of its indexed transactions.
 	///
-	/// `sizes` are the sizes of the block's indexed transactions, in order. `load` is called
-	/// once, with the position in `sizes` of the transaction that holds the selected chunk.
-	pub fn build_proof_from_sizes(
+	/// Returns the transaction index and the chunk index within that transaction, or `None` if
+	/// the block has no chunks.
+	fn select_chunk(
 		random_hash: &[u8],
-		sizes: &[u32],
-		load: impl FnOnce(usize) -> Result<Vec<u8>, Error>,
-	) -> Result<Option<TransactionStorageProof>, Error> {
-		let total_chunks: ChunkIndex = sizes.iter().map(|size| num_chunks(*size)).sum();
+		sizes: impl Iterator<Item = u32> + Clone,
+	) -> Option<(usize, ChunkIndex)> {
+		let total_chunks: ChunkIndex = sizes.clone().map(num_chunks).sum();
 		if total_chunks.is_zero() {
-			return Ok(None);
+			return None;
 		}
-		let selected_chunk_index = random_chunk(random_hash, total_chunks);
-
-		let mut first_chunk: ChunkIndex = 0;
-		for (index, size) in sizes.iter().enumerate() {
-			let chunks = num_chunks(*size);
-			if selected_chunk_index < first_chunk + chunks {
-				let transaction = load(index)?;
-				if transaction.len() != *size as usize {
-					return Err(Error::Application(Box::from(format!(
-						"Indexed transaction {index} has {} bytes, expected {size}",
-						transaction.len()
-					))));
-				}
-				return transaction_proof(&transaction, selected_chunk_index - first_chunk)
-					.map(Some);
+		// Index in the block; becomes the index within the transaction below.
+		let mut chunk_index = random_chunk(random_hash, total_chunks);
+		for (tx_index, size) in sizes.enumerate() {
+			let chunks = num_chunks(size);
+			if chunk_index < chunks {
+				return Some((tx_index, chunk_index));
 			}
-			first_chunk += chunks;
+			chunk_index -= chunks;
 		}
-
-		Err(Error::Application(Box::from(format!("No chunk (total_chunks: {total_chunks}) matched the selected_chunk_index: {selected_chunk_index}; logic error!"))))
+		// `chunk_index < total_chunks`, so the loop above always returns.
+		None
 	}
 
 	/// Prove one chunk of a single transaction.
@@ -353,12 +360,18 @@ pub mod registration {
 	}
 
 	/// Build a proof for a given source of randomness and indexed transactions.
+	///
+	/// Needs the data of all indexed transactions of the block, in block order. To load only the
+	/// selected one, see [`new_data_provider_from_indexed_transactions`].
 	pub fn build_proof(
 		random_hash: &[u8],
-		mut transactions: Vec<Vec<u8>>,
+		transactions: Vec<Vec<u8>>,
 	) -> Result<Option<TransactionStorageProof>, Error> {
-		let sizes: Vec<u32> = transactions.iter().map(|t| t.len() as u32).collect();
-		build_proof_from_sizes(random_hash, &sizes, |index| Ok(transactions.swap_remove(index)))
+		select_chunk(random_hash, transactions.iter().map(|t| t.len() as u32))
+			.map(|(tx_index, tx_chunk_index)| {
+				transaction_proof(&transactions[tx_index], tx_chunk_index)
+			})
+			.transpose()
 	}
 
 	#[test]
@@ -393,7 +406,7 @@ pub mod registration {
 	}
 
 	#[test]
-	fn build_proof_from_sizes_proves_selected_chunk() {
+	fn build_proof_proves_selected_chunk() {
 		use sp_trie::TrieConfiguration;
 
 		let transactions = mixed_transactions();
@@ -409,17 +422,15 @@ pub mod registration {
 
 		for seed in 0u8..=255 {
 			let random = [seed; 32];
-			let mut loads = Vec::new();
-			let proof = build_proof_from_sizes(&random, &sizes, |index| {
-				loads.push(index);
-				Ok(transactions[index].clone())
-			})
-			.unwrap()
-			.unwrap();
-
 			let (tx, chunk_index, chunk) =
 				chunks[random_chunk(&random, chunks.len() as u32) as usize];
-			assert_eq!(loads, vec![tx], "seed={seed}: loads only the selected transaction");
+			assert_eq!(
+				select_chunk(&random, sizes.iter().copied()),
+				Some((tx, chunk_index)),
+				"seed={seed}"
+			);
+
+			let proof = build_proof(&random, transactions.clone()).unwrap().unwrap();
 			assert_eq!(proof.chunk, chunk, "seed={seed}");
 			// The root the runtime keeps for the transaction.
 			let root = TrieLayout::ordered_trie_root(transactions[tx].chunks(CHUNK_SIZE));
@@ -429,28 +440,14 @@ pub mod registration {
 				&[(encode_index(chunk_index), Some(chunk))],
 			)
 			.unwrap_or_else(|e| panic!("seed={seed}: {e:?}"));
-
-			assert_eq!(build_proof(&random, transactions.clone()).unwrap(), Some(proof));
 		}
 	}
 
 	#[test]
-	fn build_proof_from_sizes_edge_cases() {
+	fn select_chunk_without_chunks() {
 		let random = [7u8; 32];
-		let no_load = |_| -> Result<Vec<u8>, Error> { panic!("nothing to load") };
-
-		assert!(build_proof_from_sizes(&random, &[], no_load).unwrap().is_none());
-		assert!(build_proof_from_sizes(&random, &[0, 0], no_load).unwrap().is_none());
-
-		// The loaded data must match the size the runtime reported.
-		let wrong_size = build_proof_from_sizes(&random, &[10], |_| Ok(vec![0u8; 9]));
-		assert!(wrong_size.is_err());
-
-		// Load errors are passed through.
-		let missing = build_proof_from_sizes(&random, &[10], |_| {
-			Err(Error::Application(Box::from("missing")))
-		});
-		assert!(missing.is_err());
+		assert_eq!(select_chunk(&random, [].into_iter()), None);
+		assert_eq!(select_chunk(&random, [0, 0].into_iter()), None);
 	}
 
 	#[test]
@@ -523,6 +520,27 @@ pub mod registration {
 			assert_eq!(one_transaction.proof, whole_body.proof, "seed={seed}");
 			assert_eq!(*client.loads.borrow(), 1, "seed={seed}");
 		}
+
+		let provider = |infos: Vec<IndexedTransactionInfo>| {
+			new_data_provider_from_indexed_transactions::<TestBlock, _>(
+				&client,
+				&sp_core::H256::zero(),
+				100,
+				|_| Ok(infos),
+			)
+		};
+		// Nothing indexed: no proof.
+		assert!(provider(vec![]).unwrap().proof.is_none());
+		// The loaded data must match the size the runtime reported.
+		let wrong_size =
+			infos.iter().cloned().map(|i| IndexedTransactionInfo { size: i.size + 1, ..i });
+		assert!(provider(wrong_size.collect()).is_err());
+		// A transaction missing in the database is an error.
+		let missing = infos
+			.iter()
+			.cloned()
+			.map(|i| IndexedTransactionInfo { content_hash: [0xff; 32], ..i });
+		assert!(provider(missing.collect()).is_err());
 
 		// Too early: no proof and no runtime call.
 		let early = Client { parent_number: 50, ..client };
