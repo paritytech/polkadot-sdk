@@ -303,6 +303,85 @@ impl QueuePausedQuery<MessageOrigin> for MockedQueuePauser {
 	}
 }
 
+/// A second mock runtime (in its own module, since `construct_runtime!` generates module-level
+/// items) used by the `execute_overweight` re-entrancy regression test: its processor
+/// re-entrantly enqueues a fresh message while processing one, which is the documented/sanctioned
+/// recursive call.
+pub mod reentrant {
+	use super::*;
+
+	use frame_support::traits::EnqueueMessage;
+
+	pub struct ReentrantProcessor;
+	impl ProcessMessage for ReentrantProcessor {
+		type Origin = MessageOrigin;
+
+		fn process_message(
+			message: &[u8],
+			origin: Self::Origin,
+			meter: &mut WeightMeter,
+			_id: &mut [u8; 32],
+		) -> Result<bool, ProcessMessageError> {
+			let weight = if message.starts_with(&b"weight="[..]) {
+				let mut w: u64 = 0;
+				for &c in &message[7..] {
+					if (b'0'..=b'9').contains(&c) {
+						w = w * 10 + (c - b'0') as u64;
+					} else {
+						break;
+					}
+				}
+				w
+			} else {
+				1
+			};
+			let required = Weight::from_parts(weight, weight);
+
+			if meter.try_consume(required).is_ok() {
+				// The sanctioned recursive call: enqueue a new message while one is being
+				// processed (see the pallet module docs).
+				if message.ends_with(&b"requeue="[..]) {
+					// Re-entrantly enqueue a new message on THIS (reentrant) runtime — the
+					// documented/sanctioned recursive call from a message processor.
+					crate::Pallet::<RT>::enqueue_message(
+						BoundedSlice::truncate_from(b"requeue"),
+						origin,
+					);
+				}
+				Ok(true)
+			} else {
+				Err(ProcessMessageError::Overweight(required))
+			}
+		}
+	}
+
+	frame_support::construct_runtime!(
+		pub enum RT
+		{
+			System: frame_system,
+			MessageQueue: pallet_message_queue,
+		}
+	);
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+	impl frame_system::Config for RT {
+		type Block = Block;
+	}
+
+	impl crate::Config for RT {
+		type RuntimeEvent = RuntimeEvent;
+		type WeightInfo = MockedWeightInfo;
+		type MessageProcessor = ReentrantProcessor;
+		type Size = u32;
+		type QueueChangeHandler = RecordingQueueChangeHandler;
+		type QueuePausedQuery = MockedQueuePauser;
+		type HeapSize = HeapSize;
+		type MaxStale = MaxStale;
+		type ServiceWeight = ServiceWeight;
+		type IdleMaxServiceWeight = ServiceWeight;
+	}
+}
+
 /// Create new test externalities.
 ///
 /// Is generic since it is used by the unit test, integration tests and benchmarks.
