@@ -5,7 +5,8 @@ doc:
     Adds `sp-additional-data`, the producer-agnostic primitives for per-block additional data: the
     `AdditionalData` map and its commitment functions, the `AdditionalDataFinalizer` registry held
     in the `AdditionalDataExt` externalities extension, the `finalize_into` host function, and the
-    header commitment, carried as a `DigestItem::Consensus` log under the `addt` engine id.
+    header commitment, an `H256` carried as a `DigestItem::Consensus` log under the `addt` engine
+    id.
 
     Nothing registers the host function or deposits the log yet, so existing chains are
     unaffected.

@@ -30,7 +30,8 @@
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, string::String, vec::Vec};
-use codec::Encode;
+use codec::{DecodeAll, Encode};
+use sp_core::H256;
 use sp_crypto_hashing::blake2_256;
 use sp_runtime::{ConsensusEngineId, Digest, DigestItem};
 use sp_runtime_interface::{pass_by::PassPointerAndWrite, runtime_interface};
@@ -45,27 +46,27 @@ pub type AdditionalData = BTreeMap<String, Vec<u8>>;
 pub const ADDITIONAL_DATA_ENGINE_ID: ConsensusEngineId = *b"addt";
 
 /// The commitment to one producer's value: blake2-256 of its bytes.
-pub fn hash_value(value: &[u8]) -> [u8; 32] {
-	blake2_256(value)
+pub fn hash_value(value: &[u8]) -> H256 {
+	blake2_256(value).into()
 }
 
 /// Hash the commitments, in the given order; `None` when there are none.
 ///
 /// Pass them in map key order, so build and import produce the same digest.
-pub fn hash_commitments(commitments: impl IntoIterator<Item = [u8; 32]>) -> Option<[u8; 32]> {
+pub fn hash_commitments(commitments: impl IntoIterator<Item = H256>) -> Option<H256> {
 	let mut encoded = Vec::new();
 	commitments.into_iter().for_each(|c| c.encode_to(&mut encoded));
-	(!encoded.is_empty()).then(|| blake2_256(&encoded))
+	(!encoded.is_empty()).then(|| blake2_256(&encoded).into())
 }
 
 /// The digest value of a carried map, equal to what [`AdditionalDataExt::finalize`] produced when
 /// the block was built.
-pub fn hash_additional_data(data: &AdditionalData) -> Option<[u8; 32]> {
+pub fn hash_additional_data(data: &AdditionalData) -> Option<H256> {
 	hash_commitments(data.values().map(|value| hash_value(value)))
 }
 
 /// The digest item that carries `commitment`.
-pub fn digest_item(commitment: [u8; 32]) -> DigestItem {
+pub fn digest_item(commitment: H256) -> DigestItem {
 	DigestItem::Consensus(ADDITIONAL_DATA_ENGINE_ID, commitment.encode())
 }
 
@@ -74,12 +75,12 @@ pub fn digest_item(commitment: [u8; 32]) -> DigestItem {
 pub enum CommitmentError {
 	/// More than one log under [`ADDITIONAL_DATA_ENGINE_ID`].
 	Duplicate,
-	/// The log is not 32 bytes.
+	/// The log does not decode as a hash.
 	Malformed,
 }
 
 /// The commitment in `digest`, or `None` when it carries none.
-pub fn commitment(digest: &Digest) -> Result<Option<[u8; 32]>, CommitmentError> {
+pub fn commitment(digest: &Digest) -> Result<Option<H256>, CommitmentError> {
 	let mut logs = digest.logs().iter().filter_map(|log| match log {
 		DigestItem::Consensus(id, bytes) if *id == ADDITIONAL_DATA_ENGINE_ID => Some(bytes),
 		_ => None,
@@ -88,12 +89,16 @@ pub fn commitment(digest: &Digest) -> Result<Option<[u8; 32]>, CommitmentError> 
 	if logs.next().is_some() {
 		return Err(CommitmentError::Duplicate);
 	}
-	bytes.as_slice().try_into().map(Some).map_err(|_| CommitmentError::Malformed)
+	H256::decode_all(&mut bytes.as_slice())
+		.map(Some)
+		.map_err(|_| CommitmentError::Malformed)
 }
 
 /// Host functions of this crate.
 pub mod host {
 	use super::*;
+	#[cfg(feature = "std")]
+	use sp_externalities::ExternalitiesExt;
 
 	/// Host side of committing a block's additional data.
 	#[runtime_interface]
@@ -103,7 +108,7 @@ pub mod host {
 		fn finalize_into(&mut self, hash_out: PassPointerAndWrite<&mut [u8; 32], 32>) -> bool {
 			match self.extension::<AdditionalDataExt>().and_then(|ext| ext.finalize()) {
 				Some(hash) => {
-					*hash_out = hash;
+					*hash_out = hash.0;
 					true
 				},
 				None => false,
@@ -113,9 +118,9 @@ pub mod host {
 }
 
 /// The digest value of everything recorded this block, or `None` when nothing was recorded.
-pub fn finalize() -> Option<[u8; 32]> {
+pub fn finalize() -> Option<H256> {
 	let mut out = [0u8; 32];
-	host::additional_data::finalize_into(&mut out).then_some(out)
+	host::additional_data::finalize_into(&mut out).then_some(H256(out))
 }
 
 #[cfg(feature = "std")]
@@ -126,11 +131,11 @@ mod node {
 	/// One producer's commitment to the value it carries in the current block.
 	pub trait AdditionalDataFinalizer: Send {
 		/// The commitment, or `None` when the producer recorded nothing. Must be idempotent.
-		fn finalize(&self) -> Option<[u8; 32]>;
+		fn finalize(&self) -> Option<H256>;
 	}
 
 	impl<T: AdditionalDataFinalizer + Sync + ?Sized> AdditionalDataFinalizer for Arc<T> {
-		fn finalize(&self) -> Option<[u8; 32]> {
+		fn finalize(&self) -> Option<H256> {
 			(**self).finalize()
 		}
 	}
@@ -145,14 +150,11 @@ mod node {
 	impl AdditionalDataExt {
 		/// Fold the registered finalizers' commitments in key order, or `None` when nothing was
 		/// recorded.
-		pub fn finalize(&self) -> Option<[u8; 32]> {
+		pub fn finalize(&self) -> Option<H256> {
 			hash_commitments(self.0.values().filter_map(|finalizer| finalizer.finalize()))
 		}
 	}
 }
-
-#[cfg(feature = "std")]
-use sp_externalities::ExternalitiesExt;
 
 #[cfg(test)]
 mod tests {
@@ -160,15 +162,15 @@ mod tests {
 	use alloc::sync::Arc;
 	use sp_io::TestExternalities;
 
-	struct Fixed(Option<[u8; 32]>);
+	struct Fixed(Option<H256>);
 
 	impl AdditionalDataFinalizer for Fixed {
-		fn finalize(&self) -> Option<[u8; 32]> {
+		fn finalize(&self) -> Option<H256> {
 			self.0
 		}
 	}
 
-	fn ext_from(entries: &[(&str, Option<[u8; 32]>)]) -> AdditionalDataExt {
+	fn ext_from(entries: &[(&str, Option<H256>)]) -> AdditionalDataExt {
 		AdditionalDataExt(
 			entries
 				.iter()
@@ -186,7 +188,7 @@ mod tests {
 	fn hash_commitments_hashes_the_concatenation() {
 		let a = hash_value(b"a");
 		let b = hash_value(b"b");
-		assert_eq!(hash_commitments([a, b]), Some(blake2_256(&[a, b].concat())));
+		assert_eq!(hash_commitments([a, b]), Some(H256(blake2_256(&[a.0, b.0].concat()))));
 		assert_eq!(hash_commitments([a, b]), hash_commitments([a, b]));
 		assert_ne!(hash_commitments([a, b]), hash_commitments([b, a]));
 		assert_ne!(hash_commitments([a]), hash_commitments([a, a]));
@@ -202,8 +204,8 @@ mod tests {
 
 	#[test]
 	fn finalizers_fold_in_key_order() {
-		let a = [1u8; 32];
-		let b = [2u8; 32];
+		let a = H256::repeat_byte(1);
+		let b = H256::repeat_byte(2);
 		let ext = ext_from(&[("b", Some(b)), ("a", Some(a))]);
 		assert_eq!(ext.finalize(), hash_commitments([a, b]));
 		assert_eq!(ext.finalize(), ext.finalize());
@@ -211,20 +213,20 @@ mod tests {
 
 	#[test]
 	fn silent_finalizers_are_skipped() {
-		let a = [1u8; 32];
+		let a = H256::repeat_byte(1);
 		let ext = ext_from(&[("a", Some(a)), ("b", None)]);
 		assert_eq!(ext.finalize(), hash_commitments([a]));
 	}
 
 	#[test]
 	fn shared_finalizer_delegates() {
-		let shared = Arc::new(Fixed(Some([3u8; 32])));
+		let shared = Arc::new(Fixed(Some(H256::repeat_byte(3))));
 		let ext = AdditionalDataExt(
 			[("a".to_string(), Box::new(shared.clone()) as Box<dyn AdditionalDataFinalizer>)]
 				.into_iter()
 				.collect(),
 		);
-		assert_eq!(ext.finalize(), hash_commitments([[3u8; 32]]));
+		assert_eq!(ext.finalize(), hash_commitments([H256::repeat_byte(3)]));
 	}
 
 	#[test]
@@ -254,7 +256,7 @@ mod tests {
 
 	#[test]
 	fn commitment_is_read_back_from_the_digest() {
-		let hash = [7u8; 32];
+		let hash = H256::repeat_byte(7);
 		let digest = Digest { logs: vec![DigestItem::Other(vec![1]), digest_item(hash)] };
 		assert_eq!(commitment(&digest), Ok(Some(hash)));
 		assert_eq!(commitment(&Digest::default()), Ok(None));
@@ -262,7 +264,7 @@ mod tests {
 
 	#[test]
 	fn duplicate_or_malformed_commitments_are_rejected() {
-		let hash = [7u8; 32];
+		let hash = H256::repeat_byte(7);
 		let twice = Digest { logs: vec![digest_item(hash), digest_item(hash)] };
 		assert_eq!(commitment(&twice), Err(CommitmentError::Duplicate));
 		let short =
@@ -279,8 +281,8 @@ mod tests {
 
 	#[test]
 	fn host_finalize_folds_the_registered_extension() {
-		let a = [1u8; 32];
-		let b = [2u8; 32];
+		let a = H256::repeat_byte(1);
+		let b = H256::repeat_byte(2);
 		let mut t = TestExternalities::default();
 		t.register_extension(ext_from(&[("b", Some(b)), ("a", Some(a))]));
 		t.execute_with(|| {
