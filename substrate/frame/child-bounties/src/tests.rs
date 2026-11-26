@@ -1780,3 +1780,63 @@ fn max_active_child_bounty_count_is_strictly_enforced() {
 		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 2);
 	});
 }
+
+#[test]
+fn reject_origin_can_unassign_pending_payout_child_after_parent_deactivation() {
+	new_test_ext().execute_with(|| {
+		go_to_block(1);
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::make_free_balance_be(&account_id(4), 101);
+		Balances::make_free_balance_be(&account_id(8), 101);
+
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(account_id(0)),
+			50,
+			b"12345".to_vec()
+		));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+		go_to_block(2);
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+		assert_ok!(ChildBounties::add_child_bounty(
+			RuntimeOrigin::signed(account_id(4)),
+			0,
+			10,
+			b"12345-p1".to_vec()
+		));
+		assert_ok!(ChildBounties::propose_curator(
+			RuntimeOrigin::signed(account_id(4)),
+			0,
+			0,
+			account_id(8),
+			2
+		));
+		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(account_id(8)), 0, 0));
+		// The child curator awards the child to themselves.
+		assert_ok!(ChildBounties::award_child_bounty(
+			RuntimeOrigin::signed(account_id(8)),
+			0,
+			0,
+			account_id(8)
+		));
+
+		// Governance removes the parent curator: the parent is no longer active.
+		go_to_block(4);
+		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::root(), 0));
+
+		// Forced cleanup of a `PendingPayout` child goes through `unassign_curator` first
+		// (`close_child_bounty` returns `PendingPayout`). `RejectOrigin` must be able to
+		// do that irrespective of the parent state, as the call's doc says.
+		assert_noop!(
+			ChildBounties::close_child_bounty(RuntimeOrigin::root(), 0, 0),
+			BountiesError::PendingPayout
+		);
+		assert_ok!(ChildBounties::unassign_curator(RuntimeOrigin::root(), 0, 0));
+		assert_eq!(
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap().status,
+			ChildBountyStatus::Added
+		);
+		assert_ok!(ChildBounties::close_child_bounty(RuntimeOrigin::root(), 0, 0));
+		assert!(!pallet_child_bounties::ChildBounties::<Test>::contains_key(0, 0));
+	});
+}

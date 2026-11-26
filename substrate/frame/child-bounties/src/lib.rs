@@ -576,11 +576,15 @@ pub mod pallet {
 							}
 						},
 						ChildBountyStatus::PendingPayout { ref curator, .. } => {
-							let (parent_curator, _) = Self::ensure_bounty_active(parent_bounty_id)?;
-							ensure!(
-								maybe_sender.map_or(true, |sender| parent_curator == sender),
-								BadOrigin,
-							);
+							// A signed caller must be the active parent curator. `RejectOrigin`
+							// can unassign irrespective of the parent bounty state, so that a
+							// `PendingPayout` child can still be cleaned up after the parent
+							// leaves the active state.
+							if let Some(sender) = maybe_sender {
+								let (parent_curator, _) =
+									Self::ensure_bounty_active(parent_bounty_id)?;
+								ensure!(parent_curator == sender, BadOrigin);
+							}
 							slash_curator(curator, &mut child_bounty.curator_deposit);
 							// Continue to change child-bounty status below.
 						},
