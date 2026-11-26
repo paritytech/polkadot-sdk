@@ -280,6 +280,10 @@ const STATEMENTS_VARIANT_INDEX: u8 = 0;
 /// `#[codec(index)]`.
 const AFFINITY_VARIANT_INDEX: u8 = 1;
 
+/// Codec variant index for `StatementMessage::AnnounceRequest`, kept in sync with
+/// `#[codec(index)]`.
+const ANNOUNCE_REQUEST_VARIANT_INDEX: u8 = 4;
+
 impl StatementMessage {
 	/// Encode a slice of statement references as a `StatementMessage::Statements`
 	/// without cloning the statements.
@@ -443,6 +447,7 @@ struct Metrics {
 	announced_hashes_sent: Counter<U64>,
 	announced_hashes_requested: Counter<U64>,
 	announce_answers_ignored: Counter<U64>,
+	announce_requests_sent: CounterVec<U64>,
 	announce_walk_seconds: HistogramVec,
 }
 
@@ -723,6 +728,16 @@ impl Metrics {
 				)?,
 				r,
 			)?,
+			announce_requests_sent: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_sync_statement_announce_requests_sent_total",
+						"Total requests for an initial sync that this node sent, by kind: window or everything",
+					),
+					&["kind"],
+				)?,
+				r,
+			)?,
 			announce_walk_seconds: register(
 				HistogramVec::new(
 					HistogramOpts::new(
@@ -982,6 +997,7 @@ impl StatementHandlerPrototype {
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
 			short_hashes_in_validation: HashSet::new(),
+			reconciliation: Reconciliation::default(),
 			recently_received_statements: HashMap::new(),
 			network,
 			sync,
@@ -1021,6 +1037,15 @@ impl StatementHandlerPrototype {
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
 			dht,
 		};
+		let mut handler = handler;
+		if dht_enabled() {
+			handler.reconciliation.records = handler
+				.statement_store
+				.sync_records()
+				.into_iter()
+				.filter_map(|(peer, time)| Some((PeerId::from_bytes(&peer).ok()?, time)))
+				.collect();
+		}
 
 		Ok(handler)
 	}
@@ -1045,6 +1070,8 @@ pub struct StatementHandler<
 	/// Short hashes of the statements in `pending_statements_peers`, so that an announce is
 	/// answered without a walk over the map.
 	short_hashes_in_validation: HashSet<ShortHash>,
+	/// Only used when [`dht_enabled`] returns `true`.
+	reconciliation: Reconciliation,
 	/// Statements received from peers and imported since the last propagation
 	/// pass, each with the peers that sent it. Propagation skips those peers,
 	/// so a statement never returns to a peer it came from. Cleared after each
@@ -1121,6 +1148,33 @@ pub struct StatementHandler<
 	sync_recovery_readd_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
 	/// Only invoked when [`dht_enabled`] returns `true`.
 	dht: DhtOrchestrator,
+}
+
+/// Added to the window of a request, for the statements that were on their way when the
+/// connection broke.
+const WINDOW_MARGIN_SECS: u64 = 5 * 60;
+
+/// A record older than this asks for everything.
+const RECORD_MAX_AGE_SECS: u64 = 24 * 60 * 60;
+
+/// How often the records and the store's admission times are written.
+const RECORD_WRITE_INTERVAL: Duration = Duration::from_secs(60);
+
+/// State of set reconciliation by window with full `statement/4` peers.
+#[derive(Default)]
+struct Reconciliation {
+	/// As the receiver: for each peer, the unix time when this node last held everything that
+	/// the peer had for it. Kept in the store across restarts.
+	records: HashMap<PeerId, u64>,
+	/// As the receiver: connected peers whose initial sync succeeded, so their record advances.
+	in_sync: HashSet<PeerId>,
+	/// As the receiver: connected peers that have yet to get a request.
+	request_owed: HashSet<PeerId>,
+	/// As the sender: requests that wait for the filter of the peer, each with the journal
+	/// position its window starts at, `None` for everything.
+	requests: HashMap<PeerId, Option<u64>>,
+	/// When the records were last written.
+	written_at: Option<Instant>,
 }
 
 /// A token bucket, measured against whatever clock it was built with.
@@ -1262,6 +1316,12 @@ struct AnnounceSync {
 	awaiting: Option<AwaitedAnnounce>,
 	/// Statements the peer asked for, sent before the next announce.
 	wanted: VecDeque<Hash>,
+	/// Set when the sync serves a window: the position in the admission journal that the next
+	/// announce resumes from. The walk then ends at the sync's watermark, and `next_row` stays
+	/// unused.
+	journal: Option<u64>,
+	/// The sync answers a request of the peer, so it ends with a final announce.
+	requested: bool,
 }
 
 impl AnnounceSync {
@@ -1271,6 +1331,8 @@ impl AnnounceSync {
 			announces: 0,
 			awaiting: None,
 			wanted: VecDeque::new(),
+			journal: None,
+			requested: false,
 		}
 	}
 }
@@ -1635,6 +1697,7 @@ where
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
 			short_hashes_in_validation: HashSet::new(),
+			reconciliation: Reconciliation::default(),
 			recently_received_statements: HashMap::new(),
 			network,
 			sync,
@@ -1751,6 +1814,11 @@ where
 					}
 					self.end_unanswered_announce_syncs();
 					self.process_pending_affinities();
+					if dht_enabled() {
+						self.serve_announce_requests();
+						self.send_owed_announce_requests().await;
+						self.write_sync_records();
+					}
 					self.pending_affinities_timeout =
 						Box::pin(tokio::time::sleep(PENDING_AFFINITIES_INTERVAL).fuse());
 				},
@@ -2090,7 +2158,8 @@ where
 		dht_enabled() &&
 			self.peers.get(peer).is_some_and(|peer_data| {
 				peer_data.protocol_version != PeerProtocolVersion::V1 &&
-					notification.starts_with(&[AFFINITY_VARIANT_INDEX])
+					(notification.starts_with(&[AFFINITY_VARIANT_INDEX]) ||
+						notification.starts_with(&[ANNOUNCE_REQUEST_VARIANT_INDEX]))
 			})
 	}
 
@@ -2201,6 +2270,9 @@ where
 						self.dht.on_light_peer(peer);
 					}
 					self.send_local_filter(&peer).await;
+					if self.peers.get(&peer).is_some_and(Peer::syncs_by_announce) {
+						self.reconciliation.request_owed.insert(peer);
+					}
 				}
 
 				// Peers awaiting their affinity filter are synced by the pending-affinity tick.
@@ -2218,6 +2290,9 @@ where
 				if dht_enabled() {
 					self.dht.on_substream_closed(peer);
 				}
+				self.reconciliation.in_sync.remove(&peer);
+				self.reconciliation.request_owed.remove(&peer);
+				self.reconciliation.requests.remove(&peer);
 				let removed_peer = self.peers.remove(&peer);
 				debug_assert!(removed_peer.is_some());
 				self.update_peers_without_dht();
@@ -2341,8 +2416,11 @@ where
 										peer_data.pending_topic_affinity = Some(filter);
 									}
 								},
-								StatementMessage::Announce { id, hashes, .. } => {
+								StatementMessage::Announce { id, hashes, last, .. } => {
 									if dht_enabled() && peer_data.syncs_by_announce() {
+										if last {
+											self.on_final_announce(peer);
+										}
 										self.on_announce(peer, id, hashes.into_inner());
 									} else {
 										self.report_bad_message(peer);
@@ -2356,10 +2434,20 @@ where
 									}
 								},
 								StatementMessage::AnnounceRequest { window_secs } => {
-									log::trace!(
-										target: LOG_TARGET,
-										"Dropping announce request for {window_secs:?} seconds from {peer}",
-									);
+									if dht_enabled() && peer_data.syncs_by_announce() {
+										// The position is taken now: the window counts back from
+										// the arrival of the request, and the sync may start later.
+										let start = window_secs.and_then(|window| {
+											self.statement_store.admission_seq_since(window.into())
+										});
+										log::debug!(
+											target: LOG_TARGET,
+											"{peer} asks for the last {window_secs:?} seconds, journal position {start:?}",
+										);
+										self.reconciliation.requests.insert(peer, start);
+									} else {
+										self.report_bad_message(peer);
+									}
 								},
 							}
 						} else {
@@ -2393,6 +2481,10 @@ where
 		let Some(peer) = self.peers.get(&who) else {
 			return;
 		};
+		// An empty announce only carries the final flag.
+		if hashes.is_empty() {
+			return;
+		}
 		if peer.announce_rate_limiter.is_flooding(hashes.len()) {
 			log::debug!(target: LOG_TARGET, "Dropping rate-limited announce from {who}");
 			self.network.report_peer(who, rep::ANNOUNCE_FLOODING);
@@ -2473,6 +2565,150 @@ where
 			metrics.announced_hashes_requested.inc_by(requested as u64);
 		});
 		self.initial_sync_peer_queue.push_back(who);
+	}
+
+	/// The initial sync that this node asked `peer` for has succeeded, so its record starts.
+	fn on_final_announce(&mut self, peer: PeerId) {
+		// A final announce that answers a request from before a major sync says nothing about
+		// the statements dropped during it.
+		if self.reconciliation.request_owed.contains(&peer) {
+			return;
+		}
+		self.reconciliation.in_sync.insert(peer);
+		self.reconciliation.records.insert(peer, unix_timestamp_secs());
+	}
+
+	/// The window that a request to `peer` names, `None` to ask for everything.
+	fn request_window(&self, peer: &PeerId) -> Option<u32> {
+		let record = *self.reconciliation.records.get(peer)?;
+		// A record in the future means that the clock stepped back.
+		let age = unix_timestamp_secs().checked_sub(record)?;
+		(age <= RECORD_MAX_AGE_SECS).then(|| (age + WINDOW_MARGIN_SECS) as u32)
+	}
+
+	/// Send a request to every peer that is owed one, once this node accepts statements again.
+	async fn send_owed_announce_requests(&mut self) {
+		if self.sync.is_major_syncing() {
+			// Statements are dropped now, so no peer stays in sync, and each gets a new request.
+			self.reconciliation.in_sync.clear();
+			self.reconciliation.request_owed = self
+				.peers
+				.iter()
+				.filter(|(_, peer)| peer.syncs_by_announce())
+				.map(|(peer_id, _)| *peer_id)
+				.collect();
+			return;
+		}
+		if !self.dht.major_sync_settled() || self.reconciliation.request_owed.is_empty() {
+			return;
+		}
+		for peer in std::mem::take(&mut self.reconciliation.request_owed) {
+			let window_secs = self.request_window(&peer);
+			let encoded = StatementMessage::AnnounceRequest { window_secs }.encode();
+			log::debug!(target: LOG_TARGET, "Asking {peer} for the last {window_secs:?} seconds");
+			if self.send_notification(&peer, encoded).await {
+				self.metrics.as_ref().map(|metrics| {
+					let kind = if window_secs.is_some() { "window" } else { "everything" };
+					metrics.announce_requests_sent.with_label_values(&[kind]).inc();
+				});
+			} else if self.peers.contains_key(&peer) {
+				self.reconciliation.request_owed.insert(peer);
+			}
+		}
+	}
+
+	/// Start the initial sync of every peer that asked for one and has advertised its filter.
+	fn serve_announce_requests(&mut self) {
+		let ready: Vec<PeerId> = self
+			.reconciliation
+			.requests
+			.keys()
+			.filter(|peer| {
+				self.peers.get(peer).is_some_and(|peer_data| {
+					peer_data.topic_affinity.is_some() && peer_data.pending_topic_affinity.is_none()
+				})
+			})
+			.copied()
+			.collect();
+		for peer in ready {
+			let Some(start) = self.reconciliation.requests.remove(&peer) else { continue };
+			if !self.schedule_initial_sync_for_peer(peer, None) {
+				self.reconciliation.requests.insert(peer, start);
+				continue;
+			}
+			let announce = self
+				.pending_initial_syncs
+				.get_mut(&peer)
+				.and_then(|pending| pending.announce.as_mut());
+			match announce {
+				Some(announce) => {
+					announce.journal = start;
+					announce.requested = true;
+				},
+				// An empty store starts no sync.
+				None => self.send_final_announce(peer),
+			}
+		}
+	}
+
+	/// Tell `peer` that the initial sync it asked for is over. It takes no send slot, as an
+	/// answer does.
+	fn send_final_announce(&mut self, peer: PeerId) {
+		let Some(message_sink) = self.notification_service.message_sink(&peer) else {
+			self.record_send_failure(send_failure::NO_SINK);
+			return;
+		};
+		let encoded = StatementMessage::Announce {
+			id: u64::MAX,
+			salt: 0,
+			last: true,
+			hashes: AnnouncedHashes::truncate_from(Vec::new()),
+		}
+		.encode();
+		let route = self.peers.get(&peer).map_or(peer_route::LEGACY, Peer::route);
+		let bytes_sent = encoded.len() as u64;
+		let chunk_id = self.next_chunk_id;
+		self.next_chunk_id = self.next_chunk_id.saturating_add(1);
+		self.pending_sends.push(Box::pin(async move {
+			let result = send_with_timeout(message_sink.send_async_notification(encoded)).await;
+			PendingSendResult {
+				peer,
+				statement_count: 0,
+				bytes_sent,
+				result,
+				kind: SendKind::Answer,
+				route,
+				chunk_id,
+			}
+		}));
+	}
+
+	/// Once a minute, advance the record of every peer in sync, write the records to the store,
+	/// and let the store note the time against its journal.
+	fn write_sync_records(&mut self) {
+		let due = self
+			.reconciliation
+			.written_at
+			.is_none_or(|written_at| written_at.elapsed() >= RECORD_WRITE_INTERVAL);
+		if !due {
+			return;
+		}
+		self.reconciliation.written_at = Some(Instant::now());
+		self.statement_store.note_admission_time();
+		let now = unix_timestamp_secs();
+		for peer in &self.reconciliation.in_sync {
+			self.reconciliation.records.insert(*peer, now);
+		}
+		self.reconciliation
+			.records
+			.retain(|_, record| now.saturating_sub(*record) <= RECORD_MAX_AGE_SECS);
+		let records: Vec<(Vec<u8>, u64)> = self
+			.reconciliation
+			.records
+			.iter()
+			.map(|(peer, record)| (peer.to_bytes(), *record))
+			.collect();
+		self.statement_store.set_sync_records(&records);
 	}
 
 	/// End the pending initial sync of `peer` with `outcome`.
@@ -3410,6 +3646,11 @@ where
 			let full_replay = std::mem::take(&mut peer_data.full_replay_requested);
 			let already_served =
 				previous.clone().filter(|previous| !full_replay && *previous != filter);
+			// A full `statement/4` peer asks for its initial sync and for a replay with a
+			// request, so only a changed filter starts a sync here.
+			if dht_enabled() && peer_data.syncs_by_announce() && already_served.is_none() {
+				continue;
+			}
 			if !self.schedule_initial_sync_for_peer(peer_id, already_served) {
 				// A filter counts as served only once its sync is scheduled, so it waits for the
 				// next pass.
@@ -3668,15 +3909,84 @@ where
 			self.send_wanted_chunk(peer_id, sync_id, route);
 			return;
 		}
-		let Some(from) = announce.next_row else {
-			self.end_initial_sync(peer_id, sync_outcome::COMPLETED);
-			return;
+		let walk_done = match announce.journal {
+			Some(cursor) => cursor >= pending.watermark,
+			None => announce.next_row.is_none(),
 		};
+		if walk_done {
+			let requested = announce.requested;
+			self.end_initial_sync(peer_id, sync_outcome::COMPLETED);
+			if requested {
+				self.send_final_announce(peer_id);
+			}
+			return;
+		}
 		let Some(peer_data) = self.peers.get(&peer_id) else {
 			log::error!(target: LOG_TARGET, "Peer {peer_id} has pending initial sync but is not in peers map");
 			self.end_initial_sync(peer_id, sync_outcome::ABANDONED);
 			return;
 		};
+
+		if let Some(cursor) = announce.journal {
+			// The window: the statements between the cursor and the watermark that are due to
+			// the peer, by the test of `fetch_admitted_chunk`.
+			let now = unix_timestamp_secs();
+			let filter = peer_data.topic_affinity.as_ref();
+			let is_dht_target = self.dht.dht_target_predicate(peer_id);
+			let mut hashes = Vec::new();
+			let batch = self.statement_store.admitted_statements(
+				cursor,
+				pending.watermark,
+				MAX_ANNOUNCED_HASHES,
+				&mut |hash, _, stmt| {
+					let due = !stmt.is_expired(now) &&
+						(filter.is_none_or(|filter| filter.matches_statement(stmt)) ||
+							is_dht_target(stmt)) &&
+						!has_received_from(
+							&self.recently_received_statements,
+							&self.pending_statements_peers,
+							hash,
+							&peer_id,
+						);
+					if due {
+						hashes.push(*hash);
+					}
+					FilterDecision::Skip
+				},
+			);
+			drop(is_dht_target);
+			let batch = match batch {
+				Ok(batch) => batch,
+				Err(e) => {
+					log::warn!(
+						target: LOG_TARGET,
+						"Failed to walk the admission journal for initial sync of {peer_id}, will retry: {e:?}",
+					);
+					self.initial_sync_peer_queue.push_back(peer_id);
+					return;
+				},
+			};
+			if hashes.is_empty() {
+				announce.journal = Some(batch.cursor);
+				self.initial_sync_peer_queue.push_back(peer_id);
+				return;
+			}
+			// The cursor stays, so a later burst walks the same rows once the quota has room.
+			if peer_data.announce_budget.is_flooding(hashes.len()) {
+				self.initial_sync_peer_queue.push_back(peer_id);
+				return;
+			}
+			announce.journal = Some(batch.cursor);
+			let id = (sync_id << 32) | announce.announces;
+			announce.announces += 1;
+			self.metrics.as_ref().map(|metrics| {
+				metrics.announced_hashes_sent.inc_by(hashes.len() as u64);
+			});
+			announce.awaiting = Some(AwaitedAnnounce { id, hashes, sent_at: None });
+			self.send_announce(peer_id, sync_id, route);
+			return;
+		}
+		let Some(from) = announce.next_row else { return };
 
 		// The test of `fetch_admitted_chunk`, applied to a topic. A statement with several
 		// topics may pass where its other topic was served already: the peer then holds it and
@@ -4605,6 +4915,7 @@ mod tests {
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
 			short_hashes_in_validation: HashSet::new(),
+			reconciliation: Reconciliation::default(),
 			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync: TestSync::new(),
@@ -5830,6 +6141,7 @@ mod tests {
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
 			short_hashes_in_validation: HashSet::new(),
+			reconciliation: Reconciliation::default(),
 			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync: TestSync::new(),
@@ -5900,6 +6212,7 @@ mod tests {
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
 			short_hashes_in_validation: HashSet::new(),
+			reconciliation: Reconciliation::default(),
 			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync: TestSync::new(),
@@ -8174,6 +8487,49 @@ mod tests {
 	}
 
 	#[tokio::test]
+	async fn a_requested_sync_announces_the_window_and_ends_with_a_final_announce() {
+		let (mut handler, _network, notification_service, peer_id, statements) =
+			handler_with_announced_sync(&[topic(1), topic(2), topic(3)]).await;
+		let pending = handler.pending_initial_syncs.get_mut(&peer_id).unwrap();
+		pending.watermark = 3;
+		let announce = pending.announce.as_mut().unwrap();
+		announce.journal = Some(1);
+		announce.requested = true;
+		let id = ANNOUNCED_SYNC_ID << 32;
+
+		sync_burst(&mut handler).await;
+		assert_eq!(
+			notification_service.get_sent_notifications(),
+			vec![(peer_id, announce_of(id, &[&statements[1], &statements[2]]))],
+		);
+
+		notification_service.clear_sent_notifications();
+		handler.on_want(peer_id, id, vec![0]);
+		sync_burst(&mut handler).await;
+		let final_announce = StatementMessage::Announce {
+			id: u64::MAX,
+			salt: 0,
+			last: true,
+			hashes: Vec::new().try_into().unwrap(),
+		}
+		.encode();
+		assert_eq!(notification_service.get_sent_notifications(), vec![(peer_id, final_announce)]);
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+	}
+
+	#[tokio::test]
+	async fn a_final_announce_starts_the_record_and_the_next_request_names_a_window() {
+		let (mut handler, _network, _notification_service, peer_id, _statements) =
+			handler_with_announced_sync(&[]).await;
+		assert_eq!(handler.request_window(&peer_id), None);
+
+		handler.on_final_announce(peer_id);
+		assert!(handler.reconciliation.in_sync.contains(&peer_id));
+		let window = handler.request_window(&peer_id).unwrap();
+		assert!((WINDOW_MARGIN_SECS..WINDOW_MARGIN_SECS + 5).contains(&u64::from(window)));
+	}
+
+	#[tokio::test]
 	async fn an_announced_sync_sends_only_the_statements_the_peer_asks_for() {
 		let (mut handler, _network, notification_service, peer_id, statements) =
 			handler_with_announced_sync(&[topic(1), topic(2), topic(3)]).await;
@@ -9080,6 +9436,7 @@ mod tests {
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
 			short_hashes_in_validation: HashSet::new(),
+			reconciliation: Reconciliation::default(),
 			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync: sync.clone(),
@@ -9592,6 +9949,7 @@ mod tests {
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
 			short_hashes_in_validation: HashSet::new(),
+			reconciliation: Reconciliation::default(),
 			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync,
@@ -9753,6 +10111,7 @@ mod tests {
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
 			short_hashes_in_validation: HashSet::new(),
+			reconciliation: Reconciliation::default(),
 			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync,
@@ -9857,6 +10216,7 @@ mod tests {
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
 			short_hashes_in_validation: HashSet::new(),
+			reconciliation: Reconciliation::default(),
 			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync,
@@ -9985,6 +10345,7 @@ mod tests {
 					pending_statements: FuturesUnordered::new(),
 					pending_statements_peers: HashMap::new(),
 					short_hashes_in_validation: HashSet::new(),
+					reconciliation: Reconciliation::default(),
 					recently_received_statements: HashMap::new(),
 					network,
 					sync,

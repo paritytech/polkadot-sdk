@@ -525,6 +525,26 @@ pub trait StatementStore: Send + Sync {
 	/// bans it. A peer has no reason to send such a statement.
 	fn knows_short_hash(&self, short: &ShortHash) -> bool;
 
+	/// Record the current time against the admission watermark, for
+	/// [`Self::admission_seq_since`]. The gossip loop calls it once a minute.
+	fn note_admission_time(&self) {}
+
+	/// The admission sequence number from which the statements admitted in the last
+	/// `window_secs` seconds start. `None` when the store cannot tell, or when the window
+	/// covers more than a quarter of the journal: the caller then walks everything.
+	fn admission_seq_since(&self, _window_secs: u64) -> Option<u64> {
+		None
+	}
+
+	/// The records of set reconciliation: for each peer, the time when this node last held
+	/// everything that the peer had for it.
+	fn sync_records(&self) -> Vec<(Vec<u8>, u64)> {
+		Vec::new()
+	}
+
+	/// Replace the records of [`Self::sync_records`].
+	fn set_sync_records(&self, _records: &[(Vec<u8>, u64)]) {}
+
 	/// Return the data of all known statements which include all topics and have no `DecryptionKey`
 	/// field.
 	fn broadcasts(&self, match_all_topics: &[Topic]) -> Result<Vec<Vec<u8>>>;

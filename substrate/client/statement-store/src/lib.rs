@@ -102,6 +102,15 @@ const CURRENT_VERSION: u32 = 3;
 /// consistent with the statement data and makes startup independent of the store size.
 const KEY_COUNTERS: &[u8] = b"counters".as_slice();
 
+/// Meta column key of the pairs of a time and the admission watermark at that time, oldest
+/// first.
+const KEY_ADMISSION_TIMES: &[u8] = b"admission_times".as_slice();
+/// Meta column key of the records of set reconciliation, one per peer.
+const KEY_SYNC_RECORDS: &[u8] = b"sync_records".as_slice();
+/// How long a pair under `KEY_ADMISSION_TIMES` is kept: the longest window that a peer asks
+/// for, with room to spare.
+const ADMISSION_TIMES_KEPT_SECS: u64 = 25 * 60 * 60;
+
 const MIGRATION_COMMIT_CHUNK: usize = 100_000;
 
 /// A single raw database operation: writes `value` under `key` in `column`, or deletes the key
@@ -986,6 +995,8 @@ pub struct Store {
 	/// Shared with `SubmitIndex`, which keeps it equal to its `next_seq`, so the gossip loop reads
 	/// the watermark without waiting for a writer stalled on the disk.
 	admission_watermark: Arc<AtomicU64>,
+	/// The pairs under `KEY_ADMISSION_TIMES`.
+	admission_times: parking_lot::Mutex<Vec<(u64, u64)>>,
 	// Used for testing
 	time_override: Option<u64>,
 	metrics: PrometheusMetrics,
@@ -1588,6 +1599,7 @@ impl Store {
 			keystore,
 			known_accounts_count: AtomicUsize::new(0),
 			admission_watermark,
+			admission_times: Default::default(),
 			time_override: None,
 			metrics: PrometheusMetrics::new(prometheus),
 			subscription_manager: SubscriptionsHandle::new(
@@ -1596,6 +1608,14 @@ impl Store {
 			),
 		};
 		store.populate(migrate_from)?;
+		if let Some(times) = store
+			.db
+			.get(col::META, KEY_ADMISSION_TIMES)
+			.map_err(|e| Error::Db(e.to_string()))?
+		{
+			*store.admission_times.lock() =
+				Decode::decode(&mut times.as_slice()).unwrap_or_default();
+		}
 		Ok(store)
 	}
 
@@ -3110,6 +3130,62 @@ impl StatementStore for Store {
 
 	fn knows_short_hash(&self, short: &ShortHash) -> bool {
 		self.query_index.read().known_short.contains(short)
+	}
+
+	fn note_admission_time(&self) {
+		let now = self.timestamp();
+		let watermark = self.admission_watermark.load(AtomicOrdering::Acquire);
+		let mut times = self.admission_times.lock();
+		// A clock that stepped back would break the order of the pairs.
+		times.retain(|(time, _)| *time < now);
+		let oldest_kept = now.saturating_sub(ADMISSION_TIMES_KEPT_SECS);
+		// One pair older than the limit stays, so that the longest window still finds its start.
+		let first_kept = times.iter().rposition(|(time, _)| *time <= oldest_kept).unwrap_or(0);
+		times.drain(..first_kept);
+		times.push((now, watermark));
+		let row = (col::META, KEY_ADMISSION_TIMES.to_vec(), Some(times.encode()));
+		if let Err(e) = self.db.commit([row]) {
+			log::warn!(target: LOG_TARGET, "Failed to write the admission times: {e:?}");
+		}
+	}
+
+	fn admission_seq_since(&self, window_secs: u64) -> Option<u64> {
+		let since = self.timestamp().saturating_sub(window_secs);
+		let start = self
+			.admission_times
+			.lock()
+			.iter()
+			.rev()
+			.find(|(time, _)| *time <= since)
+			.map(|(_, seq)| *seq)?;
+		let watermark = self.admission_watermark.load(AtomicOrdering::Acquire);
+		let mut iter = self.db.iter(col::ADMISSION_SEQ).ok()?;
+		iter.seek(&0u64.to_be_bytes()).ok()?;
+		let first = match iter.next().ok()? {
+			Some((key, _)) => u64::from_be_bytes(key.try_into().ok()?),
+			None => return Some(start.min(watermark)),
+		};
+		let window = watermark.saturating_sub(start);
+		let journal = watermark.saturating_sub(first);
+		(window <= journal / 4).then_some(start)
+	}
+
+	fn sync_records(&self) -> Vec<(Vec<u8>, u64)> {
+		match self.db.get(col::META, KEY_SYNC_RECORDS) {
+			Ok(Some(records)) => Decode::decode(&mut records.as_slice()).unwrap_or_default(),
+			Ok(None) => Vec::new(),
+			Err(e) => {
+				log::warn!(target: LOG_TARGET, "Failed to read the sync records: {e:?}");
+				Vec::new()
+			},
+		}
+	}
+
+	fn set_sync_records(&self, records: &[(Vec<u8>, u64)]) {
+		let row = (col::META, KEY_SYNC_RECORDS.to_vec(), Some(records.encode()));
+		if let Err(e) = self.db.commit([row]) {
+			log::warn!(target: LOG_TARGET, "Failed to write the sync records: {e:?}");
+		}
 	}
 
 	/// Return the `data` of all statements matching all of `match_all_topics` that have no
@@ -4729,6 +4805,39 @@ mod tests {
 		assert_eq!(batch.statements, vec![(statements[3].hash(), statements[3].clone())]);
 		assert_eq!(batch.cursor, 4);
 		assert!(batch.done);
+	}
+
+	#[test]
+	fn admission_seq_since_finds_the_start_of_a_window() {
+		let (mut store, _temp) = test_store();
+		let now = store.timestamp();
+		let submit = |store: &Store, seed: u8| {
+			let statement = signed_statement_with_topics(seed, &[topic(1)], None);
+			assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
+		};
+		for seed in 0..6 {
+			submit(&store, seed);
+		}
+		store.set_time(now + 1000);
+		store.note_admission_time();
+		for seed in 6..8 {
+			submit(&store, seed);
+		}
+		store.set_time(now + 1100);
+
+		// The newest pair at or before the start of the window is the one at `now + 1000`.
+		assert_eq!(store.admission_seq_since(50), Some(6));
+		assert_eq!(store.admission_seq_since(100), Some(6));
+		// No pair is as old as the window.
+		assert_eq!(store.admission_seq_since(200), None);
+
+		// A window above a quarter of the journal is not served from it.
+		store.note_admission_time();
+		for seed in 8..11 {
+			submit(&store, seed);
+		}
+		store.set_time(now + 1200);
+		assert_eq!(store.admission_seq_since(50), None);
 	}
 
 	#[test]
