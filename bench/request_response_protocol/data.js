@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795800395714,
+  "lastUpdate": 1795802126721,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -151955,6 +151955,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2700334317,
             "range": "± 13227699",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ba69049b0c5b32ea51b18e0311425c1f22fdc1ac",
+          "message": "umbrella: remove test utility crates and generate-bags (#14003)\n\nThe umbrella crate included `asset-test-utils`, `bridge-hub-test-utils`,\n`emulated-integration-tests-common`, `parachains-runtimes-test-utils`\nand `generate-bags` in its `node` feature. Nodes do not use these\ncrates. The test utilities pull `assets-common` and `pallet-revive` into\neach node that uses the umbrella. With `runtime-benchmarks`, they also\nbuild `pallet-revive-fixtures`. `generate-bags` pulls\n`pallet-staking-async`, which does not compile with `runtime-benchmarks`\n(see #14012).\n\nThis PR marks these crates `exclude-from-umbrella`. They stay published,\nand their users depend on them directly.\n\nThis is a breaking change and is not for backport. #14012 is the\nbackportable fix for the `pallet-staking-async` build failure.\n\nRelated: #11019\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-11-27T16:27:38Z",
+          "tree_id": "69826dcfaec10e8db8e4f9d20fba666f4ffc33fe",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ba69049b0c5b32ea51b18e0311425c1f22fdc1ac"
+        },
+        "date": 1795802080239,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20148937,
+            "range": "± 218079",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20761257,
+            "range": "± 185311",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21927419,
+            "range": "± 115250",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26179081,
+            "range": "± 90711",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58530952,
+            "range": "± 666860",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 335815846,
+            "range": "± 3008954",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2714955249,
+            "range": "± 63426770",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17543419,
+            "range": "± 133632",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17554445,
+            "range": "± 122690",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18051082,
+            "range": "± 191131",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22774939,
+            "range": "± 169507",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60708258,
+            "range": "± 751991",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 354345534,
+            "range": "± 2851955",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2792596198,
+            "range": "± 27535124",
             "unit": "ns/iter"
           }
         ]
