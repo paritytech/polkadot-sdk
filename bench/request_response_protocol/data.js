@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795734510292,
+  "lastUpdate": 1795788065398,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -151739,6 +151739,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2771558382,
             "range": "± 23124625",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f3c8cc0f3d9c7fe38f8703305bf3401fa7572a73",
+          "message": "sync-templates: fix remaining issues in workflow (#11019)\n\n# Description\n\nThis PR addresses some issues with the misc-sync-templates workflow:\n\n- Fix debug conditional checks by using fromJSON() for proper boolean\nhandling\n- Add missing clang dependencies (llvm-dev and libclang-dev) for\ncompilation\n- Skip pallet-revive-fixtures compilation by setting\nSKIP_PALLET_REVIVE_FIXTURES=1\n- Download chain-spec-builder from the release being synced instead of\nbuilding it from source, falling back to a source build if the download\nfails\n\nCloses #11016 .\n\n## Integration\n\nN/A\n\n## Review Notes\n\nDISCLAIMER: some other PRs with fixes might follow, but I think these\nfixes are probably the last. Testing can be done once this is merged in\nmaster, by trying to sync templates once more (probably there will be an\nempty PR for parachain/minimal templates, which have been synced\nalready, but the goal is to see sync-template workflow successful).\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-11-27T11:52:02Z",
+          "tree_id": "258d1a6ef2e767c26e01dd33c07c117cada1ef66",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f3c8cc0f3d9c7fe38f8703305bf3401fa7572a73"
+        },
+        "date": 1795788030896,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20055534,
+            "range": "± 108157",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20419980,
+            "range": "± 170958",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21957299,
+            "range": "± 251457",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25875736,
+            "range": "± 238532",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59711718,
+            "range": "± 948162",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 370114676,
+            "range": "± 7948633",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2881344936,
+            "range": "± 175340282",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17463940,
+            "range": "± 263640",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17718672,
+            "range": "± 252405",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18527131,
+            "range": "± 287291",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22851065,
+            "range": "± 235804",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63061677,
+            "range": "± 1286686",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 375214668,
+            "range": "± 7770892",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2779567364,
+            "range": "± 18302363",
             "unit": "ns/iter"
           }
         ]
