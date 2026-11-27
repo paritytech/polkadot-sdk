@@ -75,8 +75,12 @@ impl MessageRaceLimits {
 		let mut selected_weight = Weight::zero();
 		let mut selected_count: MessageNonce = 0;
 
+		let Some(next_nonce) = reference.best_target_nonce.checked_add(1) else {
+			return None;
+		};
+
 		let hard_selected_begin_nonce = std::cmp::max(
-			reference.best_target_nonce + 1,
+			next_nonce,
 			reference.nonces_queue[*reference.nonces_queue_range.start()].1.begin(),
 		);
 
