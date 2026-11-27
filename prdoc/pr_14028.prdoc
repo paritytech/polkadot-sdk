@@ -1,0 +1,14 @@
+title: Replace `force_enable_webrtc` with `disable_webrtc`
+doc:
+- audience: Node Dev
+  description: |-
+    This PR changes the default behavior of validators and collators so that the WebRTC endpoint is enabled out of the box, without any extra configuration.
+
+    The goal is for metanodes to start the WebRTC endpoint by default.
+crates:
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: sc-cli
+  bump: patch
+- name: sc-network
+  bump: patch
