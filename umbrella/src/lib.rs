@@ -11,10 +11,6 @@
 // This file is auto-generated and checked by the CI.  You can edit it manually, but it must be
 // exactly the way that the CI expects it.
 
-/// Test utils for Asset Hub runtimes.
-#[cfg(feature = "asset-test-utils")]
-pub use asset_test_utils;
-
 /// Assets common utilities.
 #[cfg(feature = "assets-common")]
 pub use assets_common;
@@ -62,10 +58,6 @@ pub use bp_xcm_bridge_hub_router;
 /// Bridge hub common utilities.
 #[cfg(feature = "bridge-hub-common")]
 pub use bridge_hub_common;
-
-/// Utils for BridgeHub testing.
-#[cfg(feature = "bridge-hub-test-utils")]
-pub use bridge_hub_test_utils;
 
 /// Common types and functions that may be used by substrate-based runtimes of all bridged
 /// chains.
@@ -223,10 +215,6 @@ pub use cumulus_relay_chain_streams;
 #[cfg(feature = "cumulus-test-relay-sproof-builder")]
 pub use cumulus_test_relay_sproof_builder;
 
-/// Common resources for integration testing with xcm-emulator.
-#[cfg(feature = "emulated-integration-tests-common")]
-pub use emulated_integration_tests_common;
-
 /// Interfaces for Ethereum standards.
 #[cfg(feature = "ethereum-standards")]
 pub use ethereum_standards;
@@ -304,10 +292,6 @@ pub use frame_system_rpc_runtime_api;
 /// Supporting types for try-runtime, testing and dry-running commands.
 #[cfg(feature = "frame-try-runtime")]
 pub use frame_try_runtime;
-
-/// Bag threshold generation script for pallet-bag-list.
-#[cfg(feature = "generate-bags")]
-pub use generate_bags;
 
 /// MMR Client gadget for substrate.
 #[cfg(feature = "mmr-gadget")]
@@ -857,10 +841,6 @@ pub use parachains_common;
 /// Common types for parachains.
 #[cfg(feature = "parachains-common-types")]
 pub use parachains_common_types;
-
-/// Utils for Runtimes testing.
-#[cfg(feature = "parachains-runtimes-test-utils")]
-pub use parachains_runtimes_test_utils;
 
 /// Polkadot Approval Distribution subsystem for the distribution of assignments and approvals
 /// for approval checks on candidates over the network.

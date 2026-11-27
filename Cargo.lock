@@ -18181,7 +18181,6 @@ dependencies = [
 name = "polkadot-sdk"
 version = "0.1.0"
 dependencies = [
- "asset-test-utils",
  "assets-common",
  "binary-merkle-tree 13.0.0",
  "bp-header-chain",
@@ -18194,7 +18193,6 @@ dependencies = [
  "bp-xcm-bridge-hub",
  "bp-xcm-bridge-hub-router",
  "bridge-hub-common",
- "bridge-hub-test-utils",
  "bridge-runtime-common",
  "cumulus-aura-authorizer-utils",
  "cumulus-client-bootnodes",
@@ -18233,7 +18231,6 @@ dependencies = [
  "cumulus-relay-chain-rpc-interface",
  "cumulus-relay-chain-streams",
  "cumulus-test-relay-sproof-builder",
- "emulated-integration-tests-common",
  "ethereum-standards",
  "fork-tree",
  "fp-coretime",
@@ -18253,7 +18250,6 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "generate-bags",
  "mmr-gadget",
  "mmr-rpc",
  "pallet-accumulate-and-forward",
@@ -18389,7 +18385,6 @@ dependencies = [
  "pallet-xcm-precompiles",
  "parachains-common",
  "parachains-common-types",
- "parachains-runtimes-test-utils",
  "polkadot-approval-distribution",
  "polkadot-availability-bitfield-distribution",
  "polkadot-availability-distribution",
