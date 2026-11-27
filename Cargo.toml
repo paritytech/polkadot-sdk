@@ -78,7 +78,9 @@ members = [
 	"cumulus/client/relay-chain-streams",
 	"cumulus/client/resubmission-store",
 	"cumulus/client/service",
-	"cumulus/jam/aura-authorizer-utils",
+	"cumulus/jam/authorizer/aura/ed25519",
+	"cumulus/jam/authorizer/aura/sr25519",
+	"cumulus/jam/authorizer/aura/utils",
 	"cumulus/pallets/ah-ops",
 	"cumulus/pallets/aura-ext",
 	"cumulus/pallets/collator-selection",
@@ -777,7 +779,9 @@ coretime-westend-emulated-chain = { path = "cumulus/parachains/integration-tests
 coretime-westend-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-westend" }
 cpu-time = { version = "1.0.0" }
 criterion = { version = "0.5.1", default-features = false }
-cumulus-aura-authorizer-utils = { path = "cumulus/jam/aura-authorizer-utils", default-features = false }
+cumulus-aura-authorizer-ed25519 = { path = "cumulus/jam/authorizer/aura/ed25519", default-features = false }
+cumulus-aura-authorizer-sr25519 = { path = "cumulus/jam/authorizer/aura/sr25519", default-features = false }
+cumulus-aura-authorizer-utils = { path = "cumulus/jam/authorizer/aura/utils", default-features = false }
 cumulus-client-bootnodes = { path = "cumulus/client/bootnodes", default-features = false }
 cumulus-client-cli = { path = "cumulus/client/cli", default-features = false }
 cumulus-client-collator = { path = "cumulus/client/collator", default-features = false }
