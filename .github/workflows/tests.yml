@@ -45,7 +45,6 @@ jobs:
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
-    continue-on-error: true # this rarely triggers in practice
     env:
       SKIP_WASM_BUILD: 1
     steps:
@@ -81,10 +80,9 @@ jobs:
   confirm-required-tests-jobs-passed:
     runs-on: ubuntu-latest
     name: All quick tests passed
-    # Only quick-benchmarks is a required check today, so only it is listed
-    # here. test-syscalls is `continue-on-error: true` and cargo-check-all-benches
-    # is not required; both stay advisory. Add a job here to make it blocking.
-    needs: [preflight, quick-benchmarks]
+    # Jobs listed here are blocking. cargo-check-all-benches is not required and
+    # stays advisory. Add a job here to make it blocking.
+    needs: [preflight, quick-benchmarks, test-syscalls]
     if: always() && !cancelled()
     steps:
       - run: |

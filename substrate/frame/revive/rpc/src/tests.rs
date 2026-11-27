@@ -60,7 +60,7 @@ use pallet_revive_types::runtime_api::{
 };
 use sp_runtime::BoundedVec;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use std::{collections::BTreeSet, sync::Arc, thread};
+use std::{collections::BTreeSet, num::NonZeroU32, sync::Arc, thread};
 use subxt::{
 	OnlineClient,
 	client::OnlineClientAtBlockImpl,
@@ -408,6 +408,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_gas_estimation_with_no_funds_and_with_gas_specified,
 		test_block_sync_fresh,
 		test_block_sync_resume_interrupted,
+		test_block_sync_honors_rate_limit,
 		test_block_sync_detects_corruption,
 		test_block_sync_picks_up_new_blocks,
 		test_state_override_balance,
@@ -2579,7 +2580,7 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	let finalized_before_sync = client.latest_finalized_block().await.block_number();
 
 	// Run the full backward sync.
-	client.sync_backward().await?;
+	client.sync_backward(None).await?;
 
 	// Genesis label must match the chain.
 	let genesis = client
@@ -2633,7 +2634,7 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	);
 
 	// Re-syncing should complete without errors (exercises the resume path).
-	client.sync_backward().await?;
+	client.sync_backward(None).await?;
 	let sync_head_after = client
 		.receipt_provider()
 		.get_sync_label(SyncLabel::Head)
@@ -2701,7 +2702,7 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 	let client = create_sync_test_client().await?;
 
 	// Complete a fresh sync so the DB has all blocks and labels.
-	client.sync_backward().await?;
+	client.sync_backward(None).await?;
 
 	// Pick two blocks to simulate partial coverage: tail at 1/3, head at 2/3.
 	let chain_len = client.latest_finalized_block().await.block_number();
@@ -2737,7 +2738,7 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 	let finalized_before_resume = client.latest_finalized_block().await.block_number();
 
 	// Resume sync — fills top gap and bottom gap.
-	client.sync_backward().await?;
+	client.sync_backward(None).await?;
 
 	// After resume, Head should be at the finalized block that was current at resume start.
 	let new_head = client
@@ -2775,6 +2776,55 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 	Ok(())
 }
 
+/// Checks that the historical block sync honors the rate limit.
+async fn test_block_sync_honors_rate_limit() -> anyhow::Result<()> {
+	use crate::block_sync::SyncCheckpoint;
+
+	const GAP_BLOCKS: u64 = 3;
+	// At 1 block/s, the first block passes at once and each other block waits a second.
+	let min_sync_time = std::time::Duration::from_secs(GAP_BLOCKS - 1);
+
+	// The gap needs this many blocks above genesis, also when the test runs on its own.
+	submit_evm_transfers(GAP_BLOCKS as usize).await?;
+
+	let client = create_sync_test_client().await?;
+
+	// With Tail at genesis and Head `GAP_BLOCKS` below the finalized block, the resume syncs only
+	// the blocks above Head.
+	let finalized = client.latest_finalized_block().await.block_number();
+	for (label, block_number) in [(SyncLabel::Tail, 0), (SyncLabel::Head, finalized - GAP_BLOCKS)] {
+		let block = client
+			.block_provider()
+			.block_by_number(block_number)
+			.await?
+			.expect("the block is below the finalized block");
+		client
+			.receipt_provider()
+			.set_sync_label(label, SyncCheckpoint::new(block_number, block.block_hash()))
+			.await?;
+	}
+
+	let start = std::time::Instant::now();
+	client.sync_backward(Some(NonZeroU32::MIN)).await?;
+	let sync_elapsed = start.elapsed();
+
+	// `sync_backward` returns `Ok` even when a transient error stops the sync.
+	let head_after_sync = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::Head)
+		.await?
+		.expect("the test stored Head before the sync");
+	assert_eq!(head_after_sync.block_number, finalized, "the sync did not complete the gap",);
+
+	// 100ms of slack: the limiter and the test read different clocks.
+	assert!(
+		sync_elapsed + std::time::Duration::from_millis(100) >= min_sync_time,
+		"the sync took {sync_elapsed:?}, expected at least {min_sync_time:?}",
+	);
+
+	Ok(())
+}
+
 /// Corrupted sync labels should be detected on resume:
 /// - Fake Genesis hash → `ChainMismatch`
 /// - Fake Head hash → `SyncBoundaryMismatch`
@@ -2787,7 +2837,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 	let client = create_sync_test_client().await?;
 
 	// Complete a fresh sync so all labels are stored.
-	client.sync_backward().await?;
+	client.sync_backward(None).await?;
 
 	// --- ChainMismatch: overwrite Genesis with a fake hash ---
 	let fake_genesis = SyncCheckpoint::new(0, H256::from([0xdeu8; 32]));
@@ -2796,7 +2846,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 		.set_sync_label(ChainMetadata::Genesis, fake_genesis)
 		.await?;
 
-	let err = client.sync_backward().await.unwrap_err();
+	let err = client.sync_backward(None).await.unwrap_err();
 	assert!(matches!(err, ClientError::ChainMismatch), "Expected ChainMismatch, got: {err:?}");
 
 	// Restore the real genesis so we can test the next corruption.
@@ -2814,7 +2864,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 		.set_sync_label(SyncLabel::Head, corrupted_upper)
 		.await?;
 
-	let err = client.sync_backward().await.unwrap_err();
+	let err = client.sync_backward(None).await.unwrap_err();
 	assert!(
 		matches!(err, ClientError::SyncBoundaryMismatch),
 		"Expected SyncBoundaryMismatch, got: {err:?}"
@@ -2830,7 +2880,7 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 	let client1 = create_sync_test_client().await?;
 	let finalized1 = client1.latest_finalized_block().await.block_number();
 
-	client1.sync_backward().await?;
+	client1.sync_backward(None).await?;
 
 	// Submit a transaction to produce at least one new block.
 	submit_evm_transfers(1).await?;
@@ -2839,7 +2889,7 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 	let client2 = create_sync_test_client().await?;
 	let finalized2 = client2.latest_finalized_block().await;
 
-	client2.sync_backward().await?;
+	client2.sync_backward(None).await?;
 	assert!(
 		finalized2.block_number() > finalized1,
 		"Second finalized #{} should be higher than first #{finalized1}",
@@ -3886,7 +3936,7 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 	submit_evm_transfers(1).await?;
 
 	let (sync_client, gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
-	sync_client.sync_backward().await?;
+	sync_client.sync_backward(None).await?;
 
 	let head_after_sync = sync_client
 		.receipt_provider()

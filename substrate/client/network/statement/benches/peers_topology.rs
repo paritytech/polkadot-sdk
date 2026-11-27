@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Per-statement decisions of the v2 DHT topology: forwarding targets of a topic and the local
+//! Per-statement decisions of the DHT topology: forwarding targets of a topic and the local
 //! node's retention affinity, on a topology the size of a live network.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};

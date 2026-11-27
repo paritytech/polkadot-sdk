@@ -18,7 +18,10 @@
 //! Tests for Uniques pallet.
 
 use crate::{mock::*, Event, *};
-use frame_support::{assert_noop, assert_ok, traits::Currency};
+use frame_support::{
+	assert_noop, assert_ok,
+	traits::{Currency, LockableCurrency, WithdrawReasons},
+};
 use pallet_balances::Error as BalancesError;
 use sp_runtime::{traits::Dispatchable, DispatchError};
 
@@ -294,6 +297,32 @@ fn transfer_owner_should_work() {
 			Uniques::transfer_ownership(RuntimeOrigin::signed(3), 0, 2),
 			Error::<Test>::Unaccepted
 		);
+	});
+}
+
+#[test]
+fn transfer_ownership_fails_when_deposit_is_locked() {
+	new_test_ext().execute_with(|| {
+		let (alice, bob) = (1, 2);
+		Balances::make_free_balance_be(&alice, 100);
+		Balances::make_free_balance_be(&bob, 100);
+		// Reserves the collection deposit of 2 from Alice: free = 98, reserved = 2.
+		assert_ok!(Uniques::create(RuntimeOrigin::signed(alice), 0, alice));
+		// A lock of 99 exceeds Alice's free balance by 1, so 1 unit of the deposit cannot move.
+		Balances::set_lock(*b"test/lk0", &alice, 99, WithdrawReasons::all());
+		assert_ok!(Uniques::set_accept_ownership(RuntimeOrigin::signed(bob), Some(0)));
+
+		assert_noop!(
+			Uniques::transfer_ownership(RuntimeOrigin::signed(alice), 0, bob),
+			Error::<Test>::IncompleteDepositTransfer
+		);
+
+		// Removing the lock unblocks the transfer, and the whole deposit moves.
+		Balances::remove_lock(*b"test/lk0", &alice);
+		assert_ok!(Uniques::transfer_ownership(RuntimeOrigin::signed(alice), 0, bob));
+		assert_eq!(collections(), vec![(bob, 0)]);
+		assert_eq!(Balances::reserved_balance(&alice), 0);
+		assert_eq!(Balances::reserved_balance(&bob), 2);
 	});
 }
 

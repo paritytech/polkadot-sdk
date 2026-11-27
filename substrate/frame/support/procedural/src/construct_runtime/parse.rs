@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::str::FromStr;
 use frame_support_procedural_tools::syn_ext as ext;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
@@ -509,8 +508,8 @@ pub struct Pallet {
 	pub instance: Option<Ident>,
 	/// The pallet parts to use for the pallet.
 	pub pallet_parts: Vec<PalletPart>,
-	/// Expressions specified inside of a #[cfg] attribute.
-	pub cfg_pattern: Vec<cfg_expr::Expression>,
+	/// The pallet's `#[cfg]` attributes, each of the form `#[cfg(..)]`.
+	pub cfg_pattern: Vec<syn::Attribute>,
 	/// The doc literals
 	pub docs: Vec<syn::Expr>,
 }
@@ -533,14 +532,8 @@ impl Pallet {
 
 	// Get runtime attributes for the pallet, mostly used for macros
 	pub fn get_attributes(&self) -> TokenStream {
-		self.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-			let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
-				.expect("was successfully parsed before; qed");
-			quote::quote! {
-				#acc
-				#attr
-			}
-		})
+		let cfg_pattern = &self.cfg_pattern;
+		quote::quote!( #( #cfg_pattern )* )
 	}
 }
 
@@ -586,7 +579,6 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 		return Ok(PalletsConversion::Implicit(pallets));
 	}
 
-	let mut indices = HashMap::new();
 	let mut last_index: Option<u8> = None;
 	let mut names = HashMap::new();
 	let mut is_expanded = true;
@@ -603,16 +595,6 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 			};
 
 			last_index = Some(final_index);
-
-			if let Some(used_pallet) = indices.insert(final_index, pallet.name.clone()) {
-				let msg = format!(
-					"Pallet indices are conflicting: Both pallets {} and {} are at index {}",
-					used_pallet, pallet.name, final_index,
-				);
-				let mut err = syn::Error::new(used_pallet.span(), &msg);
-				err.combine(syn::Error::new(pallet.name.span(), msg));
-				return Err(err);
-			}
 
 			if let Some(used_pallet) = names.insert(pallet.name.clone(), pallet.name.span()) {
 				let msg = "Two pallets with the same name!";
@@ -675,13 +657,8 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 						return Err(syn::Error::new(attr.span(), msg));
 					}
 
-					attr.parse_args_with(|input: syn::parse::ParseStream| {
-						// Required, otherwise the parse stream doesn't advance and will result in
-						// an error.
-						let input = input.parse::<proc_macro2::TokenStream>()?;
-						cfg_expr::Expression::parse(&input.to_string())
-							.map_err(|e| syn::Error::new(attr.span(), e.to_string()))
-					})
+					attr.meta.require_list()?;
+					Ok(attr.clone())
 				})
 				.collect::<Result<Vec<_>>>()?;
 

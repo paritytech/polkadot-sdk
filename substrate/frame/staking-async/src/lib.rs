@@ -127,6 +127,13 @@
 //! - **Pro-rata slashing**: Nominators slashed proportionally to their stake
 //! - **Reward calculation**: A portion goes to reporters (if any)
 //!
+//! **Reporter Reward**:
+//!
+//! The reporter of an offence is paid a portion of the slash, at most [`SlashRewardFraction`]. The
+//! portion paid is further scaled by [`Config::SlashRewardDecay`], as a function of the number of
+//! eras between the offence and its report. Any reward that is not paid is handled like the rest
+//! of the slash, by [`Config::Slash`].
+//!
 //! ### Phase 4: Application
 //!
 //! Based on `SlashDeferDuration`, slashes are either:
@@ -234,8 +241,8 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use ledger::LedgerIntegrityState;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, One, StaticLookup, UniqueSaturatedInto},
-	BoundedBTreeMap, Debug, Perbill, Saturating,
+	traits::{AtLeast32BitUnsigned, One, StaticLookup, UniqueSaturatedInto, Zero},
+	BoundedBTreeMap, Debug, PerThing, Perbill, Saturating,
 };
 use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata, ServiceKind, SessionIndex};
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
@@ -566,6 +573,95 @@ impl<AccountId> OnEraStart<AccountId> for () {
 
 	fn weight(_validators: u32) -> Weight {
 		Weight::zero()
+	}
+}
+
+/// The portion of the reporter reward of a slash that is paid out, as a function of how late the
+/// offence was reported.
+///
+/// See the implementors of [`SlashRewardDecay`] for the available options.
+pub trait SlashRewardDecay {
+	/// The portion of the full reporter reward, as set by [`SlashRewardFraction`], that is paid
+	/// for an offence reported `elapsed` eras after the era in which it happened.
+	fn reward_portion(elapsed: EraIndex) -> Perbill;
+}
+
+/// No decay: the full reporter reward is paid, however late the offence is reported.
+impl SlashRewardDecay for () {
+	fn reward_portion(_elapsed: EraIndex) -> Perbill {
+		Perbill::one()
+	}
+}
+
+/// The reporter reward drops linearly with the delay of the report.
+///
+/// An offence reported in the era in which it happened gets the full reward, and one reported
+/// `Window` or more eras later gets nothing.
+///
+/// ```
+/// # use frame_support::traits::ConstU32;
+/// # use pallet_staking_async::{LinearDecay, SlashRewardDecay};
+/// # use sp_runtime::Perbill;
+/// type Linear = LinearDecay<ConstU32<4>>;
+/// assert_eq!(Linear::reward_portion(0), Perbill::one());
+/// assert_eq!(Linear::reward_portion(1), Perbill::from_percent(75));
+/// assert_eq!(Linear::reward_portion(3), Perbill::from_percent(25));
+/// assert_eq!(Linear::reward_portion(4), Perbill::zero());
+/// assert_eq!(Linear::reward_portion(u32::MAX), Perbill::zero());
+///
+/// // A zero window only rewards a report in the era of the offence.
+/// type Instant = LinearDecay<ConstU32<0>>;
+/// assert_eq!(Instant::reward_portion(0), Perbill::one());
+/// assert_eq!(Instant::reward_portion(1), Perbill::zero());
+/// ```
+pub struct LinearDecay<Window>(core::marker::PhantomData<Window>);
+impl<Window: Get<EraIndex>> SlashRewardDecay for LinearDecay<Window> {
+	fn reward_portion(elapsed: EraIndex) -> Perbill {
+		let window = Window::get();
+		if elapsed.is_zero() {
+			Perbill::one()
+		} else if elapsed >= window {
+			Perbill::zero()
+		} else {
+			Perbill::from_rational(window - elapsed, window)
+		}
+	}
+}
+
+/// The reporter reward halves for every full `HalfLife` eras of delay in the report.
+///
+/// An offence reported less than `HalfLife` eras after it happened gets the full reward, one
+/// reported `HalfLife` eras later gets 50%, `2 * HalfLife` eras later 25%, and so on.
+///
+/// ```
+/// # use frame_support::traits::ConstU32;
+/// # use pallet_staking_async::{HalvingDecay, SlashRewardDecay};
+/// # use sp_runtime::Perbill;
+/// type Halving = HalvingDecay<ConstU32<3>>;
+/// assert_eq!(Halving::reward_portion(0), Perbill::one());
+/// assert_eq!(Halving::reward_portion(2), Perbill::one());
+/// assert_eq!(Halving::reward_portion(3), Perbill::from_percent(50));
+/// assert_eq!(Halving::reward_portion(5), Perbill::from_percent(50));
+/// assert_eq!(Halving::reward_portion(6), Perbill::from_percent(25));
+/// // After 30 halvings, nothing is left.
+/// assert_eq!(Halving::reward_portion(3 * 30), Perbill::zero());
+/// assert_eq!(Halving::reward_portion(u32::MAX), Perbill::zero());
+///
+/// // A zero half-life only rewards a report in the era of the offence.
+/// type Instant = HalvingDecay<ConstU32<0>>;
+/// assert_eq!(Instant::reward_portion(0), Perbill::one());
+/// assert_eq!(Instant::reward_portion(1), Perbill::zero());
+/// ```
+pub struct HalvingDecay<HalfLife>(core::marker::PhantomData<HalfLife>);
+impl<HalfLife: Get<EraIndex>> SlashRewardDecay for HalvingDecay<HalfLife> {
+	fn reward_portion(elapsed: EraIndex) -> Perbill {
+		match elapsed.checked_div(HalfLife::get()) {
+			Some(halvings) => {
+				Perbill::from_parts(Perbill::ACCURACY.checked_shr(halvings).unwrap_or(0))
+			},
+			None if elapsed.is_zero() => Perbill::one(),
+			None => Perbill::zero(),
+		}
 	}
 }
 
