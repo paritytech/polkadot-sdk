@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795788817818,
+  "lastUpdate": 1795803239678,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "evgeny@parity.io",
-            "name": "Evgeny Snitko",
-            "username": "AndWeHaveAPlan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a72afe70b1c1a98169a5571287c3796a35cd10b8",
-          "message": "Update ci-unified image version in .github/env (#12085)",
-          "timestamp": "2026-05-18T09:38:00Z",
-          "tree_id": "f597e751b53e7f01ad513f466286596d290acab5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a72afe70b1c1a98169a5571287c3796a35cd10b8"
-        },
-        "date": 1779102162852,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.011309891800000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009810829529999978,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0028511142699999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00254827044,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ba69049b0c5b32ea51b18e0311425c1f22fdc1ac",
+          "message": "umbrella: remove test utility crates and generate-bags (#14003)\n\nThe umbrella crate included `asset-test-utils`, `bridge-hub-test-utils`,\n`emulated-integration-tests-common`, `parachains-runtimes-test-utils`\nand `generate-bags` in its `node` feature. Nodes do not use these\ncrates. The test utilities pull `assets-common` and `pallet-revive` into\neach node that uses the umbrella. With `runtime-benchmarks`, they also\nbuild `pallet-revive-fixtures`. `generate-bags` pulls\n`pallet-staking-async`, which does not compile with `runtime-benchmarks`\n(see #14012).\n\nThis PR marks these crates `exclude-from-umbrella`. They stay published,\nand their users depend on them directly.\n\nThis is a breaking change and is not for backport. #14012 is the\nbackportable fix for the `pallet-staking-async` build failure.\n\nRelated: #11019\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-11-27T16:27:38Z",
+          "tree_id": "69826dcfaec10e8db8e4f9d20fba666f4ffc33fe",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ba69049b0c5b32ea51b18e0311425c1f22fdc1ac"
+        },
+        "date": 1795803195891,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009619543699999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002600640209999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010810556980000002,
             "unit": "seconds"
           }
         ]
