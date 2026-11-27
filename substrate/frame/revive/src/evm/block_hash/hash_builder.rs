@@ -198,9 +198,9 @@ impl IncrementalHashBuilder {
 			tree_masks: serialized.tree_masks.into_iter().map(|mask| TrieMask::new(mask)).collect(),
 			hash_masks: serialized.hash_masks.into_iter().map(|mask| TrieMask::new(mask)).collect(),
 			stored_in_database: serialized.stored_in_database,
-			updated_branch_nodes: None,
-			proof_retainer: None,
 			rlp_buf: serialized.rlp_buf,
+			// Newer `alloy-trie` releases add fields, so keep their defaults.
+			..Default::default()
 		};
 
 		IncrementalHashBuilder {

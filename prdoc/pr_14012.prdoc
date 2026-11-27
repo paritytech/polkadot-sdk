@@ -1,14 +1,20 @@
-title: 'generate-bags: add runtime-benchmarks feature'
+title: 'Fix template builds: generate-bags runtime-benchmarks and alloy-trie 0.9.9'
 doc:
-  - audience:
-      - Node Dev
+  - audience: Node Dev
     description: |
       `generate-bags` now has a `runtime-benchmarks` feature. The umbrella `runtime-benchmarks`
       feature enables it. Before this change, a node that used the umbrella `node` and
       `runtime-benchmarks` features did not compile. `pallet-staking-async` did not get
       `runtime-benchmarks`, but its dependencies did.
+  - audience: Runtime Dev
+    description: |
+      `pallet-revive` now compiles with `alloy-trie` 0.9.9. That release adds a public field to
+      `HashBuilder`. `pallet-revive` now uses the defaults for the `HashBuilder` fields that it
+      does not set.
 crates:
   - name: generate-bags
     bump: patch
   - name: polkadot-sdk
+    bump: patch
+  - name: pallet-revive
     bump: patch
