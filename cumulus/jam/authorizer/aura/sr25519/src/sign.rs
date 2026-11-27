@@ -17,36 +17,12 @@
 
 //! Host-side Sr25519 signing for AURA authorization tokens using `sp-keystore`.
 
-use cumulus_aura_authorizer_utils::{
-	build_collator_proof, AuthToken, CollatorKey, SignError, WorkPackageBody,
-};
+use cumulus_aura_authorizer_utils::{CollatorKey, SignError, WorkPackageBody};
 use jam_types::WorkPackage;
 use sp_core::{crypto::KeyTypeId, sr25519};
 use sp_keystore::Keystore;
 
-/// Build and sign an [`AuthToken`] for `package` using the Sr25519 key at `collator_index`.
-fn sign_token(
-	keystore: &(impl Keystore + ?Sized),
-	key_type: KeyTypeId,
-	collator_set: &[CollatorKey],
-	collator_index: u32,
-	package: &WorkPackageBody,
-) -> Result<AuthToken, SignError> {
-	let (_, proof) =
-		build_collator_proof(collator_set, collator_index).map_err(SignError::CollatorProof)?;
-	let key = collator_set[collator_index as usize];
-	let signing_hash = package.signing_hash();
-
-	let signature = keystore
-		.sr25519_sign(key_type, &sr25519::Public::from_raw(key), signing_hash.as_bytes())
-		.map_err(SignError::Keystore)?
-		.ok_or(SignError::MissingKey)?
-		.0;
-
-	Ok(AuthToken { proof, key, signature })
-}
-
-/// Sign `package` with the Sr25519 key at `collator_index` and attach the resulting [`AuthToken`].
+/// Sign `package` with the Sr25519 key at `collator_index` and attach its authorization token.
 pub fn authorize_work_package(
 	keystore: &(impl Keystore + ?Sized),
 	key_type: KeyTypeId,
@@ -54,8 +30,11 @@ pub fn authorize_work_package(
 	collator_index: u32,
 	package: WorkPackageBody,
 ) -> Result<WorkPackage, SignError> {
-	let token = sign_token(keystore, key_type, collator_set, collator_index, &package)?;
-	Ok(package.with_authorization(&token))
+	package.sign_with(collator_set, collator_index, |key, hash| {
+		keystore
+			.sr25519_sign(key_type, &sr25519::Public::from_raw(key), hash)
+			.map(|signature| signature.map(|s| s.0))
+	})
 }
 
 #[cfg(test)]
@@ -65,7 +44,8 @@ mod tests {
 	use codec::DecodeAll;
 	use core::num::NonZero;
 	use cumulus_aura_authorizer_utils::{
-		AuthConfig, AuthTrace, AuthorizationError, CollatorProofError, SignatureVerifier, TokenError,
+		build_collator_proof, AuthConfig, AuthToken, AuthTrace, AuthorizationError,
+		CollatorProofError, SignatureVerifier, TokenError,
 	};
 	use jam_types::{Authorizer, RefineContext};
 	use sp_core::crypto::key_types::AURA;
@@ -164,7 +144,7 @@ mod tests {
 		let keystore = MemoryKeystore::new();
 		let keys = [[1u8; 32]];
 		assert!(matches!(
-			sign_token(&keystore, AURA, &keys, 0, &body()),
+			authorize_work_package(&keystore, AURA, &keys, 0, body()),
 			Err(SignError::MissingKey)
 		));
 	}
@@ -173,11 +153,11 @@ mod tests {
 	fn invalid_collator_set_errors() {
 		let (keystore, keys) = collators(&["//Alice"]);
 		assert!(matches!(
-			sign_token(&keystore, AURA, &[], 0, &body()),
+			authorize_work_package(&keystore, AURA, &[], 0, body()),
 			Err(SignError::CollatorProof(CollatorProofError::EmptySet))
 		));
 		assert!(matches!(
-			sign_token(&keystore, AURA, &keys, 1, &body()),
+			authorize_work_package(&keystore, AURA, &keys, 1, body()),
 			Err(SignError::CollatorProof(CollatorProofError::InvalidCollatorIndex))
 		));
 	}
