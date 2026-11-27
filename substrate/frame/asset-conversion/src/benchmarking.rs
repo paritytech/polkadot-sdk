@@ -488,5 +488,23 @@ mod benchmarks {
 		}
 	}
 
+	#[benchmark]
+	fn pool_exists() {
+		let caller: T::AccountId = whitelisted_caller();
+		let (asset1, asset2) = T::BenchmarkHelper::create_pair(0, 1);
+
+		create_fee_asset::<T>(&caller);
+		create_asset_and_pool::<T>(&caller, &asset1, &asset2);
+
+		let exists;
+		#[block]
+		{
+			exists =
+				AssetConversion::<T>::pool_exists(&asset1, &asset2).expect("pair is valid; qed");
+		}
+
+		assert!(exists);
+	}
+
 	impl_benchmark_test_suite!(AssetConversion, crate::mock::new_test_ext(), crate::mock::Test);
 }
