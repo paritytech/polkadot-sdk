@@ -30,18 +30,22 @@ mod signing;
 mod token;
 mod work_package;
 
-/// Check the package's embedded AURA authorization at its anchor slot and encode the JAM trace.
+/// Return the collator's key as a JAM authorization trace if the package is authorized.
 ///
-/// Panics on invalid authorization: a successful JAM authorizer return means acceptance.
+/// Invalid packages must trap: JAM treats any normal return as authorization.
 pub fn is_authorized<S: SignatureVerifier>(package: &WorkPackage) -> jam_types::AuthTrace {
-	assert!(!package.items.is_empty());
+	assert!(!package.items.is_empty(), "cannot authorize an empty work package");
+
 	let config = AuthConfig::decode_all(&mut &package.authorizer.config[..])
 		.expect("invalid authorizer configuration");
 	let token = AuthToken::decode_all(&mut &package.authorization.0[..])
 		.expect("invalid authorization token");
-	let trace =
-		AuthTrace::try_from_token::<S>(&config, &token, package, package.context.anchor_slot)
-			.expect("work package not authorized");
+
+	// The anchor slot determines whose turn it is to author the package.
+	let slot = package.context.anchor_slot;
+	let trace = AuthTrace::try_from_token::<S>(&config, &token, package, slot)
+		.expect("work package not authorized");
+
 	jam_types::AuthTrace(trace.encode())
 }
 
@@ -62,15 +66,17 @@ pub use signing::{signable_work_package_hash, WORK_PACKAGE_SIGN_CTX};
 pub use token::{AuthToken, CollatorKey, CollatorSignature, TokenError};
 pub use work_package::WorkPackageBody;
 
-/// Signing an AURA authorization token failed.
+/// Why the collator couldn't sign a work package.
 #[cfg(feature = "std")]
 #[derive(Debug)]
 pub enum SignError {
-	/// The collator set or index is invalid.
+	/// Couldn't build a membership proof for the selected collator.
 	CollatorProof(CollatorProofError),
-	/// The selected collator key is not present in the keystore.
+
+	/// The keystore doesn't have the selected collator's key.
 	MissingKey,
-	/// The keystore failed while producing the signature.
+
+	/// The keystore returned an error when asked to sign.
 	Keystore(sp_keystore::Error),
 }
 
