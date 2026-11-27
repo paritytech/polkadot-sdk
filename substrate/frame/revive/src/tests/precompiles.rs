@@ -29,6 +29,7 @@ use alloy_core::{
 };
 use codec::Decode;
 use core::{marker::PhantomData, num::NonZero};
+use frame_support::traits::fungible::Inspect;
 use frame_system::RawOrigin;
 use sp_core::H160;
 use sp_runtime::traits::Dispatchable;
@@ -39,6 +40,7 @@ sol! {
 	}
 
 	interface INoInfo {
+		function totalIssuance() external view returns (uint256);
 		function identity(uint64 number) external returns (uint64);
 		function reverts(string calldata error) external;
 		function panics() external;
@@ -84,6 +86,9 @@ impl<T: Config> Precompile for NoInfo<T> {
 		use INoInfo::INoInfoCalls;
 
 		match input {
+			INoInfoCalls::totalIssuance(INoInfo::totalIssuanceCall {}) => {
+				Ok(U256::from(<T as Config>::Currency::total_issuance()).abi_encode())
+			},
 			INoInfoCalls::identity(INoInfo::identityCall { number }) => Ok(number.abi_encode()),
 			INoInfoCalls::reverts(INoInfo::revertsCall { error }) => {
 				Err(Error::Revert(error.as_str().into()))

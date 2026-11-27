@@ -2585,7 +2585,11 @@ impl<T: Config> Pallet<T> {
 
 		// the deposit is done when the transaction is transformed from an `eth_transact`
 		// we emulate this behavior for the dry-run here
-		T::FeeInfo::deposit_txfee(T::Currency::issue(fees));
+		let total_issuance = T::Currency::total_issuance();
+		let fee_credit = T::Currency::issue(fees);
+		// The fee credit is temporary and must not be observable by the contract as new issuance.
+		T::Currency::set_total_issuance(total_issuance);
+		T::FeeInfo::deposit_txfee(fee_credit);
 
 		let extract_error = |err| {
 			if err == Error::<T>::StorageDepositNotEnoughFunds.into() {

@@ -38,7 +38,7 @@ use frame_support::{
 };
 use itertools::Itertools;
 use pallet_revive_fixtures::{
-	Callee, Caller, FixtureType, Host, SubCaller, compile_module_with_type,
+	Callee, Caller, FixtureType, Host, SubCaller, TotalIssuance, compile_module_with_type,
 };
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
@@ -2332,6 +2332,33 @@ mod eip_150 {
 				without_refund.max_storage_deposit - without_refund.storage_deposit,
 				"the refund from freeing the slot must pay for writing it again",
 			);
+		});
+	}
+
+	/// A dry run does not expose its temporary fee credit as newly issued currency to contracts.
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn dry_run_does_not_inflate_total_issuance(fixture_type: FixtureType) {
+		let (code, _) = compile_module_with_type("TotalIssuance", fixture_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let [contract] = deploy([code]);
+			let issuance_before = <Test as Config>::Currency::total_issuance();
+			let tx = GenericTransaction {
+				from: Some(ALICE_ADDR),
+				to: Some(contract),
+				input: TotalIssuance::readCall {}.abi_encode().into(),
+				..Default::default()
+			};
+
+			let dry_run =
+				without_commit(|| Pallet::<Test>::dry_run_eth_transact(tx, None, true, None))
+					.unwrap();
+			let issuance_during_execution =
+				TotalIssuance::readCall::abi_decode_returns(&dry_run.data).unwrap();
+
+			assert_eq!(issuance_during_execution, U256::from(issuance_before));
+			assert_eq!(<Test as Config>::Currency::total_issuance(), issuance_before);
 		});
 	}
 }
