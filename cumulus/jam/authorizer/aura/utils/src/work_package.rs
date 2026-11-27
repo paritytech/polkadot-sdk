@@ -21,9 +21,9 @@ use jam_types::{
 };
 use primitive_types::H256;
 
-use crate::{signing::SigningPayload, AuthToken};
 #[cfg(feature = "std")]
 use crate::{build_collator_proof, CollatorKey, CollatorSignature, SignError};
+use crate::{signing::SigningPayload, AuthToken};
 
 /// A work package awaiting its authorization token.
 #[derive(Clone, Debug)]

@@ -12,7 +12,6 @@ homepage.workspace = true
 [package.metadata.jam]
 type = "authorizer"
 profile = "jam-authorizer"
-default-rustflags = ["--cfg", "substrate_runtime"]
 
 [lints]
 workspace = true
@@ -36,7 +35,9 @@ codec = { workspace = true }
 [features]
 default = []
 std = [
+	"codec/std",
 	"cumulus-aura-authorizer-utils/std",
+	"jam-pvm-common/std",
 	"jam-types/std",
 	"schnorrkel/std",
 	"sp-core/std",

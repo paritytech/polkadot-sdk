@@ -4973,10 +4973,8 @@ dependencies = [
  "jam-codec",
  "jam-types",
  "parity-scale-codec",
- "polkadot-parachain-primitives",
  "primitive-types 0.13.1",
  "sp-crypto-hashing 0.1.0",
- "sp-io 30.0.0",
  "sp-keystore 0.34.0",
 ]
 

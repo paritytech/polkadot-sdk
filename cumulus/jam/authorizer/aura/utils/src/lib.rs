@@ -23,6 +23,7 @@ extern crate alloc;
 
 use codec::{Decode, DecodeAll, Encode, MaxEncodedLen};
 use jam_types::{Slot, WorkPackage};
+use primitive_types::H256;
 
 mod config;
 mod merkle;
@@ -49,7 +50,31 @@ pub fn is_authorized<S: SignatureVerifier>(package: &WorkPackage) -> jam_types::
 	jam_types::AuthTrace(trace.encode())
 }
 
-pub use polkadot_parachain_primitives::primitives::Id as ParaId;
+/// Parachain ID, SCALE-compatible with `polkadot_parachain_primitives::primitives::Id`.
+///
+/// Defined here so the authorizer blobs don't link Substrate primitives.
+#[derive(
+	Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Encode, Decode, MaxEncodedLen,
+)]
+pub struct ParaId(u32);
+
+impl ParaId {
+	pub const fn new(id: u32) -> Self {
+		Self(id)
+	}
+}
+
+impl From<u32> for ParaId {
+	fn from(id: u32) -> Self {
+		Self(id)
+	}
+}
+
+impl From<ParaId> for u32 {
+	fn from(id: ParaId) -> Self {
+		id.0
+	}
+}
 
 /// Parachain work-item payload (§3.2). The PoV is carried in extrinsic 0.
 #[derive(Debug, Encode, Decode)]
@@ -57,7 +82,7 @@ pub struct ParachainCandidate {
 	/// Parachain ID checked against the authorizer config.
 	pub para_id: ParaId,
 	/// Validation-code hash used by Refine to look up the PVF.
-	pub validation_code: polkadot_parachain_primitives::primitives::ValidationCodeHash,
+	pub validation_code: H256,
 }
 
 pub use config::{AuthConfig, CandidateError, ConfigError};

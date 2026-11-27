@@ -15,11 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::ParaId;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::num::NonZero;
 use jam_types::{ServiceId, Slot, WorkItem};
-use polkadot_parachain_primitives::primitives::Id as ParaId;
 use primitive_types::H256;
 
 /// Invalid AURA configuration or work items that do not satisfy it.
@@ -104,7 +104,6 @@ mod tests {
 	use super::*;
 	use crate::ParachainCandidate;
 	use alloc::vec;
-	use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 
 	#[test]
 	fn work_item_constraints_works() {
@@ -123,7 +122,7 @@ mod tests {
 			export_count: 0,
 			payload: ParachainCandidate {
 				para_id: ParaId::new(0),
-				validation_code: ValidationCodeHash::from([0; 32]),
+				validation_code: H256::from([0; 32]),
 			}
 			.encode()
 			.into(),
@@ -155,7 +154,7 @@ mod tests {
 			let mut items = items.clone();
 			items[0].payload = ParachainCandidate {
 				para_id: ParaId::new(1),
-				validation_code: ValidationCodeHash::from([0; 32]),
+				validation_code: H256::from([0; 32]),
 			}
 			.encode()
 			.into();
@@ -188,7 +187,7 @@ mod tests {
 			let mut items = [items[0].clone(), items[0].clone()];
 			let mut candidate = ParachainCandidate {
 				para_id: ParaId::new(1),
-				validation_code: ValidationCodeHash::from([1; 32]),
+				validation_code: H256::from([1; 32]),
 			};
 			items[1].payload = candidate.encode().into();
 			assert_eq!(config.check_work_items(&items), Ok(()));
@@ -216,10 +215,7 @@ mod tests {
 	fn candidate_prefix_is_para_id_works() {
 		for raw_id in [0u32, 1, 1000, 2000, u32::MAX] {
 			let para_id = ParaId::new(raw_id);
-			let candidate = ParachainCandidate {
-				para_id,
-				validation_code: ValidationCodeHash::from([0xab; 32]),
-			};
+			let candidate = ParachainCandidate { para_id, validation_code: H256::from([0xab; 32]) };
 			let encoded = candidate.encode();
 
 			assert_eq!(&encoded[..4], &raw_id.encode()[..]);

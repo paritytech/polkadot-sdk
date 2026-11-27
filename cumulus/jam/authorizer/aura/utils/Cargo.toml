@@ -20,14 +20,9 @@ hash-db = { workspace = true }
 hash256-std-hasher = { workspace = true }
 jam-codec = { workspace = true, features = ["derive"] }
 jam-types = { workspace = true }
-polkadot-parachain-primitives = { workspace = true }
 primitive-types = { workspace = true, features = ["codec"] }
 sp-crypto-hashing = { workspace = true }
 sp-keystore = { workspace = true, optional = true }
-
-[target.'cfg(target_env = "polkavm")'.dependencies]
-# The JAM guest provides these lang items instead of the Substrate runtime.
-sp-io = { workspace = true, features = ["disable_allocator", "disable_panic_handler"] }
 
 [features]
 default = []
@@ -39,7 +34,6 @@ std = [
 	"hash256-std-hasher/std",
 	"jam-codec/std",
 	"jam-types/std",
-	"polkadot-parachain-primitives/std",
 	"primitive-types/std",
 	"sp-crypto-hashing/std",
 	"sp-keystore/std",

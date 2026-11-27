@@ -93,8 +93,8 @@ mod tests {
 		for (index, key) in keys.iter().enumerate() {
 			let package = authorize_work_package(&keystore, AURA, &keys, index as u32, body())
 				.expect("signing succeeds");
-			let token = AuthToken::decode_all(&mut &package.authorization.0[..])
-				.expect("encoded token");
+			let token =
+				AuthToken::decode_all(&mut &package.authorization.0[..]).expect("encoded token");
 			assert_eq!(
 				authorize(&config, &token, &package, index as u32),
 				Ok(AuthTrace { author_key: *key })
@@ -114,8 +114,8 @@ mod tests {
 			slot_duration: NonZero::new(1).expect("nonzero"),
 		};
 
-		let package = authorize_work_package(&keystore, AURA, &keys, 1, body())
-			.expect("signing succeeds");
+		let package =
+			authorize_work_package(&keystore, AURA, &keys, 1, body()).expect("signing succeeds");
 		let mut token =
 			AuthToken::decode_all(&mut &package.authorization.0[..]).expect("encoded token");
 		token.signature[0] ^= 1;
