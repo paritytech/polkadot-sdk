@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795802998105,
+  "lastUpdate": 1795814236551,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b5c7f2ddf8a5ccc8ae82b9b582142089a8162185",
-          "message": "ci: fix docs publishing (#12128)\n\ncc https://github.com/paritytech/devops/issues/5306",
-          "timestamp": "2026-05-20T18:50:40Z",
-          "tree_id": "80fab8ff2710477a0b25bb94f9f9b3103bada86c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b5c7f2ddf8a5ccc8ae82b9b582142089a8162185"
-        },
-        "date": 1779314890783,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.673576740333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.14246339059999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1245018905,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f8df6a0dab67ac9ece9d9205df83108a6493964d",
+          "message": "pallet-elections-phragmen: route kicked-member slash to KickedMember (#14032)\n\nCloses #14010\n\n`remove_member` with `slash_bond = true` slashed the seat deposit and\npassed it to `Config::LoserCandidate`. `Config::KickedMember`,\ndocumented as the handler for kicked members, was never called. This was\na regression from paritytech/substrate#7040, which moved the slash from\n`remove_member` into `remove_and_replace_member` and switched the\nhandler.\n\nThe kick slash now goes to `KickedMember`. Election-loser slashes still\ngo to `LoserCandidate`.\n\nRuntimes that set different handlers for the two will see kick slashes\nreach a different destination. `kitchensink` sets both to `()`.",
+          "timestamp": "2026-11-27T19:40:58Z",
+          "tree_id": "21936b7a6ad02394b5e09d983400e594f1d984c1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f8df6a0dab67ac9ece9d9205df83108a6493964d"
+        },
+        "date": 1795814198633,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12783223816666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.965854045566669,
             "unit": "seconds"
           }
         ]
