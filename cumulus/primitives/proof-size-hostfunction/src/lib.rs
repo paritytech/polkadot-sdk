@@ -15,11 +15,39 @@
 // limitations under the License.
 
 //! Tools for reclaiming PoV weight in parachain runtimes.
+//!
+//! # Registered-only versions
+//!
+//! Three host functions have a new version with a body of its own:
+//!
+//! - `sp_io::storage::append` version 2: [`sp_externalities::Externalities::storage_append_v2`]
+//!   instead of [`sp_externalities::Externalities::storage_append`].
+//! - `sp_io::default_child_storage::root` version 3:
+//!   [`sp_externalities::Externalities::child_storage_root_v3`] instead of
+//!   [`sp_externalities::Externalities::child_storage_root_with_version`].
+//! - [`storage_proof_size`](storage_proof_size::storage_proof_size) version 2:
+//!   [`storage_proof_size_v2`] instead of [`storage_proof_size_v1`].
+//!
+//! The old bodies stay. Old runtimes call them forever, blocks in a chain's history must import
+//! bit-for-bit, and for a given runtime the collator and the PVF must run the same body. The
+//! `validate_block` shims of `cumulus-pallet-parachain-system` replace the runtime's bare host
+//! function call, so each shim must call the body of the version that call means.
+//!
+//! The new versions are registered with `register_only`: nodes provide them, but runtimes keep
+//! calling the old versions. The three markers are intended to be dropped together, in the same
+//! release that switches the shims `host_storage_append`, `host_default_child_storage_root` and
+//! `host_storage_proof_size` to the new bodies. The estimation of `storage_proof_size` version 2
+//! is only sound with the child root semantics of `default_child_storage::root` version 3, and
+//! collator and PVF agree on every block of the estimation fuzzer only with all three new bodies.
+//!
+//! `cumulus-proof-size-hostfunction-fuzz` tests both sides: `tests/v1_compat.rs` compares the old
+//! bodies with a trace binary built on master, and the estimation runner (`tests/smoke.rs`) runs
+//! the new bodies.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "std")]
-use sp_externalities::ExternalitiesExt;
+use sp_externalities::{Externalities, ExternalitiesExt};
 
 use sp_runtime_interface::runtime_interface;
 
@@ -27,6 +55,31 @@ use sp_runtime_interface::runtime_interface;
 use sp_trie::proof_size_extension::ProofSizeExt;
 
 pub const PROOF_RECORDING_DISABLED: u64 = u64::MAX;
+
+/// Body of version 1 of [`storage_proof_size::storage_proof_size`]: the size of the proof recorded
+/// so far, or [`PROOF_RECORDING_DISABLED`] without [`ProofSizeExt`]. It must stay as it is, since
+/// weight reclaim writes its result into the state and old runtimes call it forever.
+///
+///  See [Registered-only versions](crate#registered-only-versions).
+#[cfg(feature = "std")]
+pub fn storage_proof_size_v1(mut ext: &mut dyn Externalities) -> u64 {
+	ext.extension::<ProofSizeExt>()
+		.map_or(PROOF_RECORDING_DISABLED, |e| e.storage_proof_size())
+}
+
+/// Body of version 2 of [`storage_proof_size::storage_proof_size`]. It first records the trie nodes
+/// the storage root at the end of the block will read for the writes so far
+/// ([`Externalities::record_proof_for_dirty_keys`]), then reads the size as
+/// [`storage_proof_size_v1`] does.
+///
+/// See [Registered-only versions](crate#registered-only-versions).
+#[cfg(feature = "std")]
+pub fn storage_proof_size_v2(mut ext: &mut dyn Externalities) -> u64 {
+	if ext.extension::<ProofSizeExt>().is_some() {
+		ext.record_proof_for_dirty_keys();
+	}
+	storage_proof_size_v1(ext)
+}
 
 /// Interface that provides access to the current storage proof size.
 ///
@@ -36,8 +89,19 @@ pub const PROOF_RECORDING_DISABLED: u64 = u64::MAX;
 pub trait StorageProofSize {
 	/// Returns the current storage proof size.
 	fn storage_proof_size(&mut self) -> u64 {
-		self.extension::<ProofSizeExt>()
-			.map_or(PROOF_RECORDING_DISABLED, |e| e.storage_proof_size())
+		storage_proof_size_v1(*self)
+	}
+
+	/// Returns the current storage proof size, including an estimate of the trie nodes the storage
+	/// root will read for the writes so far, see
+	/// [`storage_proof_size_v2`](crate::storage_proof_size_v2).
+	///
+	/// Registered only: dropping the marker goes together with switching `host_storage_proof_size`
+	/// in `validate_block` and with dropping the markers of the other registered-only versions, see
+	/// [Registered-only versions](crate#registered-only-versions).
+	#[version(2, register_only)]
+	fn storage_proof_size(&mut self) -> u64 {
+		storage_proof_size_v2(*self)
 	}
 }
 
@@ -91,6 +155,22 @@ mod tests {
 			assert_eq!(storage_proof_size::storage_proof_size(), 275);
 			sp_io::storage::get(b"key2");
 			assert_eq!(storage_proof_size::storage_proof_size(), 275);
+		});
+	}
+
+	#[test]
+	fn host_function_does_not_estimate_dirty_keys() {
+		let (mut ext, recorder) = get_prepared_test_externalities();
+		ext.register_extension(ProofSizeExt::new(recorder.clone()));
+
+		ext.execute_with(|| {
+			sp_io::storage::set(b"key1", &[3; 64]);
+			sp_io::storage::clear(b"key2");
+			let recorded = recorder.estimate_encoded_size() as u64;
+			assert_eq!(storage_proof_size::storage_proof_size(), recorded);
+
+			sp_externalities::with_externalities(|ext| ext.record_proof_for_dirty_keys());
+			assert!(storage_proof_size::storage_proof_size() > recorded);
 		});
 	}
 
