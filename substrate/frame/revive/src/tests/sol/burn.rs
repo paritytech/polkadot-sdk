@@ -302,6 +302,7 @@ fn static_call_fails(fixture_type: FixtureType) {
 fn reverted_burn_is_rolled_back(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let addr = deploy(fixture_type, 1_000, 0);
+		let issuance = Balances::total_issuance();
 
 		let (success, output) = try_call(
 			addr,
@@ -312,6 +313,7 @@ fn reverted_burn_is_rolled_back(fixture_type: FixtureType) {
 		assert_eq!(decode_error(&output), "after burn");
 
 		assert_eq!(Pallet::<Test>::evm_balance(&addr), evm_value(1_000, 0));
+		assert_eq!(Balances::total_issuance(), issuance);
 	});
 }
 

@@ -132,14 +132,15 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				if !env.value_transferred().is_zero() {
 					return Err(Error::Revert("value transfer not allowed".into()));
 				}
-				env.burn_from_caller(amount).map_err(|err| match () {
-					_ if err == crate::Error::<T>::TransferFailed.into() => {
-						Error::Revert("insufficient balance".into())
-					},
-					_ if err == crate::Error::<T>::BalanceConversionFailed.into() => {
-						Error::Revert("balance conversion failed".into())
-					},
-					_ => Error::try_to_revert::<T>(err),
+				env.burn_from_caller(amount).map_err(|err| {
+					let insufficient_balance = crate::Error::<T>::TransferFailed.into();
+					let conversion_failed = crate::Error::<T>::BalanceConversionFailed.into();
+					let message = match () {
+						_ if err == insufficient_balance => "insufficient balance",
+						_ if err == conversion_failed => "balance conversion failed",
+						_ => return Error::try_to_revert::<T>(err),
+					};
+					Error::Revert(message.into())
 				})?;
 				Ok(Vec::new())
 			},

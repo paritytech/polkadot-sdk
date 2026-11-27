@@ -172,11 +172,7 @@ fn burn<T: Config>(from: &AccountIdOf<T>, value: BalanceOf<T>, kind: BurnKind) -
 	Ok(())
 }
 
-/// Burn a balance with dust from an account.
-///
-/// The dust part is taken from the dust balance of the account. The whole units go where `kind`
-/// says. Converting missing dust burns one unit through the currency first. The balance check at
-/// the top guarantees that the burn does not fail after that.
+/// Withdraw a balance with dust from an account and dispose of it as [`BurnKind`] says.
 pub(crate) fn burn_with_dust<T: Config>(
 	from: &AccountIdOf<T>,
 	value: BalanceWithDust<BalanceOf<T>>,
