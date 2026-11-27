@@ -1712,6 +1712,18 @@ where
 					debug!(target: LOG_TARGET, "Libp2p => Connected({:?})", peer_id);
 				}
 
+				let (inbound, address) = match &endpoint {
+					ConnectedPoint::Dialer { address, .. } => (false, address.clone()),
+					ConnectedPoint::Listener { send_back_addr, .. } => {
+						(true, send_back_addr.clone())
+					},
+				};
+				self.event_streams.send(Event::ConnectionEstablished {
+					peer: peer_id.into(),
+					inbound,
+					address: address.into(),
+				});
+
 				if let Some(metrics) = self.metrics.as_ref() {
 					let direction = match endpoint {
 						ConnectedPoint::Dialer { .. } => "out",

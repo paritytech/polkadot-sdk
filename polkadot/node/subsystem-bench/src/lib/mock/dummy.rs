@@ -94,6 +94,7 @@ mock!(CandidateValidation);
 mock!(AvailabilityRecovery);
 mock!(NetworkBridgeTx);
 mock!(ChainApi);
+mock!(Health);
 mock!(ChainSelection);
 mock!(ApprovalVoting);
 mock!(ApprovalVotingParallel);
