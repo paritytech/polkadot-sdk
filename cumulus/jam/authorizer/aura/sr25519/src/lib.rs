@@ -16,6 +16,8 @@
 // limitations under the License.
 
 //! Sr25519 AURA authorizer for JAM parachains.
+//!
+//! Build the work-package authorizer with `cargo jam-build -p cumulus-aura-authorizer-sr25519`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -27,6 +29,13 @@ use cumulus_aura_authorizer_utils::{
 	SignatureVerifier,
 };
 use jam_types::{Slot, WorkPackage};
+
+#[cfg(target_env = "polkavm")]
+jam_pvm_common::declare_authorizer!(cumulus_aura_authorizer_utils::Guest<Sr25519>);
+
+// Dalek's double-scalar multiplication tables exceed the default 8 KiB guest stack.
+#[cfg(target_env = "polkavm")]
+polkavm_derive::min_stack_size!(32768);
 
 /// The transcript context every Sr25519 signature in Substrate is made under.
 ///

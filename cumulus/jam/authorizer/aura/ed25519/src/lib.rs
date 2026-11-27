@@ -16,6 +16,8 @@
 // limitations under the License.
 
 //! Ed25519 AURA authorizer for JAM parachains.
+//!
+//! Build the work-package authorizer with `cargo jam-build -p cumulus-aura-authorizer-ed25519`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -30,6 +32,13 @@ use jam_types::{Slot, WorkPackage};
 
 /// Ed25519 signature verifier for AURA collators, matching `sp_core::ed25519`.
 pub struct Ed25519;
+
+#[cfg(target_env = "polkavm")]
+jam_pvm_common::declare_authorizer!(cumulus_aura_authorizer_utils::Guest<Ed25519>);
+
+// Dalek's double-scalar multiplication tables exceed the default 8 KiB guest stack.
+#[cfg(target_env = "polkavm")]
+polkavm_derive::min_stack_size!(32768);
 
 impl SignatureVerifier for Ed25519 {
 	/// Uses `verify_strict` (not `verify`) to reject cofactored/non-canonical signatures and

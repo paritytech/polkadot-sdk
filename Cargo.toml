@@ -921,6 +921,7 @@ is-terminal = { version = "0.4.9" }
 is_executable = { version = "1.0.1" }
 itertools = { version = "0.11" }
 jam-codec = { version = "0.1.1", default-features = false }
+jam-pvm-common = { version = "=0.1.29", default-features = false }
 jam-types = { version = "=0.1.29", default-features = false }
 jobserver = { version = "0.1.26" }
 jsonrpsee = { version = "0.24.11" }
@@ -1554,6 +1555,11 @@ inherits = "release"
 codegen-units = 1
 inherits = "release"
 lto = true
+
+# JAM bounds authorizer code size independently of service code size.
+[profile.jam-authorizer]
+inherits = "production"
+opt-level = "z"
 
 [profile.testnet]
 debug = 1               # debug symbols are useful for profilers

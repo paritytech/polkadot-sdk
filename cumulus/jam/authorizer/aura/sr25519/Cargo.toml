@@ -9,6 +9,11 @@ publish = true
 description = "Sr25519 AURA authorizer for JAM parachains"
 homepage.workspace = true
 
+[package.metadata.jam]
+type = "authorizer"
+profile = "jam-authorizer"
+default-rustflags = ["--cfg", "substrate_runtime"]
+
 [lints]
 workspace = true
 
@@ -20,6 +25,10 @@ jam-types = { workspace = true }
 schnorrkel = { workspace = true, features = ["alloc"] }
 sp-core = { workspace = true, optional = true }
 sp-keystore = { workspace = true, optional = true }
+
+[target.'cfg(target_env = "polkavm")'.dependencies]
+jam-pvm-common = { workspace = true, features = ["authorizer"] }
+polkavm-derive = { workspace = true }
 
 [dev-dependencies]
 codec = { workspace = true }
