@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795788627218,
+  "lastUpdate": 1795802998105,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0773274dcb8f32bb6a1c6fdce48d44709ac071e1",
-          "message": "Fix migrations for recovery & parachain-system pallets (#12123)\n\nChanges:\n- pallet-recovery: be more lenient towards broken accounts to keep their\nrecovery config and write storage version 🤦\n- parachain-system: clear old storage value to prevent decoding error,\nsee discussion\n[here](https://github.com/paritytech/polkadot-sdk/pull/10477#discussion_r3264157119)\n- pallet-assets: fix logs in migration\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2026-05-20T13:16:27Z",
-          "tree_id": "6b459a0a1c84efeacbe18fdfc2d4cc0f868eb1f7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0773274dcb8f32bb6a1c6fdce48d44709ac071e1"
-        },
-        "date": 1779294487542,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.686312584566664,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.14642191076666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12712395520000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ba69049b0c5b32ea51b18e0311425c1f22fdc1ac",
+          "message": "umbrella: remove test utility crates and generate-bags (#14003)\n\nThe umbrella crate included `asset-test-utils`, `bridge-hub-test-utils`,\n`emulated-integration-tests-common`, `parachains-runtimes-test-utils`\nand `generate-bags` in its `node` feature. Nodes do not use these\ncrates. The test utilities pull `assets-common` and `pallet-revive` into\neach node that uses the umbrella. With `runtime-benchmarks`, they also\nbuild `pallet-revive-fixtures`. `generate-bags` pulls\n`pallet-staking-async`, which does not compile with `runtime-benchmarks`\n(see #14012).\n\nThis PR marks these crates `exclude-from-umbrella`. They stay published,\nand their users depend on them directly.\n\nThis is a breaking change and is not for backport. #14012 is the\nbackportable fix for the `pallet-staking-async` build failure.\n\nRelated: #11019\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-11-27T16:27:38Z",
+          "tree_id": "69826dcfaec10e8db8e4f9d20fba666f4ffc33fe",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ba69049b0c5b32ea51b18e0311425c1f22fdc1ac"
+        },
+        "date": 1795802954197,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.789008170133334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1245018905,
             "unit": "seconds"
           }
         ]
