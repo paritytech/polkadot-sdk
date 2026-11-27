@@ -18,22 +18,11 @@
 //! Host-side Ed25519 signing for AURA authorization tokens using `sp-keystore`.
 
 use cumulus_aura_authorizer_utils::{
-	build_collator_proof, AuthToken, CollatorKey, CollatorProofError, WorkPackageBody,
+	build_collator_proof, AuthToken, CollatorKey, SignError, WorkPackageBody,
 };
 use jam_types::WorkPackage;
 use sp_core::{crypto::KeyTypeId, ed25519};
 use sp_keystore::Keystore;
-
-/// Signing an AURA authorization token failed.
-#[derive(Debug)]
-pub enum SignError {
-	/// The collator set or index is invalid.
-	CollatorProof(CollatorProofError),
-	/// The selected collator key is not present in the keystore.
-	MissingKey,
-	/// The keystore failed while producing the signature.
-	Keystore(sp_keystore::Error),
-}
 
 /// Build and sign an [`AuthToken`] for `package` using the Ed25519 key at `collator_index`.
 fn sign_token(
@@ -76,7 +65,7 @@ mod tests {
 	use codec::DecodeAll;
 	use core::num::NonZero;
 	use cumulus_aura_authorizer_utils::{
-		AuthConfig, AuthTrace, AuthorizationError, SignatureVerifier, TokenError,
+		AuthConfig, AuthTrace, AuthorizationError, CollatorProofError, SignatureVerifier, TokenError,
 	};
 	use jam_types::{Authorizer, RefineContext};
 	use sp_core::crypto::key_types::AURA;

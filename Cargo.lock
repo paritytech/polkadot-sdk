@@ -4982,6 +4982,7 @@ dependencies = [
  "schnorrkel 0.11.4",
  "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
+ "sp-keystore 0.34.0",
 ]
 
 [[package]]

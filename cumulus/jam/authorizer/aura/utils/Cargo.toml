@@ -23,6 +23,7 @@ jam-types = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 primitive-types = { workspace = true, features = ["codec"] }
 sp-crypto-hashing = { workspace = true }
+sp-keystore = { workspace = true, optional = true }
 
 [target.'cfg(target_env = "polkavm")'.dependencies]
 jam-pvm-common = { workspace = true, features = ["authorizer"] }
@@ -49,4 +50,5 @@ std = [
 	"polkadot-parachain-primitives/std",
 	"primitive-types/std",
 	"sp-crypto-hashing/std",
+	"sp-keystore/std",
 ]

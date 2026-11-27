@@ -70,6 +70,18 @@ pub use signing::{signable_work_package_hash, WORK_PACKAGE_SIGN_CTX};
 pub use token::{AuthToken, CollatorKey, CollatorSignature, TokenError};
 pub use work_package::WorkPackageBody;
 
+/// Signing an AURA authorization token failed.
+#[cfg(feature = "std")]
+#[derive(Debug)]
+pub enum SignError {
+	/// The collator set or index is invalid.
+	CollatorProof(CollatorProofError),
+	/// The selected collator key is not present in the keystore.
+	MissingKey,
+	/// The keystore failed while producing the signature.
+	Keystore(sp_keystore::Error),
+}
+
 /// Signature verification for Collator keys.
 pub trait SignatureVerifier {
 	/// Whether `signature` is `key`'s signature over `payload`.
