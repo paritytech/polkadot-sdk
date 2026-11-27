@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795803179414,
+  "lastUpdate": 1795814403022,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e7d08d2c89aef53d78491e79827ccee8f5c3460b",
-          "message": "[acf] Move py/trsry drain migration from pallet to Westend RC (#12092)\n\n`pallet-accumulate-and-forward` is meant to be generic and reusable.\nHard-coding a one-shot drain of the legacy `py/trsry` from RC to AH\naccount belongs in a runtime, not the generic pallet.\nTo achieve the above:\n- Removed `DrainLegacyTreasuryToAccumulationAccount` and its tests from\n`pallet-accumulate-and-forward`.\n- Added a runtime-local equivalent inside `westend-runtime`'s migrations\nmodule, with the same semantics: drain into the local `ACF` accumulation\naccount, where the existing `Forwarder` teleports to AssetHub's central\nDAP on the next forwarding interval.\n- Dropped the migration from BridgeHub / Collectives / Coretime / People\nWestend: `py/trsry` is empty there, so no migration is needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-19T08:05:16Z",
-          "tree_id": "de207240d71e7c0ae57e9ff71c92be63ef860226",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e7d08d2c89aef53d78491e79827ccee8f5c3460b"
-        },
-        "date": 1779183848126,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.104,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038673959756000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08091314204399992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.07780341379799993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f8df6a0dab67ac9ece9d9205df83108a6493964d",
+          "message": "pallet-elections-phragmen: route kicked-member slash to KickedMember (#14032)\n\nCloses #14010\n\n`remove_member` with `slash_bond = true` slashed the seat deposit and\npassed it to `Config::LoserCandidate`. `Config::KickedMember`,\ndocumented as the handler for kicked members, was never called. This was\na regression from paritytech/substrate#7040, which moved the slash from\n`remove_member` into `remove_and_replace_member` and switched the\nhandler.\n\nThe kick slash now goes to `KickedMember`. Election-loser slashes still\ngo to `LoserCandidate`.\n\nRuntimes that set different handlers for the two will see kick slashes\nreach a different destination. `kitchensink` sets both to `()`.",
+          "timestamp": "2026-11-27T19:40:58Z",
+          "tree_id": "21936b7a6ad02394b5e09d983400e594f1d984c1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f8df6a0dab67ac9ece9d9205df83108a6493964d"
+        },
+        "date": 1795814365692,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.152,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08279761912399991,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038680234118000006,
             "unit": "seconds"
           }
         ]
