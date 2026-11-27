@@ -229,7 +229,7 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 		};
 		new_balance.checked_add(&reserved).ok_or(ArithmeticError::Overflow)?;
 
-		if new_balance < Self::minimum_balance() && Self::total_balance(who).is_zero() {
+		if new_balance < Self::minimum_balance() && old_balance.is_zero() && reserved.is_zero() {
 			// Attempt to increase from 0 to below minimum -> stays at zero.
 			if let BestEffort = precision {
 				Ok(Default::default())

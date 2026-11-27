@@ -88,10 +88,13 @@ impl<T: Config<I>, I: 'static> fungible::Inspect<T::AccountId> for Pallet<T, I> 
 		let account = Self::account(who);
 		let new_free = match account.free.checked_add(&amount) {
 			None => return DepositConsequence::Overflow,
-			// An account with something on hold is kept alive below ED.
-			Some(x) if x < T::ExistentialDeposit::get() && account.reserved.is_zero() => {
-				return DepositConsequence::BelowMinimum
-			},
+			// A provider ref means the account already exists, so it is kept alive below ED,
+			// see `try_mutate_account`. This also covers an account with something on hold or
+			// frozen, since either already keeps a provider ref alive.
+			Some(x)
+				if x < T::ExistentialDeposit::get() &&
+					frame_system::Pallet::<T>::providers(who) == 0 =>
+				return DepositConsequence::BelowMinimum,
 			Some(x) => x,
 		};
 
@@ -183,11 +186,18 @@ impl<T: Config<I>, I: 'static> fungible::Unbalanced<T::AccountId> for Pallet<T, 
 	) -> Result<Self::Balance, DispatchError> {
 		let account = Self::account(who);
 		let new_free = match precision {
-			BestEffort => account.free.saturating_add(amount),
+			BestEffort => {
+				let max_free = Self::Balance::max_value().saturating_sub(account.reserved);
+				account.free.saturating_add(amount).min(max_free)
+			},
 			Exact => account.free.checked_add(&amount).ok_or(ArithmeticError::Overflow)?,
 		};
-		// An account with something on hold is kept alive below ED, see `try_mutate_account`.
-		if new_free < T::ExistentialDeposit::get() && account.reserved.is_zero() {
+		new_free.checked_add(&account.reserved).ok_or(ArithmeticError::Overflow)?;
+
+		// A provider ref means the account already exists, so it is kept alive below ED, see
+		// `try_mutate_account`. This also covers an account with something on hold or frozen,
+		// since either already keeps a provider ref alive.
+		if new_free < T::ExistentialDeposit::get() && frame_system::Pallet::<T>::providers(who) == 0 {
 			return match precision {
 				BestEffort => Ok(Zero::zero()),
 				Exact => Err(TokenError::BelowMinimum.into()),

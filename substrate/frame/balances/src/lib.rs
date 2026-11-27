@@ -180,8 +180,8 @@ use scale_info::TypeInfo;
 use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
 	traits::{
-		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Saturating,
-		StaticLookup, Zero,
+		AtLeast32BitUnsigned, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
+		Saturating, StaticLookup, Zero,
 	},
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, TokenError,
 };
@@ -1120,10 +1120,14 @@ pub mod pallet {
 				// Evaluates `maybe_dust`, which is `Some` containing the dust to be dropped, iff
 				// some dust should be dropped.
 				//
-				// We should never be dropping if there are either reserves or freezes since that
-				// implies a consumer ref.
+				// A provider reference means something, somewhere, still needs this account to
+				// exist, so it is never dusted while one remains, regardless of free balance.
+				// Reserves and freezes already keep a provider ref alive via `does_consume`
+				// above, so checking providers here, rather than `!does_consume` directly, also
+				// covers a provider taken for an unrelated reason (e.g. another pallet).
 				let ed = Self::ed();
-				let maybe_dust = if account.free < ed && !does_consume {
+				let has_provider = frame_system::Pallet::<T>::providers(who) > 0;
+				let maybe_dust = if account.free < ed && !has_provider {
 					if account.free.is_zero() {
 						None
 					} else {
