@@ -49,7 +49,7 @@ use frame_support::{
 	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
 	pallet_prelude::TransactionSource,
 	traits::IsType,
-	DefaultNoBound,
+	DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 use scale_info::TypeInfo;
@@ -100,6 +100,17 @@ pub enum InitialPayment<T: Config> {
 	Native(NativeLiquidityInfoOf<T>),
 	/// The initial fee was paid in an asset.
 	Asset((T::AssetId, AssetLiquidityInfoOf<T>)),
+}
+
+/// The fee that [`ChargeAssetTxPayment::quote_fee`] would request, if any.
+#[derive(DebugNoBound, PartialEqNoBound, EqNoBound)]
+pub enum FeeQuote<T: Config> {
+	/// No payment would be requested.
+	Nothing,
+	/// Fee with no payment asset selected ([`ChargeAssetTxPayment::from`] with `None`).
+	Native(BalanceOf<T>),
+	/// Fee in the selected payment asset ([`ChargeAssetTxPayment::from`] with `Some`).
+	Asset((T::AssetId, BalanceOf<T>)),
 }
 
 pub use pallet::*;
@@ -188,6 +199,39 @@ where
 	/// Utility constructor. Used only in client/factory code.
 	pub fn from(tip: BalanceOf<T>, asset_id: Option<T::AssetId>) -> Self {
 		Self { tip, asset_id }
+	}
+
+	/// Quote the fee this extension would request.
+	///
+	/// Does not withdraw funds or check the account balance. The quote is the pre-dispatch fee for
+	/// `info`, with the tip added. It can differ from the amount later charged: unused weight is
+	/// refunded after dispatch, and the fee can change before inclusion.
+	///
+	/// Returns [`FeeQuote::Nothing`] if the origin is not a signer or the computed fee is zero, and
+	/// `None` if the fee cannot be converted into the chosen asset.
+	pub fn quote_fee(
+		&self,
+		origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: u32,
+	) -> Option<FeeQuote<T>>
+	where
+		<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId>,
+	{
+		if origin.as_system_origin_signer().is_none() {
+			return Some(FeeQuote::Nothing);
+		}
+
+		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len, info, self.tip);
+
+		if fee.is_zero() {
+			Some(FeeQuote::Nothing)
+		} else if let Some(asset_id) = &self.asset_id {
+			let asset_fee = T::OnChargeAssetTransaction::quote_asset_fee(asset_id.clone(), fee)?;
+			Some(FeeQuote::Asset((asset_id.clone(), asset_fee)))
+		} else {
+			Some(FeeQuote::Native(fee))
+		}
 	}
 
 	/// Fee withdrawal logic that dispatches to either [`Config::OnChargeAssetTransaction`] or
