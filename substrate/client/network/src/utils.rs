@@ -20,9 +20,21 @@
 
 use futures::{stream::unfold, FutureExt, Stream, StreamExt};
 use futures_timer::Delay;
+use ip_network::IpNetwork;
 use linked_hash_set::LinkedHashSet;
+use sc_network_types::multiaddr::{Multiaddr, Protocol};
 
 use std::{hash::Hash, num::NonZeroUsize, time::Duration};
+
+/// Whether every IP component of the address is globally routable. Components that are not an IP
+/// address (DNS names, ports, peer ids) pass.
+pub fn is_global_address(address: &Multiaddr) -> bool {
+	address.iter().all(|protocol| match protocol {
+		Protocol::Ip4(ip) => IpNetwork::from(ip).is_global(),
+		Protocol::Ip6(ip) => IpNetwork::from(ip).is_global(),
+		_ => true,
+	})
+}
 
 /// Creates a stream that returns a new value every `duration`.
 pub fn interval(duration: Duration) -> impl Stream<Item = ()> + Unpin {
@@ -94,5 +106,25 @@ mod tests {
 		// We reached the limit. The next element forces the oldest one out.
 		assert!(set.insert(3));
 		assert_eq!(vec![&1, &3], set.set.iter().collect::<Vec<_>>());
+	}
+
+	#[test]
+	fn global_address_requires_every_ip_component_to_be_global() {
+		let global = |address: &str| is_global_address(&address.parse().unwrap());
+
+		assert!(global("/ip4/1.1.1.1/tcp/30333"));
+		assert!(global("/ip6/2606:4700::1111/tcp/30333"));
+		assert!(global(
+			"/ip4/1.1.1.1/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp"
+		));
+		assert!(global("/dns/example.com/tcp/30333"));
+
+		assert!(!global("/ip4/10.0.0.1/tcp/30333"));
+		assert!(!global("/ip4/127.0.0.1/tcp/30333"));
+		assert!(!global("/ip4/192.168.1.1/tcp/30333"));
+		assert!(!global("/ip4/203.0.113.9/tcp/30333"));
+		assert!(!global("/ip6/::1/tcp/30333"));
+		assert!(!global("/ip6/fe80::1/tcp/30333"));
+		assert!(!global("/ip6/2001:db8::1/tcp/30333"));
 	}
 }
