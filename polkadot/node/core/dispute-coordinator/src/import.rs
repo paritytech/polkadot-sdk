@@ -642,6 +642,53 @@ impl ImportResult {
 		}
 	}
 
+	/// Remove invalid votes from validators rejected by the per-validator spam-slot check.
+	///
+	/// Dispute confirmation is recomputed from the votes that remain, so a capped
+	/// validator's statement does not count toward thresholds. Only invalid votes are
+	/// removed; this does not change what counts as a new invalid voter, it only drops
+	/// voters already recorded in `new_invalid_voters` that failed the slot check.
+	/// Valid votes in the same import are left in place.
+	pub fn drop_invalid_votes(
+		self,
+		env: &CandidateEnvironment,
+		rejected: &HashSet<ValidatorIndex>,
+		now: Timestamp,
+	) -> Self {
+		let Self {
+			old_state,
+			new_state,
+			mut new_invalid_voters,
+			mut imported_invalid_votes,
+			imported_valid_votes,
+			imported_approval_votes,
+		} = self;
+
+		let (mut votes, _) = new_state.into_old_state();
+
+		new_invalid_voters.retain(|index| {
+			if rejected.contains(index) {
+				if votes.invalid.remove(index).is_some() {
+					imported_invalid_votes = imported_invalid_votes.saturating_sub(1);
+				}
+				false
+			} else {
+				true
+			}
+		});
+
+		let new_state = CandidateVoteState::new(votes, env, now);
+
+		Self {
+			old_state,
+			new_state,
+			new_invalid_voters,
+			imported_invalid_votes,
+			imported_valid_votes,
+			imported_approval_votes,
+		}
+	}
+
 	/// All done, give me those votes.
 	///
 	/// Returns: `None` in case nothing has changed (import was redundant).
