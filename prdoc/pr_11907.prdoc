@@ -1,0 +1,18 @@
+title: '`fatxpool`: histogram of transaction age at removal'
+doc:
+- audience: Node Operator
+  description: |-
+    Adds a new prometheus histogram `substrate_sub_txpool_tx_age_at_removal_seconds`
+    that records, for every transaction leaving the fork-aware transaction pool,
+    the time it spent in the pool, broken down by `reason` (one of `finalized`,
+    `invalid_revalidation_mempool`, `invalid_revalidation_view`, `invalid_reported`,
+    `dropped_usurped`, `dropped_limits`, `dropped_invalid`, `finality_timeout`)
+    and `source` (`local`, `external`, `in_block`).
+
+    This is the foundational observability tool requested in issue #7791 to
+    detect stuck transactions in the field. Operators can graph the high-age
+    buckets per `reason` to determine empirically whether stuck transactions
+    are happening, before any heuristic-based detection logic is introduced.
+crates:
+- name: sc-transaction-pool
+  bump: minor
