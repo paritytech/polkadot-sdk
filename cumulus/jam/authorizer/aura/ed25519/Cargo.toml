@@ -1,0 +1,33 @@
+[package]
+name = "cumulus-aura-authorizer-ed25519"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+publish = true
+description = "Ed25519 AURA authorizer for JAM parachains"
+homepage.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+cumulus-aura-authorizer-utils = { workspace = true }
+ed25519-dalek = { workspace = true, features = ["alloc"] }
+jam-types = { workspace = true }
+sp-core = { workspace = true, optional = true }
+sp-keystore = { workspace = true, optional = true }
+
+[dev-dependencies]
+codec = { workspace = true }
+
+[features]
+default = []
+std = [
+	"cumulus-aura-authorizer-utils/std",
+	"ed25519-dalek/std",
+	"jam-types/std",
+	"sp-core/std",
+	"sp-keystore/std",
+]
