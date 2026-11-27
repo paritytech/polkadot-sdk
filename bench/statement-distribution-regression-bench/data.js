@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795735622865,
+  "lastUpdate": 1795788770140,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "evgeny@parity.io",
-            "name": "Evgeny Snitko",
-            "username": "AndWeHaveAPlan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a72afe70b1c1a98169a5571287c3796a35cd10b8",
-          "message": "Update ci-unified image version in .github/env (#12085)",
-          "timestamp": "2026-05-18T09:38:00Z",
-          "tree_id": "f597e751b53e7f01ad513f466286596d290acab5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a72afe70b1c1a98169a5571287c3796a35cd10b8"
-        },
-        "date": 1779102132667,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.082,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08554309238199993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038728892915999985,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08418795313199989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f3c8cc0f3d9c7fe38f8703305bf3401fa7572a73",
+          "message": "sync-templates: fix remaining issues in workflow (#11019)\n\n# Description\n\nThis PR addresses some issues with the misc-sync-templates workflow:\n\n- Fix debug conditional checks by using fromJSON() for proper boolean\nhandling\n- Add missing clang dependencies (llvm-dev and libclang-dev) for\ncompilation\n- Skip pallet-revive-fixtures compilation by setting\nSKIP_PALLET_REVIVE_FIXTURES=1\n- Download chain-spec-builder from the release being synced instead of\nbuilding it from source, falling back to a source build if the download\nfails\n\nCloses #11016 .\n\n## Integration\n\nN/A\n\n## Review Notes\n\nDISCLAIMER: some other PRs with fixes might follow, but I think these\nfixes are probably the last. Testing can be done once this is merged in\nmaster, by trying to sync templates once more (probably there will be an\nempty PR for parachain/minimal templates, which have been synced\nalready, but the goal is to see sync-template workflow successful).\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-11-27T11:52:02Z",
+          "tree_id": "258d1a6ef2e767c26e01dd33c07c117cada1ef66",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f3c8cc0f3d9c7fe38f8703305bf3401fa7572a73"
+        },
+        "date": 1795788729178,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.13199999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038571981109999987,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08743032620399989,
             "unit": "seconds"
           }
         ]
