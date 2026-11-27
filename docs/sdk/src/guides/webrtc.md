@@ -8,15 +8,18 @@ count towards the `--in-peers-light` limit (500 by default).
 
 ## 1. Listen Addresses
 
-Unless you pass `--listen-addr`, a full node listens for incoming WebRTC connections on UDP port
-30333, or on the port specified with `--port`. A parachain node runs two network stacks and accepts
-WebRTC on both: by default UDP 30333 on the parachain side and 30334 on the relay chain side. Relay
-chain options go after `--`.
+Unless you pass `--listen-addr`, every node, including validators and collators, listens for
+incoming WebRTC connections on UDP port 30333, or on the port specified with `--port`. A parachain
+node runs two network stacks and accepts WebRTC on both: by default UDP 30333 on the parachain side
+and 30334 on the relay chain side. Relay chain options go after `--`.
 
-Validators and collators, on either side, don't listen on WebRTC by default and should serve light
-clients from separate full nodes instead. To disable WebRTC on a full node, pass an explicit
-`--listen-addr` with TCP/WS addresses only. Don't just block the UDP port: the node would still
-advertise its WebRTC address, and light clients would fail to connect.
+To disable WebRTC, pass `--disable-webrtc`. On a parachain node it applies to the side it is passed
+to: before `--` for the parachain side, after `--` for the relay chain side. Don't just block the
+UDP port: the node would still advertise its WebRTC address, and light clients would fail to
+connect.
+
+`--disable-webrtc` can't be combined with `--listen-addr`: explicit listen addresses replace the
+defaults, so the node listens on WebRTC only if one of them is a `webrtc-direct` address.
 
 If you manually specify `--listen-addr` for TCP/WS/WSS connections, make sure to also include a
 `--listen-addr` for WebRTC connections, e.g. `/ip4/0.0.0.0/udp/30333/webrtc-direct` or
@@ -30,8 +33,12 @@ behind NAT or you redirect the ports), make sure to include a matching `--public
 `ip4` with `ip6` or `dns` if needed. This address will be advertised in the DHT, allowing light
 clients to discover it.
 
-Don't append `/certhash/...` or `/p2p/...` to WebRTC listen or public addresses: the node adds them
-itself and refuses to start if they are present.
+There is no need to append `/certhash/...` or `/p2p/...` to WebRTC listen or public addresses: the
+node adds them itself. If present, they are checked against the node key, and the node refuses to
+start if they don't match.
+
+A WebRTC public address needs a WebRTC listener behind it: the node refuses to start if WebRTC is
+disabled, or if none of the explicit `--listen-addr` values is a `webrtc-direct` address.
 
 ## 3. Firewall / Port Forwarding
 

@@ -95,7 +95,13 @@ pub fn start_node() -> Child {
 	Command::new(cargo_bin("substrate-node"))
 		.stdout(process::Stdio::piped())
 		.stderr(process::Stdio::piped())
-		.args(&["--dev", "--tmp", "--rpc-port=45789", "--no-hardware-benchmarks"])
+		.args(&[
+			"--dev",
+			"--tmp",
+			"--rpc-port=45789",
+			"--no-hardware-benchmarks",
+			"--disable-webrtc",
+		])
 		.spawn()
 		.unwrap()
 }
