@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795803059880,
+  "lastUpdate": 1795814292909,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tim@sparse.tech",
-            "name": "Tim Nieradzik",
-            "username": "tindzk"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2f6033f32cdfe20629189c223459d39fe8278b68",
-          "message": "frame-benchmarking: allow 2-point slope fits in `min_squares_iqr` (#12075)\n\n# Description\n\na33b7c2e36 short-circuits `min_squares_iqr` to `median_value` whenever\n`r.len() <= 2` to avoid OLS panics on `--steps=1 --repeats=1`. That\nfallback also catches the case where two samples sit at different\nx-values, where the slope is exactly determined. However, benchmarks\nwhose valid sample set is narrowed to two values (e.g. by\n`BenchmarkError::Skip` filtering a `Linear<lo, hi>` parameter) lose\ntheir linear component.\n\nRoute the `r.len() <= 2` fallback through `median_slopes` instead, which\nfits a slope exactly from two samples at different x-values. The\ndegenerate \"all samples share one x\" case now surfaces an explicit error\nfrom `median_slopes`'s own check.\n\n## Integration\n\nNo API or storage changes. Downstream runtimes do not need to update\ncode.\n\nRegenerating weights may produce different values for benchmarks whose\nvalid sample set is exactly 2 points at distinct x-values. The resulting\nweight expression will now include a linear component fitted via\n`median_slopes` instead of falling back to the constant median.\n\nBenchmarks whose 2 remaining samples share an x-value will now fail with\nan explicit `median_slopes` error rather than returning the median. If\nyou see this, broaden the parameter range or increase\n`--steps`/`--repeats` so more than one distinct x-value is sampled.\n\n## Review Notes\n\n`min_squares_iqr` had a single guard combining two unrelated\nshort-circuits:\n\n```rust\nif r[0].components.is_empty() || r.len() <= 2 {\n    return Self::median_value(r, selector);\n}\n```\n\nThe `components.is_empty()` branch is correct: a benchmark with no\nparameters has no slope to fit, so a constant median should be returned.\nThe `r.len() <= 2` branch was a workaround for `linregress`'s OLS fit,\nwhich is under-determined with two samples and one intercept + one slope\nvariable. Both cases fell through to the same `median_value` call, which\ndrops slopes entirely.\n\nThe no-components fallback is kept on `median_value`, while `r.len() <=\n2` is routed to `median_slopes` instead. `median_slopes` is well-suited:\nit forms the pairwise slope list `(y_i - y_j) / (x_i - x_j)` over\nsamples with distinct x-values, takes the median, then derives the\nintercept from per-sample offsets. With exactly two distinct-x samples\nthe slope list has length 1, so the median is the exact slope. No\nregression is needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>",
-          "timestamp": "2026-05-20T07:28:31Z",
-          "tree_id": "f0a202d9205ec75ca43087a77b05b3780f5d9650",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2f6033f32cdfe20629189c223459d39fe8278b68"
-        },
-        "date": 1779268157196,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02392847305333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14441051185333345,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0075284082,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009852458319999959,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02412541199999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f8df6a0dab67ac9ece9d9205df83108a6493964d",
+          "message": "pallet-elections-phragmen: route kicked-member slash to KickedMember (#14032)\n\nCloses #14010\n\n`remove_member` with `slash_bond = true` slashed the seat deposit and\npassed it to `Config::LoserCandidate`. `Config::KickedMember`,\ndocumented as the handler for kicked members, was never called. This was\na regression from paritytech/substrate#7040, which moved the slash from\n`remove_member` into `remove_and_replace_member` and switched the\nhandler.\n\nThe kick slash now goes to `KickedMember`. Election-loser slashes still\ngo to `LoserCandidate`.\n\nRuntimes that set different handlers for the two will see kick slashes\nreach a different destination. `kitchensink` sets both to `()`.",
+          "timestamp": "2026-11-27T19:40:58Z",
+          "tree_id": "21936b7a6ad02394b5e09d983400e594f1d984c1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f8df6a0dab67ac9ece9d9205df83108a6493964d"
+        },
+        "date": 1795814254862,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007491991906666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00980568532666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024185933493333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14610530122666668,
             "unit": "seconds"
           }
         ]
