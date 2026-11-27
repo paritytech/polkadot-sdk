@@ -200,6 +200,20 @@ pub struct SpendStatus<AssetKind, AssetBalance, Beneficiary, BlockNumber, Paymen
 /// Index of an approved treasury spend.
 pub type SpendIndex = u32;
 
+/// Maps an asset kind to its canonical form.
+///
+/// A runtime can use this to collapse multiple encodings of the same asset (e.g. an XCM
+/// location at different version spellings) into one. `()` is the identity.
+pub trait CanonicalizeAssetKind<Kind> {
+	fn canonicalize(kind: Kind) -> Result<Kind, ()>;
+}
+
+impl<Kind> CanonicalizeAssetKind<Kind> for () {
+	fn canonicalize(kind: Kind) -> Result<Kind, ()> {
+		Ok(kind)
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -285,6 +299,10 @@ pub mod pallet {
 		/// The period during which an approved treasury spend has to be claimed.
 		#[pallet::constant]
 		type PayoutPeriod: Get<BlockNumberFor<Self, I>>;
+
+		/// Maps an asset kind to its canonical form; see [`CanonicalizeAssetKind`]. `()` is the
+		/// identity.
+		type CanonicalizeAssetKind: CanonicalizeAssetKind<Self::AssetKind>;
 
 		/// Helper type for benchmarks.
 		#[cfg(feature = "runtime-benchmarks")]
