@@ -19,7 +19,7 @@
 
 use crate::{
 	BlockInfoProvider,
-	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber},
+	client::{Client, ClientError, GapFillRequest, SubstrateBlock, SubstrateBlockNumber},
 };
 use governor::{DefaultDirectRateLimiter, Quota, RateLimiter};
 use pallet_revive::evm::H256;
@@ -87,7 +87,9 @@ fn new_historical_sync_rate_limiter(max_blocks_per_sec: NonZeroU32) -> DefaultDi
 
 /// Options for [`Client::sync_backward_range`].
 struct BackwardSyncRange<'a> {
-	from: SubstrateBlockNumber,
+	/// Hash of the first block to sync. It must be finalized: indexing it and its parents
+	/// removes the other blocks stored at their heights.
+	from: H256,
 	to: SubstrateBlockNumber,
 	/// Set `Head` label after syncing the first block.
 	set_head: bool,
@@ -213,20 +215,23 @@ impl Client {
 					"🗄️ Resuming sync: DB has blocks #{}..#{}, chain head is #{}, \
 					 first EVM block {first_evm_block}",
 					tail.block_number, head.block_number, latest_finalized.block_number);
-				self.sync_backward_resume(tail, head, latest_finalized, rate_limiter).await?;
+				self.sync_backward_resume(tail, head, &latest_finalized_block, rate_limiter)
+					.await?;
 			},
 			(Some(_), None) => {
 				log::warn!(target: LOG_TARGET,
 					"🗄️ Tail exists without Head — possible partial corruption, \
 					 starting fresh sync from #{}, first EVM block {first_evm_block}",
 					latest_finalized.block_number);
-				self.sync_backward_fresh(latest_finalized.block_number, rate_limiter).await?;
+				self.sync_backward_fresh(latest_finalized_block.block_hash(), rate_limiter)
+					.await?;
 			},
 			_ => {
 				log::info!(target: LOG_TARGET,
 					"🗄️ Fresh sync: syncing backward from #{}, first EVM block {first_evm_block}",
 					latest_finalized.block_number);
-				self.sync_backward_fresh(latest_finalized.block_number, rate_limiter).await?;
+				self.sync_backward_fresh(latest_finalized_block.block_hash(), rate_limiter)
+					.await?;
 			},
 		}
 
@@ -236,10 +241,11 @@ impl Client {
 		Ok(())
 	}
 
-	/// Backward sync from `latest_finalized` down to the first EVM block.
+	/// Backward sync from the latest finalized block, with hash `latest_finalized`, down to the
+	/// first EVM block.
 	async fn sync_backward_fresh(
 		&self,
-		latest_finalized: SubstrateBlockNumber,
+		latest_finalized: H256,
 		rate_limiter: Option<&DefaultDirectRateLimiter>,
 	) -> Result<(), ClientError> {
 		let first_evm = self.receipt_provider().first_evm_block().unwrap_or(0);
@@ -259,13 +265,17 @@ impl Client {
 		&self,
 		tail: SyncCheckpoint,
 		head: SyncCheckpoint,
-		latest_finalized: SyncCheckpoint,
+		latest_finalized: &SubstrateBlock,
 		rate_limiter: Option<&DefaultDirectRateLimiter>,
 	) -> Result<(), ClientError> {
+		let latest_finalized_hash = latest_finalized.block_hash();
+		let latest_finalized =
+			SyncCheckpoint::new(latest_finalized.block_number(), latest_finalized_hash);
+
 		// Top gap: sync from latest_finalized down to head + 1.
 		if head.block_number < latest_finalized.block_number {
 			self.sync_backward_range(BackwardSyncRange {
-				from: latest_finalized.block_number,
+				from: latest_finalized_hash,
 				to: head.block_number.saturating_add(1),
 				set_head: false,
 				checkpoint_tail: false,
@@ -283,8 +293,9 @@ impl Client {
 		// Bottom gap: sync from tail - 1 down to the first EVM block.
 		let first_evm = self.receipt_provider().first_evm_block().unwrap_or(0);
 		if tail.block_number > first_evm {
+			let tail_hash = tail.block_hash.ok_or(ClientError::SyncBoundaryMismatch)?;
 			self.sync_backward_range(BackwardSyncRange {
-				from: tail.block_number.saturating_sub(1),
+				from: self.parent_hash(&tail_hash).await?,
 				to: first_evm,
 				set_head: false,
 				checkpoint_tail: true,
@@ -297,7 +308,18 @@ impl Client {
 		Ok(())
 	}
 
-	/// Backward sync from block `from` down to block `to` (inclusive).
+	/// The hash of the parent of the block with hash `hash`.
+	async fn parent_hash(&self, hash: &H256) -> Result<H256, ClientError> {
+		let block = self
+			.block_provider()
+			.block_by_hash(hash)
+			.await?
+			.ok_or(ClientError::BlockNotFound)?;
+		Ok(block.block_header().await?.parent_hash)
+	}
+
+	/// Backward sync from the block with hash `from` down to block number `to` (inclusive),
+	/// following parent hashes.
 	/// Stops early if a non-EVM block is discovered (auto-discovery of first EVM block).
 	async fn sync_backward_range(
 		&self,
@@ -310,18 +332,19 @@ impl Client {
 			rate_limiter,
 		}: BackwardSyncRange<'_>,
 	) -> Result<(), ClientError> {
+		let mut block = self
+			.block_provider()
+			.block_by_hash(&from)
+			.await?
+			.ok_or(ClientError::BlockNotFound)?;
+		let from = block.block_number();
+
 		if from < to {
 			log::debug!(target: LOG_TARGET,	"⬇️ Backward sync: nothing to sync (#{from}..#{to})");
 			return Ok(());
 		}
 
 		log::info!(target: LOG_TARGET, "⬇️ Backward sync: #{from} down to #{to}");
-
-		let mut block = self
-			.block_provider()
-			.block_by_number(from)
-			.await?
-			.ok_or(ClientError::BlockNotFound)?;
 
 		let mut blocks_synced = 0u64;
 		let mut last_synced: Option<(SubstrateBlockNumber, H256)> = None;
@@ -442,11 +465,13 @@ impl Client {
 	pub(crate) async fn run_subscription_gap_filler(&self, mut rx: mpsc::Receiver<GapFillRequest>) {
 		log::info!(target: LOG_TARGET, "🔄 Subscription gap filler started");
 
-		while let Some(GapFillRequest { from_inclusive, to_inclusive }) = rx.recv().await {
-			log::info!(target: LOG_TARGET, "🔄 Subscription gap filler: processing #{from_inclusive} down to #{to_inclusive}");
-			if let Err(err) = self
-				.sync_backward_range(BackwardSyncRange {
-					from: from_inclusive,
+		while let Some(GapFillRequest { above, to_inclusive }) = rx.recv().await {
+			log::info!(target: LOG_TARGET,
+				"🔄 Subscription gap filler: processing the parents of {above:?} \
+				 down to #{to_inclusive}");
+			let fill = async {
+				self.sync_backward_range(BackwardSyncRange {
+					from: self.parent_hash(&above).await?,
 					to: to_inclusive,
 					set_head: false,
 					checkpoint_tail: false,
@@ -456,10 +481,15 @@ impl Client {
 					rate_limiter: None,
 				})
 				.await
-			{
-				log::error!(target: LOG_TARGET, "🔄 Subscription gap fill failed for #{from_inclusive}..#{to_inclusive}: {err:?}");
+			};
+			if let Err(err) = fill.await {
+				log::error!(target: LOG_TARGET,
+					"🔄 Subscription gap fill failed for the parents of {above:?} \
+					 down to #{to_inclusive}: {err:?}");
 			} else {
-				log::info!(target: LOG_TARGET, "🔄 Subscription gap filler: done with #{from_inclusive}..#{to_inclusive}");
+				log::info!(target: LOG_TARGET,
+					"🔄 Subscription gap filler: done with the parents of {above:?} \
+					 down to #{to_inclusive}");
 			}
 			// Mark done unconditionally — mirrors how subscribe_new_blocks handles
 			// callback errors: log and move on.

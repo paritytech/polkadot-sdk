@@ -24,7 +24,7 @@ use crate::{
 	SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
 	client::{
-		Client, GapFillRequest, SubscriptionGapQueue, connect,
+		Client, GapFillRequest, SubscriptionGapQueue, SubscriptionType, connect,
 		version_aware_runtime_api::VersionAwareRuntimeApiProvider,
 	},
 	example::TransactionBuilder,
@@ -59,7 +59,10 @@ use pallet_revive_types::runtime_api::{
 	TraceBlockVersionedOutputPayload, TraceEntryV1, TraceV1, TraceV2, TracerTypeV1,
 };
 use sp_runtime::BoundedVec;
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use sqlx::{
+	SqlitePool,
+	sqlite::{SqliteConnectOptions, SqlitePoolOptions},
+};
 use std::{collections::BTreeSet, num::NonZeroU32, sync::Arc, thread};
 use subxt::{
 	OnlineClient,
@@ -439,6 +442,8 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_state_override_balance_zero,
 		test_state_override_trace_call,
 		test_subscription_gap_filler_backfills_queued_range,
+		test_finalized_subscription_removes_forks_at_its_height,
+		test_best_block_at_the_finalized_height_is_not_indexed,
 	);
 
 	log::debug!(target: LOG_TARGET, "All tests completed successfully!");
@@ -2505,12 +2510,15 @@ async fn submit_evm_transfers(count: usize) -> anyhow::Result<()> {
 /// in-memory SQLite database so that sync labels written by the test do not interfere
 /// with the eth-rpc server's internal database (and vice versa).
 async fn create_sync_test_client() -> anyhow::Result<Client> {
-	let (client, _gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
+	let (client, _gap_fill_rx, _pool) =
+		create_sync_test_client_with_subscription_gap_queue().await?;
 	Ok(client)
 }
 
+/// Like [`create_sync_test_client`], also returning the receiver of the client's gap-fill
+/// queue and the pool of its database.
 async fn create_sync_test_client_with_subscription_gap_queue()
--> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>)> {
+-> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>, SqlitePool)> {
 	use sc_cli::{RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB};
 
 	let node_url = SharedResources::node_rpc_url();
@@ -2530,7 +2538,7 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 	let chain_id = crate::chain_id(&api).await?;
 	let receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone(), chain_id);
 	let receipt_provider = ReceiptProvider::new(
-		DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER),
+		DbContext::new(pool.clone(), DbContext::DEFAULT_MAX_VARIABLE_NUMBER),
 		block_provider.clone(),
 		receipt_extractor,
 		None,
@@ -2550,7 +2558,7 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		chain_id,
 	)
 	.await?;
-	Ok((client, gap_fill_rx))
+	Ok((client, gap_fill_rx, pool))
 }
 
 /// Fresh sync: labels, hash mappings, and re-sync idempotency.
@@ -3935,7 +3943,8 @@ async fn test_state_override_trace_call() -> anyhow::Result<()> {
 async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result<()> {
 	submit_evm_transfers(1).await?;
 
-	let (sync_client, gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
+	let (sync_client, gap_fill_rx, _pool) =
+		create_sync_test_client_with_subscription_gap_queue().await?;
 	sync_client.sync_backward(None).await?;
 
 	let head_after_sync = sync_client
@@ -3950,7 +3959,8 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 
 	// Query the chain directly; the sync_client's cached finalized block is stale
 	// because this client doesn't run subscriptions.
-	let new_finalized_number = sync_client.api().at_current_block().await?.block_number();
+	let new_finalized = sync_client.api().at_current_block().await?;
+	let new_finalized_number = new_finalized.block_number();
 	assert!(
 		new_finalized_number > head_after_sync,
 		"New finalized #{new_finalized_number} should be higher than synced head #{head_after_sync}"
@@ -3979,9 +3989,11 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 		tokio::spawn(async move { bg_client.run_subscription_gap_filler(gap_fill_rx).await });
 
 	assert!(!sync_client.subscription_gap_queue().has_pending());
-	sync_client
-		.subscription_gap_queue()
-		.detect_and_queue(new_finalized_number, head_after_sync);
+	sync_client.subscription_gap_queue().detect_and_queue(
+		new_finalized_number,
+		new_finalized.block_hash(),
+		head_after_sync,
+	);
 	assert!(sync_client.subscription_gap_queue().has_pending());
 
 	// Wait for the pending request to be processed.
@@ -4006,6 +4018,143 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 
 	// bg_client holds the channel sender, so abort instead of dropping.
 	subscription_gap_queue_handle.abort();
+
+	Ok(())
+}
+
+/// Store a block that lost a fork at the height of the next block: a mapping and a transaction
+/// hash under `fork_hash`. Returns the height.
+async fn store_fork_at_next_height(
+	client: &Client,
+	pool: &SqlitePool,
+	fork_hash: H256,
+	fork_tx_hash: H256,
+) -> anyhow::Result<u64> {
+	let height = client.api().at_current_block().await?.block_number() + 1;
+	sqlx::query(
+		"INSERT INTO eth_to_substrate_blocks \
+		 (ethereum_block_hash, substrate_block_hash, receipts_version, block_number) \
+		 VALUES (?, ?, 1, ?)",
+	)
+	.bind(fork_hash.as_bytes().to_vec())
+	.bind(fork_hash.as_bytes().to_vec())
+	.bind(height as i64)
+	.execute(pool)
+	.await?;
+	sqlx::query(
+		"INSERT INTO transaction_hashes (transaction_hash, transaction_index, block_hash) \
+		 VALUES (?, 0, ?)",
+	)
+	.bind(fork_tx_hash.as_bytes().to_vec())
+	.bind(fork_hash.as_bytes().to_vec())
+	.execute(pool)
+	.await?;
+	Ok(height)
+}
+
+/// Poll `condition` until it holds, failing after 20 seconds.
+async fn wait_until<F, Fut>(what: &str, condition: F) -> anyhow::Result<()>
+where
+	F: Fn() -> Fut,
+	Fut: std::future::Future<Output = bool>,
+{
+	let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(20);
+	while !condition().await {
+		if tokio::time::Instant::now() > deadline {
+			anyhow::bail!("Timed out waiting until {what}");
+		}
+		tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+	}
+	Ok(())
+}
+
+/// The finalized-block subscription removes a block stored at the height of a finalized block,
+/// both when it indexes the finalized block itself and when the best-block subscription indexed
+/// it first. The best-block subscription does not remove it.
+async fn test_finalized_subscription_removes_forks_at_its_height() -> anyhow::Result<()> {
+	let (client, _gap_fill_rx, pool) =
+		create_sync_test_client_with_subscription_gap_queue().await?;
+	let subscribe = |subscription_type| {
+		let client = client.clone();
+		tokio::spawn(async move { client.subscribe_and_cache_new_blocks(subscription_type).await })
+	};
+	let fork_removed = |fork_hash: H256, fork_tx_hash: H256| {
+		let client = client.clone();
+		async move {
+			client.receipt_provider().get_ethereum_hash(&fork_hash).await.is_none() &&
+				client.receipt_provider().find_transaction(&fork_tx_hash).await.is_none()
+		}
+	};
+
+	let finalized_only = subscribe(SubscriptionType::FinalizedBlocks);
+	let (fork_hash, fork_tx_hash) = (H256::repeat_byte(0xf1), H256::repeat_byte(0xf2));
+	store_fork_at_next_height(&client, &pool, fork_hash, fork_tx_hash).await?;
+	submit_evm_transfers(1).await?;
+	wait_until("the finalized subscription removed the fork", || {
+		fork_removed(fork_hash, fork_tx_hash)
+	})
+	.await?;
+	finalized_only.abort();
+
+	let best = subscribe(SubscriptionType::BestBlocks);
+	let (fork_hash, fork_tx_hash) = (H256::repeat_byte(0xf3), H256::repeat_byte(0xf4));
+	let height = store_fork_at_next_height(&client, &pool, fork_hash, fork_tx_hash).await?;
+	submit_evm_transfers(1).await?;
+	let canonical_hash = client
+		.block_provider()
+		.block_by_number(height)
+		.await?
+		.expect("the block was just produced")
+		.block_hash();
+	wait_until("the best subscription indexed the block", || {
+		let client = client.clone();
+		async move { client.receipt_provider().get_ethereum_hash(&canonical_hash).await.is_some() }
+	})
+	.await?;
+	assert!(!fork_removed(fork_hash, fork_tx_hash).await, "a best block removed the fork");
+	let finalized = subscribe(SubscriptionType::FinalizedBlocks);
+	wait_until("the finalized subscription removed the fork of an indexed block", || {
+		fork_removed(fork_hash, fork_tx_hash)
+	})
+	.await?;
+	best.abort();
+	finalized.abort();
+
+	Ok(())
+}
+
+/// A best block at or below the latest finalized block is not indexed.
+///
+/// The dev node finalizes every block when it seals it. A client started after the head was
+/// sealed caches the head as its finalized block, and its best-block subscription receives the
+/// head as its first block. Nothing else indexes it, as no finalized subscription runs.
+async fn test_best_block_at_the_finalized_height_is_not_indexed() -> anyhow::Result<()> {
+	submit_evm_transfers(1).await?;
+	let (client, _gap_fill_rx, _pool) =
+		create_sync_test_client_with_subscription_gap_queue().await?;
+	let head = client.latest_finalized_block().await.block_hash();
+	assert_eq!(
+		client.latest_block().await.block_hash(),
+		head,
+		"the best block must be the finalized block for the guard to apply"
+	);
+	let best = {
+		let client = client.clone();
+		tokio::spawn(async move {
+			client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks).await
+		})
+	};
+
+	let indexed = tokio::time::timeout(
+		tokio::time::Duration::from_secs(3),
+		wait_until("the best subscription indexed the finalized head", || {
+			let client = client.clone();
+			async move { client.receipt_provider().get_ethereum_hash(&head).await.is_some() }
+		}),
+	)
+	.await;
+	best.abort();
+	assert!(indexed.is_err(), "the best subscription indexed the finalized head {head:?}");
 
 	Ok(())
 }
