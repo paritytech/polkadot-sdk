@@ -521,7 +521,7 @@ impl OverheadCmd {
 		Block: BlockT,
 		HF: HostFunctions,
 	{
-		let extensions = ExecutionExtensions::new(None, Arc::new(executor.clone()));
+		let extensions = ExecutionExtensions::new(None);
 
 		let base_path = match &self.shared_params.base_path {
 			None => BasePath::new_temp_dir()?,

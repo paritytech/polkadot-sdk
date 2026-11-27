@@ -44,6 +44,7 @@ array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 criterion = { workspace = true, default-features = true }
 num_cpus = { workspace = true }
+parity-wasm = { workspace = true }
 paste = { workspace = true, default-features = true }
 sc-runtime-test = { workspace = true }
 sc-tracing = { workspace = true, default-features = true }

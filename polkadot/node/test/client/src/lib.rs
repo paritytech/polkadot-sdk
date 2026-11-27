@@ -22,7 +22,6 @@ mod block_builder;
 
 use polkadot_primitives::Block;
 use sp_runtime::BuildStorage;
-use std::sync::Arc;
 
 pub use block_builder::*;
 pub use polkadot_test_runtime as runtime;
@@ -73,9 +72,9 @@ impl TestClientBuilderExt for TestClientBuilder {
 		let executor = WasmExecutor::builder().build();
 		let executor = client::LocalCallExecutor::new(
 			self.backend().clone(),
-			executor.clone(),
+			executor,
 			Default::default(),
-			ExecutionExtensions::new(Default::default(), Arc::new(executor)),
+			ExecutionExtensions::new(Default::default()),
 		)
 		.unwrap();
 

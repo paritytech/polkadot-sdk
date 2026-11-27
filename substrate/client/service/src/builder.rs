@@ -246,7 +246,7 @@ where
 		.unwrap_or_default();
 
 	let client = {
-		let extensions = ExecutionExtensions::new(None, Arc::new(executor.clone()));
+		let extensions = ExecutionExtensions::new(None);
 
 		let wasm_runtime_substitutes = config
 			.chain_spec

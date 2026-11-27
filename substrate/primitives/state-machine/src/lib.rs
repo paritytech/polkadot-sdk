@@ -1206,16 +1206,6 @@ mod tests {
 		}
 	}
 
-	impl sp_core::traits::ReadRuntimeVersion for DummyCodeExecutor {
-		fn read_runtime_version(
-			&self,
-			_: &[u8],
-			_: &mut dyn Externalities,
-		) -> std::result::Result<Vec<u8>, String> {
-			unimplemented!("Not required in tests.")
-		}
-	}
-
 	#[test]
 	fn execute_works() {
 		execute_works_inner(StateVersion::V0);

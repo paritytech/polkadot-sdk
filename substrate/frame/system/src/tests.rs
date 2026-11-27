@@ -30,7 +30,7 @@ use sp_runtime::{
 	DispatchError, DispatchErrorWithPostInfo,
 };
 use std::collections::BTreeSet;
-use substrate_test_runtime_client::WasmExecutor;
+use substrate_test_runtime_client::sc_executor::DefaultReadRuntimeVersion;
 
 #[test]
 fn check_whitelist() {
@@ -676,9 +676,8 @@ fn assert_runtime_updated_digest(num: usize) {
 
 #[test]
 fn set_code_with_real_wasm_blob() {
-	let executor = WasmExecutor::default();
 	let mut ext = new_test_ext();
-	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(executor));
+	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(DefaultReadRuntimeVersion));
 	ext.execute_with(|| {
 		System::set_block_number(1);
 		System::set_code(
@@ -703,9 +702,8 @@ fn set_code_with_real_wasm_blob() {
 fn set_code_rejects_during_mbm() {
 	Ongoing::set(true);
 
-	let executor = substrate_test_runtime_client::WasmExecutor::default();
 	let mut ext = new_test_ext();
-	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(executor));
+	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(DefaultReadRuntimeVersion));
 	ext.execute_with(|| {
 		System::set_block_number(1);
 		let res = System::set_code(
@@ -723,9 +721,8 @@ fn set_code_rejects_during_mbm() {
 
 #[test]
 fn set_code_via_authorization_works() {
-	let executor = substrate_test_runtime_client::WasmExecutor::default();
 	let mut ext = new_test_ext();
-	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(executor));
+	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(DefaultReadRuntimeVersion));
 	ext.execute_with(|| {
 		System::set_block_number(1);
 		assert!(System::authorized_upgrade().is_none());
@@ -763,9 +760,8 @@ fn set_code_via_authorization_works() {
 
 #[test]
 fn runtime_upgraded_with_set_storage() {
-	let executor = substrate_test_runtime_client::WasmExecutor::default();
 	let mut ext = new_test_ext();
-	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(executor));
+	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(DefaultReadRuntimeVersion));
 	ext.execute_with(|| {
 		System::set_storage(
 			RawOrigin::Root.into(),

@@ -41,7 +41,7 @@ pub enum CallContext {
 }
 
 /// Code execution engine.
-pub trait CodeExecutor: Sized + Send + Sync + ReadRuntimeVersion + Clone + 'static {
+pub trait CodeExecutor: Sized + Send + Sync + Clone + 'static {
 	/// Externalities error type.
 	type Error: Display + Debug + Send + Sync + 'static;
 
@@ -172,16 +172,6 @@ pub trait ReadRuntimeVersion: Send + Sync {
 		wasm_code: &[u8],
 		ext: &mut dyn Externalities,
 	) -> Result<Vec<u8>, String>;
-}
-
-impl ReadRuntimeVersion for alloc::sync::Arc<dyn ReadRuntimeVersion> {
-	fn read_runtime_version(
-		&self,
-		wasm_code: &[u8],
-		ext: &mut dyn Externalities,
-	) -> Result<Vec<u8>, String> {
-		(**self).read_runtime_version(wasm_code, ext)
-	}
 }
 
 sp_externalities::decl_extension! {

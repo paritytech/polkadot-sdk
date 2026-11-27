@@ -74,12 +74,11 @@ impl TestClientBuilderExt
 	fn build(self) -> Client {
 		let executor = RuntimeExecutor::builder().build();
 		use sc_service::client::LocalCallExecutor;
-		use std::sync::Arc;
 		let executor = LocalCallExecutor::new(
 			self.backend().clone(),
-			executor.clone(),
+			executor,
 			Default::default(),
-			ExecutionExtensions::new(None, Arc::new(executor)),
+			ExecutionExtensions::new(None),
 		)
 		.expect("Creates LocalCallExecutor");
 		self.build_with_executor(executor).0
