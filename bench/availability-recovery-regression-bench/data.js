@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795735430307,
+  "lastUpdate": 1795788627218,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tim@sparse.tech",
-            "name": "Tim Nieradzik",
-            "username": "tindzk"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2f6033f32cdfe20629189c223459d39fe8278b68",
-          "message": "frame-benchmarking: allow 2-point slope fits in `min_squares_iqr` (#12075)\n\n# Description\n\na33b7c2e36 short-circuits `min_squares_iqr` to `median_value` whenever\n`r.len() <= 2` to avoid OLS panics on `--steps=1 --repeats=1`. That\nfallback also catches the case where two samples sit at different\nx-values, where the slope is exactly determined. However, benchmarks\nwhose valid sample set is narrowed to two values (e.g. by\n`BenchmarkError::Skip` filtering a `Linear<lo, hi>` parameter) lose\ntheir linear component.\n\nRoute the `r.len() <= 2` fallback through `median_slopes` instead, which\nfits a slope exactly from two samples at different x-values. The\ndegenerate \"all samples share one x\" case now surfaces an explicit error\nfrom `median_slopes`'s own check.\n\n## Integration\n\nNo API or storage changes. Downstream runtimes do not need to update\ncode.\n\nRegenerating weights may produce different values for benchmarks whose\nvalid sample set is exactly 2 points at distinct x-values. The resulting\nweight expression will now include a linear component fitted via\n`median_slopes` instead of falling back to the constant median.\n\nBenchmarks whose 2 remaining samples share an x-value will now fail with\nan explicit `median_slopes` error rather than returning the median. If\nyou see this, broaden the parameter range or increase\n`--steps`/`--repeats` so more than one distinct x-value is sampled.\n\n## Review Notes\n\n`min_squares_iqr` had a single guard combining two unrelated\nshort-circuits:\n\n```rust\nif r[0].components.is_empty() || r.len() <= 2 {\n    return Self::median_value(r, selector);\n}\n```\n\nThe `components.is_empty()` branch is correct: a benchmark with no\nparameters has no slope to fit, so a constant median should be returned.\nThe `r.len() <= 2` branch was a workaround for `linregress`'s OLS fit,\nwhich is under-determined with two samples and one intercept + one slope\nvariable. Both cases fell through to the same `median_value` call, which\ndrops slopes entirely.\n\nThe no-components fallback is kept on `median_value`, while `r.len() <=\n2` is routed to `median_slopes` instead. `median_slopes` is well-suited:\nit forms the pairwise slope list `(y_i - y_j) / (x_i - x_j)` over\nsamples with distinct x-values, takes the median, then derives the\nintercept from per-sample offsets. With exactly two distinct-x samples\nthe slope list has length 1, so the median is the exact slope. No\nregression is needed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>",
-          "timestamp": "2026-05-20T07:28:31Z",
-          "tree_id": "f0a202d9205ec75ca43087a77b05b3780f5d9650",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2f6033f32cdfe20629189c223459d39fe8278b68"
-        },
-        "date": 1779268129739,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.660882924266668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.14006834053333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12620876833333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f3c8cc0f3d9c7fe38f8703305bf3401fa7572a73",
+          "message": "sync-templates: fix remaining issues in workflow (#11019)\n\n# Description\n\nThis PR addresses some issues with the misc-sync-templates workflow:\n\n- Fix debug conditional checks by using fromJSON() for proper boolean\nhandling\n- Add missing clang dependencies (llvm-dev and libclang-dev) for\ncompilation\n- Skip pallet-revive-fixtures compilation by setting\nSKIP_PALLET_REVIVE_FIXTURES=1\n- Download chain-spec-builder from the release being synced instead of\nbuilding it from source, falling back to a source build if the download\nfails\n\nCloses #11016 .\n\n## Integration\n\nN/A\n\n## Review Notes\n\nDISCLAIMER: some other PRs with fixes might follow, but I think these\nfixes are probably the last. Testing can be done once this is merged in\nmaster, by trying to sync templates once more (probably there will be an\nempty PR for parachain/minimal templates, which have been synced\nalready, but the goal is to see sync-template workflow successful).\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-11-27T11:52:02Z",
+          "tree_id": "258d1a6ef2e767c26e01dd33c07c117cada1ef66",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f3c8cc0f3d9c7fe38f8703305bf3401fa7572a73"
+        },
+        "date": 1795788585916,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.910923438499996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12712395520000003,
             "unit": "seconds"
           }
         ]
