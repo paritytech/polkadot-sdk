@@ -1131,3 +1131,22 @@ fn failed_tally_add_leaves_tally_unchanged() {
 	assert!(t.add(split_abstain(10, 0, 10)).is_none());
 	assert_eq!(t, initial);
 }
+
+#[test]
+fn from_vote_counts_only_aye_capital_as_support() {
+	// An aye vote contributes its capital to `support`.
+	let aye_vote = Vote { aye: true, conviction: Conviction::Locked2x };
+	assert_eq!(TallyOf::<Test>::from_vote(aye_vote, 10), Tally::from_parts(20, 0, 10));
+
+	// A nay vote contributes none: `support` is the number of aye votes pre-conviction.
+	let nay_vote = Vote { aye: false, conviction: Conviction::Locked2x };
+	assert_eq!(TallyOf::<Test>::from_vote(nay_vote, 10), Tally::from_parts(0, 20, 0));
+
+	// Either way, building a tally from a single vote must match adding that vote to an
+	// empty tally, which is what every dispatchable does.
+	for vote in [aye_vote, nay_vote] {
+		let mut incremental = TallyOf::<Test>::from_parts(0, 0, 0);
+		assert!(incremental.add(AccountVote::Standard { vote, balance: 10 }).is_some());
+		assert_eq!(TallyOf::<Test>::from_vote(vote, 10), incremental);
+	}
+}
