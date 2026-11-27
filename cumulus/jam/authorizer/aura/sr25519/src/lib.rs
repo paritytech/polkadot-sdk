@@ -37,6 +37,7 @@ jam_pvm_common::declare_authorizer!(cumulus_aura_authorizer_utils::Guest<Sr25519
 #[cfg(target_env = "polkavm")]
 polkavm_derive::min_stack_size!(8192);
 
+///
 /// Sr25519-specific Schnorrkel transcript context used by `Keystore::sr25519_sign`.
 /// Both schemes sign the same domain-separated work-package hash, but Ed25519 needs no context.
 const SIGNING_CONTEXT: &[u8] = b"substrate";
