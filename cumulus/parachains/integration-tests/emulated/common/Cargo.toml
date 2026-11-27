@@ -9,7 +9,7 @@ homepage.workspace = true
 repository.workspace = true
 
 [package.metadata.polkadot-sdk]
-exclude-from-node-feature = true # test utilities, not needed by nodes
+exclude-from-umbrella = true # test utilities, used as direct dependencies
 
 [lints]
 workspace = true
