@@ -41,8 +41,6 @@ jam_pvm_common::declare_authorizer!(cumulus_aura_authorizer_utils::Guest<Ed25519
 polkavm_derive::min_stack_size!(32768);
 
 impl SignatureVerifier for Ed25519 {
-	/// Uses `verify_strict` (not `verify`) to reject cofactored/non-canonical signatures and
-	/// low-order public keys for deterministic validator agreement.
 	fn verify(key: &CollatorKey, signature: &CollatorSignature, payload: &[u8]) -> bool {
 		let Ok(key) = ed25519_dalek::VerifyingKey::from_bytes(key) else { return false };
 		key.verify_strict(payload, &ed25519_dalek::Signature::from_bytes(signature))
