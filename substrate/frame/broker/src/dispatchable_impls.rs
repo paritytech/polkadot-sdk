@@ -566,16 +566,12 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn do_swap_leases(id: TaskId, other: TaskId) -> DispatchResult {
-		let mut id_leases_count = 0;
-		let mut other_leases_count = 0;
 		Leases::<T>::mutate(|leases| {
 			leases.iter_mut().for_each(|lease| {
 				if lease.task == id {
 					lease.task = other;
-					id_leases_count += 1;
 				} else if lease.task == other {
 					lease.task = id;
-					other_leases_count += 1;
 				}
 			})
 		});
