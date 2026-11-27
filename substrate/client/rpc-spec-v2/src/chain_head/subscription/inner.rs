@@ -782,6 +782,9 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::{
+		chain_head::subscription::SubscriptionManagement, common::connections::RpcConnections,
+	};
 	use jsonrpsee::ConnectionId;
 	use sc_block_builder::BlockBuilderBuilder;
 	use sc_service::client::new_with_backend;
@@ -1347,13 +1350,10 @@ mod tests {
 		)));
 
 		// Maximum 2 subscriptions per connection.
-		let rpc_connections = crate::common::connections::RpcConnections::new(2);
+		let rpc_connections = RpcConnections::new(2);
 
 		let subscription_management =
-			crate::chain_head::subscription::SubscriptionManagement::_from_inner(
-				subs.clone(),
-				rpc_connections.clone(),
-			);
+			SubscriptionManagement::_from_inner(subs.clone(), rpc_connections.clone());
 
 		let reserved_sub_first =
 			subscription_management.reserve_subscription(ConnectionId(1)).unwrap();
@@ -1390,5 +1390,32 @@ mod tests {
 		drop(reserved_sub_first);
 		drop(reserved_sub_second);
 		assert_eq!(subs.read().subs.len(), 0);
+	}
+
+	#[test]
+	fn failed_subscription_insert_preserves_existing_entry() {
+		let mut subs = SubscriptionsInner::new(
+			10,
+			Duration::from_secs(10),
+			MAX_OPERATIONS_PER_SUB,
+			TestClientBuilder::new().backend(),
+		);
+		let sub_id = "sub1".to_string();
+		let mut existing = subs
+			.insert_subscription(sub_id.clone(), true)
+			.expect("the subscription registry starts empty; qed");
+		let subs = Arc::new(parking_lot::RwLock::new(subs));
+		let management = SubscriptionManagement::_from_inner(subs.clone(), RpcConnections::new(1));
+		let connection = ConnectionId(1);
+
+		let mut reserved = management
+			.reserve_subscription(connection)
+			.expect("the connection has its one slot available; qed");
+		assert!(reserved.insert_subscription(sub_id.clone(), true).is_none());
+		drop(reserved);
+
+		assert!(subs.read().subs.contains_key(&sub_id));
+		assert_eq!(existing.rx_stop.try_recv(), Ok(None));
+		assert!(management.reserve_subscription(connection).is_some());
 	}
 }
