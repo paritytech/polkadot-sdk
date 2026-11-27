@@ -693,6 +693,17 @@ where
 		);
 	}
 
+	/// Removes the [`BanReason::Validation`] ban for a transaction across all active views.
+	///
+	/// This is called after mempool revalidation confirms that a viewless transaction is still
+	/// valid at the finalized block. Only bans with [`BanReason::Validation`] are cleared;
+	/// [`BanReason::LimitsEnforced`] bans are preserved.
+	pub(crate) fn unban_transaction(&self, tx_hash: &ExtrinsicHash<ChainApi>) {
+		for view in self.active_views.read().values() {
+			view.pool.validated_pool().unban_if_validation(tx_hash);
+		}
+	}
+
 	/// Reports invalid transactions to the view store.
 	///
 	/// This function accepts an array of tuples, each containing a transaction hash and an
@@ -712,17 +723,7 @@ where
 	///
 	/// If the tuple's error is None, the transaction will be forcibly removed from the view_store,
 	/// banned and included into the returned vector.
-	/// Removes the [`BanReason::Validation`] ban for a transaction across all active views.
 	///
-	/// This is called after mempool revalidation confirms that a viewless transaction is still
-	/// valid at the finalized block. Only bans with [`BanReason::Validation`] are cleared;
-	/// [`BanReason::LimitsEnforced`] bans are preserved.
-	pub(crate) fn unban_transaction(&self, tx_hash: &ExtrinsicHash<ChainApi>) {
-		for view in self.active_views.read().values() {
-			view.pool.validated_pool().unban_if_validation(tx_hash);
-		}
-	}
-
 	/// For every transaction removed from the view_store (excluding descendants) an Invalid event
 	/// is triggered.
 	///
@@ -749,6 +750,11 @@ where
 
 		// transaction removed from view, won't be included into the final result, as they may still
 		// be in the pool.
+		//
+		// `ban_transactions` is false: after a reorg the ready queue is not reordered (too
+		// CPU-expensive), so a transaction can come before the one it depends on. That `Future`
+		// is the pool's mistake, and a ban would delay the transaction for the whole ban period.
+		// If it is really invalid, it gets banned when the next view re-submits it.
 		at.map(|at| {
 			self.get_view_at(at, true)
 				.map(|(view, _)| view.remove_subtree(&remove_from_view, false, |_, _| {}))
