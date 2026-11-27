@@ -1,0 +1,14 @@
+title: 'generate-bags: add runtime-benchmarks feature'
+doc:
+  - audience:
+      - Node Dev
+    description: |
+      `generate-bags` now has a `runtime-benchmarks` feature. The umbrella `runtime-benchmarks`
+      feature enables it. Before this change, a node that used the umbrella `node` and
+      `runtime-benchmarks` features did not compile. `pallet-staking-async` did not get
+      `runtime-benchmarks`, but its dependencies did.
+crates:
+  - name: generate-bags
+    bump: patch
+  - name: polkadot-sdk
+    bump: patch
