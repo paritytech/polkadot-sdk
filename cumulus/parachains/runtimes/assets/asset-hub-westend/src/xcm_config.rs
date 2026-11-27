@@ -48,8 +48,7 @@ use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
 use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
 use testnet_parachains_constants::westend::{
-	accumulate_forward::AccumulateForwardPalletId,
-	locations::{AssetHubParaId, BulletinLocation},
+	accumulate_forward::AccumulateForwardPalletId, locations::AssetHubParaId,
 };
 use westend_runtime_constants::system_parachain::{
 	BRIDGE_HUB_ID, BROKER_ID, COLLECTIVES_ID, PEOPLE_ID,
@@ -93,12 +92,6 @@ parameter_types! {
 	pub StakingPot: AccountId = CollatorSelection::account_id();
 	/// Asset Hub has mint authority since the Asset Hub migration.
 	pub TeleportTracking: Option<(AccountId, MintLocation)> = Some((CheckingAccount::get(), MintLocation::Local));
-	// TODO: remove once Bulletin Westend runs on a system parachain id, see
-	// https://github.com/paritytech/polkadot-bulletin-chain/issues/857.
-	pub WndFromBulletin: (AssetFilter, Location) = (
-		Wild(AllOf { fun: WildFungible, id: AssetId(WestendLocation::get()) }),
-		BulletinLocation::get(),
-	);
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -314,17 +307,6 @@ impl Contains<Location> for SecretaryEntities {
 	}
 }
 
-/// The locations of the `ValidatorCollatorChains`.
-pub struct ValidatorCollatorChainLocations;
-impl Contains<Location> for ValidatorCollatorChainLocations {
-	fn contains(location: &Location) -> bool {
-		matches!(
-			location.unpack(),
-			(1, [Parachain(id)]) if crate::ValidatorCollatorChains::get().contains(&(*id).into())
-		)
-	}
-}
-
 pub struct SystemChainAccumulationAccounts;
 impl Contains<Location> for SystemChainAccumulationAccounts {
 	fn contains(location: &Location) -> bool {
@@ -357,8 +339,7 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent, sibling system parachains and the `ValidatorCollatorChains` get free
-					// execution.
+					// Parent and sibling system parachains get free execution.
 					AllowExplicitUnpaidExecutionFrom<
 						(
 							IsParentsOnly<ConstU8<1>>,
@@ -366,7 +347,6 @@ pub type Barrier = TrailingSetTopicAsId<
 							FellowshipEntities,
 							AmbassadorEntities,
 							SecretaryEntities,
-							ValidatorCollatorChainLocations,
 						),
 						CheapTrustedAliasers,
 					>,
@@ -410,13 +390,11 @@ pub type TrustedReserves = (
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 ///
-/// - WND with the parent Relay Chain and sibling system parachains;
-/// - WND with Bulletin Chain;
+/// - WND with the parent Relay Chain and sibling system parachains; and
 /// - Sibling parachains' assets according to their configured trusted reserves (teleportable when
 ///   `Here` and `origin` are both trusted reserve locations).
 pub type TrustedTeleporters = (
 	ConcreteAssetFromSystem<WestendLocation>,
-	xcm_builder::Case<WndFromBulletin>,
 	IsForeignConcreteAsset<
 		TeleportableAssetWithTrustedReserve<AssetHubParaId, crate::ForeignAssets>,
 	>,

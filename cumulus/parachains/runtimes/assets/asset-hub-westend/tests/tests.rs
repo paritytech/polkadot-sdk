@@ -4024,6 +4024,7 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 #[test]
 fn only_listed_chains_report_blocks_and_only_as_themselves() {
 	use asset_hub_westend_runtime::{staking::EnsureReportingSiblings, ValidatorCollatorChains};
+	use cumulus_primitives_core::IsSystem;
 	use frame_support::traits::EnsureOrigin;
 	type EnsureReportingSibling = EnsureReportingSiblings<ValidatorCollatorChains>;
 	use testnet_parachains_constants::westend::locations::{BulletinLocation, PeopleLocation};
@@ -4031,8 +4032,10 @@ fn only_listed_chains_report_blocks_and_only_as_themselves() {
 		|id: u32| RuntimeOrigin::from(cumulus_pallet_xcm::Origin::SiblingParachain(id.into()));
 	// GIVEN a listed chain as a sibling parachain origin
 	// WHEN it reports THEN it is accepted under its own id
+	// AND it is a system chain, since only system chains execute its unpaid report message
 	for id in ValidatorCollatorChains::get() {
 		assert_eq!(EnsureReportingSibling::try_origin(sibling(id.into())).ok(), Some(id));
+		assert!(id.is_system(), "{id:?} is not a system chain");
 	}
 	// GIVEN another sibling, the relay chain, People's or Bulletin's location as an XCM origin,
 	// or their sovereign accounts through a `Transact` with another origin kind
@@ -4083,7 +4086,7 @@ fn bulletin_report_message_executes_unpaid_and_credits_points() {
 
 		// WHEN another non-system sibling, or an account on Bulletin, sends the message Bulletin
 		// sends to report its blocks
-		// THEN the barrier rejects it, since only the listed chains may execute without paying
+		// THEN the barrier rejects it, since only system chains may execute without paying
 		for origin in [
 			Location::new(1, Parachain(2000)),
 			Location::new(
@@ -4121,13 +4124,16 @@ fn bulletin_report_message_executes_unpaid_and_credits_points() {
 }
 
 #[test]
-fn only_wnd_from_bulletin_itself_is_a_trusted_teleport() {
-	use testnet_parachains_constants::westend::locations::BulletinLocation;
+fn wnd_teleports_with_bulletin_as_a_system_chain() {
+	use cumulus_primitives_core::IsSystem;
+	use testnet_parachains_constants::westend::locations::{BulletinLocation, BulletinParaId};
 	use xcm_executor::traits::{TransferType, XcmAssetTransfers};
 	type IsTeleporter = <XcmConfig as xcm_executor::Config>::IsTeleporter;
 	type Executor = xcm_executor::XcmExecutor<XcmConfig>;
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
 		let wnd = Asset { id: AssetId(WestendLocation::get()), fun: Fungible(UNITS) };
+		// GIVEN Bulletin is a system chain, so the generic system rules apply to it
+		assert!(BulletinParaId::get().is_system());
 		// GIVEN WND from Bulletin Chain
 		// WHEN Asset Hub checks it as a teleport THEN it is trusted
 		assert!(IsTeleporter::contains(&wnd, &BulletinLocation::get()));
@@ -4138,14 +4144,15 @@ fn only_wnd_from_bulletin_itself_is_a_trusted_teleport() {
 			Ok(TransferType::Teleport)
 		);
 
-		// GIVEN WND from another non-system sibling or from an account on Bulletin, or another
-		// asset from Bulletin
+		// GIVEN WND from another non-system sibling, from Bulletin's former id 2487 or from an
+		// account on Bulletin, or another asset from Bulletin
 		let bulletin_account = BulletinLocation::get()
 			.appended_with(AccountId32 { network: None, id: ALICE })
 			.expect("a sibling location has room for one more junction");
 		let other_asset = Asset { id: AssetId(BulletinLocation::get()), fun: Fungible(UNITS) };
 		for (asset, origin) in [
 			(&wnd, Location::new(1, Parachain(2000))),
+			(&wnd, Location::new(1, Parachain(2487))),
 			(&wnd, bulletin_account),
 			(&other_asset, BulletinLocation::get()),
 		] {
