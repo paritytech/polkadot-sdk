@@ -28,10 +28,12 @@ use crate::{
 	extract_code_and_data, limits,
 };
 use alloc::{boxed::Box, vec::Vec};
-use codec::DecodeLimit;
+use codec::{DecodeLimit, Input, MemTrackingInput};
 use frame_support::MAX_EXTRINSIC_DEPTH;
 use sp_core::{Get, U256};
-use sp_runtime::{SaturatedConversion, transaction_validity::InvalidTransaction};
+use sp_runtime::{
+	SaturatedConversion, generic::DEFAULT_MAX_CALL_SIZE, transaction_validity::InvalidTransaction,
+};
 
 /// Result of decoding an eth transaction into a dispatchable call.
 pub struct CallInfo<T: Config> {
@@ -155,9 +157,13 @@ impl GenericTransaction {
 
 		let mut call = if let Some(dest) = self.to {
 			if dest == RUNTIME_PALLETS_ADDR {
-				let call =
-					CallOf::<T>::decode_all_with_depth_limit(MAX_EXTRINSIC_DEPTH, &mut &data[..])
-						.map_err(|_| {
+				let mut encoded = &data[..];
+				let mut input =
+					MemTrackingInput::new(&mut encoded, DEFAULT_MAX_CALL_SIZE.saturating_add(1));
+				let call = CallOf::<T>::decode_with_depth_limit(MAX_EXTRINSIC_DEPTH, &mut input)
+					.ok()
+					.filter(|_| matches!(input.remaining_len(), Ok(Some(0))))
+					.ok_or_else(|| {
 						log::debug!(target: LOG_TARGET, "Failed to decode data as Call");
 						InvalidTransaction::Call
 					})?;
