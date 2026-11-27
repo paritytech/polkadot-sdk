@@ -275,8 +275,8 @@ where
 					},
 				};
 
-				// Note: we only update `last_session_index` once we've
-				// successfully gotten the `SessionInfo`.
+				// Leave a new session eligible for retry if its authority lookup fails.
+				let mut connections = authorities_past_present_future(sender, leaf).await?;
 				let is_new_session = maybe_new_session.is_some();
 				if is_new_session {
 					gum::debug!(
@@ -302,7 +302,6 @@ where
 				// by virtue of a new session being entered. Therefore we maintain
 				// connections to a much broader set of validators.
 				{
-					let mut connections = authorities_past_present_future(sender, leaf).await?;
 					self.last_connection_request = Some(Instant::now());
 					// Remove all of our locally controlled validator indices so we don't connect to
 					// ourself.

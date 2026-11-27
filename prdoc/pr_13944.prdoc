@@ -1,0 +1,10 @@
+title: "gossip-support: retry authority lookup within the same session"
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      Gossip support records a new session after fetching its authority set. If the lookup
+      fails, a subsequent active leaf in the same session can retry it and connect to
+      validators.
+crates:
+  - name: polkadot-gossip-support
+    bump: patch
