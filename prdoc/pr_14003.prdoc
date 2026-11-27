@@ -1,17 +1,17 @@
-title: 'umbrella: do not bundle test utilities into the node feature'
+title: 'umbrella: remove test utility crates'
 doc:
   - audience:
       - Node Dev
       - Runtime Dev
     description: |
-      The `node` feature of the `polkadot-sdk` umbrella crate no longer enables `asset-test-utils`,
+      The `polkadot-sdk` umbrella crate no longer includes `asset-test-utils`,
       `bridge-hub-test-utils`, `emulated-integration-tests-common` and
-      `parachains-runtimes-test-utils`. These crates pulled `assets-common` and `pallet-revive`
-      into every node built on the umbrella. With `runtime-benchmarks`, they also built
-      `pallet-revive-fixtures`.
+      `parachains-runtimes-test-utils`. The `node` feature enabled these crates. They pulled
+      `assets-common` and `pallet-revive` into each node that uses the umbrella. With
+      `runtime-benchmarks`, they also built `pallet-revive-fixtures`.
 
-      The crates are still part of the umbrella. Code that uses them through the umbrella must now
-      enable their features explicitly, for example `features = ["node", "asset-test-utils"]`.
+      These crates are still published. If you use them through the umbrella, add them as
+      direct dependencies.
 crates:
   - name: polkadot-sdk
     bump: major
