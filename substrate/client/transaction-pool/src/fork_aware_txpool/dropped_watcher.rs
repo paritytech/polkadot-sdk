@@ -44,7 +44,7 @@ use tracing::{debug, trace};
 
 /// Represents a transaction that was removed from the transaction pool, including the reason of its
 /// removal.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DroppedTransaction<Hash> {
 	/// Hash of the dropped extrinsic.
 	pub tx_hash: Hash,
@@ -75,7 +75,7 @@ impl<Hash> DroppedTransaction<Hash> {
 }
 
 /// Provides reason of why transactions was dropped.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum DroppedReason<Hash> {
 	/// Transaction was replaced by other transaction (e.g. because of higher priority).
 	Usurped(Hash),
