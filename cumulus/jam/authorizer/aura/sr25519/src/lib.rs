@@ -37,10 +37,8 @@ jam_pvm_common::declare_authorizer!(cumulus_aura_authorizer_utils::Guest<Sr25519
 #[cfg(target_env = "polkavm")]
 polkavm_derive::min_stack_size!(8192);
 
-/// The transcript context every Sr25519 signature in Substrate is made under.
-///
-/// Matches `sp_core::sr25519::Pair::sign` / `Keystore::sr25519_sign`. Domain separation for this
-/// protocol comes from `WORK_PACKAGE_SIGN_CTX` inside the signed payload.
+/// Sr25519-specific Schnorrkel transcript context used by `Keystore::sr25519_sign`.
+/// Both schemes sign the same domain-separated work-package hash, but Ed25519 needs no context.
 const SIGNING_CONTEXT: &[u8] = b"substrate";
 
 /// Sr25519 signature verifier for AURA collators, matching `sp_core::sr25519`.
