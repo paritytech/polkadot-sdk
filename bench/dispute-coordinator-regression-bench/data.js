@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795803239678,
+  "lastUpdate": 1795814457625,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "22e63b740b6943b4e39a3c6b779ca9e5408ca00c",
-          "message": "Update runner names in reusable-preflight.yml (#11832)",
-          "timestamp": "2026-05-18T11:39:36Z",
-          "tree_id": "0613011f07f943311055bbced989cf794fe2d1fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/22e63b740b6943b4e39a3c6b779ca9e5408ca00c"
-        },
-        "date": 1779109457757,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009499193059999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002656708620000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010271719140000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010810556980000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f8df6a0dab67ac9ece9d9205df83108a6493964d",
+          "message": "pallet-elections-phragmen: route kicked-member slash to KickedMember (#14032)\n\nCloses #14010\n\n`remove_member` with `slash_bond = true` slashed the seat deposit and\npassed it to `Config::LoserCandidate`. `Config::KickedMember`,\ndocumented as the handler for kicked members, was never called. This was\na regression from paritytech/substrate#7040, which moved the slash from\n`remove_member` into `remove_and_replace_member` and switched the\nhandler.\n\nThe kick slash now goes to `KickedMember`. Election-loser slashes still\ngo to `LoserCandidate`.\n\nRuntimes that set different handlers for the two will see kick slashes\nreach a different destination. `kitchensink` sets both to `()`.",
+          "timestamp": "2026-11-27T19:40:58Z",
+          "tree_id": "21936b7a6ad02394b5e09d983400e594f1d984c1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f8df6a0dab67ac9ece9d9205df83108a6493964d"
+        },
+        "date": 1795814420294,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009478552179999987,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010605982039999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00249251834,
             "unit": "seconds"
           }
         ]
