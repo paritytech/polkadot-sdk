@@ -283,6 +283,11 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 		self.rotator.unban_if_validation(hash)
 	}
 
+	/// Removes all bans with [`BanReason::Validation`], keeping capacity-driven bans.
+	pub fn clear_validation_bans(&self) {
+		self.rotator.clear_validation_bans()
+	}
+
 	/// A fast check before doing any further processing of a transaction, like validation.
 	///
 	/// If `ignore_banned` is `true`, it will not check if the transaction is banned.

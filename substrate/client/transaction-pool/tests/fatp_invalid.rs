@@ -24,7 +24,7 @@ use fatp_common::{
 	finalized_block_event, invalid_hash, new_best_block_event, pool, TestPoolBuilder, LOG_TARGET,
 	SOURCE,
 };
-use futures::{executor::block_on, FutureExt};
+use futures::{executor::block_on, FutureExt, StreamExt};
 use sc_transaction_pool::ChainApi;
 use sc_transaction_pool_api::{
 	error::{Error as TxPoolError, IntoPoolError},
@@ -33,7 +33,7 @@ use sc_transaction_pool_api::{
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidityError};
 use std::pin::Pin;
 use substrate_test_runtime_client::{
-	runtime::{Block, Hash},
+	runtime::{Block, Hash, Header},
 	Sr25519Keyring::*,
 };
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
@@ -816,4 +816,110 @@ fn fatp_viewless_tx_dropped_if_invalid_at_finalized() {
 
 	// The user should have received the Invalid event.
 	assert_watcher_stream!(watcher, [TransactionStatus::Ready, TransactionStatus::Invalid]);
+}
+
+/// Helper: creates a scenario where a tx is banned on one fork only.
+///
+/// Pattern:
+/// 1. Create view at block 1. Submit tx — Ready.
+/// 2. Block 2a. Tx is Ready.
+/// 3. Mark tx invalid (`add_invalid`).
+/// 4. Blocks 3a and 4a. View revalidation finds tx invalid → removed from the view and banned in
+///    the rotator, the 4a view is cloned with the ban.
+///
+/// Returns (pool, api, header01_hash, header04a, xt, watcher, executor) with the tx in mempool,
+/// banned in the 4a view, still marked invalid and with only the `Ready` event emitted.
+fn setup_tx_banned_on_fork_a() -> (
+	sc_transaction_pool::ForkAwareTxPool<TestApi, Block>,
+	std::sync::Arc<TestApi>,
+	Hash,
+	Header,
+	substrate_test_runtime_client::runtime::Extrinsic,
+	Pin<Box<dyn futures::Stream<Item = TransactionStatus<Hash, Hash>> + Send>>,
+	futures::executor::ThreadPool,
+) {
+	let (pool, api, executor) = pool();
+
+	let header01 = api.push_block(1, vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, None, header01.hash())));
+
+	let xt = uxt(Alice, 200);
+	let mut watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt.clone())).unwrap();
+
+	let header02a = api.push_block_with_parent(header01.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02a.hash())));
+	assert_pool_status!(header02a.hash(), &pool, 1, 0);
+
+	api.add_invalid(&xt);
+	let header03a = api.push_block_with_parent(header02a.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header02a.hash()), header03a.hash())));
+	let header04a = api.push_block_with_parent(header03a.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header03a.hash()), header04a.hash())));
+	assert_pool_status!(header04a.hash(), &pool, 0, 0);
+	assert_eq!(block_on(pool.mempool_len()), (0, 1));
+	assert_eq!(block_on(watcher.next()), Some(TransactionStatus::Ready));
+
+	(pool, api, header01.hash(), header04a, xt, watcher, executor)
+}
+
+/// A ban is a verdict about the state of one fork. After a reorg the new view is cloned from
+/// the retracted fork's tip, so it must not keep that fork's bans: the transaction may be valid
+/// on the new fork and should be included without waiting for the ban to expire.
+#[test]
+fn fatp_reorg_lifts_ban_set_on_retracted_fork() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, header01, header04a, xt, _watcher, _executor) = setup_tx_banned_on_fork_a();
+
+	api.remove_invalid(&xt);
+	let header02b = api.push_block_with_parent(header01, vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header04a.hash()), header02b.hash())));
+
+	assert_pool_status!(header02b.hash(), &pool, 1, 0);
+	assert_ready_iterator!(header02b.hash(), pool, [xt]);
+}
+
+/// Lifting the retracted fork's bans only means the transaction gets checked against the new
+/// fork. If it is invalid there too, it must be validated, kept out of the view and banned again,
+/// but stay in the mempool without an `Invalid` event: other forks may still accept it.
+#[test]
+fn fatp_reorg_revalidates_tx_banned_on_retracted_fork() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, header01, header04a, _, mut watcher, _executor) = setup_tx_banned_on_fork_a();
+
+	let validations_before_reorg = api.validation_requests().len();
+	let header02b = api.push_block_with_parent(header01, vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header04a.hash()), header02b.hash())));
+
+	assert_eq!(api.validation_requests().len(), validations_before_reorg + 1);
+	assert_pool_status!(header02b.hash(), &pool, 0, 0);
+	assert_eq!(block_on(pool.mempool_len()), (0, 1));
+
+	// Watcher events are delivered by a background task.
+	std::thread::sleep(std::time::Duration::from_millis(50));
+	assert!(watcher.next().now_or_never().is_none());
+}
+
+/// When the best block bounces back to a fork (4a -> 4b -> 5a), the 5a view is cloned from its
+/// own parent 4a, even though the tree route retracts 4b. The bans of 4a were computed on the
+/// same fork and must be kept, otherwise every fork switch would re-validate all banned
+/// transactions.
+#[test]
+fn fatp_reorg_keeps_ban_set_on_ancestor_fork() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _, header04a, _, _watcher, _executor) = setup_tx_banned_on_fork_a();
+
+	let header04b = api.push_block_with_parent(header04a.parent_hash, vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header04a.hash()), header04b.hash())));
+	assert_pool_status!(header04b.hash(), &pool, 0, 0);
+
+	let validations_before_reorg = api.validation_requests().len();
+	let header05a = api.push_block_with_parent(header04a.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header04b.hash()), header05a.hash())));
+
+	assert_eq!(api.validation_requests().len(), validations_before_reorg);
+	assert_pool_status!(header05a.hash(), &pool, 0, 0);
+	assert_eq!(block_on(pool.mempool_len()), (0, 1));
 }
