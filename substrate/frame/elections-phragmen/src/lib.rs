@@ -821,7 +821,7 @@ impl<T: Config> Pallet<T> {
 			if slash {
 				let (imbalance, _remainder) = T::Currency::slash_reserved(who, removed.deposit);
 				debug_assert!(_remainder.is_zero());
-				T::LoserCandidate::on_unbalanced(imbalance);
+				T::KickedMember::on_unbalanced(imbalance);
 				Self::deposit_event(Event::SeatHolderSlashed {
 					seat_holder: who.clone(),
 					amount: removed.deposit,
@@ -1312,8 +1312,10 @@ mod tests {
 	use super::*;
 	use crate as elections_phragmen;
 	use frame_support::{
-		assert_noop, assert_ok, derive_impl, dispatch::DispatchResultWithPostInfo, parameter_types,
-		traits::OnInitialize,
+		assert_noop, assert_ok, derive_impl,
+		dispatch::DispatchResultWithPostInfo,
+		parameter_types,
+		traits::{Imbalance, OnInitialize},
 	};
 	use frame_system::ensure_signed;
 	use sp_runtime::{testing::Header, BuildStorage};
@@ -1341,6 +1343,22 @@ mod tests {
 		pub static MaxVotesPerVoter: u32 = 16;
 		pub static Members: Vec<u64> = vec![];
 		pub static Prime: Option<u64> = None;
+		pub static LoserCandidateSlashed: u64 = 0;
+		pub static KickedMemberSlashed: u64 = 0;
+	}
+
+	pub struct RecordLoserCandidate;
+	impl OnUnbalanced<NegativeImbalanceOf<Test>> for RecordLoserCandidate {
+		fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<Test>) {
+			LoserCandidateSlashed::mutate(|total| *total += amount.peek());
+		}
+	}
+
+	pub struct RecordKickedMember;
+	impl OnUnbalanced<NegativeImbalanceOf<Test>> for RecordKickedMember {
+		fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<Test>) {
+			KickedMemberSlashed::mutate(|total| *total += amount.peek());
+		}
 	}
 
 	pub struct TestChangeMembers;
@@ -1405,8 +1423,8 @@ mod tests {
 		type TermDuration = TermDuration;
 		type DesiredMembers = DesiredMembers;
 		type DesiredRunnersUp = DesiredRunnersUp;
-		type LoserCandidate = ();
-		type KickedMember = ();
+		type LoserCandidate = RecordLoserCandidate;
+		type KickedMember = RecordKickedMember;
 		type WeightInfo = ();
 		type MaxVoters = PhragmenMaxVoters;
 		type MaxVotesPerVoter = MaxVotesPerVoter;
@@ -2671,6 +2689,41 @@ mod tests {
 			assert_eq!(balances(&4), (35, 2)); // slashed
 			assert_eq!(ElectionRounds::<Test>::get(), 2); // new election round
 			assert_eq!(members_ids(), vec![3, 5]); // new members
+		});
+	}
+
+	#[test]
+	fn kicked_member_and_loser_slashes_use_their_own_handlers() {
+		ExtBuilder::default().build_and_execute(|| {
+			// GIVEN 4 and 5 are members, 2 and 3 are candidates and 2 will lose the next election.
+			assert_ok!(submit_candidacy(RuntimeOrigin::signed(5)));
+			assert_ok!(submit_candidacy(RuntimeOrigin::signed(4)));
+			assert_ok!(vote(RuntimeOrigin::signed(4), vec![4], 40));
+			assert_ok!(vote(RuntimeOrigin::signed(5), vec![5], 50));
+			System::set_block_number(5);
+			Elections::on_initialize(System::block_number());
+			assert_eq!(members_ids(), vec![4, 5]);
+
+			assert_ok!(submit_candidacy(RuntimeOrigin::signed(3)));
+			assert_ok!(submit_candidacy(RuntimeOrigin::signed(2)));
+			assert_ok!(vote(RuntimeOrigin::signed(3), vec![3], 30));
+			assert_ok!(vote(RuntimeOrigin::signed(2), vec![2], 20));
+
+			// WHEN member 4 is kicked with a slash, without rerunning the election.
+			assert_ok!(Elections::remove_member(RuntimeOrigin::root(), 4, true, false));
+
+			// THEN the seat deposit of 4 goes to `KickedMember` only.
+			assert_eq!(KickedMemberSlashed::get(), 3);
+			assert_eq!(LoserCandidateSlashed::get(), 0);
+
+			// WHEN the next scheduled election runs.
+			System::set_block_number(10);
+			Elections::on_initialize(System::block_number());
+
+			// THEN the candidacy bond of the loser 2 goes to `LoserCandidate` only.
+			assert_eq!(members_ids(), vec![3, 5]);
+			assert_eq!(KickedMemberSlashed::get(), 3);
+			assert_eq!(LoserCandidateSlashed::get(), 3);
 		});
 	}
 
