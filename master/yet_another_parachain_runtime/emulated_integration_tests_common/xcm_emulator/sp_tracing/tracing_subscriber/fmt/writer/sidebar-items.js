@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["EitherWriter"],"struct":["BoxMakeWriter","MutexGuardWriter","OrElse","Tee","TestWriter","WithFilter","WithMaxLevel","WithMinLevel"],"trait":["MakeWriter","MakeWriterExt"],"type":["OptionalWriter"]};

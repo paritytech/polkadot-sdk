@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Block","H256","MockCallU64","TestSignature","UintAuthorityId"],"type":["Digest","DigestItem","Header","TestXt"]};
+window.SIDEBAR_ITEMS = {"mod":["sr25519"],"struct":["Block","H256","MockCallU64","TestSignature","UintAuthorityId"],"type":["Digest","DigestItem","Header","TestXt"]};

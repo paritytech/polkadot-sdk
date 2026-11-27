@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["init_log_capture"],"struct":["LogCapture"]};

@@ -158,15 +158,15 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
     (kind: $kind:expr, $lvl:expr) =&gt; { ... };
     ($lvl:expr) =&gt; { ... };
     ($lvl:expr, $($field:tt)*) =&gt; { ... };
-}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Checks whether a span or event is <a href="../emulated_integration_tests_common/xcm_emulator/tracing/trait.Subscriber.html#tymethod.enabled" title="method yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::tracing::Subscriber::enabled">enabled</a> based on the provided <a href="../emulated_integration_tests_common/xcm_emulator/tracing/struct.Metadata.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::tracing::Metadata">metadata</a>.</p>
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Checks whether a span or event is <a href="crate::Subscriber::enabled">enabled</a> based on the provided <a href="crate::Metadata">metadata</a>.</p>
 <p>This macro is a specialized tool: it is intended to be used prior
 to an expensive computation required <em>just</em> for that event, but
 <em>cannot</em> be done as part of an argument to that event, such as
 when multiple events are emitted (e.g., iterating over a collection
 and emitting an event for each item).</p>
 <h2 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h2>
-<p><a href="../emulated_integration_tests_common/xcm_emulator/tracing/trait.Subscriber.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::tracing::Subscriber">Subscribers</a> can make filtering decisions based all the data included in a
-span or event’s <a href="../emulated_integration_tests_common/xcm_emulator/tracing/struct.Metadata.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::tracing::Metadata"><code>Metadata</code></a>. This means that it is possible for <code>enabled!</code>
+<p><a href="crate::subscriber::Subscriber">Subscribers</a> can make filtering decisions based all the data included in a
+span or event’s <a href="crate::metadata::Metadata"><code>Metadata</code></a>. This means that it is possible for <code>enabled!</code>
 to return a <em>false positive</em> (indicating that something would be enabled
 when it actually would not be) or a <em>false negative</em> (indicating that
 something would be disabled when it would actually be enabled).</p>
@@ -214,9 +214,9 @@ to true:</p>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">if </span><span class="macro">enabled!</span>(target: <span class="string">"my_crate"</span>, Level::DEBUG, hello) {
     <span class="comment">// some expensive work...
 </span>}</code></pre></div><h2 id="alternatives"><a class="doc-anchor" href="#alternatives">§</a>Alternatives</h2>
-<p><code>enabled!</code> queries subscribers with <a href="../emulated_integration_tests_common/xcm_emulator/tracing/struct.Metadata.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::tracing::Metadata"><code>Metadata</code></a> where
-<a href="../emulated_integration_tests_common/xcm_emulator/tracing/struct.Metadata.html#method.is_event" title="method yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::tracing::Metadata::is_event"><code>is_event</code></a> and <a href="../emulated_integration_tests_common/xcm_emulator/tracing/struct.Metadata.html#method.is_span" title="method yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::tracing::Metadata::is_span"><code>is_span</code></a> both return <code>false</code>. Alternatively,
-use <a href="../emulated_integration_tests_common/xcm_emulator/tracing/macro.event_enabled.html" title="macro yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::tracing::event_enabled"><code>event_enabled!</code></a> or <a href="../emulated_integration_tests_common/xcm_emulator/tracing/macro.span_enabled.html" title="macro yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::tracing::span_enabled"><code>span_enabled!</code></a> to ensure one of these
+<p><code>enabled!</code> queries subscribers with <a href="crate::metadata::Metadata"><code>Metadata</code></a> where
+<a href="crate::Metadata::is_event"><code>is_event</code></a> and <a href="crate::Metadata::is_span"><code>is_span</code></a> both return <code>false</code>. Alternatively,
+use [<code>event_enabled!</code>] or <a href="crate::span_enabled"><code>span_enabled!</code></a> to ensure one of these
 returns true.</p>
 </div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["debug","delimited","display"],"trait":["MakeExt","MakeOutput","MakeVisitor","RecordFields","Visit","VisitFmt","VisitOutput","VisitWrite"]};

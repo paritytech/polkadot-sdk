@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["ETHER_MIN_BALANCE","SEPOLIA_ID","WETH"]};

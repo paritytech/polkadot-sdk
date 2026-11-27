@@ -162,7 +162,7 @@ for details.</p>
 The same convention is used with <a href="../std/macro.print.html"><code>print!</code></a> and <a href="https://doc.rust-lang.org/1.93.0/core/macro.write.html" title="macro core::write"><code>write!</code></a> macros,
 depending on the intended destination of the string; all these macros internally use <a href="https://doc.rust-lang.org/1.93.0/core/macro.format_args.html" title="macro core::format_args"><code>format_args!</code></a>.</p>
 <p>To convert a single value to a string, use the <a href="https://doc.rust-lang.org/1.93.0/alloc/string/trait.ToString.html" title="trait alloc::string::ToString"><code>to_string</code></a> method. This
-will use the <a href="../../../../../../emulated_integration_tests_common/xcm_emulator/fmt/trait.Display.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::fmt::Display"><code>Display</code></a> formatting trait.</p>
+will use the <a href="https://doc.rust-lang.org/1.93.0/core/fmt/trait.Display.html" title="trait core::fmt::Display"><code>Display</code></a> formatting trait.</p>
 <p>To concatenate literals into a <code>&amp;'static str</code>, use the <a href="https://doc.rust-lang.org/1.93.0/core/macro.concat.html" title="macro core::concat"><code>concat!</code></a> macro.</p>
 <h2 id="panics"><a class="doc-anchor" href="#panics">§</a>Panics</h2>
 <p><code>format!</code> panics if a formatting trait implementation returns an error.

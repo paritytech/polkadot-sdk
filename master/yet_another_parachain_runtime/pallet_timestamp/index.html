@@ -213,7 +213,7 @@ constant called <code>MAX_TIMESTAMP_DRIFT_MILLIS</code> which is used to determi
 a valid timestamp. If a block author sets a timestamp to anything that is more than this
 constant, a validator node will reject the block.</p>
 <p>The pallet also ensures that a timestamp is set at the start of each block by running an
-assertion in the <code>on_finalize</code> runtime hook. See <a href="../emulated_integration_tests_common/xcm_emulator/trait.Hooks.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::Hooks"><code>frame_support::traits::Hooks</code></a> for more
+assertion in the <code>on_finalize</code> runtime hook. See <a href="../xcm_emulator/trait.Hooks.html" title="trait yet_another_parachain_runtime::xcm_emulator::Hooks"><code>frame_support::traits::Hooks</code></a> for more
 information about how hooks work.</p>
 <p>Because inherents are applied to a block in the order they appear in the runtime
 construction, the index of this pallet in

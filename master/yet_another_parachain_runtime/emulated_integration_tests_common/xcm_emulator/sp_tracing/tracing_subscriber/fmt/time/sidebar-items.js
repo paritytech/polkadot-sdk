@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["time","uptime"],"struct":["OffsetTime","SystemTime","Uptime","UtcTime"],"trait":["FormatTime"]};
