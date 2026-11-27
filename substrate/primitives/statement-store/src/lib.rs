@@ -900,6 +900,18 @@ mod test {
 	}
 
 	#[test]
+	fn decrease_keeps_a_remainder_with_zero_size() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let theirs = StatementAllowance::new(5, 0);
+			increase_allowance_by(ACCOUNT, theirs);
+			increase_allowance_by(ACCOUNT, StatementAllowance::new(10, 100));
+
+			decrease_allowance_by(ACCOUNT, StatementAllowance::new(10, 100));
+			assert_eq!(get_allowance(ACCOUNT), theirs);
+		});
+	}
+
+	#[test]
 	fn revoking_before_granting_gives_the_same_allowance_as_granting_first() {
 		let theirs = StatementAllowance::new(0, 50);
 		let granted = StatementAllowance::new(10, 100);

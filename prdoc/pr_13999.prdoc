@@ -1,0 +1,15 @@
+title: "statement-store: keep the other axis when a decrease depletes an allowance"
+doc:
+  - audience: Runtime Dev
+    description: |
+      `decrease_allowance_by` now removes an allowance only when both axes reach zero, and
+      otherwise keeps the remainder. Before, one axis reaching zero dropped the other, which
+      another source may have granted, so grants and revokes from several sources had to be
+      ordered. They now compose in any order.
+
+      `get_allowance` can now return a depleted remainder, which grants no statements; use
+      `StatementAllowance::is_depleted` to check. `StatementAllowance` now derives `Copy`.
+
+crates:
+  - name: sp-statement-store
+    bump: minor
