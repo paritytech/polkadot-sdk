@@ -276,6 +276,8 @@ async fn handle_leaves_update(
 			{
 				None => {
 					// None indicates that the pre-checking runtime API is not supported.
+					// Deactivations in the same update must still be processed.
+					state.view.on_leaves_update(None, &update.deactivated);
 					return;
 				},
 				Some(e) => e,
