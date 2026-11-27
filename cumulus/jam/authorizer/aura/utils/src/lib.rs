@@ -21,8 +21,9 @@
 
 extern crate alloc;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeAll, Encode, MaxEncodedLen};
 use jam_types::{Slot, WorkPackage};
+use primitive_types::H256;
 
 mod config;
 mod merkle;
@@ -30,7 +31,50 @@ mod signing;
 mod token;
 mod work_package;
 
-pub use polkadot_parachain_primitives::primitives::Id as ParaId;
+/// Return the collator's key as a JAM authorization trace if the package is authorized.
+///
+/// Invalid packages must trap: JAM treats any normal return as authorization.
+pub fn is_authorized<S: SignatureVerifier>(package: &WorkPackage) -> jam_types::AuthTrace {
+	assert!(!package.items.is_empty(), "cannot authorize an empty work package");
+
+	let config = AuthConfig::decode_all(&mut &package.authorizer.config[..])
+		.expect("invalid authorizer configuration");
+	let token = AuthToken::decode_all(&mut &package.authorization.0[..])
+		.expect("invalid authorization token");
+
+	// The anchor slot determines whose turn it is to author the package.
+	let slot = package.context.anchor_slot;
+	let trace = AuthTrace::try_from_token::<S>(&config, &token, package, slot)
+		.expect("work package not authorized");
+
+	jam_types::AuthTrace(trace.encode())
+}
+
+/// Parachain ID, SCALE-compatible with `polkadot_parachain_primitives::primitives::Id`.
+///
+/// Defined here so the authorizer blobs don't link Substrate primitives.
+#[derive(
+	Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Encode, Decode, MaxEncodedLen,
+)]
+pub struct ParaId(u32);
+
+impl ParaId {
+	pub const fn new(id: u32) -> Self {
+		Self(id)
+	}
+}
+
+impl From<u32> for ParaId {
+	fn from(id: u32) -> Self {
+		Self(id)
+	}
+}
+
+impl From<ParaId> for u32 {
+	fn from(id: ParaId) -> Self {
+		id.0
+	}
+}
 
 /// Parachain work-item payload (§3.2). The PoV is carried in extrinsic 0.
 #[derive(Debug, Encode, Decode)]
@@ -38,7 +82,7 @@ pub struct ParachainCandidate {
 	/// Parachain ID checked against the authorizer config.
 	pub para_id: ParaId,
 	/// Validation-code hash used by Refine to look up the PVF.
-	pub validation_code: polkadot_parachain_primitives::primitives::ValidationCodeHash,
+	pub validation_code: H256,
 }
 
 pub use config::{AuthConfig, CandidateError, ConfigError};
@@ -46,6 +90,20 @@ pub use merkle::{build_collator_proof, expected_siblings, CollatorProofError};
 pub use signing::{signable_work_package_hash, WORK_PACKAGE_SIGN_CTX};
 pub use token::{AuthToken, CollatorKey, CollatorSignature, TokenError};
 pub use work_package::WorkPackageBody;
+
+/// Why the collator couldn't sign a work package.
+#[cfg(feature = "std")]
+#[derive(Debug)]
+pub enum SignError {
+	/// Couldn't build a membership proof for the selected collator.
+	CollatorProof(CollatorProofError),
+
+	/// The keystore doesn't have the selected collator's key.
+	MissingKey,
+
+	/// The keystore returned an error when asked to sign.
+	Keystore(sp_keystore::Error),
+}
 
 /// Signature verification for Collator keys.
 pub trait SignatureVerifier {

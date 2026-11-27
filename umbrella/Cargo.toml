@@ -1140,7 +1140,7 @@ path = "../bridges/bin/runtime-common"
 [dependencies.cumulus-aura-authorizer-utils]
 default-features = false
 optional = true
-path = "../cumulus/jam/aura-authorizer-utils"
+path = "../cumulus/jam/authorizer/aura/utils"
 
 [dependencies.cumulus-pallet-aura-ext]
 default-features = false

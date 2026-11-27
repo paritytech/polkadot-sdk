@@ -21,6 +21,8 @@ use jam_types::{
 };
 use primitive_types::H256;
 
+#[cfg(feature = "std")]
+use crate::{build_collator_proof, CollatorKey, CollatorSignature, SignError};
 use crate::{signing::SigningPayload, AuthToken};
 
 /// A work package awaiting its authorization token.
@@ -43,6 +45,30 @@ impl WorkPackageBody {
 	/// Hash to be signed by the collator when constructing an AURA token.
 	pub fn signing_hash(&self) -> H256 {
 		SigningPayload::from(self).hash()
+	}
+
+	/// Sign the package hash with the selected collator's key and attach its authorization token.
+	///
+	/// `sign` receives the collator's public key and the hash to sign. It returns `Ok(None)`
+	/// if the keystore has no matching key.
+	#[cfg(feature = "std")]
+	pub fn sign_with(
+		self,
+		collator_set: &[CollatorKey],
+		collator_index: u32,
+		sign: impl FnOnce(CollatorKey, &[u8]) -> Result<Option<CollatorSignature>, sp_keystore::Error>,
+	) -> Result<WorkPackage, SignError> {
+		let (_, proof) =
+			build_collator_proof(collator_set, collator_index).map_err(SignError::CollatorProof)?;
+		let key = collator_set[collator_index as usize];
+
+		let hash = self.signing_hash();
+		let signature = sign(key, hash.as_bytes())
+			.map_err(SignError::Keystore)?
+			.ok_or(SignError::MissingKey)?;
+
+		let token = AuthToken { proof, key, signature };
+		Ok(self.with_authorization(&token))
 	}
 
 	/// Attach an existing AURA token and return the complete work package.

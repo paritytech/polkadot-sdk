@@ -1,0 +1,45 @@
+[package]
+name = "cumulus-aura-authorizer-sr25519"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+publish = true
+description = "Sr25519 AURA authorizer for JAM parachains"
+homepage.workspace = true
+
+[package.metadata.jam]
+type = "authorizer"
+profile = "jam-authorizer"
+
+[lints]
+workspace = true
+
+[dependencies]
+cumulus-aura-authorizer-utils = { workspace = true }
+jam-types = { workspace = true }
+# `default-features = false` keeps `getrandom` out for `no_std` / PVM guest builds;
+# verification never draws randomness.
+schnorrkel = { workspace = true, features = ["alloc"] }
+sp-core = { workspace = true, optional = true }
+sp-keystore = { workspace = true, optional = true }
+
+[target.'cfg(target_env = "polkavm")'.dependencies]
+jam-pvm-common = { workspace = true, features = ["authorizer"] }
+polkavm-derive = { workspace = true }
+
+[dev-dependencies]
+codec = { workspace = true }
+
+[features]
+default = []
+std = [
+	"codec/std",
+	"cumulus-aura-authorizer-utils/std",
+	"jam-pvm-common/std",
+	"jam-types/std",
+	"schnorrkel/std",
+	"sp-core/std",
+	"sp-keystore/std",
+]

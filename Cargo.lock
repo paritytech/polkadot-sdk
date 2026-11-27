@@ -4935,6 +4935,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-aura-authorizer-ed25519"
+version = "0.1.0"
+dependencies = [
+ "cumulus-aura-authorizer-utils",
+ "ed25519-dalek",
+ "jam-pvm-common",
+ "jam-types",
+ "parity-scale-codec",
+ "polkavm-derive 0.38.0",
+ "sp-core 28.0.0",
+ "sp-keystore 0.34.0",
+]
+
+[[package]]
+name = "cumulus-aura-authorizer-sr25519"
+version = "0.1.0"
+dependencies = [
+ "cumulus-aura-authorizer-utils",
+ "jam-pvm-common",
+ "jam-types",
+ "parity-scale-codec",
+ "polkavm-derive 0.38.0",
+ "schnorrkel 0.11.4",
+ "sp-core 28.0.0",
+ "sp-keystore 0.34.0",
+]
+
+[[package]]
 name = "cumulus-aura-authorizer-utils"
 version = "0.1.0"
 dependencies = [
@@ -4945,9 +4973,9 @@ dependencies = [
  "jam-codec",
  "jam-types",
  "parity-scale-codec",
- "polkadot-parachain-primitives",
  "primitive-types 0.13.1",
  "sp-crypto-hashing 0.1.0",
+ "sp-keystore 0.34.0",
 ]
 
 [[package]]
@@ -9852,6 +9880,19 @@ name = "jam-null-authorizer-bin"
 version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12a0f551ee2034a779225959d22d144810a2882e6832e3267adf48f2d49ee576"
+
+[[package]]
+name = "jam-pvm-common"
+version = "0.1.29"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc9b584b9b343ce25ddf3e01bc4ef95e444de3a188d231c386ccd3d0bc0a8fa8"
+dependencies = [
+ "bounded-collections 0.3.2",
+ "jam-codec",
+ "jam-types",
+ "picoalloc",
+ "polkavm-derive 0.37.0",
+]
 
 [[package]]
 name = "jam-std-common"
@@ -16690,6 +16731,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "picoalloc"
+version = "5.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ce68d5282de9d0a9fe76f0189dbcc08ec7713695673f4611ebab9d1c785bf21"
+
+[[package]]
 name = "picosimd"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -19251,6 +19298,15 @@ dependencies = [
 
 [[package]]
 name = "polkavm-common"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b44940b0d82ff491647139e045e026b98666be87770f72d48d6463fb65b866fd"
+dependencies = [
+ "picosimd",
+]
+
+[[package]]
+name = "polkavm-common"
 version = "0.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ef35bc7f93dff55723e05cde93c618a2ba4bba2b92947136091220671fe8718"
@@ -19268,6 +19324,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ef966bc8518a66ce12d4edb73f2c4094cae72bb23258bc9e9b2802cc9d6cd79"
 dependencies = [
  "polkavm-derive-impl-macro 0.33.0",
+]
+
+[[package]]
+name = "polkavm-derive"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b155c82c47af761e7450e1e5eff1d48ad78d040b09ed57b93bc8e46ca4ad71b0"
+dependencies = [
+ "polkavm-derive-impl-macro 0.37.0",
 ]
 
 [[package]]
@@ -19293,6 +19358,18 @@ dependencies = [
 
 [[package]]
 name = "polkavm-derive-impl"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0f385d969918c91b2f89646b5e77e43cd3f52178e3ed642eec2365f9bc3c575"
+dependencies = [
+ "polkavm-common 0.37.0",
+ "proc-macro2 1.0.107",
+ "quote 1.0.40",
+ "syn 2.0.98",
+]
+
+[[package]]
+name = "polkavm-derive-impl"
 version = "0.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aaf470f87d5fb45dfa3e8a5f3d07e16ddf8322b7aef43bee004d5238aa63bb72"
@@ -19310,6 +19387,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7ac2ac8ec5b938e249fa97b5ebb1e6fa47000c81a25eba6bf0f13edb8d430e4"
 dependencies = [
  "polkavm-derive-impl 0.33.0",
+ "syn 2.0.98",
+]
+
+[[package]]
+name = "polkavm-derive-impl-macro"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d89dbb6c2d1a7c951dc8e70bf1302329939a3c21f757861d97e013f8352c8f7"
+dependencies = [
+ "polkavm-derive-impl 0.37.0",
  "syn 2.0.98",
 ]
 
@@ -21320,7 +21407,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
