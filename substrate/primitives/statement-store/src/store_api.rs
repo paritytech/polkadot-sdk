@@ -197,6 +197,8 @@ pub enum InvalidReason {
 	},
 	/// Statement has already expired. The expiry field is in the past.
 	AlreadyExpired,
+	/// Statement has no topics, so topic-based routing cannot deliver it.
+	NoTopics,
 }
 
 impl InvalidReason {
@@ -207,6 +209,7 @@ impl InvalidReason {
 			InvalidReason::BadProof => "bad_proof",
 			InvalidReason::EncodingTooLarge { .. } => "encoding_too_large",
 			InvalidReason::AlreadyExpired => "already_expired",
+			InvalidReason::NoTopics => "no_topics",
 		}
 	}
 }
@@ -307,6 +310,8 @@ pub enum SubmitInvalidReason {
 	},
 	/// Statement has already expired. The expiry field is in the past.
 	AlreadyExpired,
+	/// Statement has no topics, so topic-based routing cannot deliver it.
+	NoTopics,
 }
 
 impl From<InvalidReason> for SubmitInvalidReason {
@@ -318,6 +323,7 @@ impl From<InvalidReason> for SubmitInvalidReason {
 				SubmitInvalidReason::EncodingTooLarge { submitted_size, max_size }
 			},
 			InvalidReason::AlreadyExpired => SubmitInvalidReason::AlreadyExpired,
+			InvalidReason::NoTopics => SubmitInvalidReason::NoTopics,
 		}
 	}
 }

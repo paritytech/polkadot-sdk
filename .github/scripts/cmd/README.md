@@ -25,7 +25,7 @@ The bot dynamically fetches all current labels from the repository, ensuring it'
 ### Other Commands
 
 ```bash
-/cmd fmt                           # Format code (cargo +nightly fmt and taplo)
+/cmd fmt                           # Format code (cargo +nightly fmt, zepter and taplo)
 /cmd prdoc                         # Generate PR documentation
 /cmd bench                         # Run benchmarks
 /cmd update-ui                     # Update UI tests

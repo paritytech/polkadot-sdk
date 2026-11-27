@@ -1,0 +1,16 @@
+title: 'fix(beefy): submit equivocation reports through the offchain transaction pool'
+doc:
+- audience: Node Dev
+  description: |-
+    The BEEFY gadget submitted equivocation reports from a runtime API call with no offchain
+    transaction pool registered, so `submit_transaction` panicked and no report was ever
+    submitted. `BeefyParams` now takes an `offchain_tx_pool_factory`, as `GrandpaParams` does.
+crates:
+- name: sc-consensus-beefy
+  bump: major
+- name: sp-api-proc-macro
+  bump: patch
+- name: polkadot-service
+  bump: patch
+- name: staging-node-cli
+  bump: patch
