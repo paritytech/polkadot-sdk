@@ -545,13 +545,7 @@ impl ReadRuntimeVersion for DefaultReadRuntimeVersion {
 		WasmExecutor::<sp_io::SubstrateHostFunctions>::builder()
 			.with_allow_missing_host_functions(true)
 			.build()
-			.uncached_call(
-				runtime_blob,
-				ext,
-				true,
-				"Core_version",
-				&[],
-			)
+			.uncached_call(runtime_blob, ext, true, "Core_version", &[])
 			.map_err(|e| e.to_string())
 	}
 }
