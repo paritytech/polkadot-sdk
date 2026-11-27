@@ -36,7 +36,7 @@ pub enum SignError {
 }
 
 /// Build and sign an [`AuthToken`] for `package` using the Sr25519 key at `collator_index`.
-pub fn sign_token(
+fn sign_token(
 	keystore: &(impl Keystore + ?Sized),
 	key_type: KeyTypeId,
 	collator_set: &[CollatorKey],
