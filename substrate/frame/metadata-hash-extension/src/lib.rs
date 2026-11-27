@@ -43,9 +43,10 @@ use frame_support::{pallet_prelude::Weight, DebugNoBound};
 use frame_system::Config;
 use scale_info::TypeInfo;
 use sp_runtime::{
+	generic::ExtensionVersion,
 	impl_tx_ext_default,
 	traits::TransactionExtension,
-	transaction_validity::{TransactionValidityError, UnknownTransaction},
+	transaction_validity::{InvalidTransaction, TransactionValidityError, UnknownTransaction},
 };
 
 #[cfg(test)]
@@ -109,6 +110,11 @@ impl MetadataHash {
 /// the metadata hash is added and thus, `Some(metadata_hash)` is added to the implicit. Further
 /// values of `mode` are reserved for future changes.
 ///
+/// The metadata hash only describes the transaction extensions of extension version `0`. So
+/// `mode = 1` is only accepted for extension version `0` (including all signed transactions).
+/// Transactions using another extension version with `mode = 1` are rejected with
+/// [`InvalidTransaction::BadProof`].
+///
 /// The metadata hash is read from the environment variable `RUNTIME_METADATA_HASH`. This
 /// environment variable is for example set by the `substrate-wasm-builder` when the feature for
 /// generating the metadata hash is enabled. If the environment variable is not set and `mode = 1`
@@ -147,9 +153,16 @@ impl<T> CheckMetadataHash<T> {
 impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMetadataHash<T> {
 	const IDENTIFIER: &'static str = "CheckMetadataHash";
 	type Implicit = Option<[u8; 32]>;
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+	fn implicit(
+		&self,
+		extension_version: ExtensionVersion,
+	) -> Result<Self::Implicit, TransactionValidityError> {
 		let signed = match self.mode {
 			Mode::Disabled => None,
+			// The metadata hash only covers extension version 0.
+			Mode::Enabled if extension_version != 0 => {
+				return Err(InvalidTransaction::BadProof.into())
+			},
 			Mode::Enabled => match self.metadata_hash.hash() {
 				Some(hash) => Some(hash),
 				None => return Err(UnknownTransaction::CannotLookup.into()),

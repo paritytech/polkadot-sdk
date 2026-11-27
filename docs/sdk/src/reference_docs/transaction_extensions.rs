@@ -65,6 +65,7 @@ pub mod transaction_extensions_example {
 	use codec::{Decode, DecodeWithMemTracking, Encode};
 	use scale_info::TypeInfo;
 	use sp_runtime::{
+		generic::ExtensionVersion,
 		impl_tx_ext_default,
 		traits::{Dispatchable, TransactionExtension},
 		transaction_validity::TransactionValidityError,
@@ -94,7 +95,10 @@ pub mod transaction_extensions_example {
 		const IDENTIFIER: &'static str = "AddToSignaturePayload";
 		type Implicit = u32;
 
-		fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		fn implicit(
+			&self,
+			_extension_version: ExtensionVersion,
+		) -> Result<Self::Implicit, TransactionValidityError> {
 			Ok(1234)
 		}
 		type Pre = ();

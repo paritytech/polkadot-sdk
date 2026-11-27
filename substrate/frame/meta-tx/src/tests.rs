@@ -63,7 +63,7 @@ fn create_signature<Call: Encode, Ext: Encode + TransactionExtension<RuntimeCall
 	signer: Sr25519Keyring,
 ) -> MultiSignature {
 	MultiSignature::Sr25519(
-		(META_EXTENSION_VERSION, call, ext.clone(), ext.implicit().unwrap())
+		(META_EXTENSION_VERSION, call, ext.clone(), ext.implicit(META_EXTENSION_VERSION).unwrap())
 			.using_encoded(|e| signer.sign(&blake2_256(e))),
 	)
 }

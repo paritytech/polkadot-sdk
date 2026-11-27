@@ -39,7 +39,10 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for MetaTxMar
 	type Implicit = [u8; 8];
 	type Val = ();
 	type Pre = ();
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+	fn implicit(
+		&self,
+		_extension_version: ExtensionVersion,
+	) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(*b"_meta_tx")
 	}
 	fn weight(&self, _: &T::RuntimeCall) -> Weight {

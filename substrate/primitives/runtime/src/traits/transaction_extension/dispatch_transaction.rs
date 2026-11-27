@@ -110,7 +110,7 @@ where
 			call,
 			info,
 			len,
-			self.implicit()?,
+			self.implicit(extension_version)?,
 			&TxBaseImplication((extension_version, call)),
 			source,
 		) {

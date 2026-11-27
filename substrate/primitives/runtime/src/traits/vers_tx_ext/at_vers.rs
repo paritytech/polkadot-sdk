@@ -108,6 +108,7 @@ where
 mod tests {
 	use super::*;
 	use crate::{
+		generic::ExtensionVersion,
 		traits::{
 			Dispatchable, Implication, TransactionExtension, TransactionSource, ValidateResult,
 		},
@@ -162,7 +163,10 @@ mod tests {
 		const IDENTIFIER: &'static str = "SimpleExtension";
 
 		type Implicit = ();
-		fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		fn implicit(
+			&self,
+			_extension_version: ExtensionVersion,
+		) -> Result<Self::Implicit, TransactionValidityError> {
 			Ok(())
 		}
 

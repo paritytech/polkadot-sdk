@@ -19,7 +19,7 @@ use crate::{Config, Pallet};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	impl_tx_ext_default, traits::TransactionExtension,
+	generic::ExtensionVersion, impl_tx_ext_default, traits::TransactionExtension,
 	transaction_validity::TransactionValidityError,
 };
 
@@ -57,7 +57,10 @@ impl<T: Config + Send + Sync> TransactionExtension<<T as Config>::RuntimeCall>
 {
 	const IDENTIFIER: &'static str = "CheckSpecVersion";
 	type Implicit = u32;
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+	fn implicit(
+		&self,
+		_extension_version: ExtensionVersion,
+	) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(<Pallet<T>>::runtime_version().spec_version)
 	}
 	type Val = ();
