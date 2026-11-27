@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795735494498,
+  "lastUpdate": 1795788675371,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f4c1d929947b81fe2adee06f55eaaf9403f7eff7",
-          "message": "Update DOCKER_IMAGES_VERSION with timestamp (#12109)\n\nAppend timestamp to DOCKER_IMAGES_VERSION for better versioning.\n\ncc @EgorPopelyaev",
-          "timestamp": "2026-05-19T19:47:55Z",
-          "tree_id": "e4d1fb884fc410a67ea02ee1f4319b6928dafd88",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f4c1d929947b81fe2adee06f55eaaf9403f7eff7"
-        },
-        "date": 1779230214369,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024069114246666662,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0076797288000000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.01003275535999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14783836898666672,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009847455353333309,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f3c8cc0f3d9c7fe38f8703305bf3401fa7572a73",
+          "message": "sync-templates: fix remaining issues in workflow (#11019)\n\n# Description\n\nThis PR addresses some issues with the misc-sync-templates workflow:\n\n- Fix debug conditional checks by using fromJSON() for proper boolean\nhandling\n- Add missing clang dependencies (llvm-dev and libclang-dev) for\ncompilation\n- Skip pallet-revive-fixtures compilation by setting\nSKIP_PALLET_REVIVE_FIXTURES=1\n- Download chain-spec-builder from the release being synced instead of\nbuilding it from source, falling back to a source build if the download\nfails\n\nCloses #11016 .\n\n## Integration\n\nN/A\n\n## Review Notes\n\nDISCLAIMER: some other PRs with fixes might follow, but I think these\nfixes are probably the last. Testing can be done once this is merged in\nmaster, by trying to sync templates once more (probably there will be an\nempty PR for parachain/minimal templates, which have been synced\nalready, but the goal is to see sync-template workflow successful).\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-11-27T11:52:02Z",
+          "tree_id": "258d1a6ef2e767c26e01dd33c07c117cada1ef66",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f3c8cc0f3d9c7fe38f8703305bf3401fa7572a73"
+        },
+        "date": 1795788634192,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02418703342000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14473148946666675,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007554974406666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009968555359999982,
             "unit": "seconds"
           }
         ]
