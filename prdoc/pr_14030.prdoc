@@ -1,7 +1,7 @@
 title: Add `is_global_address` helper to `sc-network` and remove some duplicated code
 doc:
 - audience: Node Dev
-  description: null
+  description: Add `is_global_address` helper to `sc-network`
 crates:
 - name: cumulus-client-bootnodes
   bump: minor
