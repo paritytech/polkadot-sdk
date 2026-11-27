@@ -54,7 +54,7 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	access_list::Warmth,
+	access_list::{StorageOp, Warmth},
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
 		StateOverrideSet, TYPE_EIP1559, TYPE_EIP7702, Tracer, TracerType,
@@ -1258,6 +1258,26 @@ pub mod pallet {
 			Self::finalize_eth_block(block_number);
 		}
 
+		/// Check the configuration against the weights and the memory limits.
+		///
+		/// The storage check bounds the bytes of new storage one block can write and asserts that
+		/// they fit half the difference between [`Config::PVFMemory`] and
+		/// [`Config::RuntimeMemory`]. Each term assumes the whole block ref_time is spent on it,
+		/// and the terms are summed:
+		///
+		/// - Contract storage items written by `set_storage`.
+		/// - Immutable data, each value paying for the cheapest PVM constructor run.
+		/// - EVM runtime code. Each `CREATE`, `CREATE2` or extrinsic that uploads EVM init code
+		///   stores a new `PristineCode` and `CodeInfoOf` entry of up to
+		///   [`revm::primitives::eip170::MAX_CODE_SIZE`] bytes and a new contract account. A
+		///   constructor can make every copy unique, so code deduplication is not counted. The
+		///   `CREATE` charge includes storing code of that size, see the `evm_instantiate`
+		///   benchmark. Skipped when [`Config::AllowEVMBytecode`] is false. Code taken from the
+		///   extrinsic payload (`upload_code`, PVM code) is bounded by the block length and not
+		///   counted here.
+		/// - The eth block builder.
+		///
+		/// Events are checked separately against the same limit.
 		fn integrity_test() {
 			assert!(T::ChainId::get() > 0, "ChainId must be greater than 0");
 
@@ -1318,17 +1338,95 @@ pub mod pallet {
 					.try_into()
 					.unwrap();
 
-			let max_immutable_key_size: u64 = T::AccountId::max_encoded_len().try_into().unwrap();
-			let max_immutable_size: u64 = max_block_weight
-				.checked_div_per_component(&<RuntimeCosts as WeightToken<T>>::weight(
-					&RuntimeCosts::SetImmutableData(limits::IMMUTABLE_BYTES),
-				))
-				.unwrap()
-				.saturating_mul(
-					u64::from(limits::IMMUTABLE_BYTES)
-						.saturating_add(max_immutable_key_size)
-						.into(),
+			// Operations that store data are counted by ref_time only. Storage weight reclaim
+			// replaces the charged proof size with the measured one after dispatch, so the
+			// benchmarked proof size does not limit how many of them fit into a block.
+			let ref_time_of =
+				|cost: RuntimeCosts| <RuntimeCosts as WeightToken<T>>::weight(&cost).ref_time();
+			let max_per_block = |op_ref_time: u64| {
+				max_block_weight
+					.ref_time()
+					.checked_div(op_ref_time)
+					.expect("The ref_time weight of an operation that stores data must not be 0")
+			};
+			let key_and_value_len = |key: Vec<u8>, value_len: usize| -> u64 {
+				key.len().saturating_add(value_len).saturated_into()
+			};
+
+			// `set_immutable_data` works only in a constructor and stores under the contract's own
+			// address, so each stored value costs at least the cheapest way to run a PVM
+			// constructor: a nested `instantiate` or one of the instantiate extrinsics. A
+			// successful eth instantiation is refunded its pre-charged revert event.
+			let min_instantiate_with_code_ref_time =
+				T::WeightInfo::instantiate_with_code(0, 0).ref_time().min(
+					T::WeightInfo::eth_instantiate_with_code(0, 0, 0)
+						.saturating_add(T::WeightInfo::on_finalize_block_per_tx(0))
+						.saturating_sub(T::WeightInfo::deposit_eth_extrinsic_revert_event())
+						.ref_time(),
 				);
+			let min_instantiate_ref_time = ref_time_of(RuntimeCosts::Instantiate {
+				input_data_len: 0,
+				balance_transfer: false,
+				dust_transfer: false,
+			})
+			.min(T::WeightInfo::instantiate(0).ref_time())
+			.min(min_instantiate_with_code_ref_time);
+			// Entries an instantiation creates under new keys: the contract's `AccountInfoOf` and
+			// `frame_system::Account` entries and, with PGAS deposits, its `NativeDepositOf`
+			// entry. Entries of the currency and asset pallets are not counted because their
+			// storage layout is not known to this pallet.
+			let contract_account = T::AddressMapper::to_fallback_account_id(&H160::zero());
+			let instantiation_bytes = key_and_value_len(
+				AccountInfoOf::<T>::hashed_key_for(H160::zero()),
+				AccountInfo::<T>::max_encoded_len(),
+			)
+			.saturating_add(key_and_value_len(
+				frame_system::Account::<T>::hashed_key_for(&contract_account),
+				frame_system::AccountInfo::<T::Nonce, T::AccountData>::max_encoded_len(),
+			))
+			.saturating_add(if T::Deposit::SUPPORTS_PGAS {
+				key_and_value_len(
+					NativeDepositOf::<T>::hashed_key_for(&contract_account, &contract_account),
+					BalanceOf::<T>::max_encoded_len(),
+				)
+			} else {
+				0
+			});
+			let max_immutable_key_size: u64 =
+				ImmutableDataOf::<T>::hashed_key_for(H160::zero()).len().saturated_into();
+			let max_immutable_size: u64 = max_per_block(
+				ref_time_of(RuntimeCosts::SetImmutableData(limits::IMMUTABLE_BYTES))
+					.saturating_add(min_instantiate_ref_time),
+			)
+			.saturating_mul(
+				u64::from(limits::IMMUTABLE_BYTES)
+					.saturating_add(max_immutable_key_size)
+					.saturating_add(instantiation_bytes),
+			);
+			let max_evm_code_size: u64 = if T::AllowEVMBytecode::get() {
+				let code_len = revm::primitives::eip170::MAX_CODE_SIZE;
+				let code_bytes = key_and_value_len(
+					PristineCode::<T>::hashed_key_for(H256::zero()),
+					code_len.saturating_add(
+						codec::Compact(code_len.saturated_into::<u32>()).encoded_size(),
+					),
+				)
+				.saturating_add(key_and_value_len(
+					CodeInfoOf::<T>::hashed_key_for(H256::zero()),
+					CodeInfo::<T>::max_encoded_len(),
+				));
+				max_per_block(
+					ref_time_of(RuntimeCosts::Create {
+						init_code_len: 0,
+						balance_transfer: false,
+						dust_transfer: false,
+					})
+					.min(min_instantiate_with_code_ref_time),
+				)
+				.saturating_mul(code_bytes.saturating_add(instantiation_bytes))
+			} else {
+				0
+			};
 
 			let max_pvf_mem: u64 = T::PVFMemory::get().into();
 			let storage_size_limit = max_pvf_mem.saturating_sub(max_runtime_mem) / 2;
@@ -1340,18 +1438,14 @@ pub mod pallet {
 			let max_event_bytes = u64::from(limits::NUM_EVENT_TOPICS)
 				.saturating_mul(H256::len_bytes() as u64)
 				.saturating_add(limits::EVENT_BYTES.into());
-			let max_events_size = max_block_weight
-				.checked_div_per_component(
-					&(<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::DepositEvent {
-						num_topic: limits::NUM_EVENT_TOPICS,
-						len: limits::EVENT_BYTES,
-					})
-					.saturating_add(<RuntimeCosts as WeightToken<T>>::weight(
-						&RuntimeCosts::HostFn,
-					))),
-				)
-				.unwrap()
-				.saturating_mul(max_event_bytes);
+			let max_events_size = max_per_block(
+				ref_time_of(RuntimeCosts::DepositEvent {
+					num_topic: limits::NUM_EVENT_TOPICS,
+					len: limits::EVENT_BYTES,
+				})
+				.saturating_add(ref_time_of(RuntimeCosts::HostFn)),
+			)
+			.saturating_mul(max_event_bytes);
 
 			assert!(
 				max_events_size <= storage_size_limit,
@@ -1389,19 +1483,38 @@ pub mod pallet {
 				memory_left.saturating_mul(TOTAL_MEMORY_DEVIDER.into()).abs() / 1024
 			);
 
-			// We can use storage to store items using the available block ref_time with the
-			// `set_storage` host function. A revertible cold access is the worst case.
-			let max_storage_size = max_block_weight
-				.checked_div_per_component(
-					&<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::SetStorage {
-						new_bytes: limits::STORAGE_BYTES,
-						old_bytes: 0,
-						kind: StorageAccessKind::Persistent(Warmth::Cold { revertible: true }),
-					})
-					.saturating_mul(u64::from(limits::STORAGE_BYTES).saturating_add(max_key_size)),
-				)
-				.unwrap()
+			// The cheapest sequence that stores a new item: a cold write, or a cold touch of the
+			// empty slot followed by a hot write. Cold touches are priced as not revertible, which
+			// they are in the root frame or past the access-list cap.
+			let cold = StorageAccessKind::Persistent(Warmth::Cold { revertible: false });
+			let write_new_item = |kind| {
+				ref_time_of(RuntimeCosts::SetStorage {
+					new_bytes: limits::STORAGE_BYTES,
+					old_bytes: 0,
+					kind,
+				})
+			};
+			let min_new_item_ref_time = [
+				(RuntimeCosts::GetStorage { len: 0, kind: cold }, StorageOp::Read),
+				(RuntimeCosts::ContainsStorage { len: 0, kind: cold }, StorageOp::Read),
+				(RuntimeCosts::ClearStorage { len: 0, kind: cold }, StorageOp::Write),
+				(RuntimeCosts::TakeStorage { len: 0, kind: cold }, StorageOp::Write),
+				(
+					RuntimeCosts::SetStorage { new_bytes: 0, old_bytes: 0, kind: cold },
+					StorageOp::Write,
+				),
+			]
+			.into_iter()
+			.map(|(touch, charged)| {
+				ref_time_of(touch).saturating_add(write_new_item(StorageAccessKind::Persistent(
+					Warmth::Hot { charged },
+				)))
+			})
+			.fold(write_new_item(cold), u64::min);
+			let max_storage_size = max_per_block(min_new_item_ref_time)
+				.saturating_mul(u64::from(limits::STORAGE_BYTES).saturating_add(max_key_size))
 				.saturating_add(max_immutable_size.into())
+				.saturating_add(max_evm_code_size)
 				.saturating_add(max_eth_block_builder_bytes.into());
 
 			assert!(

@@ -1,0 +1,26 @@
+title: 'pallet-revive: count instantiation cost in the storage size integrity check'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The pallet's `integrity_test` checks that the storage a block can write fits the memory
+    left to validators. Four things change in how it counts:
+
+    - Immutable data: each stored value is charged one instantiation on top of
+      `seal_set_immutable_data`. The result no longer depends on which machine benchmarked
+      `seal_set_immutable_data`, so a hand-set weight for it can be replaced by the benchmarked
+      one.
+    - Regular storage: the term was close to zero before and now counts the items a block can
+      write.
+    - EVM runtime code: each contract creation is counted as storing a code of
+      `MAX_CODE_SIZE` bytes and a new contract account. Skipped when `AllowEVMBytecode` is
+      false.
+    - All terms are counted by ref_time only.
+
+    On asset-hub-westend the counted maximum drops from 179.9 MB to 70.4 MB of 201.3 MB.
+
+    No migration is needed. If the integrity test of your runtime fails after this change,
+    the block ref_time allows more storage writes than `(PVFMemory - RuntimeMemory) / 2`
+    holds: raise `PVFMemory` or lower the block weight.
+crates:
+- name: pallet-revive
+  bump: patch
