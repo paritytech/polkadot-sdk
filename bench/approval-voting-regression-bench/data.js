@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795788722384,
+  "lastUpdate": 1795803119934,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
-            "name": "s0me0ne-unkn0wn",
-            "username": "s0me0ne-unkn0wn"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a809dd9d76250af2778744f77dc52ccc6627e589",
-          "message": "Refactor statement store index locking: stage 1 (#11480)\n\nImplements stage 1 changes from #10910.\n\nThe single `Index` struct with one `RwLock` was split into two\nindependent structures with separate locks:\n\n`ReadIndex` (topic/key-based filtering):\n- `by_topic` - topic to statement hash mapping\n- `by_dec_key` - decryption key to statement hash mapping  \n- `topics_and_keys` - reverse mapping for cleanup\n\n`WriteIndex` (constraint checking, entries, accounts):\n- `entries`, `expired`, `accounts`,\n`accounts_to_check_for_expiry_stmts`, `recent`, `options`, `total_size`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>",
-          "timestamp": "2026-05-19T19:44:03Z",
-          "tree_id": "c23f20e315507fe42199988e96945dd5c57f0a9a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a809dd9d76250af2778744f77dc52ccc6627e589"
-        },
-        "date": 1779227458877,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63634.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52943.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002351653,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.82741229374,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002351653,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.824750739379998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.78656560634,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4655790808000027,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7653406183900016,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8369961148299346,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.488100691102746,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002491907,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002491907,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.511946765409936,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005302311930000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 13.895817347899968,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ba69049b0c5b32ea51b18e0311425c1f22fdc1ac",
+          "message": "umbrella: remove test utility crates and generate-bags (#14003)\n\nThe umbrella crate included `asset-test-utils`, `bridge-hub-test-utils`,\n`emulated-integration-tests-common`, `parachains-runtimes-test-utils`\nand `generate-bags` in its `node` feature. Nodes do not use these\ncrates. The test utilities pull `assets-common` and `pallet-revive` into\neach node that uses the umbrella. With `runtime-benchmarks`, they also\nbuild `pallet-revive-fixtures`. `generate-bags` pulls\n`pallet-staking-async`, which does not compile with `runtime-benchmarks`\n(see #14012).\n\nThis PR marks these crates `exclude-from-umbrella`. They stay published,\nand their users depend on them directly.\n\nThis is a breaking change and is not for backport. #14012 is the\nbackportable fix for the `pallet-staking-async` build failure.\n\nRelated: #11019\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-11-27T16:27:38Z",
+          "tree_id": "69826dcfaec10e8db8e4f9d20fba666f4ffc33fe",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ba69049b0c5b32ea51b18e0311425c1f22fdc1ac"
+        },
+        "date": 1795803076362,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63574.75,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.671561397379999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002045812,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.952438080919972,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0049800639200000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7026000221000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3853700398800024,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002045812,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.702907927719999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.0000165566,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.65677951113,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8282391187899731,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.0000165566,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.467042742932735,
             "unit": "seconds"
           }
         ]
