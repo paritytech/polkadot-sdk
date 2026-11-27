@@ -4973,7 +4973,6 @@ dependencies = [
  "hash256-std-hasher",
  "jam-codec",
  "jam-program-blob-common",
- "jam-pvm-common",
  "jam-types",
  "parity-scale-codec",
  "polkadot-parachain-primitives",

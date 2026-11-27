@@ -21,7 +21,7 @@
 
 extern crate alloc;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeAll, Encode, MaxEncodedLen};
 use jam_types::{Slot, WorkPackage};
 
 mod config;
@@ -30,27 +30,19 @@ mod signing;
 mod token;
 mod work_package;
 
-/// PVM entry-point implementation shared by the scheme-specific blobs.
-#[cfg(target_env = "polkavm")]
-pub struct Guest<S>(core::marker::PhantomData<S>);
-
-#[cfg(target_env = "polkavm")]
-impl<S: SignatureVerifier> jam_pvm_common::Authorizer for Guest<S> {
-	fn is_authorized(_: jam_types::CoreIndex) -> jam_types::AuthTrace {
-		use codec::DecodeAll;
-
-		let package = jam_pvm_common::is_authorized::work_package();
-		// Authorization failure must trap; a successful return is an authorization trace.
-		assert!(!package.items.is_empty());
-		let config = AuthConfig::decode_all(&mut &package.authorizer.config[..])
-			.expect("invalid authorizer configuration");
-		let token = AuthToken::decode_all(&mut &package.authorization.0[..])
-			.expect("invalid authorization token");
-		let trace =
-			AuthTrace::try_from_token::<S>(&config, &token, &package, package.context.anchor_slot)
-				.expect("work package not authorized");
-		jam_types::AuthTrace(trace.encode())
-	}
+/// Check the package's embedded AURA authorization at its anchor slot and encode the JAM trace.
+///
+/// Panics on invalid authorization: a successful JAM authorizer return means acceptance.
+pub fn is_authorized<S: SignatureVerifier>(package: &WorkPackage) -> jam_types::AuthTrace {
+	assert!(!package.items.is_empty());
+	let config = AuthConfig::decode_all(&mut &package.authorizer.config[..])
+		.expect("invalid authorizer configuration");
+	let token = AuthToken::decode_all(&mut &package.authorization.0[..])
+		.expect("invalid authorization token");
+	let trace =
+		AuthTrace::try_from_token::<S>(&config, &token, package, package.context.anchor_slot)
+			.expect("work package not authorized");
+	jam_types::AuthTrace(trace.encode())
 }
 
 pub use polkadot_parachain_primitives::primitives::Id as ParaId;

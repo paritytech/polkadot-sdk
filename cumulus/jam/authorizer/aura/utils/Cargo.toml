@@ -26,7 +26,6 @@ sp-crypto-hashing = { workspace = true }
 sp-keystore = { workspace = true, optional = true }
 
 [target.'cfg(target_env = "polkavm")'.dependencies]
-jam-pvm-common = { workspace = true, features = ["authorizer"] }
 # The JAM guest provides these lang items instead of the Substrate runtime.
 sp-io = { workspace = true, features = ["disable_allocator", "disable_panic_handler"] }
 

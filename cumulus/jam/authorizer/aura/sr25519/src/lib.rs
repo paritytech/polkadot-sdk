@@ -31,7 +31,18 @@ use cumulus_aura_authorizer_utils::{
 use jam_types::{Slot, WorkPackage};
 
 #[cfg(target_env = "polkavm")]
-jam_pvm_common::declare_authorizer!(cumulus_aura_authorizer_utils::Guest<Sr25519>);
+struct Authorizer;
+
+#[cfg(target_env = "polkavm")]
+jam_pvm_common::declare_authorizer!(Authorizer);
+
+#[cfg(target_env = "polkavm")]
+impl jam_pvm_common::Authorizer for Authorizer {
+	fn is_authorized(_: jam_types::CoreIndex) -> jam_types::AuthTrace {
+		let package = jam_pvm_common::is_authorized::work_package();
+		cumulus_aura_authorizer_utils::is_authorized::<Sr25519>(&package)
+	}
+}
 
 // Reserve 8 KiB; the Dalek-backed authorizer peaked at 5,912 bytes in the blob test.
 #[cfg(target_env = "polkavm")]
