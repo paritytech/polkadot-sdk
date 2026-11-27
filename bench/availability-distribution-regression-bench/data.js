@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795788675371,
+  "lastUpdate": 1795803059880,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0fb2d76d4045549ebab35b8a36ff03d030caa1d5",
-          "message": "Rework sp-virtualization API (#11767)\n\n## Summary\n\nRedesign `sp-virtualization` around a **typestate API** (`Module ->\nInstance -> Execution`) that enforces correct usage at compile time.\nSplit host-side polkavm ownership into a new **`sc-virtualization`**\ncrate behind the `VirtManagerBackend` trait, decouple virtualization\nfrom the WASM executor, and replace the original `compile_from_hash`\nwith two opaque-identifier entry points: `compile_from_storage_key`\n(auto-reload on cache miss) and a pure `lookup`. Cache hit/miss status\nis reported back to the runtime so callers can weight the call.\n\n## Typestate API\n\nReplace the trait-based `VirtT` / `MemoryT` abstraction with three\nconcrete types that encode the lifecycle via Rust's move semantics:\n\n- **`Module`** — a compiled PolkaVM program. Created via\n`Module::from_bytes(program, identifier)`,\n`Module::from_storage_key(storage_key, child_trie)`, or\n`Module::lookup(identifier)`.\n- **`Instance`** — an idle instance ready to run. Created from\n`module.instantiate()`. Calling `instance.prepare(function)` consumes it\nand produces an `Execution`.\n- **`Execution`** — a running (or suspended-at-syscall) instance.\n`execution.run(gas, a0)` drives one step and returns an `ExecResult`\nenum that carries ownership back through the transitions.\n\nThis makes invalid state transitions (e.g. calling `run` on an idle\ninstance, or accessing memory outside a syscall) unrepresentable.\n\n### `ExecResult` enum\n\n```rust\nenum ExecResult<V, I> {\n    Finished { instance: V, gas_left },                            // V = idle Instance\n    Syscall  { execution: I, gas_left, syscall_symbol, a0..a5 },   // I = running Execution\n    Error    { instance: V, error },\n}\n```\n\nReplaces the old `ExecOutcome` + separate error path. Ownership of the\ninstance/execution is always returned, preventing resource leaks.\n\n### Memory access restricted to `Execution`\n\n`read_memory` / `write_memory` are now methods on `Execution`, not on a\nseparate `Memory` type. This enforces at the type level that guest\nmemory can only be accessed while the instance is actively running (i.e.\nsuspended at a syscall).\n\n## Crate split: `sp-virtualization` + `sc-virtualization`\n\n`sp-virtualization` (runtime-facing) houses the forwarder API\n(`Module`/`Instance`/`Execution`), the `#[runtime_interface]`\ndeclaration, the `VirtManagerBackend` trait, and the `VirtManagerExt`\nexternalities extension. No PolkaVM dependency.\n`#![cfg_attr(substrate_runtime, no_std)]` so it compiles into runtimes.\n\n**New `sc-virtualization` crate** (host-side): the concrete\n`VirtManager` implementation of `VirtManagerBackend`, owning all PolkaVM\ntypes and the compiled-module cache. The runtime side stays\nstorage-aware; the backend trait does not. The runtime-interface call\nsite is the only layer that touches `self.storage` /\n`self.child_storage`.\n\n## Syscall symbols instead of numeric IDs\n\nSyscalls are now identified by **string symbols** (up to 32 bytes via\n`SyscallSymbol`) instead of `u32` syscall numbers. The test fixture\nimports change from `#[polkavm_import(symbol = 1u32)]` to\n`#[polkavm_import(symbol = \"read_counter\")]`, etc.\n\n## Compile entry points\n\nThree host functions, each with a clear contract:\n\n| Host function | Behavior |\n|---|---|\n| `compile_from_bytes(program, identifier)` | If `Some(identifier)` is\nalready cached, return that module without recompiling. Otherwise\ncompile `program` and cache under `identifier` if supplied. |\n| `compile_from_storage_key(storage_key, child_trie)` | Cache lookup\nkeyed by `storage_key`. On miss, load program bytes from storage at\n`storage_key` (main trie or `child_trie`), compile, cache. |\n| `lookup(identifier)` | Pure cache lookup. Never reads storage. Returns\n`Err(NotCached)` on miss. |\n\nAll three return `Result<_, ModuleError>`. The two compile entry points\nreturn a `CompiledModule { id, status }` packing both the new `ModuleId`\nand a `CompileStatus { Cached, Compiled }`, so the runtime can tell a\ncheap cache hit from a fresh compile (which, for\n`compile_from_storage_key`, includes a storage read) and charge weight\naccordingly.\n\n### Wire encoding\n\n`CompiledModule` packs into the `i64` FFI return value: low 32 bits hold\nthe `ModuleId`; bits 32-39 hold the `CompileStatus` discriminant (`u8`);\nbits 40-62 are reserved for future fields; negative values stay reserved\nfor `ModuleError` discriminants. `Module::lookup` returns\n`Result<ModuleId, ModuleError>` directly (no status — a successful\nlookup is always cached by definition).\n\n## Per-extension cache, keyed by opaque identifier\n\nThe compiled-module cache lives on the `VirtManager` instance itself,\nnot on a process-global static. Its lifetime tracks the externalities\nextension — one block of authoring or one `execute_block` call — which\neliminates the author/importer asymmetry where cache hits depended on\nhost process history rather than chain state.\n\nThe cache is keyed by an **opaque caller-supplied identifier** (the\nruntime passes a storage key for `from_storage_key`, or any byte slice\nfor `from_bytes`). The host no longer re-hashes loaded bytes to verify\nthem — storage tries are merkle-verified by their own infrastructure —\nand `sp-crypto-hashing` is no longer a dependency of either crate.\n\n## `VirtManagerExt` externalities extension\n\n`VirtManager` is no longer embedded in the wasmtime executor's\n`HostState` or accessed via `FunctionContext::virtualization()`.\nInstead, it is registered as an **externalities extension**\n(`VirtManagerExt`), making it accessible to both the WASM executor and\nnative test code through the standard externalities mechanism.\n\n## New `PassFatPointerAndReadOption<T>` in `sp-runtime-interface`\n\nAdded to ferry `Option<&[u8]>` across the FFI without SCALE overhead,\nusing `(ptr = 0, len = 0)` as the `None` sentinel (Rust's\n`&[]::as_ptr()` is documented non-null, so a real `Some(&[])` always\ncarries a non-zero pointer). Used by `compile_from_bytes` for the\noptional cache identifier.\n\n## Removed abstractions\n\n| Removed | Replacement |\n|---|---|\n| `VirtT` trait | Concrete `Module` / `Instance` / `Execution` types |\n| `MemoryT` trait + `Memory` type | `Execution::read_memory` /\n`write_memory` |\n| `native.rs` (205 lines) | `VirtManager` (in `sc-virtualization`)\ndirectly owns PolkaVM types |\n| `ExecAction::Execute` / `Resume` | `Instance::prepare` +\n`Execution::run(gas, a0)` |\n| `ExecOutcome` (in `sp-wasm-interface`) | `ExecResult` enum in\n`sp-virtualization` |\n| `Virtualization` trait (in `sp-wasm-interface`) | `VirtManagerExt`\nexternalities extension |\n| `FunctionContext::virtualization()` | Extension access via\n`self.extension::<VirtManagerExt>()` |\n| `InstanceId` (in `sp-wasm-interface`) | `InstanceId` + `ModuleId` (in\n`sp-virtualization`) |\n| `RIInstantiateError`, `RIExecError`, etc. | `impl_ri_error_encoding!`\nmacro |\n| `DestroyError` (public) | Moved to `host_functions` (internal) |\n| `compile_from_hash` + hash/prefix split | `compile_from_storage_key` +\n`lookup` (opaque identifier) |\n| `ModuleError::HashMismatch` | — (no longer relevant; storage proves\nauthenticity) |\n| Process-global `MODULE_CACHE` | Per-`VirtManager` cache, lifetime =\nexternalities extension |\n\n## Error type changes\n\nAll error enums are `repr(u32)`. `CompileStatus` is `repr(u8)` (packed\nalongside `ModuleId` in the wire `i64`). `ModuleError` variants are\n`InvalidImage`, `NotCached`, `NotFound`. Wire encoding (negated\ndiscriminants for errors) is generated by the `impl_ri_error_encoding!`\nmacro instead of manual `From`/`TryFrom` impls per error type.\n\n## Engine configuration\n\nThe PolkaVM engine configures `worker_count(10)` so contract calls\nalways have a worker ready, and\n`default_cost_model(CostModelKind::Full(CacheModel::L2Hit))` to match\nthe cost model used in production. PolkaVM compilation/runtime errors\npanic (they indicate a host bug, not a guest error); only validation\nfailures and missing storage map to `ModuleError`.\n\n## Dependency changes\n\n| Removed from | Added to |\n|---|---|\n| `sp-wasm-interface` dep from `sp-virtualization` | `sp-externalities`\ndep in `sp-virtualization` |\n| `sp-virtualization` dep from `sc-executor-wasmtime` | `sp-storage`\n(std-only) in `sp-virtualization` |\n| `sp-crypto-hashing` dep (was used for hash verification) | New crate\n`sc-virtualization` (host-side `VirtManager`) |\n| `sp-std` dep from `sp-virtualization` | `sp-io` (dev-dependency) in\n`sp-virtualization` |\n| — | `sp-virtualization` dep in `frame-benchmarking-cli` |\n\n## Test changes\n\nTests run inside `sp_io::TestExternalities` with\n`VirtManagerExt::new(VirtManager::default())` registered. Each test has\nboth a shared `run()` entry point (callable from WASM integration tests)\nand a standalone `#[test]` wrapper. New tests cover `from_storage_key`\n(cache hit reports `Cached`; cache miss reports `Compiled`; main trie +\nchild trie reload paths; invalid image; not found), `from_bytes`\n(cache-lookup-first behavior — second call with the same identifier\nreturns `Cached`), and `lookup` (proves it never falls back to storage\neven when the identifier exists at a storage key). Syscall handlers\npattern-match on byte-string symbols (`b\"read_counter\"`) instead of\nnumeric IDs. `run_out_of_gas_works` counter value reflects the new cost\nmodel configuration. Benchmarking CLI and executor integration tests\nregister `VirtManagerExt`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-05-20T05:54:47Z",
-          "tree_id": "3444e79fb08517a1e15d232f15365f5f07732982",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0fb2d76d4045549ebab35b8a36ff03d030caa1d5"
-        },
-        "date": 1779265522519,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14434926515333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007828250433333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02388539638,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010492058646666646,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009968555359999982,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ba69049b0c5b32ea51b18e0311425c1f22fdc1ac",
+          "message": "umbrella: remove test utility crates and generate-bags (#14003)\n\nThe umbrella crate included `asset-test-utils`, `bridge-hub-test-utils`,\n`emulated-integration-tests-common`, `parachains-runtimes-test-utils`\nand `generate-bags` in its `node` feature. Nodes do not use these\ncrates. The test utilities pull `assets-common` and `pallet-revive` into\neach node that uses the umbrella. With `runtime-benchmarks`, they also\nbuild `pallet-revive-fixtures`. `generate-bags` pulls\n`pallet-staking-async`, which does not compile with `runtime-benchmarks`\n(see #14012).\n\nThis PR marks these crates `exclude-from-umbrella`. They stay published,\nand their users depend on them directly.\n\nThis is a breaking change and is not for backport. #14012 is the\nbackportable fix for the `pallet-staking-async` build failure.\n\nRelated: #11019\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-11-27T16:27:38Z",
+          "tree_id": "69826dcfaec10e8db8e4f9d20fba666f4ffc33fe",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ba69049b0c5b32ea51b18e0311425c1f22fdc1ac"
+        },
+        "date": 1795803016545,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007711548240000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14631648201333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009638264826666642,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02412541199999999,
             "unit": "seconds"
           }
         ]
