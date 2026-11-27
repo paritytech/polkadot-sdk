@@ -1,14 +1,18 @@
-title: 'umbrella: remove test utility crates'
+title: 'umbrella: remove test utility crates and generate-bags'
 doc:
   - audience:
       - Node Dev
       - Runtime Dev
     description: |
       The `polkadot-sdk` umbrella crate no longer includes `asset-test-utils`,
-      `bridge-hub-test-utils`, `emulated-integration-tests-common` and
-      `parachains-runtimes-test-utils`. The `node` feature enabled these crates. They pulled
-      `assets-common` and `pallet-revive` into each node that uses the umbrella. With
-      `runtime-benchmarks`, they also built `pallet-revive-fixtures`.
+      `bridge-hub-test-utils`, `emulated-integration-tests-common`,
+      `parachains-runtimes-test-utils` and `generate-bags`. The `node` feature enabled these
+      crates, but nodes do not use them.
+
+      The test utility crates pulled `assets-common` and `pallet-revive` into each node that
+      uses the umbrella. With `runtime-benchmarks`, they also built `pallet-revive-fixtures`.
+      `generate-bags` pulled `pallet-staking-async` into each node. With `runtime-benchmarks`,
+      `pallet-staking-async` did not compile.
 
       These crates are still published. If you use them through the umbrella, add them as
       direct dependencies.
@@ -22,4 +26,6 @@ crates:
   - name: emulated-integration-tests-common
     bump: none
   - name: parachains-runtimes-test-utils
+    bump: none
+  - name: generate-bags
     bump: none
