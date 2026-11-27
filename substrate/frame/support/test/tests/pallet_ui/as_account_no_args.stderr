@@ -1,0 +1,5 @@
+error: expected attribute arguments in parentheses: #[pallet::as_account(...)]
+  --> tests/pallet_ui/as_account_no_args.rs:40:5
+   |
+40 |         #[pallet::as_account]
+   |           ^^^^^^^^^^^^^^^^^^

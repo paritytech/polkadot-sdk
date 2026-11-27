@@ -33,9 +33,7 @@ use frame_system::{
 };
 use sp_runtime::{
 	generic::Era,
-	traits::{
-		AsSystemOriginSigner, AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable, Get,
-	},
+	traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable, Get},
 };
 
 pub struct Pallet<T: Config>(System<T>);
@@ -43,7 +41,7 @@ pub struct Pallet<T: Config>(System<T>);
 #[benchmarks(where
 	T: Send + Sync,
     T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + AsTransactionAuthorizedOrigin + Clone,
+	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin + Clone,
 )]
 mod benchmarks {
 	use super::*;

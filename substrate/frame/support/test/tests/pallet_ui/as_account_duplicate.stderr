@@ -1,0 +1,5 @@
+error: Duplicate `#[pallet::as_account(...)]` attribute on variant
+  --> tests/pallet_ui/as_account_duplicate.rs:41:3
+   |
+41 |         Member(T::AccountId),
+   |         ^^^^^^

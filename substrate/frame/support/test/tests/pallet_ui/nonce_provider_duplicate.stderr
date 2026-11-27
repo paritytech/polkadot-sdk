@@ -1,0 +1,5 @@
+error: Duplicate `#[pallet::nonce_provider]` attribute on variant
+  --> tests/pallet_ui/nonce_provider_duplicate.rs:41:3
+   |
+41 |         #[pallet::nonce_provider]
+   |         ^
