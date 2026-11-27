@@ -380,6 +380,13 @@ where
 							"dropped_monitor_task: transaction became viewless, marking for unban"
 						);
 						tx.set_needs_unban();
+					} else {
+						debug!(
+							target: LOG_TARGET,
+							?tx_hash,
+							"dropped_monitor_task: viewless transaction not in mempool, removing from dropped watcher"
+						);
+						view_store.dropped_stream_controller.remove_transactions([tx_hash]);
 					}
 					continue;
 				},
@@ -387,6 +394,7 @@ where
 
 			mempool.remove_transactions(&[tx_hash]).await;
 			import_notification_sink.clean_notified_items(&[tx_hash]);
+			view_store.dropped_stream_controller.remove_transactions([tx_hash]);
 			view_store.listener.transaction_dropped(dropped);
 			insert_and_log_throttled!(
 				Level::DEBUG,
@@ -1063,6 +1071,9 @@ where
 		let removed_hashes = removed.iter().map(|tx| tx.hash).collect::<Vec<_>>();
 		self.mempool.remove_transactions(&removed_hashes).await;
 		self.import_notification_sink.clean_notified_items(&removed_hashes);
+		self.view_store
+			.dropped_stream_controller
+			.remove_transactions(removed_hashes.clone());
 
 		self.metrics
 			.report(|metrics| metrics.removed_invalid_txs.inc_by(removed_hashes.len() as _));
