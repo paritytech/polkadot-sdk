@@ -33,9 +33,9 @@ use jam_types::{Slot, WorkPackage};
 #[cfg(target_env = "polkavm")]
 jam_pvm_common::declare_authorizer!(cumulus_aura_authorizer_utils::Guest<Sr25519>);
 
-// Dalek's double-scalar multiplication tables exceed the default 8 KiB guest stack.
+// Keep the guest's minimum stack explicit rather than relying on the linker's default.
 #[cfg(target_env = "polkavm")]
-polkavm_derive::min_stack_size!(32768);
+polkavm_derive::min_stack_size!(8192);
 
 /// The transcript context every Sr25519 signature in Substrate is made under.
 ///

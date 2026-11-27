@@ -29,6 +29,13 @@ jam-pvm-common = { workspace = true, features = ["authorizer"] }
 # The JAM guest provides these lang items instead of the Substrate runtime.
 sp-io = { workspace = true, features = ["disable_allocator", "disable_panic_handler"] }
 
+[dev-dependencies]
+ed25519-dalek = { workspace = true }
+jam-program-blob-common = "=0.1.29"
+# Match the interpreter ABI used by jam-program-blob-common.
+polkavm = "0.37.0"
+schnorrkel = { workspace = true, features = ["std"] }
+
 [features]
 default = []
 std = [
