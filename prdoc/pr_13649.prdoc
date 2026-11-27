@@ -1,0 +1,13 @@
+title: '`pallet-asset-tx-payment`: characterize refund-below-ED behavior'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds tests for the case where the post-dispatch refund cannot be returned to the payer:
+      the asset path drops and burns it (the `resolve` failure is discarded), the native path
+      subsumes it into the fee. Both events report the corrected, smaller fee, not what the
+      caller paid. Test-only, no behavior change.
+
+crates:
+  - name: pallet-asset-tx-payment
+    bump: none
