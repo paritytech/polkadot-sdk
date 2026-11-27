@@ -100,6 +100,8 @@ pub struct OverlayedChanges<H: Hasher> {
 	offchain: OffchainOverlayedChanges,
 	/// Transaction index changes,
 	transaction_index_ops: Vec<IndexOperation>,
+	/// Length of `transaction_index_ops` at the start of each open transaction.
+	transaction_index_ops_checkpoints: Vec<usize>,
 	/// True if extrinsics stats must be collected.
 	collect_extrinsics: bool,
 	/// Collect statistic on this execution.
@@ -117,6 +119,7 @@ impl<H: Hasher> Default for OverlayedChanges<H> {
 			children: Default::default(),
 			offchain: Default::default(),
 			transaction_index_ops: Default::default(),
+			transaction_index_ops_checkpoints: Default::default(),
 			collect_extrinsics: Default::default(),
 			stats: Default::default(),
 			storage_transaction_cache: None,
@@ -131,6 +134,7 @@ impl<H: Hasher> Clone for OverlayedChanges<H> {
 			children: self.children.clone(),
 			offchain: self.offchain.clone(),
 			transaction_index_ops: self.transaction_index_ops.clone(),
+			transaction_index_ops_checkpoints: self.transaction_index_ops_checkpoints.clone(),
 			collect_extrinsics: self.collect_extrinsics,
 			stats: self.stats.clone(),
 			storage_transaction_cache: self.storage_transaction_cache.clone(),
@@ -438,6 +442,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 			changeset.start_transaction();
 		}
 		self.offchain.overlay_mut().start_transaction();
+		self.transaction_index_ops_checkpoints.push(self.transaction_index_ops.len());
 	}
 
 	/// Rollback the last transaction started by `start_transaction`.
@@ -458,6 +463,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 			.overlay_mut()
 			.rollback_transaction_offchain()
 			.expect("Top and offchain changesets are started in lockstep; qed");
+		self.rollback_transaction_index_ops_to_depth(self.top.transaction_depth());
 		Ok(())
 	}
 
@@ -476,6 +482,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 			.overlay_mut()
 			.commit_transaction_offchain()
 			.expect("Top and offchain changesets are started in lockstep; qed");
+		self.transaction_index_ops_checkpoints.pop();
 		Ok(())
 	}
 
@@ -512,7 +519,15 @@ impl<H: Hasher> OverlayedChanges<H> {
 			.overlay_mut()
 			.exit_runtime_offchain()
 			.expect("Top and offchain changesets are started in lockstep; qed");
+		self.rollback_transaction_index_ops_to_depth(self.top.transaction_depth());
 		Ok(())
+	}
+
+	fn rollback_transaction_index_ops_to_depth(&mut self, depth: usize) {
+		let oldest_rolled_back = self.transaction_index_ops_checkpoints.drain(depth..).next();
+		if let Some(ops_len) = oldest_rolled_back {
+			self.transaction_index_ops.truncate(ops_len);
+		}
 	}
 
 	/// Consume all changes (top + children) and return them.
@@ -1020,6 +1035,77 @@ mod tests {
 
 		overlayed.set_offchain_storage(key.as_slice(), None);
 		check_offchain_content(&overlayed, 0, vec![(key.clone(), None)]);
+	}
+
+	fn add_renew(overlayed: &mut OverlayedChanges<Blake2Hasher>, extrinsic: u32) {
+		overlayed.add_transaction_index(IndexOperation::Renew { extrinsic, hash: vec![] });
+	}
+
+	fn renewed_extrinsics(overlayed: &OverlayedChanges<Blake2Hasher>) -> Vec<u32> {
+		overlayed
+			.transaction_index_ops()
+			.iter()
+			.map(|op| match op {
+				IndexOperation::Renew { extrinsic, .. } => *extrinsic,
+				IndexOperation::Insert { .. } => panic!("only renews are added"),
+			})
+			.collect()
+	}
+
+	// The node indexes whatever these operations name, while the runtime only keeps a record of
+	// it when the dispatch succeeds. An operation outliving a rollback makes the two disagree.
+	#[test]
+	fn transaction_index_ops_follow_storage_transactions() {
+		let mut overlayed = OverlayedChanges::default();
+
+		add_renew(&mut overlayed, 0);
+
+		overlayed.start_transaction();
+		add_renew(&mut overlayed, 1);
+		overlayed.rollback_transaction().unwrap();
+		assert_eq!(renewed_extrinsics(&overlayed), vec![0]);
+
+		overlayed.start_transaction();
+		add_renew(&mut overlayed, 2);
+		overlayed.commit_transaction().unwrap();
+		assert_eq!(renewed_extrinsics(&overlayed), vec![0, 2]);
+
+		overlayed.start_transaction();
+		add_renew(&mut overlayed, 3);
+		overlayed.start_transaction();
+		add_renew(&mut overlayed, 4);
+		overlayed.rollback_transaction().unwrap();
+		add_renew(&mut overlayed, 5);
+		overlayed.commit_transaction().unwrap();
+		assert_eq!(renewed_extrinsics(&overlayed), vec![0, 2, 3, 5]);
+
+		overlayed.start_transaction();
+		overlayed.start_transaction();
+		add_renew(&mut overlayed, 6);
+		overlayed.commit_transaction().unwrap();
+		overlayed.rollback_transaction().unwrap();
+		assert_eq!(renewed_extrinsics(&overlayed), vec![0, 2, 3, 5]);
+	}
+
+	#[test]
+	fn transaction_index_ops_of_transactions_left_open_by_runtime_are_dropped() {
+		let mut overlayed = OverlayedChanges::default();
+
+		overlayed.start_transaction();
+		add_renew(&mut overlayed, 0);
+
+		overlayed.enter_runtime().unwrap();
+		add_renew(&mut overlayed, 1);
+		overlayed.start_transaction();
+		add_renew(&mut overlayed, 2);
+		overlayed.start_transaction();
+		add_renew(&mut overlayed, 3);
+		overlayed.exit_runtime().unwrap();
+
+		assert_eq!(renewed_extrinsics(&overlayed), vec![0, 1]);
+
+		overlayed.rollback_transaction().unwrap();
+		assert_eq!(renewed_extrinsics(&overlayed), Vec::<u32>::new());
 	}
 
 	#[test]
