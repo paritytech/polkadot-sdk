@@ -19,15 +19,15 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use pallet::*;
 
 #[frame::pallet]
 pub mod pallet {
-	extern crate alloc;
 	use frame::prelude::*;
 
 	#[pallet::storage]
-	#[pallet::getter(fn preset)]
 	#[pallet::unbounded]
 	pub type Preset<T: Config> = StorageValue<_, alloc::string::String, OptionQuery>;
 
@@ -50,4 +50,11 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
+}
+
+impl<T: Config> Pallet<T> {
+	/// Public function to access the preset used to generate the genesis state.
+	pub fn preset() -> Option<alloc::string::String> {
+		Preset::<T>::get()
+	}
 }
