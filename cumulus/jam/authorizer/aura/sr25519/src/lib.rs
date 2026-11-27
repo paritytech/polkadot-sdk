@@ -36,7 +36,7 @@ struct Authorizer;
 #[cfg(target_env = "polkavm")]
 jam_pvm_common::declare_authorizer!(Authorizer);
 
-// Reserve 8 KiB; the Dalek-backed authorizer peaked at 5,912 bytes in the blob test.
+// Reserve 8 KiB; the Dalek-backed authorizer's measured peak in the PVM was 5,912 bytes.
 #[cfg(target_env = "polkavm")]
 polkavm_derive::min_stack_size!(8192);
 
