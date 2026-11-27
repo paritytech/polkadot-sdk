@@ -1,0 +1,10 @@
+title: 'pallet-revive: build with alloy-trie 0.9.9'
+doc:
+  - audience: Runtime Dev
+    description: |
+      `pallet-revive` now compiles with `alloy-trie` 0.9.9. That release adds a public field to
+      `HashBuilder`. `pallet-revive` now uses the defaults for the `HashBuilder` fields that it
+      does not set.
+crates:
+  - name: pallet-revive
+    bump: patch
