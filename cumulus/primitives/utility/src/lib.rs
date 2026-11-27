@@ -527,10 +527,6 @@ where
 			return None;
 		};
 		let refund_amount = WeightToFee::weight_to_fee(&weight);
-		if refund_amount >= self.total_fee.peek() {
-			// not enough was paid to refund the `weight`.
-			return None;
-		}
 
 		let refund_swap_asset = FungiblesAssetMatcher::matches_fungibles(&refund_asset)
 			.map(|(a, _)| a.into())
@@ -540,7 +536,7 @@ where
 		let refund = match SwapCredit::swap_exact_tokens_for_tokens(
 			vec![Target::get(), refund_swap_asset],
 			refund,
-			None,
+			Some(1u32.into()),
 		) {
 			Ok(refund_in_target) => refund_in_target,
 			Err((refund, _)) => {
