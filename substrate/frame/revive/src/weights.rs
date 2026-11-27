@@ -131,6 +131,7 @@ pub trait WeightInfo {
 	fn seal_return(n: u32, ) -> Weight;
 	fn seal_terminate(r: u32, ) -> Weight;
 	fn seal_terminate_logic() -> Weight;
+	fn allow_termination() -> Weight;
 	fn seal_deposit_event(t: u32, n: u32, ) -> Weight;
 	fn get_storage_empty() -> Weight;
 	fn get_storage_full() -> Weight;
@@ -1107,6 +1108,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(15_018_417, 6375)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 	}
+	/// Storage: `Revive::TerminationAllowed` (r:1 w:1)
+	/// Proof: `Revive::TerminationAllowed` (`max_values`: None, `max_size`: Some(20), added: 2495, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:2 w:2)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(589), added: 3064, mode: `Measured`)
 	/// Storage: `System::Account` (r:3 w:3)
@@ -1123,12 +1126,22 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Revive::ImmutableDataOf` (`max_values`: None, `max_size`: Some(4118), added: 6593, mode: `Measured`)
 	fn seal_terminate_logic() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `511`
-		//  Estimated: `8926`
+		//  Measured:  `646`
+		//  Estimated: `9061`
 		// Minimum execution time: 216_275_000 picoseconds.
-		Weight::from_parts(228_006_000, 8926)
-			.saturating_add(T::DbWeight::get().reads(7_u64))
-			.saturating_add(T::DbWeight::get().writes(10_u64))
+		Weight::from_parts(228_006_000, 9061)
+			.saturating_add(T::DbWeight::get().reads(8_u64))
+			.saturating_add(T::DbWeight::get().writes(11_u64))
+	}
+	/// Storage: `Revive::TerminationAllowed` (r:0 w:1)
+	/// Proof: `Revive::TerminationAllowed` (`max_values`: None, `max_size`: Some(20), added: 2495, mode: `Measured`)
+	fn allow_termination() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 2_062_000 picoseconds.
+		Weight::from_parts(2_398_230, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// The range of component `t` is `[0, 4]`.
 	/// The range of component `n` is `[0, 65536]`.
@@ -3737,6 +3750,8 @@ impl WeightInfo for () {
 		Weight::from_parts(15_018_417, 6375)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 	}
+	/// Storage: `Revive::TerminationAllowed` (r:1 w:1)
+	/// Proof: `Revive::TerminationAllowed` (`max_values`: None, `max_size`: Some(20), added: 2495, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:2 w:2)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(589), added: 3064, mode: `Measured`)
 	/// Storage: `System::Account` (r:3 w:3)
@@ -3753,12 +3768,22 @@ impl WeightInfo for () {
 	/// Proof: `Revive::ImmutableDataOf` (`max_values`: None, `max_size`: Some(4118), added: 6593, mode: `Measured`)
 	fn seal_terminate_logic() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `511`
-		//  Estimated: `8926`
+		//  Measured:  `646`
+		//  Estimated: `9061`
 		// Minimum execution time: 216_275_000 picoseconds.
-		Weight::from_parts(228_006_000, 8926)
-			.saturating_add(RocksDbWeight::get().reads(7_u64))
-			.saturating_add(RocksDbWeight::get().writes(10_u64))
+		Weight::from_parts(228_006_000, 9061)
+			.saturating_add(RocksDbWeight::get().reads(8_u64))
+			.saturating_add(RocksDbWeight::get().writes(11_u64))
+	}
+	/// Storage: `Revive::TerminationAllowed` (r:0 w:1)
+	/// Proof: `Revive::TerminationAllowed` (`max_values`: None, `max_size`: Some(20), added: 2495, mode: `Measured`)
+	fn allow_termination() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 2_062_000 picoseconds.
+		Weight::from_parts(2_398_230, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// The range of component `t` is `[0, 4]`.
 	/// The range of component `n` is `[0, 65536]`.

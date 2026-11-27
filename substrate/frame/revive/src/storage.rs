@@ -397,7 +397,7 @@ impl<T: Config> AccountInfo<T> {
 					// `new_deposit` stays at zero and the failing `increment_refcount`
 					// below propagates the malformed-state error.
 					target_code_deposit
-						.map(|d| contract_info.update_base_deposit(d))
+						.map(|d| contract_info.update_base_deposit(d, false))
 						.unwrap_or(Zero::zero())
 				},
 				None => {
@@ -406,7 +406,7 @@ impl<T: Config> AccountInfo<T> {
 					// refcount/deposit. Still non-zero: only the code lockup drops
 					// out, the account entry stays charged.
 					contract_info.code_hash = Default::default();
-					contract_info.update_base_deposit(Zero::zero())
+					contract_info.update_base_deposit(Zero::zero(), false)
 				},
 			};
 			*stored_payer = if new_deposit.is_zero() { None } else { Some(payer.clone()) };
@@ -676,12 +676,18 @@ impl<T: Config> ContractInfo<T> {
 	///
 	/// The base deposit is updated when the `code_hash` of the contract changes, as it depends on
 	/// the deposit paid to upload the contract's code. It also depends on the size of immutable
-	/// storage which is also changed when the code hash of a contract is changed.
-	pub fn update_base_deposit(&mut self, code_deposit: BalanceOf<T>) -> BalanceOf<T> {
+	/// storage which is also changed when the code hash of a contract is changed. With
+	/// `termination_allowed` it covers the contract's [`crate::TerminationAllowed`] entry as well.
+	pub fn update_base_deposit(
+		&mut self,
+		code_deposit: BalanceOf<T>,
+		termination_allowed: bool,
+	) -> BalanceOf<T> {
 		let contract_deposit = {
 			let bytes_added: u32 =
 				(self.encoded_size() as u32).saturating_add(self.immutable_data_len);
 			let items_added: u32 = if self.immutable_data_len == 0 { 1 } else { 2 };
+			let items_added = items_added.saturating_add(termination_allowed.into());
 
 			T::DepositPerByte::get()
 				.saturating_mul(bytes_added.into())

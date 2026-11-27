@@ -116,6 +116,8 @@ pub enum RuntimeCosts {
 	GasLimit,
 	/// Weight of calling `seal_terminate`.
 	Terminate { code_removed: bool },
+	/// Weight of calling `allowTermination` on the `System` pre-compile.
+	AllowTermination,
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
 	///
 	/// `len` is the size of the data field. The per-byte charges for storing the event and adding
@@ -382,6 +384,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					T::WeightInfo::seal_terminate(code_removed.into())
 				}
 			},
+			AllowTermination => T::WeightInfo::allow_termination(),
 			DepositEvent { num_topic, len } => {
 				let topic_bytes =
 					num_topic.min(limits::NUM_EVENT_TOPICS) * H256::len_bytes() as u32;

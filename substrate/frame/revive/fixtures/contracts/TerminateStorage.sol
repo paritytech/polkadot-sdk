@@ -4,9 +4,11 @@ pragma solidity ^0.8.30;
 import "@revive/ISystem.sol";
 
 /// Terminates itself through the system precompile, so the destruction is carried out at
-/// the end of the call stack.
+/// the end of the call stack and works across transactions.
 contract TerminateStorageInner {
-	constructor() payable {}
+	constructor() payable {
+		ISystem(SYSTEM_ADDR).allowTermination();
+	}
 
 	receive() external payable {}
 
@@ -30,13 +32,7 @@ contract TerminateStorageCaller {
 		writeFresh(n);
 	}
 
-	function createWriteAndTerminate(uint64 n, address beneficiary) external returns (address) {
-		TerminateStorageInner inner = new TerminateStorageInner();
-		writeAndTerminate(payable(address(inner)), n, beneficiary);
-		return address(inner);
-	}
-
-	function writeAndTerminate(address payable inner, uint64 n, address beneficiary) public {
+	function writeAndTerminate(address payable inner, uint64 n, address beneficiary) external {
 		TerminateStorageInner(inner).terminateSelf(beneficiary);
 		(bool ok, ) = inner.call{value: 1_000_000_000_000}("");
 		require(ok, "funding inner failed");

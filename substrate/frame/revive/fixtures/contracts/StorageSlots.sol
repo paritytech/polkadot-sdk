@@ -7,6 +7,10 @@ import "@revive/ISystem.sol";
 contract StorageSlots {
 	mapping(uint256 => uint256) private slots;
 
+	constructor() {
+		ISystem(SYSTEM_ADDR).allowTermination();
+	}
+
 	/// Writes a non-zero value to the slots `from` to `to - 1`.
 	function write(uint256 from, uint256 to) external {
 		for (uint256 i = from; i < to; i++) {
