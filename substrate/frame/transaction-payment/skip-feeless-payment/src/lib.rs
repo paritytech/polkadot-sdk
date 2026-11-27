@@ -29,8 +29,8 @@
 //!
 //! ## Integration
 //!
-//! This pallet wraps an existing transaction payment pallet. This means you should both pallets
-//! in your [`construct_runtime`](frame_support::construct_runtime) macro and
+//! This pallet wraps an existing transaction payment pallet. This means you should include both
+//! pallets in your [`construct_runtime`](frame_support::construct_runtime) macro and
 //! include this pallet's [`TransactionExtension`] ([`SkipCheckIfFeeless`]) that would accept the
 //! existing one as an argument.
 
