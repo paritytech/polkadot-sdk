@@ -709,7 +709,8 @@ pub mod pallet {
 						// Make curator fee payment.
 						let child_bounty_account =
 							Self::child_bounty_account_id(parent_bounty_id, child_bounty_id);
-						let balance = T::Currency::free_balance(&child_bounty_account);
+						let balance =
+							pallet_bounties::Pallet::<T>::spendable_balance(&child_bounty_account);
 						let curator_fee = child_bounty.fee.min(balance);
 						let payout = balance.saturating_sub(curator_fee);
 
@@ -719,24 +720,20 @@ pub mod pallet {
 						let _ = T::Currency::unreserve(curator, child_bounty.curator_deposit);
 
 						// Make payout to child-bounty curator.
-						// Should not fail because curator fee is always less than bounty value.
-						let fee_transfer_result = T::Currency::transfer(
+						T::Currency::transfer(
 							&child_bounty_account,
 							curator,
 							curator_fee,
 							AllowDeath,
-						);
-						debug_assert!(fee_transfer_result.is_ok());
+						)?;
 
 						// Make payout to beneficiary.
-						// Should not fail.
-						let payout_transfer_result = T::Currency::transfer(
+						T::Currency::transfer(
 							&child_bounty_account,
 							beneficiary,
 							payout,
 							AllowDeath,
-						);
-						debug_assert!(payout_transfer_result.is_ok());
+						)?;
 
 						// Trigger the Claimed event.
 						Self::deposit_event(Event::<T>::Claimed {
@@ -799,10 +796,17 @@ pub mod pallet {
 				.map(Some)
 				.or_else(|_| T::RejectOrigin::ensure_origin(origin).map(|_| None))?;
 
-			// Ensure parent bounty exist, get parent curator.
-			let (parent_curator, _) = Self::ensure_bounty_active(parent_bounty_id)?;
-
-			ensure!(maybe_sender.map_or(true, |sender| parent_curator == sender), BadOrigin);
+			// A signed caller must be the active parent curator. `RejectOrigin` is
+			// allowed to force cleanup even after the parent leaves the active state.
+			if let Some(sender) = maybe_sender {
+				let (parent_curator, _) = Self::ensure_bounty_active(parent_bounty_id)?;
+				ensure!(parent_curator == sender, BadOrigin);
+			} else {
+				ensure!(
+					pallet_bounties::Bounties::<T>::contains_key(parent_bounty_id),
+					BountiesError::<T>::InvalidIndex,
+				);
+			}
 
 			Self::impl_close_child_bounty(parent_bounty_id, child_bounty_id)?;
 			Ok(())
@@ -931,14 +935,14 @@ impl<T: Config> Pallet<T> {
 					pallet_bounties::Pallet::<T>::bounty_account_id(parent_bounty_id);
 				let child_bounty_account =
 					Self::child_bounty_account_id(parent_bounty_id, child_bounty_id);
-				let balance = T::Currency::free_balance(&child_bounty_account);
-				let transfer_result = T::Currency::transfer(
+				let balance =
+					pallet_bounties::Pallet::<T>::spendable_balance(&child_bounty_account);
+				T::Currency::transfer(
 					&child_bounty_account,
 					&parent_bounty_account,
 					balance,
 					AllowDeath,
-				); // Should not fail; child bounty account gets this balance during creation.
-				debug_assert!(transfer_result.is_ok());
+				)?;
 
 				// Remove the child-bounty description.
 				ChildBountyDescriptionsV1::<T>::remove(parent_bounty_id, child_bounty_id);

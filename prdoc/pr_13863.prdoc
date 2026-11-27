@@ -1,0 +1,17 @@
+title: 'statement-store: disconnect a peer that reads statements too slowly'
+doc:
+- audience: Node Dev
+  description: |-
+    A peer is now disconnected, with no reputation change, when its last two statement sends
+    failed or its propagation outbox overflowed behind a chunk in flight. Its reconnect gets a
+    fresh initial sync. Before, such a peer kept its connection and lost statements.
+
+    The peer is kept away for 5 minutes: peer steering pauses it with the DHT path on, otherwise
+    it leaves the reserved set, which also makes the disconnect take effect, and is added back
+    after the delay.
+
+    A full outbox refuses new hashes instead of dropping its oldest. Disconnects are counted in
+    `substrate_sync_statement_stalled_peers_disconnected`.
+crates:
+- name: sc-network-statement
+  bump: patch

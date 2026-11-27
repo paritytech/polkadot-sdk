@@ -15,15 +15,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::construct_runtime;
+use frame_support::derive_impl;
 
-construct_runtime! {
-	pub struct Runtime
-	{
-		System: system::{Pallet},
-		#[cfg(feature(test))]
-		Balance: balances::{Config, Call},
-	}
+#[frame_support::pallet(dev_mode)]
+pub mod pallet {
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {}
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+impl frame_system::Config for Runtime {
+	type Block = frame_system::mocking::MockBlock<Runtime>;
+}
+
+impl pallet::Config for Runtime {}
+
+frame_support::construct_runtime!(
+	pub enum Runtime {
+		System: frame_system,
+		#[cfg(feature(test))]
+		Pallet: pallet,
+	}
+);
 
 fn main() {}

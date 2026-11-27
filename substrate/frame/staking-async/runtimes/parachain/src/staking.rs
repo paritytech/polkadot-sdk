@@ -448,6 +448,7 @@ impl pallet_staking_async::Config for Runtime {
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
+	type SlashRewardDecay = ();
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type EraPayout = ();

@@ -16,9 +16,10 @@
 // limitations under the License.
 
 use crate::{CombineData, Config, MomentOf, TimestampedValueOf};
+use alloc::vec::Vec;
+use core::marker;
 use frame_support::traits::{Get, Time};
 use sp_runtime::traits::Saturating;
-use sp_std::{marker, prelude::*};
 
 /// Sort by value and returns median timestamped value.
 /// Returns prev_value if not enough valid values.

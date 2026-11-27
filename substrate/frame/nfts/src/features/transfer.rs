@@ -139,13 +139,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				return Ok(());
 			}
 
-			// Move the deposit to the new owner.
-			T::Currency::repatriate_reserved(
+			// Move the deposit to the new owner. `repatriate_reserved` is best-effort: reject any
+			// partial move so the recorded deposit stays in sync with what is actually reserved
+			// on the owner.
+			let remaining = T::Currency::repatriate_reserved(
 				&details.owner,
 				&new_owner,
 				details.owner_deposit,
 				Reserved,
 			)?;
+			ensure!(remaining.is_zero(), Error::<T, I>::IncompleteDepositTransfer);
 
 			// Update account ownership information.
 			CollectionAccount::<T, I>::remove(&details.owner, &collection);
@@ -213,13 +216,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				return Ok(());
 			}
 
-			// Move the deposit to the new owner.
-			T::Currency::repatriate_reserved(
+			// Move the deposit to the new owner. `repatriate_reserved` is best-effort: reject any
+			// partial move so the recorded deposit stays in sync with what is actually reserved
+			// on the owner.
+			let remaining = T::Currency::repatriate_reserved(
 				&details.owner,
 				&owner,
 				details.owner_deposit,
 				Reserved,
 			)?;
+			ensure!(remaining.is_zero(), Error::<T, I>::IncompleteDepositTransfer);
 
 			// Update collection accounts and set the new owner.
 			CollectionAccount::<T, I>::remove(&details.owner, &collection);

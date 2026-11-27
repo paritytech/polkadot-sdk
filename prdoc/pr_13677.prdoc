@@ -1,0 +1,16 @@
+title: 'network/light: Process call requests in parallel, queue QoS'
+doc:
+- audience: Node Dev
+  description: |-
+    Add a thread pool for processing light client execution proof requests and extract them into a
+    dedicated queue. The number of workers is set to half the available CPU cores (at most 4) by
+    default and can be increased via `--light-request-call-workers` cli.
+crates:
+- name: sc-network
+  bump: major
+- name: sc-network-light
+  bump: major
+- name: sc-cli
+  bump: major
+- name: sc-service
+  bump: patch

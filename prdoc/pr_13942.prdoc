@@ -1,0 +1,9 @@
+title: "staging-xcm: correct versioned encoded-length bounds"
+doc:
+  - audience: Runtime Dev
+    description: |
+      The maximum encoded length of versioned XCM types now includes the version tag and the
+      largest payload bound across supported versions.
+crates:
+  - name: staging-xcm
+    bump: patch

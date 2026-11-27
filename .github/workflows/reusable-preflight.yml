@@ -71,8 +71,10 @@ jobs:
     outputs:
       # Compare action output strings explicitly and emit an empty value for false,
       # so existing consuming conditions can keep using truthiness.
+      # Scheduled and manual runs have no diff, so they always count as changed.
       changes_rust: >-
-        ${{ (steps.set_changes.outputs.rust_any_changed == 'true' ||
+        ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+             steps.set_changes.outputs.rust_any_changed == 'true' ||
              steps.set_changes.outputs.sharedCi_any_changed == 'true') && 'true' || '' }}
 
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
