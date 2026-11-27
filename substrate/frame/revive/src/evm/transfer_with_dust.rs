@@ -131,10 +131,9 @@ pub(crate) fn transfer_with_dust<T: Config>(
 }
 
 /// What happens to the whole units removed by [`burn_with_dust`].
-#[derive(Clone, Copy)]
 pub enum BurnKind {
 	/// The units are withdrawn and forwarded to [`Config::OnBurn`].
-	Forward,
+	OnBurn,
 	/// The units are removed from the total issuance.
 	Issuance,
 }
@@ -142,7 +141,7 @@ pub enum BurnKind {
 /// Remove `value` from the balance of `from` as `kind` says.
 fn burn<T: Config>(from: &AccountIdOf<T>, value: BalanceOf<T>, kind: BurnKind) -> DispatchResult {
 	match kind {
-		BurnKind::Forward => {
+		BurnKind::OnBurn => {
 			let credit = T::Currency::withdraw(
 				from,
 				value,
@@ -494,7 +493,7 @@ mod tests {
 				let issuance_before = <Test as Config>::Currency::total_issuance();
 				let dest_before = <Test as Config>::Currency::balance(&burn_dest);
 
-				assert_ok!(burn_with_dust::<Test>(&ALICE, amount, BurnKind::Forward));
+				assert_ok!(burn_with_dust::<Test>(&ALICE, amount, BurnKind::OnBurn));
 
 				assert_eq!(
 					Pallet::<Test>::evm_balance(&ALICE_ADDR),
@@ -533,7 +532,7 @@ mod tests {
 				burn_with_dust::<Test>(
 					&ALICE,
 					BalanceWithDust::new_unchecked::<Test>(20, 0),
-					BurnKind::Forward
+					BurnKind::OnBurn
 				),
 				Error::<Test>::TransferFailed,
 			);

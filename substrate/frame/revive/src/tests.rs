@@ -152,8 +152,8 @@ macro_rules! assert_refcount {
 
 pub mod test_utils {
 	use super::{
-		BalanceWithDust, CodeHashLockupDepositPercent, Contracts, DepositPerByte, DepositPerItem,
-		Test, U256,
+		BalanceWithDust, BurnDestination, CodeHashLockupDepositPercent, Contracts, DepositPerByte,
+		DepositPerItem, Test, U256,
 	};
 	use crate::{
 		AccountInfo, AccountInfoOf, BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo,
@@ -177,6 +177,20 @@ pub mod test_utils {
 	/// The EVM value of `value` in the native currency plus `dust`.
 	pub fn evm_value(value: u128, dust: u32) -> U256 {
 		Contracts::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(value, dust))
+	}
+	/// `value` as the `uint256` type of the Solidity bindings.
+	pub fn to_alloy(value: U256) -> alloy_core::primitives::U256 {
+		alloy_core::primitives::U256::from_limbs(value.0)
+	}
+	/// Fund the account `OnBurn` resolves to, so that burned amounts below the ED reach it as
+	/// well, and return its balance.
+	pub fn fund_burn_destination() -> u128 {
+		set_balance(&BurnDestination::get(), 1_000_000);
+		get_balance(&BurnDestination::get())
+	}
+	/// The amount `OnBurn` received since [`fund_burn_destination`] returned `before`.
+	pub fn burned(before: u128) -> u128 {
+		get_balance(&BurnDestination::get()) - before
 	}
 	/// Decode a contract return value into an error string.
 	pub fn decode_error(output: &[u8]) -> String {

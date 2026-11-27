@@ -29,13 +29,12 @@ use crate::{
 		deposit_limit,
 	},
 	tests::{
-		Assets, Balances, BurnDestination, Contracts, ExtBuilder, PGAS_ASSET_ID, RuntimeCall,
-		RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, System, Test, Utility, builder,
-		pallet_dummy,
+		Assets, Balances, Contracts, ExtBuilder, PGAS_ASSET_ID, RuntimeCall, RuntimeFreezeReason,
+		RuntimeHoldReason, RuntimeOrigin, System, Test, Utility, builder, pallet_dummy,
 		precompiles::{IWithInfo, WithInfo},
 		test_utils::{
-			decode_error, evm_value, get_balance, get_balance_on_hold, get_contract,
-			get_contract_checked, set_balance_with_dust,
+			burned, decode_error, evm_value, fund_burn_destination, get_balance,
+			get_balance_on_hold, get_contract, get_contract_checked, set_balance_with_dust,
 		},
 	},
 };
@@ -1189,18 +1188,6 @@ fn redeploy_onto_leftover_dust(fixture_type: FixtureType) {
 			"the contract has the dust and no second ED",
 		);
 	});
-}
-
-/// Fund the account `OnBurn` resolves to, so that burned amounts below the ED reach it as well,
-/// and return its balance.
-fn fund_burn_destination() -> u128 {
-	let _ = <Test as Config>::Currency::set_balance(&BurnDestination::get(), 1_000_000);
-	get_balance(&BurnDestination::get())
-}
-
-/// The amount `OnBurn` received since [`fund_burn_destination`] returned `before`.
-fn burned(before: u128) -> u128 {
-	get_balance(&BurnDestination::get()) - before
 }
 
 #[test_matrix(

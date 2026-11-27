@@ -524,13 +524,10 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Burn `value` from the balance of the caller of the current contract.
 	/// The amount is removed from the total issuance.
-	/// This is supposed to be used by the burn precompile.
+	/// This is supposed to be used by `burn` on the `System` pre-compile.
 	///
 	/// This function will fail if called via delegate call.
-	fn burn_caller(
-		&mut self,
-		value: BalanceWithDust<BalanceOf<Self::T>>,
-	) -> Result<(), DispatchError>;
+	fn burn_from_caller(&mut self, value: U256) -> Result<(), DispatchError>;
 
 	/// Returns the effective gas price of this transaction.
 	fn effective_gas_price(&self) -> U256;
@@ -2802,9 +2799,11 @@ where
 		Ok(())
 	}
 
-	fn burn_caller(&mut self, value: BalanceWithDust<BalanceOf<T>>) -> Result<(), DispatchError> {
+	fn burn_from_caller(&mut self, value: U256) -> Result<(), DispatchError> {
 		// under a delegate call the caller is the caller of the delegating contract
 		ensure!(self.top_frame().delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
+		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)
+			.map_err(|_| Error::<T>::BalanceConversionFailed)?;
 		let caller = self.caller();
 		burn_with_dust::<T>(caller.account_id()?, value, BurnKind::Issuance)
 	}

@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	BalanceOf, BalanceWithDust, Config, H160, U256,
+	Config, H160, U256,
 	address::AddressMapper,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	vm::RuntimeCosts,
@@ -127,20 +127,19 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				env.frame_meter_mut().charge_weight_token(RuntimeCosts::Burn {
 					dust: crate::Pallet::<T>::has_dust(amount),
 				})?;
-				let amount = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(amount)
-					.map_err(|_| Error::Revert("burn: amount out of range".into()))?;
-
 				// a value transferred to this pre-compile has no destination; reverting returns it
 				// to the caller
 				if !env.value_transferred().is_zero() {
-					return Err(Error::Revert("burn: msg.value must be zero".into()));
+					return Err(Error::Revert("value transfer not allowed".into()));
 				}
-				env.burn_caller(amount).map_err(|err| {
-					if err == crate::Error::<T>::TransferFailed.into() {
-						Error::Revert("burn: insufficient balance".into())
-					} else {
-						Error::try_to_revert::<T>(err)
-					}
+				env.burn_from_caller(amount).map_err(|err| match () {
+					_ if err == crate::Error::<T>::TransferFailed.into() => {
+						Error::Revert("insufficient balance".into())
+					},
+					_ if err == crate::Error::<T>::BalanceConversionFailed.into() => {
+						Error::Revert("balance conversion failed".into())
+					},
+					_ => Error::try_to_revert::<T>(err),
 				})?;
 				Ok(Vec::new())
 			},

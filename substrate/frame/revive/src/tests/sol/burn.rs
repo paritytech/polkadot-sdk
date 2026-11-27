@@ -23,7 +23,10 @@ use crate::{
 	test_utils::{ALICE, ALICE_ADDR, builder::Contract},
 	tests::{
 		Balances, ExtBuilder, RuntimeOrigin, Test, builder, pallet_dummy,
-		test_utils::{decode_error, evm_value, get_balance, set_balance_with_dust},
+		test_utils::{
+			burned, decode_error, evm_value, fund_burn_destination, get_balance,
+			set_balance_with_dust, to_alloy,
+		},
 	},
 };
 use alloy_core::{
@@ -39,10 +42,6 @@ use pallet_revive_uapi::{SYSTEM_PRECOMPILE_ADDR, precompiles::system::ISystem};
 use pretty_assertions::assert_eq;
 use sp_runtime::DispatchError;
 use test_case::test_case;
-
-fn alloy(value: U256) -> AlloyU256 {
-	AlloyU256::from_be_bytes(value.to_big_endian())
-}
 
 /// Deploy the fixture and give it `value` and `dust` on top of the existential deposit.
 fn deploy(fixture_type: FixtureType, value: u128, dust: u32) -> H160 {
@@ -66,17 +65,20 @@ fn received_value_is_burned(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let addr = deploy(fixture_type, 1_000, 3);
 		let balance = Pallet::<Test>::evm_balance(&addr);
+		let burned_before = fund_burn_destination();
 		let issuance = Balances::total_issuance();
 
 		let result = builder::bare_call(addr)
 			.evm_value(evm_value(5, 0))
-			.data(Burn::burnCall { amount: alloy(evm_value(5, 0)) }.abi_encode())
+			.data(Burn::burnCall { amount: to_alloy(evm_value(5, 0)) }.abi_encode())
 			.build_and_unwrap_result();
 		assert!(!result.did_revert());
 
 		// The contract is left with what it had before the call.
 		assert_eq!(Pallet::<Test>::evm_balance(&addr), balance);
 		assert_eq!(issuance - Balances::total_issuance(), 5);
+		// The burn bypasses `OnBurn`.
+		assert_eq!(burned(burned_before), 0);
 	});
 }
 
@@ -110,7 +112,7 @@ fn missing_dust_is_converted_from_balance(fixture_type: FixtureType) {
 		let issuance = Balances::total_issuance();
 
 		let result = builder::bare_call(addr)
-			.data(Burn::burnCall { amount: alloy(evm_value(5, 10)) }.abi_encode())
+			.data(Burn::burnCall { amount: to_alloy(evm_value(5, 10)) }.abi_encode())
 			.build_and_unwrap_result();
 		assert!(!result.did_revert());
 
@@ -133,7 +135,7 @@ fn only_dust_is_burned(fixture_type: FixtureType) {
 		assert_eq!(Pallet::<Test>::evm_balance(&addr), evm_value(1_000, 7));
 
 		let result = builder::bare_call(addr)
-			.data(Burn::burnCall { amount: alloy(evm_value(0, 4)) }.abi_encode())
+			.data(Burn::burnCall { amount: to_alloy(evm_value(0, 4)) }.abi_encode())
 			.build_and_unwrap_result();
 		assert!(!result.did_revert());
 		assert_eq!(Pallet::<Test>::evm_balance(&addr), evm_value(1_000, 3));
@@ -150,13 +152,22 @@ fn constructor_burns_received_value(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let (code, _) = compile_module_with_type("Burn", fixture_type).unwrap();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let issuance = Balances::total_issuance();
 
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.constructor_data(Burn::constructorCall { amount: alloy(evm_value(2, 3)) }.abi_encode())
+			.constructor_data(
+				Burn::constructorCall { amount: to_alloy(evm_value(2, 3)) }.abi_encode(),
+			)
 			.evm_value(evm_value(5, 0))
 			.build_and_unwrap_contract();
 
 		assert_eq!(Pallet::<Test>::evm_balance(&addr), evm_value(5, 0) - evm_value(2, 3));
+		// Two units and the unit converted into dust, less the existential deposit minted for the
+		// new contract.
+		assert_eq!(
+			issuance - Balances::total_issuance(),
+			3 - <Test as Config>::Currency::minimum_balance()
+		);
 	});
 }
 
@@ -172,13 +183,16 @@ fn delegated_account_burns_its_own_balance(fixture_type: FixtureType) {
 		setup.authorize(addr);
 		let delegator = setup.signer.address;
 		let balance = Pallet::<Test>::evm_balance(&delegator);
+		let issuance = Balances::total_issuance();
 
 		let result = builder::bare_call(delegator)
-			.data(Burn::burnCall { amount: alloy(evm_value(5, 10)) }.abi_encode())
+			.data(Burn::burnCall { amount: to_alloy(evm_value(5, 10)) }.abi_encode())
 			.build_and_unwrap_result();
 		assert!(!result.did_revert());
 
 		assert_eq!(Pallet::<Test>::evm_balance(&delegator), balance - evm_value(5, 10));
+		// Five units and the unit converted into dust.
+		assert_eq!(issuance - Balances::total_issuance(), 6);
 		assert_eq!(Pallet::<Test>::evm_balance(&addr), evm_value(1_000, 7));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&delegator), Some(addr));
 	});
@@ -199,16 +213,18 @@ fn more_than_the_balance_reverts(fixture_type: FixtureType) {
 		let addr = deploy(fixture_type, 1_000, 7);
 
 		// One unit of dust more than the contract can spend.
-		let (success, output) =
-			try_call(addr, Burn::tryBurnCall { amount: alloy(evm_value(1_000, 8)) }.abi_encode());
+		let (success, output) = try_call(
+			addr,
+			Burn::tryBurnCall { amount: to_alloy(evm_value(1_000, 8)) }.abi_encode(),
+		);
 		assert!(!success);
-		assert_eq!(decode_error(&output), "burn: insufficient balance");
+		assert_eq!(decode_error(&output), "insufficient balance");
 
 		// An amount that does not fit the balance type.
 		let (success, output) =
 			try_call(addr, Burn::tryBurnCall { amount: AlloyU256::MAX }.abi_encode());
 		assert!(!success);
-		assert_eq!(decode_error(&output), "burn: amount out of range");
+		assert_eq!(decode_error(&output), "balance conversion failed");
 	});
 }
 
@@ -230,12 +246,12 @@ fn frozen_balance_cannot_be_burned(fixture_type: FixtureType) {
 		assert_eq!(Pallet::<Test>::evm_balance(&addr), evm_value(5, 7));
 
 		let (success, output) =
-			try_call(addr, Burn::tryBurnCall { amount: alloy(evm_value(6, 0)) }.abi_encode());
+			try_call(addr, Burn::tryBurnCall { amount: to_alloy(evm_value(6, 0)) }.abi_encode());
 		assert!(!success);
-		assert_eq!(decode_error(&output), "burn: insufficient balance");
+		assert_eq!(decode_error(&output), "insufficient balance");
 
 		let (success, _) =
-			try_call(addr, Burn::tryBurnCall { amount: alloy(evm_value(5, 7)) }.abi_encode());
+			try_call(addr, Burn::tryBurnCall { amount: to_alloy(evm_value(5, 7)) }.abi_encode());
 		assert!(success);
 		assert_eq!(Pallet::<Test>::evm_balance(&addr), U256::zero());
 	});
@@ -250,13 +266,13 @@ fn sending_value_reverts(fixture_type: FixtureType) {
 		let (success, output) = try_call(
 			addr,
 			Burn::tryBurnWithValueCall {
-				amount: alloy(evm_value(5, 0)),
-				value: alloy(evm_value(2, 0)),
+				amount: to_alloy(evm_value(5, 0)),
+				value: to_alloy(evm_value(2, 0)),
 			}
 			.abi_encode(),
 		);
 		assert!(!success);
-		assert_eq!(decode_error(&output), "burn: msg.value must be zero");
+		assert_eq!(decode_error(&output), "value transfer not allowed");
 		// The value is back with the contract.
 		assert_eq!(Pallet::<Test>::evm_balance(&addr), evm_value(1_000, 7));
 		assert_eq!(Pallet::<Test>::evm_balance(&H160(SYSTEM_PRECOMPILE_ADDR)), U256::zero());
@@ -269,9 +285,14 @@ fn static_call_fails(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let addr = deploy(fixture_type, 1_000, 7);
 
-		let (success, _) =
-			try_call(addr, Burn::tryBurnStaticCall { amount: alloy(evm_value(5, 0)) }.abi_encode());
+		let (success, output) = try_call(
+			addr,
+			Burn::tryBurnStaticCall { amount: to_alloy(evm_value(5, 0)) }.abi_encode(),
+		);
 		assert!(!success);
+		// The pre-compile traps instead of reverting.
+		assert!(output.is_empty());
+		assert_eq!(Pallet::<Test>::evm_balance(&addr), evm_value(1_000, 7));
 	});
 }
 
@@ -284,7 +305,7 @@ fn reverted_burn_is_rolled_back(fixture_type: FixtureType) {
 
 		let (success, output) = try_call(
 			addr,
-			Burn::tryBurnThenRevertCall { amount: alloy(evm_value(5, 10)) }.abi_encode(),
+			Burn::tryBurnThenRevertCall { amount: to_alloy(evm_value(5, 10)) }.abi_encode(),
 		);
 		assert!(!success);
 		// The burn itself went through.
@@ -304,7 +325,7 @@ fn delegate_call_to_precompile_reverts(fixture_type: FixtureType) {
 
 		let (success, output) = try_call(
 			addr,
-			Burn::tryBurnDelegateCall { amount: alloy(evm_value(5, 0)) }.abi_encode(),
+			Burn::tryBurnDelegateCall { amount: to_alloy(evm_value(5, 0)) }.abi_encode(),
 		);
 		assert!(!success);
 		assert_eq!(decode_error(&output), "illegal to call this pre-compile via delegate call");
@@ -320,12 +341,13 @@ fn proxy_burns_its_own_balance(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let implementation = deploy_with_salt(fixture_type, 1_000, 7, 0);
 		let proxy = deploy_with_salt(fixture_type, 500, 0, 1);
+		let issuance = Balances::total_issuance();
 
 		let result = builder::bare_call(proxy)
 			.data(
 				Burn::burnAsProxyCall {
 					implementation: implementation.0.into(),
-					amount: alloy(evm_value(5, 0)),
+					amount: to_alloy(evm_value(5, 0)),
 				}
 				.abi_encode(),
 			)
@@ -334,11 +356,12 @@ fn proxy_burns_its_own_balance(fixture_type: FixtureType) {
 
 		assert_eq!(Pallet::<Test>::evm_balance(&proxy), evm_value(495, 0));
 		assert_eq!(Pallet::<Test>::evm_balance(&implementation), evm_value(1_000, 7));
+		assert_eq!(issuance - Balances::total_issuance(), 5);
 	});
 }
 
 fn burn_input(amount: U256) -> Vec<u8> {
-	ISystem::ISystemCalls::burn(ISystem::burnCall { amount: alloy(amount) }).abi_encode()
+	ISystem::ISystemCalls::burn(ISystem::burnCall { amount: to_alloy(amount) }).abi_encode()
 }
 
 /// An account that is no contract burns from its own balance.
@@ -347,6 +370,7 @@ fn direct_call_burns_from_origin() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let alice = Pallet::<Test>::evm_balance(&ALICE_ADDR);
+		let issuance = Balances::total_issuance();
 
 		let result = builder::bare_call(H160(SYSTEM_PRECOMPILE_ADDR))
 			.data(burn_input(evm_value(5, 0)))
@@ -354,6 +378,7 @@ fn direct_call_burns_from_origin() {
 		assert!(!result.did_revert());
 
 		assert_eq!(Pallet::<Test>::evm_balance(&ALICE_ADDR), alice - evm_value(5, 0));
+		assert_eq!(issuance - Balances::total_issuance(), 5);
 	});
 }
 
@@ -369,7 +394,7 @@ fn direct_call_with_value_reverts() {
 			.data(burn_input(evm_value(5, 0)))
 			.build_and_unwrap_result();
 		assert!(result.did_revert());
-		assert_eq!(decode_error(&result.data), "burn: msg.value must be zero");
+		assert_eq!(decode_error(&result.data), "value transfer not allowed");
 
 		assert_eq!(Pallet::<Test>::evm_balance(&ALICE_ADDR), alice);
 		assert_eq!(Pallet::<Test>::evm_balance(&H160(SYSTEM_PRECOMPILE_ADDR)), U256::zero());

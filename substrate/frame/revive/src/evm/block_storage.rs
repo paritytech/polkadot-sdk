@@ -117,7 +117,7 @@ impl EthereumCallResult {
 			let round_up_fee = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(tx_cost - fee)
 				.expect("value fits into BalanceOf<T>; qed");
 			log::debug!(target: LOG_TARGET, "Collecting round_up fee from {signer:?}: {round_up_fee:?}");
-			let _ = burn_with_dust::<T>(&signer, round_up_fee, BurnKind::Forward)
+			let _ = burn_with_dust::<T>(&signer, round_up_fee, BurnKind::OnBurn)
 					.inspect_err(|e| log::debug!(target: LOG_TARGET, "Failed to collect round up fee {round_up_fee:?} from {signer:?}: {e:?}"));
 		}
 

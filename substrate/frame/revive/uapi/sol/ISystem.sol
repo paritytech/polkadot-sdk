@@ -80,13 +80,9 @@ interface ISystem {
 	/// - `publicKey`: The public key bytes.
 	function ecdsaToEthAddress(uint8[33] calldata publicKey) external view returns (bytes20);
 
-	/// Burn `amount` of the native token from the balance of the caller of this function. The
-	/// caller is the contract or account that calls the pre-compile, as `msg.sender` is for it.
-	/// The amount is removed from the total issuance. It is not forwarded to the burn handler
-	/// of the chain.
-	/// `amount` is in the unit of `msg.value`. The existential deposit cannot be burned.
-	/// Burning dust the caller does not hold converts one unit of its balance into dust first.
-	/// That unit has to be spendable as well.
+	/// Burn `amount` of the native token from the spendable balance of the calling contract or
+	/// account and remove it from the total issuance. `amount` has EVM decimals. The existential
+	/// deposit cannot be burned.
 	/// This will revert if:
 	/// - the spendable balance of the caller is lower than `amount`
 	/// - `amount` is larger than the balance type of the chain can hold

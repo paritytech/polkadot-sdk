@@ -672,4 +672,13 @@ mod tests {
 			);
 		}
 	}
+
+	#[test]
+	fn burn_with_dust_pays_a_surcharge() {
+		let weight = |dust| <RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::Burn { dust });
+		assert!(
+			weight(true).ref_time() > weight(false).ref_time(),
+			"a burn with dust must cost more"
+		);
+	}
 }
