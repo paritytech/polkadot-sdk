@@ -82,6 +82,11 @@ jobs:
             parity-publish --color always apply --registry
           fi
 
+      # After a real publish, crates.io dependents of a crate with a semver-compatible bump use
+      # its new version. Patch crates.io with the local crates to get the same dependency graph.
+      - name: use local crates for crates.io dependents
+        run: python3 .github/scripts/patch-local-crates.py .
+
       - name: parity-publish check compile
         run: |
           packages="$(parity-publish apply --print)"
