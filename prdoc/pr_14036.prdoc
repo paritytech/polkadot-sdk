@@ -1,0 +1,9 @@
+title: 'fatxpool: clear validation bans when cloning a view across a reorg'
+doc:
+- audience: Node Dev
+  description: |-
+    A view cloned from the retracted fork's tip no longer inherits its `Validation` bans, so a
+    transaction banned on that fork is checked again against the new fork.
+crates:
+- name: sc-transaction-pool
+  bump: patch
