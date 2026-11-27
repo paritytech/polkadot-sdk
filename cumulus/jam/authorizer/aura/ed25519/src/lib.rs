@@ -48,7 +48,7 @@ impl SignatureVerifier for Ed25519 {
 	}
 }
 
-/// Validate a work package and its AURA token using [`Ed25519`].
+/// Check whether the AURA token authorizes this work package for the given slot using [`Ed25519`].
 pub fn authorize(
 	config: &AuthConfig,
 	token: &AuthToken,
