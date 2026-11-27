@@ -1,0 +1,13 @@
+title: '`pallet-skip-feeless-payment`: test post_dispatch paths'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds tests for the previously untested `post_dispatch` behavior of `SkipCheckIfFeeless`:
+      the skip path emits `FeeSkipped` and returns zero unspent weight, the apply path forwards
+      to the wrapped extension and refunds its unspent weight into `post_info`.
+      Test-only, no behavior change.
+
+crates:
+  - name: pallet-skip-feeless-payment
+    bump: none
