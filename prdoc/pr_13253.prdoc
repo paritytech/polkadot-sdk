@@ -1,0 +1,49 @@
+title: 'cumulus: advertise to all scheduling parents in the case of RC forks'
+doc:
+- audience: Node Dev
+  description: |-
+    When the relay chain forks at the scheduling parent's height, a V3 collator picks one twin from its local view (whichever arrives first) and loses the whole slot's work if it picks the loser. The blocks themselves are
+      fine in that case: under V3 the scheduling parent only decides core assignment and author eligibility, while the blocks are executed against the relay parent. So instead of guessing, submit the same segment under every same-height sibling that BABE's primary/secondary weighting hasn't already ruled out and whose relay-parent walk-back reaches the relay parent these blocks were built on.
+
+      Built on top of #12537
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: polkadot-node-collation-generation
+  bump: patch
+- name: polkadot-network-bridge
+  bump: patch
+- name: polkadot-collator-protocol
+  bump: patch
+- name: polkadot-node-network-protocol
+  bump: patch
+- name: polkadot-node-subsystem-types
+  bump: patch
+- name: polkadot-primitives-test-helpers
+  bump: patch
+- name: polkadot-node-core-prospective-parachains
+  bump: patch
+- name: polkadot-node-primitives
+  bump: patch
+- name: cumulus-relay-chain-minimal-node
+  bump: patch
+- name: polkadot-service
+  bump: patch
+- name: polkadot-primitives
+  bump: patch
+- name: polkadot-node-core-pvf-execute-worker
+  bump: patch
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: cumulus-client-collator
+  bump: patch
+- name: cumulus-client-network
+  bump: patch
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: bp-runtime
+  bump: patch
+- name: cumulus-client-consensus-common
+  bump: patch
+- name: cumulus-client-resubmission-store
+  bump: patch
