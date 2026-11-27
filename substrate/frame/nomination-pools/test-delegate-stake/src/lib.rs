@@ -30,6 +30,7 @@ use frame_support::{
 };
 use mock::*;
 use pallet_nomination_pools::{
+	adapter::{Pool, StakeStrategy},
 	BondExtra, BondedPools, CommissionChangeRate, ConfigOp, Error as PoolsError,
 	Event as PoolsEvent, LastPoolId, PoolMember, PoolMembers, PoolState,
 };
@@ -1730,6 +1731,77 @@ fn pool_no_dangling_delegation() {
 		assert_eq!(Balances::total_balance_on_hold(&alice), 0);
 		assert_eq!(Balances::total_balance_on_hold(&bob), 0);
 		assert_eq!(Balances::total_balance_on_hold(&charlie), 0);
+	});
+}
+
+/// Members in sub-pools that merge into `no_era` while the pool still has unapplied
+/// `pending_slash` can show a positive `actual_held - expected_balance` even without real
+/// slash debt of their own, because the merge dilutes the points-to-balance ratio.
+/// `apply_slash` must cap each member's slash so the sum across members never exceeds the
+/// pool's outstanding slash debt.
+#[test]
+fn merging_subpool_does_not_cause_over_slash() {
+	new_test_ext().execute_with(|| {
+		// GIVEN a pool with alice (depositor), bob and charlie. Bob unbonds before the
+		// slashed era and so his sub-pool stays intact; charlie unbonds in the slashed era.
+		ExistentialDeposit::set(1);
+		let alice = 10; // depositor
+		let bob = 20; // unbonds early -> era-4 sub-pool untouched by slash
+		let charlie = 21; // unbonds in slashed era -> era-5 sub-pool slashed
+
+		assert_ok!(Pools::create(RuntimeOrigin::signed(alice), 40, alice, alice, alice));
+		assert_ok!(Pools::join(RuntimeOrigin::signed(bob), 20, 1));
+		assert_ok!(Pools::join(RuntimeOrigin::signed(charlie), 20, 1));
+
+		Staking::set_era(1);
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(bob), bob, 20));
+
+		Staking::set_era(2);
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(alice), alice, 10));
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(charlie), charlie, 10));
+
+		// Slash era 2, amount 30. Hits bonded pool and era-5 sub-pool, not era-4.
+		// Bonded: 40 -> 20. Era-5 sub-pool: 20 -> 10. Pool's outstanding slash debt = 30.
+		pallet_staking_async::slashing::do_slash::<Runtime>(
+			&POOL1_BONDED,
+			30,
+			&mut Default::default(),
+			&mut Default::default(),
+			2,
+		);
+
+		// Apply slash for alice only; leave charlie's slash debt unapplied so the pool
+		// still has 10 of `pending_slash` when the no_era merge happens.
+		assert_eq!(Pools::api_member_pending_slash(alice), 20);
+		assert_ok!(Pools::apply_slash(RuntimeOrigin::signed(alice), alice));
+		assert_eq!(Pools::api_member_pending_slash(charlie), 10);
+		assert_eq!(Pools::api_member_pending_slash(bob), 0);
+
+		// WHEN we advance past `PostUnbondingPoolsWindow` and trigger the lazy merge.
+		// era-4 (20 pts, 20 bal) + era-5 (20 pts, 10 bal) -> no_era (40 pts, 30 bal).
+		Staking::set_era(15);
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(alice), alice, 1));
+
+		// THEN bob's apparent slash debt is non-zero despite never being slashed, and the
+		// per-member values sum to more than the pool actually owes — the merge inflated
+		// the apparent gap.
+		assert_eq!(Pools::api_member_pending_slash(bob), 5);
+		assert_eq!(Pools::api_member_pending_slash(charlie), 8);
+		let pool_pending_slash =
+			<Runtime as pallet_nomination_pools::Config>::StakeAdapter::pending_slash(
+				Pool::from(POOL1_BONDED),
+			);
+		assert_eq!(pool_pending_slash, 10);
+
+		// AND applying slash to both members drains exactly `pool_pending_slash` in
+		// aggregate — not the inflated 5 + 8 = 13 the per-member values would suggest.
+		let bob_held_before = Balances::total_balance_on_hold(&bob);
+		let charlie_held_before = Balances::total_balance_on_hold(&charlie);
+		assert_ok!(Pools::apply_slash(RuntimeOrigin::signed(alice), charlie));
+		assert_ok!(Pools::apply_slash(RuntimeOrigin::signed(alice), bob));
+		let total_slashed = (bob_held_before - Balances::total_balance_on_hold(&bob))
+			+ (charlie_held_before - Balances::total_balance_on_hold(&charlie));
+		assert_eq!(total_slashed, 10);
 	});
 }
 
