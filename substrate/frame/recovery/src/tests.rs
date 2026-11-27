@@ -1633,9 +1633,7 @@ mod try_state {
 		new_test_ext().execute_with(|| {
 			setup_one_group_one_attempt();
 			// Zero out both the stored deposit and the hold, mirroring MigrateV0ToV1.
-			if let Some((attempt, ticket, _)) =
-				pallet::Attempt::<T>::get(ALICE, 0u32)
-			{
+			if let Some((attempt, ticket, _)) = pallet::Attempt::<T>::get(ALICE, 0u32) {
 				pallet::Attempt::<T>::insert(ALICE, 0u32, (attempt, ticket, 0u128));
 			}
 			assert_ok!(<T as Config>::Currency::set_balance_on_hold(

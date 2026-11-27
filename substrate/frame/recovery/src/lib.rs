@@ -1064,7 +1064,8 @@ impl<T: Config> Pallet<T> {
 	/// 8. `Inheritor[lost].1 != lost`. Surfaces an unenforced precondition in `set_friend_groups`.
 	#[cfg(any(feature = "try-runtime", test))]
 	pub(crate) fn do_try_state() -> Result<(), frame::deps::sp_runtime::TryRuntimeError> {
-		for (lost, friend_group_index, (attempt, ticket, security_deposit)) in pallet::Attempt::<T>::iter()
+		for (lost, friend_group_index, (attempt, ticket, security_deposit)) in
+			pallet::Attempt::<T>::iter()
 		{
 			// 1. No orphan attempts.
 			let friend_groups_entry = FriendGroups::<T>::get(&lost)
@@ -1111,14 +1112,10 @@ impl<T: Config> Pallet<T> {
 			// A zero stored deposit is a valid state: `MigrateV0ToV1` falls back to zero when
 			// it cannot hold the deposit for the rescuer. `cancel_attempt` and `approve_attempt`
 			// release via `Precision::BestEffort`, so storage and holds are consistent.
-			if T::Currency::balance_on_hold(
-				&HoldReason::SecurityDeposit.into(),
-				&attempt.initiator,
-			) < security_deposit
+			if T::Currency::balance_on_hold(&HoldReason::SecurityDeposit.into(), &attempt.initiator) <
+				security_deposit
 			{
-				return Err(
-					"Attempt initiator holds less than the stored security deposit".into()
-				);
+				return Err("Attempt initiator holds less than the stored security deposit".into());
 			}
 		}
 
