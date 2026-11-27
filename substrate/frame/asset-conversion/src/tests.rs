@@ -1531,6 +1531,111 @@ fn quote_price_returns_none_swap_fails() {
 }
 
 #[test]
+fn swap_keeps_nonce_when_spending_whole_balance() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let user2 = 2;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+
+		// `token_2` is a sufficient asset.
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 2, user, true, 1));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+
+		let ed = get_native_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10000 + ed));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			10000,
+			200,
+			1,
+			1,
+			user,
+		));
+
+		// The native balance is the only reference that keeps `user2` alive.
+		let input_amount = 1000;
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user2, input_amount));
+		assert_eq!(System::reference_count(&user2), 1);
+		System::inc_account_nonce(&user2);
+
+		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
+			RuntimeOrigin::signed(user2),
+			bvec![token_1.clone(), token_2.clone()],
+			input_amount,
+			1,
+			user2,
+			false,
+		));
+
+		// The whole native balance is spent, so only the received `token_2` keeps `user2` alive
+		// now.
+		assert_eq!(balance(user2, token_1), 0);
+		assert!(balance(user2, token_2) > 0);
+		assert_eq!(System::reference_count(&user2), 1);
+		assert_eq!(System::account_nonce(&user2), 1);
+	});
+}
+
+#[test]
+fn swap_reaps_sender_when_sending_whole_balance_to_other() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let user2 = 2;
+		let user3 = 3;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+
+		// `token_2` is a sufficient asset.
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 2, user, true, 1));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+
+		let ed = get_native_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10000 + ed));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			10000,
+			200,
+			1,
+			1,
+			user,
+		));
+
+		// The native balance is the only reference that keeps `user2` alive.
+		let input_amount = 1000;
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user2, input_amount));
+		assert_eq!(System::reference_count(&user2), 1);
+
+		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
+			RuntimeOrigin::signed(user2),
+			bvec![token_1.clone(), token_2.clone()],
+			input_amount,
+			1,
+			user3,
+			false,
+		));
+
+		// `user2` spent its whole balance and received nothing, so it is reaped.
+		assert!(balance(user3, token_2) > 0);
+		assert!(!System::account_exists(&user2));
+	});
+}
+
+#[test]
 fn can_swap_with_native() {
 	new_test_ext().execute_with(|| {
 		let user = 1;

@@ -1185,10 +1185,13 @@ pub mod pallet {
 			keep_alive: bool,
 		) -> Result<(), DispatchError> {
 			let (asset_in, amount_in) = path.first().ok_or(Error::<T>::InvalidPath)?;
+			// Keep `sender` alive throughout, in case it is also `send_to`.
+			frame_system::Pallet::<T>::inc_sufficients(sender);
 			let credit_in = Self::withdraw(asset_in.clone(), sender, *amount_in, keep_alive)?;
 
 			let credit_out = Self::credit_swap(credit_in, path).map_err(|(_, e)| e)?;
 			T::Assets::resolve(send_to, credit_out).map_err(|_| Error::<T>::BelowMinimum)?;
+			frame_system::Pallet::<T>::dec_sufficients(sender);
 
 			Ok(())
 		}
