@@ -8,4 +8,4 @@ doc:
     needed since nothing ever wrote to it.
 crates:
 - name: polkadot-runtime-parachains
-  bump: patch
+  bump: major
