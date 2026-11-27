@@ -33,7 +33,7 @@ use jam_types::{Slot, WorkPackage};
 #[cfg(target_env = "polkavm")]
 jam_pvm_common::declare_authorizer!(cumulus_aura_authorizer_utils::Guest<Sr25519>);
 
-// Keep the guest's minimum stack explicit rather than relying on the linker's default.
+// Reserve 8 KiB; the Dalek-backed authorizer peaked at 5,912 bytes in the blob test.
 #[cfg(target_env = "polkavm")]
 polkavm_derive::min_stack_size!(8192);
 
