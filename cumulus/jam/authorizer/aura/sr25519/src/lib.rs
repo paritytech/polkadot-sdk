@@ -36,6 +36,10 @@ struct Authorizer;
 #[cfg(target_env = "polkavm")]
 jam_pvm_common::declare_authorizer!(Authorizer);
 
+// Reserve 8 KiB; the Dalek-backed authorizer peaked at 5,912 bytes in the blob test.
+#[cfg(target_env = "polkavm")]
+polkavm_derive::min_stack_size!(8192);
+
 #[cfg(target_env = "polkavm")]
 impl jam_pvm_common::Authorizer for Authorizer {
 	fn is_authorized(_: jam_types::CoreIndex) -> jam_types::AuthTrace {
@@ -43,10 +47,6 @@ impl jam_pvm_common::Authorizer for Authorizer {
 		cumulus_aura_authorizer_utils::is_authorized::<Sr25519>(&package)
 	}
 }
-
-// Reserve 8 KiB; the Dalek-backed authorizer peaked at 5,912 bytes in the blob test.
-#[cfg(target_env = "polkavm")]
-polkavm_derive::min_stack_size!(8192);
 
 /// Sr25519-specific Schnorrkel transcript context used by `Keystore::sr25519_sign`.
 ///

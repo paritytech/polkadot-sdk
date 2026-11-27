@@ -30,14 +30,15 @@ use cumulus_aura_authorizer_utils::{
 };
 use jam_types::{Slot, WorkPackage};
 
-/// Ed25519 signature verifier for AURA collators, matching `sp_core::ed25519`.
-pub struct Ed25519;
-
 #[cfg(target_env = "polkavm")]
 struct Authorizer;
 
 #[cfg(target_env = "polkavm")]
 jam_pvm_common::declare_authorizer!(Authorizer);
+
+// Reserve 8 KiB; the Dalek-backed authorizer peaked at 5,984 bytes in the blob test.
+#[cfg(target_env = "polkavm")]
+polkavm_derive::min_stack_size!(8192);
 
 #[cfg(target_env = "polkavm")]
 impl jam_pvm_common::Authorizer for Authorizer {
@@ -47,9 +48,8 @@ impl jam_pvm_common::Authorizer for Authorizer {
 	}
 }
 
-// Reserve 8 KiB; the Dalek-backed authorizer peaked at 5,984 bytes in the blob test.
-#[cfg(target_env = "polkavm")]
-polkavm_derive::min_stack_size!(8192);
+/// Ed25519 signature verifier for AURA collators, matching `sp_core::ed25519`.
+pub struct Ed25519;
 
 impl SignatureVerifier for Ed25519 {
 	fn verify(key: &CollatorKey, signature: &CollatorSignature, payload: &[u8]) -> bool {
