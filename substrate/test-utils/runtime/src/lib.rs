@@ -827,6 +827,7 @@ impl_runtime_apis! {
 		fn get_preset(name: &Option<PresetId>) -> Option<Vec<u8>> {
 			get_preset::<RuntimeGenesisConfig>(name, |name| {
 				 let patch = match name.as_ref() {
+					"invalid_json" => return Some("invalid json preset".as_bytes().to_vec()),
 					"staging" => {
 						let endowed_accounts: Vec<AccountId> = vec![
 							Sr25519Keyring::Bob.public().into(),

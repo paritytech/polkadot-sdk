@@ -36,7 +36,7 @@ pub fn build_state<GC: BuildGenesisConfig>(json: Vec<u8>) -> BuildResult {
 
 /// Get the default `GenesisConfig` as a JSON blob if `name` is None.
 ///
-/// Query of named presets is delegetaed to provided `preset_for_name` closure. For more info refer
+/// Query of named presets is delegated to provided `preset_for_name` closure. For more info refer
 /// to [`sp_genesis_builder::GenesisBuilder::get_preset`].
 pub fn get_preset<GC>(
 	name: &Option<PresetId>,
