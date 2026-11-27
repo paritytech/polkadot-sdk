@@ -54,11 +54,47 @@ pub use bp_runtime::{
 	UnderlyingChainProvider,
 };
 
-/// Substrate-over-websocket connection params.
+/// Where the client gets chain data from.
+#[derive(Clone, Debug)]
+pub enum Transport {
+	/// WebSocket connection to a full node's RPC endpoint.
+	Ws {
+		/// Websocket endpoint URL.
+		uri: String,
+	},
+	/// Embedded smoldot light client.
+	LightClient {
+		/// Path to the chain specification of the chain.
+		chain_spec: std::path::PathBuf,
+		/// Path to the chain specification of the relay chain, if the chain is a parachain.
+		relay_chain_spec: Option<std::path::PathBuf>,
+	},
+}
+
+impl std::fmt::Display for Transport {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		match self {
+			Transport::Ws { uri } => write!(f, "{uri}"),
+			Transport::LightClient { chain_spec, relay_chain_spec: None } => {
+				write!(f, "light client ({})", chain_spec.display())
+			},
+			Transport::LightClient { chain_spec, relay_chain_spec: Some(relay_chain_spec) } => {
+				write!(
+					f,
+					"light client ({}, relay chain {})",
+					chain_spec.display(),
+					relay_chain_spec.display()
+				)
+			},
+		}
+	}
+}
+
+/// Substrate client connection params.
 #[derive(Debug, Clone)]
 pub struct ConnectionParams {
-	/// Websocket endpoint URL.
-	pub uri: String,
+	/// Where to get chain data from.
+	pub transport: Transport,
 	/// Defined chain runtime version
 	pub chain_runtime_version: ChainRuntimeVersion,
 }
@@ -66,7 +102,7 @@ pub struct ConnectionParams {
 impl Default for ConnectionParams {
 	fn default() -> Self {
 		ConnectionParams {
-			uri: "ws://localhost:9944".into(),
+			transport: Transport::Ws { uri: "ws://localhost:9944".into() },
 			chain_runtime_version: ChainRuntimeVersion::Auto,
 		}
 	}

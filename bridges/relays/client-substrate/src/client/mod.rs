@@ -26,6 +26,7 @@ use sp_version::RuntimeVersion;
 pub mod caching;
 pub mod rpc;
 
+pub(crate) mod light_client;
 mod rpc_api;
 mod subscription;
 mod traits;

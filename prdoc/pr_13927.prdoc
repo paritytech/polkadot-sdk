@@ -1,0 +1,13 @@
+title: 'bridges relayer: embedded smoldot light-client transport'
+doc:
+- audience: Node Operator
+  description: |-
+    `substrate-relay` can read chain data from an embedded smoldot light client
+    (`--<prefix>-chain-spec`, `--<prefix>-relay-chain-spec`) instead of a full node RPC
+    (`--<prefix>-uri`). GRANDPA justifications are taken from warp-sync proofs. Equivocation
+    detection still requires `--<prefix>-uri`.
+crates:
+- name: relay-substrate-client
+  bump: major
+- name: substrate-relay-helper
+  bump: major
