@@ -398,7 +398,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn renew_cores(sale: &SaleInfoRecordOf<T>) {
 		let renewals = AutoRenewals::<T>::get();
 
-		let Ok(auto_renewals) = renewals
+		let mut auto_renewals = renewals
 			.into_iter()
 			.flat_map(|record| {
 				// Check if the next renewal is scheduled further in the future than the start of
@@ -446,9 +446,15 @@ impl<T: Config> Pallet<T> {
 					None
 				}
 			})
-			.collect::<Vec<AutoRenewalRecord>>()
-			.try_into()
-		else {
+			.collect::<Vec<AutoRenewalRecord>>();
+
+		// Carried-over records keep their old core index while renewed records are remapped
+		// to freshly allocated cores, so the records can be out of order at this point.
+		// Restore the sorted-by-`core` invariant which the binary searches in
+		// `do_enable_auto_renew` and `do_disable_auto_renew` rely on.
+		auto_renewals.sort_by_key(|record| record.core);
+
+		let Ok(auto_renewals) = auto_renewals.try_into() else {
 			Self::deposit_event(Event::<T>::AutoRenewalLimitReached);
 			return;
 		};
