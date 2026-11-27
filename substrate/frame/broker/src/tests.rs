@@ -2338,6 +2338,10 @@ fn config_works() {
 		assert_ok!(Broker::configure(Root.into(), cfg.clone()));
 		// Bad config is a noop:
 		cfg.leadin_length = 0;
+		assert_noop!(Broker::configure(Root.into(), cfg.clone()), Error::<Test>::InvalidConfig);
+		// A zero region length would produce empty regions, so it is rejected too:
+		cfg.leadin_length = 1;
+		cfg.region_length = 0;
 		assert_noop!(Broker::configure(Root.into(), cfg), Error::<Test>::InvalidConfig);
 	});
 }

@@ -1,0 +1,13 @@
+title: '`pallet-broker`: reject zero `region_length` in config validation'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `ConfigRecord::validate` rejected a zero `leadin_length` but accepted a zero
+      `region_length`, which livelocks the sale: regions become empty and `do_purchase`
+      always fails `TooEarly`. Zero `region_length` is now rejected with `InvalidConfig`.
+      Note this guards the `configure` call; genesis config is not validated.
+
+crates:
+  - name: pallet-broker
+    bump: none
