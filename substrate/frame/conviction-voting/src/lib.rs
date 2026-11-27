@@ -604,7 +604,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		amount: Delegations<BalanceOf<T, I>>,
 	) -> u32 {
 		VotingFor::<T, I>::mutate_exists(who, class, |maybe_voting| {
-			let mut voting = maybe_voting.take().unwrap_or_default();
+			let Some(mut voting) = maybe_voting.take() else { return 0 };
 			let votes = match &mut voting {
 				Voting::Delegating(Delegating { delegations, .. }) => {
 					// We don't support second level delegating, so we don't need to do anything
