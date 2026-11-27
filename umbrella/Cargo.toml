@@ -400,7 +400,6 @@ try-runtime = [
 	"frame-support?/try-runtime",
 	"frame-system?/try-runtime",
 	"frame-try-runtime/try-runtime",
-	"generate-bags?/try-runtime",
 	"pallet-accumulate-and-forward?/try-runtime",
 	"pallet-alliance?/try-runtime",
 	"pallet-asset-conversion-ops?/try-runtime",
@@ -908,7 +907,6 @@ node = [
 	"frame-benchmarking-cli",
 	"frame-remote-externalities",
 	"frame-support-procedural-tools",
-	"generate-bags",
 	"mmr-gadget",
 	"mmr-rpc",
 	"pallet-contracts-mock-network",
@@ -2396,11 +2394,6 @@ path = "../substrate/utils/frame/remote-externalities"
 default-features = false
 optional = true
 path = "../substrate/frame/support/procedural/tools"
-
-[dependencies.generate-bags]
-default-features = false
-optional = true
-path = "../substrate/utils/frame/generate-bags"
 
 [dependencies.mmr-gadget]
 default-features = false

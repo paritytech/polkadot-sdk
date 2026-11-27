@@ -293,10 +293,6 @@ pub use frame_system_rpc_runtime_api;
 #[cfg(feature = "frame-try-runtime")]
 pub use frame_try_runtime;
 
-/// Bag threshold generation script for pallet-bag-list.
-#[cfg(feature = "generate-bags")]
-pub use generate_bags;
-
 /// MMR Client gadget for substrate.
 #[cfg(feature = "mmr-gadget")]
 pub use mmr_gadget;

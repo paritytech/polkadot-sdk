@@ -18250,7 +18250,6 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "generate-bags",
  "mmr-gadget",
  "mmr-rpc",
  "pallet-accumulate-and-forward",
