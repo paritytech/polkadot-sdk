@@ -19,6 +19,7 @@ mod block_hash;
 mod deposit_payment;
 mod eip7702;
 mod eth_estimate_gas;
+mod migration_pause;
 mod pallet_dummy;
 mod precompiles;
 mod pvm;
@@ -381,6 +382,20 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u128>;
 	type OnNewAccount = crate::AutoMapper<Test>;
 	type OnKilledAccount = crate::AutoMapper<Test>;
+	type MultiBlockMigrator = OngoingMigration;
+}
+
+/// Reports a multi-block migration as running while [`MigrationOngoing`] is set.
+pub struct OngoingMigration;
+
+impl frame_support::migrations::MultiStepMigrator for OngoingMigration {
+	fn ongoing() -> bool {
+		MigrationOngoing::get()
+	}
+
+	fn step() -> Weight {
+		Weight::zero()
+	}
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -532,6 +547,7 @@ parameter_types! {
 	pub static AutoMapFlag: bool = false;
 	pub static MaxOutsideFrameLogsFlag: u32 = 1024;
 	pub static MirrorAssetTransfers: bool = false;
+	pub static MigrationOngoing: bool = false;
 }
 
 impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
@@ -656,6 +672,7 @@ impl ExtBuilder {
 		// the thread.
 		MaxOutsideFrameLogsFlag::set(1024);
 		MirrorAssetTransfers::set(false);
+		MigrationOngoing::set(false);
 	}
 	pub fn with_genesis_state_overrides(mut self, storage: Storage) -> Self {
 		self.genesis_state_overrides = Some(storage);
