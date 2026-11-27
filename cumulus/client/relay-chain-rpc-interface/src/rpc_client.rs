@@ -808,6 +808,18 @@ impl RelayChainRpcClient {
 		)
 		.await
 	}
+
+	pub async fn parachain_host_session_executor_params_for_next_session(
+		&self,
+		at: RelayHash,
+	) -> Result<Option<ExecutorParams>, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_session_executor_params_for_next_session",
+			at,
+			None::<()>,
+		)
+		.await
+	}
 }
 
 /// Send `header` through all channels contained in `senders`.
