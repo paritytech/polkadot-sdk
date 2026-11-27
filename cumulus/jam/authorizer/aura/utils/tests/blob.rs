@@ -16,14 +16,17 @@ use polkavm::{BackendKind, Engine, InterruptKind, Module, ProgramCounter, Reg};
 
 fn execute(module: &Module, package: &[u8]) -> Option<Vec<u8>> {
 	let mut vm = module.instantiate().expect("instantiate authorizer");
+
 	let args = IsAuthorizedParams { core: 0 }.encode();
 	let address = module.memory_map().aux_data_address();
 	vm.set_accessible_aux_size(args.len() as u32).expect("map arguments");
 	vm.write_memory(address, &args).expect("write arguments");
 	vm.set_host_side_aux_write_protect(true).expect("protect arguments");
+
 	vm.set_gas(jam_types::max_is_authorized_gas() as i64);
 	vm.prepare_call_typed(ProgramCounter(0), (address, args.len() as u32));
 	let params = jam_types::ProtocolParameters::get().encode();
+
 	loop {
 		match vm.run().expect("run interpreter") {
 			InterruptKind::Finished => {
@@ -32,27 +35,32 @@ fn execute(module: &Module, package: &[u8]) -> Option<Vec<u8>> {
 				);
 			},
 			InterruptKind::Trap => return None,
+
 			InterruptKind::Ecalli(1) => {
 				// JAM grow_heap takes an absolute page count and returns the new heap top in pages.
 				let page = module.memory_map().page_size();
 				let top = vm.sbrk(0).expect("read heap top").expect("mapped heap");
 				let requested = u32::try_from(vm.reg(Reg::A0)).expect("page count") * page;
+
 				let top =
 					vm.sbrk(requested.saturating_sub(top)).expect("grow heap").expect("heap fits");
 				vm.set_reg(Reg::A0, u64::from(top.div_ceil(page)));
 			},
+
 			InterruptKind::Ecalli(2) => {
 				let bytes = match FetchKind::try_from(vm.reg(Reg::A3)) {
 					Ok(FetchKind::ProtocolParameters) => &params[..],
 					Ok(FetchKind::WorkPackage) => package,
 					kind => panic!("unexpected fetch: {kind:?}"),
 				};
+
 				let offset = bytes.len().min(vm.reg(Reg::A1) as usize);
 				let len = (bytes.len() - offset).min(vm.reg(Reg::A2) as usize);
 				if len != 0 {
 					vm.write_memory(vm.reg(Reg::A0) as u32, &bytes[offset..offset + len])
 						.expect("fetch destination");
 				}
+
 				vm.set_reg(Reg::A0, bytes.len() as u64);
 			},
 			other => panic!("unexpected interpreter exit: {other:?}"),
@@ -67,9 +75,11 @@ fn check(scheme: &str, key: [u8; 32], sign: impl FnOnce(&[u8]) -> [u8; 64]) {
 		.expect("built authorizer");
 	let blob = jam_program_blob_common::ProgramBlob::from_bytes(&bytes).expect("JAM envelope");
 	assert_eq!(blob.stack_size, 8192);
+
 	let mut config = polkavm::Config::new();
 	config.set_backend(Some(BackendKind::Interpreter));
 	let engine = Engine::new(&config).expect("interpreter engine");
+
 	let mut config = polkavm::ModuleConfig::new();
 	config
 		.set_page_size(4096)
@@ -116,11 +126,13 @@ fn check(scheme: &str, key: [u8; 32], sign: impl FnOnce(&[u8]) -> [u8; 64]) {
 		.try_into()
 		.expect("one work item fits"),
 	};
+
 	let mut token = AuthToken { signature: sign(body.signing_hash().as_bytes()), proof, key };
 	assert_eq!(
 		execute(&module, &body.clone().with_authorization(&token).encode()).as_deref(),
 		Some(key.as_slice())
 	);
+
 	token.signature[0] ^= 1;
 	assert_eq!(execute(&module, &body.with_authorization(&token).encode()), None);
 }
