@@ -28,17 +28,20 @@ use sp_core::{
 	ed25519, map,
 	offchain::{testing, OffchainDbExt, OffchainWorkerExt},
 	sr25519,
-	traits::{CallContext, CodeExecutor, Externalities, FetchRuntimeCode, RuntimeCode},
+	traits::{
+		CallContext, CodeExecutor, Externalities, FetchRuntimeCode, ReadRuntimeVersion,
+		ReadRuntimeVersionExt, RuntimeCode,
+	},
 	Pair,
 };
 use sp_crypto_hashing::{blake2_128, blake2_256, sha2_256, twox_128, twox_256};
 use sp_runtime::traits::BlakeTwo256;
-use sp_state_machine::TestExternalities as CoreTestExternalities;
+use sp_state_machine::{BasicExternalities, TestExternalities as CoreTestExternalities};
 use sp_trie::{LayoutV1 as Layout, TrieConfiguration};
 use std::{sync::Arc, time::Duration};
 use tracing_subscriber::layer::SubscriberExt;
 
-use crate::WasmExecutionMethod;
+use crate::{DefaultReadRuntimeVersion, RuntimeVersion, WasmExecutionMethod};
 
 pub type TestExternalities = CoreTestExternalities<BlakeTwo256>;
 type HostFunctions = (sp_io::SubstrateHostFunctions, sp_virtualization::HostFunctions);
@@ -982,4 +985,106 @@ fn timed_call_completes_and_cache_stays_usable(wasm_method: WasmExecutionMethod)
 		)
 		.unwrap();
 	assert_eq!(result, vec![0u8; 0]);
+}
+
+fn substrate_test_runtime_version() -> RuntimeVersion {
+	let blob =
+		RuntimeBlob::uncompress_if_needed(substrate_test_runtime::wasm_binary_unwrap()).unwrap();
+	crate::read_embedded_version(&blob)
+		.unwrap()
+		.expect("Test runtime embeds its version")
+}
+
+#[test]
+fn default_read_runtime_version_reads_embedded_section() {
+	let version = DefaultReadRuntimeVersion
+		.read_runtime_version(
+			substrate_test_runtime::wasm_binary_unwrap(),
+			&mut BasicExternalities::default(),
+		)
+		.unwrap();
+
+	assert_eq!(version, substrate_test_runtime_version().encode());
+}
+
+#[test]
+fn default_read_runtime_version_falls_back_to_core_version() {
+	let wasm = sp_maybe_compressed_blob::decompress(
+		substrate_test_runtime::wasm_binary_unwrap(),
+		sp_maybe_compressed_blob::CODE_BLOB_BOMB_LIMIT,
+	)
+	.unwrap();
+	let mut module: parity_wasm::elements::Module =
+		parity_wasm::elements::deserialize_buffer(&wasm).unwrap();
+	module.clear_custom_section("runtime_version").unwrap();
+	module.clear_custom_section("runtime_apis").unwrap();
+	let wasm = parity_wasm::elements::serialize(module).unwrap();
+
+	assert!(crate::read_embedded_version(&RuntimeBlob::new(&wasm).unwrap())
+		.unwrap()
+		.is_none());
+
+	let version = DefaultReadRuntimeVersion
+		.read_runtime_version(&wasm, &mut BasicExternalities::default())
+		.unwrap();
+
+	assert_eq!(
+		RuntimeVersion::decode(&mut &version[..]).unwrap(),
+		substrate_test_runtime_version()
+	);
+}
+
+fn call_test_runtime_version(
+	wasm_method: WasmExecutionMethod,
+	ext: &mut BasicExternalities,
+) -> Option<Vec<u8>> {
+	let executor = crate::WasmExecutor::<HostFunctions>::builder()
+		.with_execution_method(wasm_method)
+		.with_allow_missing_host_functions(true)
+		.build();
+	let code_fetcher = CodeFetcher(wasm_binary_unwrap());
+
+	let (result, _) = executor.call(
+		ext,
+		&runtime_code(&code_fetcher, None),
+		"test_runtime_version",
+		&substrate_test_runtime::wasm_binary_unwrap().to_vec().encode(),
+		CallContext::Offchain,
+	);
+
+	Option::<Vec<u8>>::decode(&mut &result.unwrap()[..]).unwrap()
+}
+
+test_wasm_execution!(call_registers_default_read_runtime_version);
+fn call_registers_default_read_runtime_version(wasm_method: WasmExecutionMethod) {
+	let mut ext = BasicExternalities::default();
+
+	let version = call_test_runtime_version(wasm_method, &mut ext);
+
+	assert_eq!(version, Some(substrate_test_runtime_version().encode()));
+}
+
+test_wasm_execution!(call_keeps_registered_read_runtime_version);
+fn call_keeps_registered_read_runtime_version(wasm_method: WasmExecutionMethod) {
+	struct MockReadRuntimeVersion(Vec<u8>);
+
+	impl ReadRuntimeVersion for MockReadRuntimeVersion {
+		fn read_runtime_version(
+			&self,
+			_: &[u8],
+			_: &mut dyn Externalities,
+		) -> Result<Vec<u8>, String> {
+			Ok(self.0.clone())
+		}
+	}
+
+	let mock_version = RuntimeVersion { spec_version: 1337, ..Default::default() }.encode();
+	let mut ext = BasicExternalities::default();
+	ext.register_extension(ReadRuntimeVersionExt::new(MockReadRuntimeVersion(
+		mock_version.clone(),
+	)));
+
+	let version = call_test_runtime_version(wasm_method, &mut ext);
+
+	assert_eq!(version, Some(mock_version));
 }

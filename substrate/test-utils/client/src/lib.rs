@@ -267,9 +267,9 @@ impl<Block: BlockT, H, Backend, G: GenesisInit>
 		let executor = executor.into().unwrap_or_else(|| WasmExecutor::<H>::builder().build());
 		let executor = LocalCallExecutor::new(
 			self.backend.clone(),
-			executor.clone(),
+			executor,
 			Default::default(),
-			ExecutionExtensions::new(None, Arc::new(executor)),
+			ExecutionExtensions::new(None),
 		)
 		.expect("Creates LocalCallExecutor");
 

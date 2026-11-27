@@ -44,7 +44,7 @@ use sp_core::{
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
 	storage::StateVersion,
-	traits::{CallContext, CodeExecutor, ReadRuntimeVersionExt, WrappedRuntimeCode},
+	traits::{CallContext, CodeExecutor, WrappedRuntimeCode},
 	Hasher,
 };
 use sp_externalities::Extensions;
@@ -325,7 +325,7 @@ impl PalletCmd {
 				&executor,
 				"Core_version",
 				&[],
-				&mut Self::build_extensions(executor.clone(), state.recorder()),
+				&mut Self::build_extensions(state.recorder()),
 				&runtime_code,
 				CallContext::Offchain,
 				// `Core_version` doesn't compute storage roots.
@@ -355,7 +355,7 @@ impl PalletCmd {
 					&executor,
 					"Benchmark_benchmark_metadata",
 					&(self.extra).encode(),
-					&mut Self::build_extensions(executor.clone(), state.recorder()),
+					&mut Self::build_extensions(state.recorder()),
 					&runtime_code,
 					CallContext::Offchain,
 					runtime_version.state_version(),
@@ -480,7 +480,7 @@ impl PalletCmd {
 								&executor,
 								"Benchmark_dispatch_benchmark",
 								&params(true, 1),
-								&mut Self::build_extensions(executor.clone(), state.recorder()),
+								&mut Self::build_extensions(state.recorder()),
 								&runtime_code,
 								CallContext::Offchain,
 								runtime_version.state_version(),
@@ -514,7 +514,7 @@ impl PalletCmd {
 								&executor,
 								"Benchmark_dispatch_benchmark",
 								&params(false, 1),
-								&mut Self::build_extensions(executor.clone(), state.recorder()),
+								&mut Self::build_extensions(state.recorder()),
 								&runtime_code,
 								CallContext::Offchain,
 								runtime_version.state_version(),
@@ -550,7 +550,7 @@ impl PalletCmd {
 							&executor,
 							"Benchmark_dispatch_benchmark",
 							&params(false, self.repeat),
-							&mut Self::build_extensions(executor.clone(), state.recorder()),
+							&mut Self::build_extensions(state.recorder()),
 							&runtime_code,
 							CallContext::Offchain,
 							runtime_version.state_version(),
@@ -729,10 +729,7 @@ impl PalletCmd {
 	}
 
 	/// Build the extension that are available for pallet benchmarks.
-	fn build_extensions<E: CodeExecutor, H: Hasher + 'static>(
-		exe: E,
-		maybe_recorder: Option<Recorder<H>>,
-	) -> Extensions {
+	fn build_extensions<H: Hasher + 'static>(maybe_recorder: Option<Recorder<H>>) -> Extensions {
 		let mut extensions = Extensions::default();
 		let (offchain, _) = TestOffchainExt::new();
 		let (pool, _) = TestTransactionPoolExt::new();
@@ -741,7 +738,6 @@ impl PalletCmd {
 		extensions.register(OffchainWorkerExt::new(offchain.clone()));
 		extensions.register(OffchainDbExt::new(offchain));
 		extensions.register(TransactionPoolExt::new(pool));
-		extensions.register(ReadRuntimeVersionExt::new(exe));
 		extensions.register(sp_virtualization::VirtManagerExt::new(
 			sc_virtualization::VirtManager::default(),
 		));

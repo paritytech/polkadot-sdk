@@ -145,6 +145,10 @@ sp_core::wasm_export_functions! {
 		Vec::with_capacity(size as usize)
 	}
 
+	fn test_runtime_version(code: Vec<u8>) -> Option<Vec<u8>> {
+		sp_io::misc::runtime_version(&code)
+	}
+
 	fn test_fp_f32add(a: [u8; 4], b: [u8; 4]) -> [u8; 4] {
 		let a = f32::from_le_bytes(a);
 		let b = f32::from_le_bytes(b);

@@ -37,7 +37,7 @@ mod integration_tests;
 mod wasm_runtime;
 
 pub use codec::Codec;
-pub use executor::{with_externalities_safe, WasmExecutor};
+pub use executor::{with_externalities_safe, DefaultReadRuntimeVersion, WasmExecutor};
 #[doc(hidden)]
 pub use sp_core::traits::Externalities;
 pub use sp_version::RuntimeVersion;

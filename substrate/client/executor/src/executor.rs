@@ -37,7 +37,10 @@ use sc_executor_common::{
 		AllocationStats, HeapAllocStrategy, WasmInstance, WasmModule, DEFAULT_HEAP_ALLOC_STRATEGY,
 	},
 };
-use sp_core::traits::{CallContext, CodeExecutor, Externalities, RuntimeCode};
+use sp_core::traits::{
+	CallContext, CodeExecutor, Externalities, ExternalitiesExt, ReadRuntimeVersion,
+	ReadRuntimeVersionExt, RuntimeCode,
+};
 use sp_version::RuntimeVersion;
 use sp_wasm_interface::HostFunctions;
 
@@ -512,10 +515,14 @@ where
 	}
 }
 
-impl<H> sp_core::traits::ReadRuntimeVersion for WasmExecutor<H>
-where
-	H: HostFunctions,
-{
+/// The default [`ReadRuntimeVersion`] that [`WasmExecutor`] registers as [`ReadRuntimeVersionExt`]
+/// for runtime calls that do not provide one.
+///
+/// It reads the version from the `runtime_version` custom section of the blob. If the section is
+/// missing, it calls `Core_version` on a temporary [`WasmExecutor`].
+pub struct DefaultReadRuntimeVersion;
+
+impl ReadRuntimeVersion for DefaultReadRuntimeVersion {
 	fn read_runtime_version(
 		&self,
 		wasm_code: &[u8],
@@ -535,18 +542,25 @@ where
 		// way of fetching the version: i.e. instantiating the given instance and calling
 		// `Core_version` on it.
 
-		self.uncached_call(
-			runtime_blob,
-			ext,
-			// If a runtime upgrade introduces new host functions that are not provided by
-			// the node, we should not fail at instantiation. Otherwise nodes that are
-			// updated could run this successfully and it could lead to a storage root
-			// mismatch when importing this block.
-			true,
-			"Core_version",
-			&[],
-		)
-		.map_err(|e| e.to_string())
+		WasmExecutor::<sp_io::SubstrateHostFunctions>::builder()
+			.with_allow_missing_host_functions(true)
+			.build()
+			.uncached_call(runtime_blob, ext, true, "Core_version", &[])
+			.map_err(|e| e.to_string())
+	}
+}
+
+fn register_default_read_runtime_version(mut ext: &mut dyn Externalities) {
+	if ext.extension::<ReadRuntimeVersionExt>().is_none() {
+		if let Err(error) =
+			ext.register_extension(ReadRuntimeVersionExt::new(DefaultReadRuntimeVersion))
+		{
+			tracing::trace!(
+				target: "executor",
+				?error,
+				"Cannot register the default `ReadRuntimeVersionExt`",
+			);
+		}
 	}
 }
 
@@ -569,6 +583,8 @@ where
 			%method,
 			"Executing function",
 		);
+
+		register_default_read_runtime_version(ext);
 
 		let heap_alloc_strategy = self.heap_alloc_strategy(runtime_code, context);
 
@@ -602,6 +618,8 @@ where
 			%method,
 			"Executing function with timeout",
 		);
+
+		register_default_read_runtime_version(ext);
 
 		let heap_alloc_strategy = self.heap_alloc_strategy(runtime_code, context);
 

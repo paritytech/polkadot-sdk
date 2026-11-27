@@ -22244,6 +22244,7 @@ dependencies = [
  "criterion",
  "num_cpus",
  "parity-scale-codec",
+ "parity-wasm",
  "parking_lot 0.12.5",
  "paste",
  "sc-executor-common 0.29.0",
