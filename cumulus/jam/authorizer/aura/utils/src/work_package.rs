@@ -48,6 +48,9 @@ impl WorkPackageBody {
 	}
 
 	/// Sign the package hash with the selected collator's key and attach its authorization token.
+	///
+	/// `sign` receives the collator's public key and the hash to sign. It returns `Ok(None)`
+	/// if the keystore has no matching key.
 	#[cfg(feature = "std")]
 	pub fn sign_with(
 		self,
@@ -58,10 +61,14 @@ impl WorkPackageBody {
 		let (_, proof) =
 			build_collator_proof(collator_set, collator_index).map_err(SignError::CollatorProof)?;
 		let key = collator_set[collator_index as usize];
-		let signature = sign(key, self.signing_hash().as_bytes())
+
+		let hash = self.signing_hash();
+		let signature = sign(key, hash.as_bytes())
 			.map_err(SignError::Keystore)?
 			.ok_or(SignError::MissingKey)?;
-		Ok(self.with_authorization(&AuthToken { proof, key, signature }))
+
+		let token = AuthToken { proof, key, signature };
+		Ok(self.with_authorization(&token))
 	}
 
 	/// Attach an existing AURA token and return the complete work package.
