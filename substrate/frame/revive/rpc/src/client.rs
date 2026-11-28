@@ -663,7 +663,7 @@ impl Client {
 			}
 		}
 
-		log::info!(target: LOG_TARGET, "Block subscription ended");
+		log::info!(target: LOG_TARGET, "Block subscription ended ({subscription_type:?})");
 		Ok(())
 	}
 

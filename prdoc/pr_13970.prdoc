@@ -1,0 +1,30 @@
+title: 'eth-rpc: fail readiness while catching up and liveness once stalled'
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+    An eth-rpc instance that is catching up now reports `isSyncing: true` in `system_health`, so
+    it fails `/health/readiness` but not `/health`. An instance is catching up while it is more
+    than 5 blocks behind its node. Previously `/health` and `/health/readiness` both failed once
+    eth-rpc was more than one block behind.
+
+    Deployments that use `/health/readiness` for the readiness probe and `/health` for the liveness
+    probe need no change. Deployments whose readiness probe uses `/health` should switch it to
+    `/health/readiness`, or an instance that is catching up keeps receiving traffic.
+
+    `/health` fails once the best block of an instance that is catching up has stayed unchanged
+    for more than 60 seconds.
+
+    The health check has three known limitations, which deployments should take into account.
+    - When an instance advances but never gets within 5 blocks of its node, it continues to report
+      `isSyncing: true` and to fail `/health/readiness`, while `/health` succeeds. Before this
+      change `/health` failed as well. A readiness probe that keeps failing should trigger an
+      alert.
+    - When eth-rpc is connected to a node without boot nodes, `/health/readiness` succeeds even
+      while eth-rpc is catching up. Before this change it failed once eth-rpc was more than one
+      block behind.
+    - When eth-rpc is connected to a node in major sync, the node does not deliver new blocks, so
+      `/health` fails once the sync has lasted more than 60 seconds. Before this change it failed
+      once eth-rpc was more than one block behind.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
