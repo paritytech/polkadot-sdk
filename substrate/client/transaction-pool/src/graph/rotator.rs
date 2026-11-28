@@ -136,6 +136,14 @@ impl<Hash: hash::Hash + Eq + Clone> PoolRotator<Hash> {
 		false
 	}
 
+	/// Removes all bans with [`BanReason::Validation`], keeping [`BanReason::LimitsEnforced`]
+	/// bans.
+	pub fn clear_validation_bans(&self) {
+		self.banned_until
+			.write()
+			.retain(|_, (_, reason)| *reason != BanReason::Validation);
+	}
+
 	/// Bans extrinsic if it's stale.
 	///
 	/// Returns `true` if extrinsic is stale and got banned.
@@ -292,6 +300,20 @@ mod tests {
 
 		assert!(!rotator.unban_if_validation(&hash));
 		assert!(rotator.is_banned(&hash));
+	}
+
+	#[test]
+	fn clear_validation_bans_keeps_limits_enforced_bans() {
+		let rotator = rotator();
+		let now = Instant::now();
+		rotator.ban(&now, [1u64, 2u64], BanReason::Validation);
+		rotator.ban(&now, iter::once(3u64), BanReason::LimitsEnforced);
+
+		rotator.clear_validation_bans();
+
+		assert!(!rotator.is_banned(&1u64));
+		assert!(!rotator.is_banned(&2u64));
+		assert!(rotator.is_banned(&3u64));
 	}
 
 	#[test]

@@ -1366,6 +1366,9 @@ where
 				if !tree_route.retracted().is_empty() {
 					view.pool.clear_recently_pruned();
 				}
+				if tree_route.retracted().iter().any(|block| block.hash == origin_view.at.hash) {
+					view.pool.clear_validation_bans();
+				}
 				(view, view_dropped_stream, view_aggragated_stream)
 			} else {
 				debug!(

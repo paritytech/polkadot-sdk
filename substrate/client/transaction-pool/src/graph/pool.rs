@@ -590,6 +590,11 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 	pub fn clear_recently_pruned(&mut self) {
 		self.validated_pool.pool.write().clear_recently_pruned();
 	}
+
+	/// Clears the validation bans in validated pool.
+	pub fn clear_validation_bans(&self) {
+		self.validated_pool.clear_validation_bans();
+	}
 }
 
 impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
