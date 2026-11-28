@@ -1,0 +1,10 @@
+title: 'nomination-pools: tolerate post-slash rounding dust in try-state'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Allow bounded point-to-balance floor rounding dust when validating
+    nomination pool member balances after a slash, preventing valid pool
+    states from failing try-state checks.
+crates:
+- name: pallet-nomination-pools
+  bump: patch
