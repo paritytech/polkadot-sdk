@@ -21,7 +21,7 @@
 use crate::chain_head::{
 	chain_head::{LOG_TARGET, MAX_PINNED_BLOCKS},
 	event::{
-		BestBlockChanged, Finalized, FollowEvent, Initialized, NewBlock, RuntimeEvent,
+		BestBlockChanged, ErrorEvent, Finalized, FollowEvent, Initialized, NewBlock, RuntimeEvent,
 		RuntimeVersionEvent,
 	},
 	subscription::{InsertedSubscriptionData, SubscriptionManagement, SubscriptionManagementError},
@@ -42,6 +42,7 @@ use sp_blockchain::{
 	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata, Info,
 };
 use sp_runtime::{
+	generic::DigestItem,
 	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	SaturatedConversion, Saturating,
 };
@@ -238,42 +239,38 @@ where
 		+ CallApiAt<Block>
 		+ 'static,
 {
-	/// Conditionally generate the runtime event of the given block.
-	fn generate_runtime_event(
-		&self,
-		block: Block::Hash,
-		parent: Option<Block::Hash>,
-	) -> Option<RuntimeEvent> {
+	/// Generate the runtime event of the given block.
+	fn runtime_event(&self, block: Block::Hash) -> RuntimeEvent {
+		match self.client.runtime_version_at(block, sp_api::CallContext::Offchain) {
+			Ok(rt) => RuntimeEvent::Valid(RuntimeVersionEvent { spec: rt.into() }),
+			Err(err) => err.into(),
+		}
+	}
+
+	/// Conditionally generate the runtime event of the given block, if its digest
+	/// signals a runtime environment update.
+	fn generate_runtime_event(&self, block: Block::Hash) -> Option<RuntimeEvent> {
 		// No runtime versions should be reported.
 		if !self.with_runtime {
 			return None;
 		}
 
-		let block_rt = match self.client.runtime_version_at(block, sp_api::CallContext::Offchain) {
-			Ok(rt) => rt,
-			Err(err) => return Some(err.into()),
-		};
-
-		let parent = match parent {
-			Some(parent) => parent,
-			// Nothing to compare against, always report.
-			None => {
-				return Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: block_rt.into() }))
+		let header = match self.client.header(block) {
+			Ok(Some(header)) => header,
+			Ok(None) => {
+				return Some(RuntimeEvent::Invalid(ErrorEvent {
+					error: format!("Header of block {block:?} not found"),
+				}))
 			},
+			Err(err) => return Some(RuntimeEvent::Invalid(ErrorEvent { error: err.to_string() })),
 		};
 
-		let parent_rt = match self.client.runtime_version_at(parent, sp_api::CallContext::Offchain)
-		{
-			Ok(rt) => rt,
-			Err(err) => return Some(err.into()),
-		};
-
-		// Report the runtime version change.
-		if block_rt != parent_rt {
-			Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: block_rt.into() }))
-		} else {
-			None
-		}
+		let updated = header
+			.digest()
+			.logs()
+			.iter()
+			.any(|item| matches!(item, DigestItem::RuntimeEnvironmentUpdated));
+		updated.then(|| self.runtime_event(block))
 	}
 
 	/// Check the distance between the provided blocks does not exceed a
@@ -395,7 +392,8 @@ where
 		}
 
 		let finalized_block_hash = startup_point.finalized_hash;
-		let finalized_block_runtime = self.generate_runtime_event(finalized_block_hash, None);
+		let finalized_block_runtime =
+			self.with_runtime.then(|| self.runtime_event(finalized_block_hash));
 
 		for finalized in &finalized_block_hashes {
 			self.announced_blocks.insert(*finalized, true);
@@ -418,7 +416,7 @@ where
 			}
 			self.announced_blocks.insert(child, false);
 
-			let new_runtime = self.generate_runtime_event(child, Some(parent));
+			let new_runtime = self.generate_runtime_event(child);
 
 			let event = FollowEvent::NewBlock(NewBlock {
 				block_hash: child,
@@ -452,7 +450,7 @@ where
 		parent_block_hash: Block::Hash,
 		is_best_block: bool,
 	) -> Vec<FollowEvent<Block::Hash>> {
-		let new_runtime = self.generate_runtime_event(block_hash, Some(parent_block_hash));
+		let new_runtime = self.generate_runtime_event(block_hash);
 
 		let new_block = FollowEvent::NewBlock(NewBlock {
 			block_hash,

@@ -37,7 +37,7 @@ pub struct ErrorEvent {
 ///
 /// This event is generated for:
 ///   - the first announced block by the follow subscription
-///   - blocks that suffered a change in runtime compared with their parents
+///   - blocks whose header digest signals a runtime environment update
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeVersionEvent {
