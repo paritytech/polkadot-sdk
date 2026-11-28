@@ -1,0 +1,22 @@
+title: '[pallet-revive] prestateTracer diffMode: keep slots a constructor rewrites with the same value'
+doc:
+- audience: [Runtime Dev, Node Operator]
+  description: |-
+    Fixes #13663. With `prestateTracer` in `diffMode`, a storage slot that a contract's constructor
+    wrote twice in a row with the same value was missing from that contract's `post` state, although
+    the slot held the value on chain. For a contract created in the traced transaction, the tracer
+    compared each write against the slot's latest written value instead of its original (empty)
+    value, so the second write looked like a revert to the original and removed the slot.
+
+    The `post` state of a created contract now contains every slot whose final value is non-zero.
+    Tracing of contracts that existed before the transaction is unchanged.
+
+    No migration is needed. The fix takes effect once a runtime with this `pallet-revive` is
+    enacted: `debug_traceTransaction`, `debug_traceBlockByNumber` and `debug_traceCall` execute the
+    trace in the runtime, so the RPC node itself needs no upgrade. A block is traced with the
+    runtime it was executed with, so blocks from before the upgrade keep the old result.
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: minor
