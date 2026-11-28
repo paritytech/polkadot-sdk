@@ -1,0 +1,21 @@
+title: Remove try_state(false) escape hatch from pallet-staking-async tests
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The `LastValidatorEra` consistency check in `check_paged_exposures`
+      (try-state) is promoted from a log-only warning to a hard error. For each
+      validator in the active era's exposures, the entry must be the active
+      era, the active era + 1 once the validator's exposure for the next era
+      is stored, or absent (stash reaped or force-unstaked mid-era; a warning
+      is logged if it is still bonded). This changes try-runtime strictness
+      only. No production runtime behavior is affected.
+
+      The pallet's test mock no longer lets a test skip the post-test
+      `do_try_state` check: `ExtBuilder::try_state(false)` and the
+      `SkipTryStateCheck` flag are removed, and tests that corrupt storage on
+      purpose restore it before the closure exits.
+
+crates:
+  - name: pallet-staking-async
+    bump: patch

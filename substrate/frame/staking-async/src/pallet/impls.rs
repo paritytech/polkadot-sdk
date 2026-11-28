@@ -2437,31 +2437,52 @@ impl<T: Config> Pallet<T> {
 	/// 	* nominator_count is correct
 	/// 	* total is own + sum of pages
 	/// `ErasTotalStake`` must be correct
-	/// For each validator in `ErasStakersOverview`, `LastValidatorEra` should be set to the active
-	/// era.
+	/// For each validator in the active era's `ErasStakersOverview`, `LastValidatorEra` must be the
+	/// active era, or the active era + 1 once the validator's exposure for the next era has been
+	/// stored. A validator that was reaped or force-unstaked mid-era keeps its historical exposure
+	/// but has no `LastValidatorEra` entry anymore, which is also valid (a warning is logged if it
+	/// is still bonded).
 	fn check_paged_exposures() -> Result<(), TryRuntimeError> {
 		let Some(era) = ActiveEra::<T>::get().map(|a| a.index) else { return Ok(()) };
-		let overview_and_pages = ErasStakersOverview::<T>::iter_prefix(era)
-			.map(|(validator, metadata)| {
-				let last_validator_era = LastValidatorEra::<T>::get(&validator).unwrap_or_default();
-				// If election for next era is finished, last_validator_era is set to next era.
-				if last_validator_era != era && last_validator_era != era + 1 {
+
+		let mut bad_last_validator_era = 0u32;
+		let mut overview_and_pages = Vec::new();
+		for (validator, metadata) in ErasStakersOverview::<T>::iter_prefix(era) {
+			match LastValidatorEra::<T>::get(&validator) {
+				Some(last) if last == era => {},
+				// The next era's election has stored an exposure for this validator (possibly while
+				// later pages are still pending), which also set `LastValidatorEra` to `era + 1`.
+				Some(last)
+					if last == era + 1 &&
+						ErasStakersOverview::<T>::contains_key(era + 1, &validator) => {},
+				Some(last) => {
 					log!(
 						error,
 						"Validator {:?} has incorrect LastValidatorEra (expected {:?} or {:?}, got {:?})",
 						validator,
 						era,
 						era + 1,
-						last_validator_era
+						last
 					);
-				}
+					bad_last_validator_era += 1;
+				},
+				// Reaped or force-unstaked mid-era: `kill_stash` removes the entry, but the
+				// exposure for the active era remains. A still-bonded stash is legitimate only if
+				// it bonded again since, so warn rather than fail.
+				None if Bonded::<T>::contains_key(&validator) => log!(
+					warn,
+					"Validator {:?} is bonded and exposed in era {:?} but has no LastValidatorEra",
+					validator,
+					era
+				),
+				None => {},
+			}
 
-				let pages = ErasStakersPaged::<T>::iter_prefix((era, validator))
-					.map(|(_idx, page)| page)
-					.collect::<Vec<_>>();
-				(metadata, pages)
-			})
-			.collect::<Vec<_>>();
+			let pages = ErasStakersPaged::<T>::iter_prefix((era, validator))
+				.map(|(_idx, page)| page)
+				.collect::<Vec<_>>();
+			overview_and_pages.push((metadata, pages));
+		}
 
 		ensure!(
 			overview_and_pages.iter().flat_map(|(_m, pages)| pages).all(|page| {
@@ -2498,6 +2519,11 @@ impl<T: Config> Pallet<T> {
 				.fold(BalanceOf::<T>::zero(), |acc, x| acc + x) ==
 				ErasTotalStake::<T>::get(era),
 			"found bad eras total stake"
+		);
+
+		ensure!(
+			bad_last_validator_era == 0,
+			"LastValidatorEra must be the active era, or the next era with a stored exposure"
 		);
 
 		Ok(())
