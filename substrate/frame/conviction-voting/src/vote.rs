@@ -256,6 +256,25 @@ where
 	}
 }
 
+impl<Balance: Default + PartialEq, AccountId, BlockNumber: Zero, PollIndex, MaxVotes>
+	Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes>
+where
+	MaxVotes: Get<u32>,
+{
+	/// Whether this value equals the voting state returned for an absent storage entry.
+	pub fn is_default(&self) -> bool {
+		match self {
+			Self::Casting(Casting { votes, delegations, prior: PriorLock(until, balance) }) => {
+				votes.is_empty() &&
+					*delegations == Delegations::default() &&
+					until.is_zero() &&
+					*balance == Balance::default()
+			},
+			Self::Delegating(_) => false,
+		}
+	}
+}
+
 impl<Balance, AccountId, BlockNumber, PollIndex, MaxVotes> AsMut<PriorLock<BlockNumber, Balance>>
 	for Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes>
 where
