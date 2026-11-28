@@ -434,11 +434,26 @@ pub type SovereignAccountOf = (
 	HashedDescription<AccountId, DescribeAllTerminal>,
 );
 
+parameter_types! {
+	/// Foreign asset ids that the foreign assets matcher refuses to match.
+	///
+	/// Used to simulate an asset that the asset transactor can no longer handle, for example
+	/// after a configuration change.
+	pub static UnmatchedForeignAssets: Vec<Location> = Vec::new();
+}
+
+pub struct IsUnmatchedForeignAsset;
+impl Contains<Location> for IsUnmatchedForeignAsset {
+	fn contains(location: &Location) -> bool {
+		UnmatchedForeignAssets::get().contains(location)
+	}
+}
+
 pub type ForeignAssetsConvertedConcreteId = MatchedConvertedConcreteId<
 	Location,
 	Balance,
-	// Excludes relay/parent chain currency
-	EverythingBut<(Equals<RelayLocation>,)>,
+	// Excludes relay/parent chain currency and assets configured as unmatched.
+	EverythingBut<(Equals<RelayLocation>, IsUnmatchedForeignAsset)>,
 	Identity,
 	TryConvertInto,
 >;
