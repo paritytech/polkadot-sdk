@@ -310,6 +310,9 @@ impl<'a, H, T: AsRef<[u8]>> From<&'a T> for Leaf<'a, H> {
 /// concatenating and hashing end up with given root hash.
 ///
 /// The proof must not contain the root hash.
+///
+/// The proof must have exactly one item per sibling on the path of `leaf_index`, so it verifies
+/// only at the index it was generated for.
 pub fn verify_proof<'a, H, P, L>(
 	root: &'a H::Out,
 	proof: P,
@@ -327,7 +330,7 @@ where
 		return false;
 	}
 
-	let leaf_hash = match leaf.into() {
+	let mut computed = match leaf.into() {
 		Leaf::Value(content) => <H as Hasher>::hash(content),
 		Leaf::Hash(hash) => hash,
 	};
@@ -336,29 +339,36 @@ where
 	let mut combined = vec![0_u8; hash_len * 2];
 	let mut position = leaf_index;
 	let mut width = number_of_leaves;
-	let computed = proof.into_iter().fold(leaf_hash, |a, b| {
-		if position % 2 == 1 || position + 1 == width {
-			combined[..hash_len].copy_from_slice(&b.as_ref());
-			combined[hash_len..].copy_from_slice(&a.as_ref());
-		} else {
-			combined[..hash_len].copy_from_slice(&a.as_ref());
-			combined[hash_len..].copy_from_slice(&b.as_ref());
-		}
-		let hash = <H as Hasher>::hash(&combined);
-		#[cfg(feature = "debug")]
-		log::debug!(
-			"[verify_proof]: (a, b) {:?}, {:?} => {:?} ({:?}) hash",
-			array_bytes::bytes2hex("", a),
-			array_bytes::bytes2hex("", b),
-			array_bytes::bytes2hex("", hash),
-			array_bytes::bytes2hex("", &combined)
-		);
-		position /= 2;
-		width = ((width - 1) / 2) + 1;
-		hash
-	});
+	let mut proof = proof.into_iter();
 
-	root == &computed
+	// Walk up the path as `merkelize` builds it. The last node of an odd layer has no sibling and
+	// is promoted without consuming a proof item.
+	while width > 1 {
+		if position ^ 1 < width {
+			let Some(sibling) = proof.next() else { return false };
+			let (left, right) = if position % 2 == 1 {
+				(sibling.as_ref(), computed.as_ref())
+			} else {
+				(computed.as_ref(), sibling.as_ref())
+			};
+			combined[..hash_len].copy_from_slice(left);
+			combined[hash_len..].copy_from_slice(right);
+			let hash = <H as Hasher>::hash(&combined);
+			#[cfg(feature = "debug")]
+			log::debug!(
+				"[verify_proof]: (a, b) {:?}, {:?} => {:?} ({:?}) hash",
+				array_bytes::bytes2hex("", &computed),
+				array_bytes::bytes2hex("", &sibling),
+				array_bytes::bytes2hex("", &hash),
+				array_bytes::bytes2hex("", &combined)
+			);
+			computed = hash;
+		}
+		position /= 2;
+		width = width.div_ceil(2);
+	}
+
+	proof.next().is_none() && root == &computed
 }
 
 /// Processes a single row (layer) of a tree by taking pairs of elements,
@@ -872,6 +882,29 @@ mod tests {
 				.to_vec(),
 			}
 		);
+	}
+
+	#[test]
+	fn proof_verifies_only_at_its_own_index() {
+		// E.g. with 3 leaves the proof of leaf 2 is `[H(h0 || h1)]`, which used to verify at 1 too.
+		for n in 1..=70u32 {
+			let leaves = (0..n).map(|i| i.to_le_bytes()).collect::<Vec<_>>();
+			for i in 0..n {
+				let p = merkle_proof::<Keccak256, _, _>(leaves.clone(), i);
+				let verify = |proof: Vec<_>, j| {
+					verify_proof::<Keccak256, _, _>(&p.root, proof, n, j, &p.leaf)
+				};
+				for j in 0..n {
+					assert_eq!(verify(p.proof.clone(), j), i == j, "leaf {i} at {j} of {n}");
+				}
+				let mut longer = p.proof.clone();
+				longer.push(p.root);
+				assert!(!verify(longer, i));
+				if let Some((_, shorter)) = p.proof.split_last() {
+					assert!(!verify(shorter.to_vec(), i));
+				}
+			}
+		}
 	}
 
 	#[test]
