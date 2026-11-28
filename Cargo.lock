@@ -4935,6 +4935,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-aura-authorizer-utils"
+version = "0.1.0"
+dependencies = [
+ "binary-merkle-tree 13.0.0",
+ "blake2b_simd",
+ "hash-db",
+ "hash256-std-hasher",
+ "jam-codec",
+ "jam-types",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "primitive-types 0.13.1",
+ "sp-crypto-hashing 0.1.0",
+]
+
+[[package]]
 name = "cumulus-client-bootnodes"
 version = "0.1.0"
 dependencies = [
@@ -16914,9 +16930,9 @@ dependencies = [
 
 [[package]]
 name = "polkadot-ckb-merkle-mountain-range"
-version = "0.8.3"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8abce4345790bc05f0dc56f55d8c6083bae43b58d0d96fd79d7e3aa99571ca1a"
+checksum = "a7981f73d570c8a4ef66f433f0b2060827f31130e2b9dbb8ac3f0983d3778d93"
 dependencies = [
  "cfg-if",
  "itertools 0.10.5",
@@ -18165,7 +18181,6 @@ dependencies = [
 name = "polkadot-sdk"
 version = "0.1.0"
 dependencies = [
- "asset-test-utils",
  "assets-common",
  "binary-merkle-tree 13.0.0",
  "bp-header-chain",
@@ -18178,8 +18193,8 @@ dependencies = [
  "bp-xcm-bridge-hub",
  "bp-xcm-bridge-hub-router",
  "bridge-hub-common",
- "bridge-hub-test-utils",
  "bridge-runtime-common",
+ "cumulus-aura-authorizer-utils",
  "cumulus-client-bootnodes",
  "cumulus-client-cli",
  "cumulus-client-collator",
@@ -18216,7 +18231,6 @@ dependencies = [
  "cumulus-relay-chain-rpc-interface",
  "cumulus-relay-chain-streams",
  "cumulus-test-relay-sproof-builder",
- "emulated-integration-tests-common",
  "ethereum-standards",
  "fork-tree",
  "fp-coretime",
@@ -18236,7 +18250,6 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "generate-bags",
  "mmr-gadget",
  "mmr-rpc",
  "pallet-accumulate-and-forward",
@@ -18372,7 +18385,6 @@ dependencies = [
  "pallet-xcm-precompiles",
  "parachains-common",
  "parachains-common-types",
- "parachains-runtimes-test-utils",
  "polkadot-approval-distribution",
  "polkadot-availability-bitfield-distribution",
  "polkadot-availability-distribution",
@@ -22007,6 +22019,7 @@ dependencies = [
  "sc-network-sync",
  "sc-network-test",
  "sc-network-types 0.10.0",
+ "sc-transaction-pool-api 28.0.0",
  "sc-utils 14.0.0",
  "serde",
  "sp-api 26.0.0",
