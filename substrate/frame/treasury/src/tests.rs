@@ -153,6 +153,8 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
 				frame_system::RawOrigin::Signed(12) => Ok(20),
 				frame_system::RawOrigin::Signed(13) => Ok(50),
 				frame_system::RawOrigin::Signed(14) => Ok(500),
+				// Deliberately the same limit as account 14, to cover origins that share one.
+				frame_system::RawOrigin::Signed(15) => Ok(500),
 				_ => Err(outer),
 			}
 		})
@@ -570,6 +572,156 @@ fn spending_in_batch_respects_max_total() {
 			.dispatch(RuntimeOrigin::signed(10)),
 			Error::<Test, _>::InsufficientPermission
 		);
+	})
+}
+
+#[test]
+fn spending_local_in_batch_budgets_each_origin_separately() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Accounts 14 and 15 may each spend up to 500. Sharing a limit must not mean sharing an
+		// allowance: 400 from each inside one batch is within what both are permitted.
+		assert_ok!(RuntimeCall::from(UtilityCall::batch_all {
+			calls: vec![
+				RuntimeCall::from(UtilityCall::dispatch_as_fallible {
+					as_origin: Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(14))),
+					call: Box::new(RuntimeCall::from(TreasuryCall::spend_local {
+						amount: 400,
+						beneficiary: 100
+					})),
+				}),
+				RuntimeCall::from(UtilityCall::dispatch_as_fallible {
+					as_origin: Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(15))),
+					call: Box::new(RuntimeCall::from(TreasuryCall::spend_local {
+						amount: 400,
+						beneficiary: 101
+					})),
+				}),
+			]
+		})
+		.dispatch(RuntimeOrigin::root()));
+
+		assert_eq!(ProposalCount::<Test, _>::get(), 2);
+		assert_eq!(Approvals::<Test, _>::get().into_inner(), vec![0, 1]);
+
+		// One origin still cannot exceed its own limit by splitting the spend across a batch,
+		// whichever call route it takes.
+		assert_err_ignore_postinfo!(
+			RuntimeCall::from(UtilityCall::batch_all {
+				calls: vec![
+					RuntimeCall::from(UtilityCall::dispatch_as_fallible {
+						as_origin: Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(
+							14
+						))),
+						call: Box::new(RuntimeCall::from(TreasuryCall::spend_local {
+							amount: 400,
+							beneficiary: 102
+						})),
+					}),
+					RuntimeCall::from(UtilityCall::dispatch_as_fallible {
+						as_origin: Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(
+							14
+						))),
+						call: Box::new(RuntimeCall::from(TreasuryCall::spend_local {
+							amount: 400,
+							beneficiary: 103
+						})),
+					}),
+				]
+			})
+			.dispatch(RuntimeOrigin::root()),
+			Error::<Test, _>::InsufficientPermission
+		);
+
+		assert_eq!(ProposalCount::<Test, _>::get(), 2);
+	})
+}
+
+#[test]
+fn spending_in_batch_budgets_each_origin_separately() {
+	ExtBuilder::default().build().execute_with(|| {
+		// `MulBy<2>` converts the asset amount to native, so 200 draws 400 of a 500 limit.
+		// Accounts 14 and 15 both hold that limit and must be budgeted apart.
+		assert_ok!(RuntimeCall::from(UtilityCall::batch_all {
+			calls: vec![
+				RuntimeCall::from(UtilityCall::dispatch_as_fallible {
+					as_origin: Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(14))),
+					call: Box::new(RuntimeCall::from(TreasuryCall::spend {
+						asset_kind: Box::new(1),
+						amount: 200,
+						beneficiary: Box::new(100),
+						valid_from: None,
+					})),
+				}),
+				RuntimeCall::from(UtilityCall::dispatch_as_fallible {
+					as_origin: Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(15))),
+					call: Box::new(RuntimeCall::from(TreasuryCall::spend {
+						asset_kind: Box::new(1),
+						amount: 200,
+						beneficiary: Box::new(101),
+						valid_from: None,
+					})),
+				}),
+			]
+		})
+		.dispatch(RuntimeOrigin::root()));
+
+		assert_eq!(SpendCount::<Test, _>::get(), 2);
+		assert_eq!(
+			Spends::<Test, _>::get(0).unwrap(),
+			SpendStatus {
+				asset_kind: 1,
+				amount: 200,
+				beneficiary: 100,
+				valid_from: 1,
+				expire_at: 6,
+				status: PaymentState::Pending,
+			}
+		);
+		assert_eq!(
+			Spends::<Test, _>::get(1).unwrap(),
+			SpendStatus {
+				asset_kind: 1,
+				amount: 200,
+				beneficiary: 101,
+				valid_from: 1,
+				expire_at: 6,
+				status: PaymentState::Pending,
+			}
+		);
+
+		// The same origin twice is still held to a single allowance.
+		assert_err_ignore_postinfo!(
+			RuntimeCall::from(UtilityCall::batch_all {
+				calls: vec![
+					RuntimeCall::from(UtilityCall::dispatch_as_fallible {
+						as_origin: Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(
+							14
+						))),
+						call: Box::new(RuntimeCall::from(TreasuryCall::spend {
+							asset_kind: Box::new(1),
+							amount: 200,
+							beneficiary: Box::new(102),
+							valid_from: None,
+						})),
+					}),
+					RuntimeCall::from(UtilityCall::dispatch_as_fallible {
+						as_origin: Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(
+							14
+						))),
+						call: Box::new(RuntimeCall::from(TreasuryCall::spend {
+							asset_kind: Box::new(1),
+							amount: 200,
+							beneficiary: Box::new(103),
+							valid_from: None,
+						})),
+					}),
+				]
+			})
+			.dispatch(RuntimeOrigin::root()),
+			Error::<Test, _>::InsufficientPermission
+		);
+
+		assert_eq!(SpendCount::<Test, _>::get(), 2);
 	})
 }
 

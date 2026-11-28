@@ -85,7 +85,7 @@ extern crate alloc;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
-use alloc::{boxed::Box, collections::btree_map::BTreeMap};
+use alloc::{boxed::Box, collections::btree_map::BTreeMap, vec::Vec};
 use sp_runtime::{
 	traits::{
 		AccountIdConversion, BlockNumberProvider, CheckedAdd, One, Saturating, StaticLookup,
@@ -495,9 +495,20 @@ pub mod pallet {
 		}
 	}
 
-	#[derive(Default)]
-	struct SpendContext<Balance> {
-		spend_in_context: BTreeMap<Balance, Balance>,
+	/// How much each origin has already committed to spend inside the current dispatch context.
+	///
+	/// Keyed by the SCALE-encoded origin caller, so that two origins which happen to share a
+	/// spend limit are budgeted apart. The type is generic over `T` and `I` because the dispatch
+	/// context stores values keyed by type id, and two instances of this pallet would otherwise
+	/// share a single map.
+	struct SpendContext<T: Config<I>, I: 'static = ()> {
+		spend_in_context: BTreeMap<Vec<u8>, BalanceOf<T, I>>,
+	}
+
+	impl<T: Config<I>, I: 'static> Default for SpendContext<T, I> {
+		fn default() -> Self {
+			Self { spend_in_context: BTreeMap::new() }
+		}
 	}
 
 	#[pallet::call]
@@ -530,17 +541,16 @@ pub mod pallet {
 			#[pallet::compact] amount: BalanceOf<T, I>,
 			beneficiary: AccountIdLookupOf<T>,
 		) -> DispatchResult {
+			let origin_key = origin.caller().encode();
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
 			ensure!(amount <= max_amount, Error::<T, I>::InsufficientPermission);
 
-			with_context::<SpendContext<BalanceOf<T, I>>, _>(|v| {
+			with_context::<SpendContext<T, I>, _>(|v| {
 				let context = v.or_default();
 
-				// We group based on `max_amount`, to distinguish between different kind of
-				// origins. (assumes that all origins have different `max_amount`)
-				//
-				// Worst case is that we reject some "valid" request.
-				let spend = context.spend_in_context.entry(max_amount).or_default();
+				// Track the running total per origin, so that an origin which shares its spend
+				// limit with another origin keeps the whole of its own allowance.
+				let spend = context.spend_in_context.entry(origin_key).or_default();
 
 				// Ensure that we don't overflow nor use more than `max_amount`
 				if spend.checked_add(&amount).map(|s| s > max_amount).unwrap_or(true) {
@@ -655,6 +665,7 @@ pub mod pallet {
 			beneficiary: Box<BeneficiaryLookupOf<T, I>>,
 			valid_from: Option<BlockNumberFor<T, I>>,
 		) -> DispatchResult {
+			let origin_key = origin.caller().encode();
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
 			let beneficiary = T::BeneficiaryLookup::lookup(*beneficiary)?;
 
@@ -669,13 +680,11 @@ pub mod pallet {
 
 			ensure!(native_amount <= max_amount, Error::<T, I>::InsufficientPermission);
 
-			with_context::<SpendContext<BalanceOf<T, I>>, _>(|v| {
+			with_context::<SpendContext<T, I>, _>(|v| {
 				let context = v.or_default();
-				// We group based on `max_amount`, to distinguish between different kind of
-				// origins. (assumes that all origins have different `max_amount`)
-				//
-				// Worst case is that we reject some "valid" request.
-				let spend = context.spend_in_context.entry(max_amount).or_default();
+				// Track the running total per origin, so that an origin which shares its spend
+				// limit with another origin keeps the whole of its own allowance.
+				let spend = context.spend_in_context.entry(origin_key).or_default();
 
 				// Ensure that we don't overflow nor use more than `max_amount`
 				if spend.checked_add(&native_amount).map(|s| s > max_amount).unwrap_or(true) {
