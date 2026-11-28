@@ -150,6 +150,58 @@ rusty_fork_test! {
 		})
 	}
 
+	#[test]
+	fn pov_decompression_failures_do_not_leak_job_pipes() {
+		test_wrapper(|host, sid| async move {
+			let parent_head = HeadData { number: 0, parent_hash: [0; 32], post_state: hash_state(0) };
+			let pvd = PersistedValidationData {
+				parent_head: GenericHeadData(parent_head.encode()),
+				relay_parent_number: 1,
+				relay_parent_storage_root: H256::default(),
+				max_pov_size: 4096 * 1024,
+			};
+			let valid_pov = PoV {
+				block_data: GenericBlockData(BlockData { state: 0, add: 512 }.encode()),
+			};
+			let code = test_parachain_adder::wasm_binary_unwrap();
+			host.validate_candidate(
+				code, pvd.clone(), valid_pov.clone(), Default::default(), H256::default(),
+			).await.unwrap();
+
+			let worker = find_process_by_sid_and_name(sid, EXECUTE_PROCESS_NAME, true)
+				.expect("Should have found the execute worker");
+			let fd_count = worker.fd_count().unwrap();
+			let mut block_data = sp_maybe_compressed_blob::compress_weakly(&[0; 128], 128).unwrap();
+			// Keep the compression prefix but replace the Zstd frame with malformed data.
+			block_data.truncate(8);
+			block_data.push(0xff);
+			let invalid_pov = PoV { block_data: GenericBlockData(block_data) };
+
+			for _ in 0..16 {
+				let result = host.validate_candidate(
+					code, pvd.clone(), invalid_pov.clone(), Default::default(), H256::default(),
+				).await;
+				assert_matches!(
+					result,
+					Err(ValidationError::Invalid(InvalidCandidate::PoVDecompressionFailure))
+				);
+				let reused_worker = find_process_by_sid_and_name(sid, EXECUTE_PROCESS_NAME, true)
+					.expect("Should have found the execute worker");
+				assert_eq!(reused_worker.pid(), worker.pid(), "The worker must be reused");
+				assert_eq!(reused_worker.fd_count().unwrap(), fd_count, "Job pipes must not leak");
+			}
+
+			// Rejected requests must not prevent the same worker from executing a valid PoV.
+			host.validate_candidate(
+				code, pvd, valid_pov, Default::default(), H256::default(),
+			).await.unwrap();
+			let reused_worker = find_process_by_sid_and_name(sid, EXECUTE_PROCESS_NAME, true)
+				.expect("Should have found the execute worker");
+			assert_eq!(reused_worker.pid(), worker.pid());
+			assert_eq!(reused_worker.fd_count().unwrap(), fd_count);
+		});
+	}
+
 	// What happens when the prepare worker (not the job) times out?
 	#[test]
 	fn prepare_worker_timeout() {
