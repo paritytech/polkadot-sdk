@@ -1,0 +1,14 @@
+title: 'fatxpool: fix dropped watcher leaking entries and repeating Viewless events'
+doc:
+- audience: Node Dev
+  description: |-
+    The dropped watcher did not forget transactions that were removed from the pool as usurped,
+    dropped by limits, or invalid (also when reported via `report_invalid`). Since #11731 it kept
+    sending a `Viewless` event for each of them on every view removal, until the node was restarted.
+
+    These transactions are now removed from the dropped watcher when they are removed from the pool.
+    Also, a `Viewless` event for a transaction that is not in the mempool now removes it from the
+    dropped watcher and is logged at debug level.
+crates:
+- name: sc-transaction-pool
+  bump: patch

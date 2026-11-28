@@ -380,6 +380,13 @@ where
 							"dropped_monitor_task: transaction became viewless, marking for unban"
 						);
 						tx.set_needs_unban();
+					} else {
+						debug!(
+							target: LOG_TARGET,
+							?tx_hash,
+							"dropped_monitor_task: viewless transaction not in mempool, removing from dropped watcher"
+						);
+						view_store.dropped_stream_controller.remove_transactions([tx_hash]);
 					}
 					continue;
 				},
@@ -387,6 +394,7 @@ where
 
 			mempool.remove_transactions(&[tx_hash]).await;
 			import_notification_sink.clean_notified_items(&[tx_hash]);
+			view_store.dropped_stream_controller.remove_transactions([tx_hash]);
 			view_store.listener.transaction_dropped(dropped);
 			insert_and_log_throttled!(
 				Level::DEBUG,
@@ -1063,6 +1071,9 @@ where
 		let removed_hashes = removed.iter().map(|tx| tx.hash).collect::<Vec<_>>();
 		self.mempool.remove_transactions(&removed_hashes).await;
 		self.import_notification_sink.clean_notified_items(&removed_hashes);
+		self.view_store
+			.dropped_stream_controller
+			.remove_transactions(removed_hashes.clone());
 
 		self.metrics
 			.report(|metrics| metrics.removed_invalid_txs.inc_by(removed_hashes.len() as _));
@@ -2277,5 +2288,144 @@ mod reduce_multiview_result_tests {
 				Err(Error::Custom(33))
 			]
 		);
+	}
+}
+
+#[cfg(test)]
+mod dropped_monitor_task_tests {
+	use super::*;
+	use crate::common::tests::TestApi;
+	use futures::{channel::mpsc, stream::pending};
+	use sc_transaction_pool_api::TransactionStatus;
+	use sp_core::H256;
+	use substrate_test_runtime::Block;
+
+	type DroppedWatcher = MultiViewDroppedWatcherController<TestApi>;
+	type Dropped = DroppedTransaction<H256>;
+	type ViewStatus = TransactionStatus<H256, H256>;
+
+	const VIEW: H256 = H256::repeat_byte(0x01);
+	const TRANSACTION: H256 = H256::repeat_byte(0x0a);
+
+	/// Runs the real `dropped_monitor_task` with an empty mempool and reports every event it
+	/// receives from the dropped watcher.
+	fn spawn_dropped_monitor_task() -> (DroppedWatcher, mpsc::UnboundedReceiver<Dropped>) {
+		let api = Arc::from(TestApi::default());
+		let listener = Arc::new(MultiViewListener::new_with_worker(Default::default()).0);
+		let import_notification_sink = MultiViewImportNotificationSink::new_with_worker().0;
+		let mempool = Arc::new(
+			TxMemPool::new(
+				api.clone(),
+				listener.clone(),
+				Default::default(),
+				usize::MAX,
+				usize::MAX,
+			)
+			.0,
+		);
+		let (dropped_watcher, dropped_stream) = DroppedWatcher::new();
+		let view_store = Arc::new(ViewStore::new(
+			api,
+			listener,
+			dropped_watcher.clone(),
+			import_notification_sink.clone(),
+		));
+
+		let (received_sender, received) = mpsc::unbounded();
+		let dropped_stream = dropped_stream
+			.inspect(move |dropped| {
+				let _ = received_sender.unbounded_send(dropped.clone());
+			})
+			.boxed();
+		tokio::spawn(ForkAwareTxPool::<TestApi, Block>::dropped_monitor_task(
+			dropped_stream,
+			mempool,
+			view_store,
+			import_notification_sink,
+		));
+
+		(dropped_watcher, received)
+	}
+
+	fn add_view(dropped_watcher: &DroppedWatcher, view: H256, statuses: Vec<(H256, ViewStatus)>) {
+		dropped_watcher.add_view(view, futures::stream::iter(statuses).chain(pending()).boxed());
+	}
+
+	/// The dropped watcher reports a tracked transaction without views on every view removal, so
+	/// removing an unrelated view reveals every entry it still keeps.
+	async fn transactions_still_tracked(
+		dropped_watcher: &DroppedWatcher,
+		received: &mut mpsc::UnboundedReceiver<Dropped>,
+	) -> Vec<Dropped> {
+		let marker_view = H256::repeat_byte(0xfe);
+		let marker = Dropped::new_viewless(H256::repeat_byte(0xff));
+
+		dropped_watcher.remove_view(H256::repeat_byte(0xfd));
+		add_view(dropped_watcher, marker_view, vec![(marker.tx_hash, TransactionStatus::Ready)]);
+		dropped_watcher.remove_view(marker_view);
+
+		let mut still_tracked = vec![];
+		loop {
+			let dropped = received.next().await.expect("dropped monitor task is running");
+			if dropped == marker {
+				return still_tracked;
+			}
+			still_tracked.push(dropped);
+		}
+	}
+
+	async fn assert_forgotten_once_dropped(final_status: ViewStatus, expected: Dropped) {
+		sp_tracing::try_init_simple();
+		let (dropped_watcher, mut received) = spawn_dropped_monitor_task();
+
+		add_view(
+			&dropped_watcher,
+			VIEW,
+			vec![(TRANSACTION, TransactionStatus::Ready), (TRANSACTION, final_status)],
+		);
+		assert_eq!(received.next().await, Some(expected));
+		dropped_watcher.remove_view(VIEW);
+
+		assert_eq!(transactions_still_tracked(&dropped_watcher, &mut received).await, vec![]);
+	}
+
+	#[tokio::test]
+	async fn usurped_transaction_is_forgotten_by_dropped_watcher() {
+		let usurper = H256::repeat_byte(0x0b);
+		assert_forgotten_once_dropped(
+			TransactionStatus::Usurped(usurper),
+			Dropped::new_usurped(TRANSACTION, usurper),
+		)
+		.await;
+	}
+
+	#[tokio::test]
+	async fn limits_enforced_transaction_is_forgotten_by_dropped_watcher() {
+		assert_forgotten_once_dropped(
+			TransactionStatus::Dropped,
+			Dropped::new_enforced_by_limts(TRANSACTION),
+		)
+		.await;
+	}
+
+	#[tokio::test]
+	async fn invalid_transaction_is_forgotten_by_dropped_watcher() {
+		assert_forgotten_once_dropped(
+			TransactionStatus::Invalid,
+			Dropped::new_invalid(TRANSACTION),
+		)
+		.await;
+	}
+
+	#[tokio::test]
+	async fn viewless_transaction_missing_from_mempool_is_forgotten_by_dropped_watcher() {
+		sp_tracing::try_init_simple();
+		let (dropped_watcher, mut received) = spawn_dropped_monitor_task();
+
+		add_view(&dropped_watcher, VIEW, vec![(TRANSACTION, TransactionStatus::Ready)]);
+		dropped_watcher.remove_view(VIEW);
+		assert_eq!(received.next().await, Some(Dropped::new_viewless(TRANSACTION)));
+
+		assert_eq!(transactions_still_tracked(&dropped_watcher, &mut received).await, vec![]);
 	}
 }
