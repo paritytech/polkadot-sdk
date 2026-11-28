@@ -122,6 +122,20 @@ impl<A, T: Balanced<A>> Dust<A, T> {
 	}
 }
 
+/// Adds `amount` to `base`, saturating, but capped so that the result can never be so large
+/// that adding `reserved` to it would overflow `Balance`.
+///
+/// Used by a best-effort balance increase to credit as much as possible without risking an
+/// overflow once the (otherwise untouched) `reserved` portion is accounted for alongside it.
+pub fn saturating_add_capped<Balance: Bounded + Saturating + Ord>(
+	base: Balance,
+	amount: Balance,
+	reserved: Balance,
+) -> Balance {
+	let max = Balance::max_value().saturating_sub(reserved);
+	base.saturating_add(amount).min(max)
+}
+
 /// A fungible token class where the balance can be set arbitrarily.
 ///
 /// **WARNING**
@@ -221,13 +235,16 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 	) -> Result<Self::Balance, DispatchError> {
 		let old_balance = Self::balance(who);
 		let reserved = Self::total_balance(who).saturating_sub(old_balance);
-		let new_balance = if let BestEffort = precision {
-			let max_balance = Self::Balance::max_value().saturating_sub(reserved);
-			old_balance.saturating_add(amount).min(max_balance)
-		} else {
-			old_balance.checked_add(&amount).ok_or(ArithmeticError::Overflow)?
+		let new_balance = match precision {
+			// Already capped so that adding `reserved` to it can't overflow.
+			BestEffort => saturating_add_capped(old_balance, amount, reserved),
+			Exact => {
+				let new_balance =
+					old_balance.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
+				new_balance.checked_add(&reserved).ok_or(ArithmeticError::Overflow)?;
+				new_balance
+			},
 		};
-		new_balance.checked_add(&reserved).ok_or(ArithmeticError::Overflow)?;
 
 		if new_balance < Self::minimum_balance() && old_balance.is_zero() && reserved.is_zero() {
 			// Attempt to increase from 0 to below minimum -> stays at zero.

@@ -180,8 +180,8 @@ use scale_info::TypeInfo;
 use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
 	traits::{
-		AtLeast32BitUnsigned, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
-		Saturating, StaticLookup, Zero,
+		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Saturating,
+		StaticLookup, Zero,
 	},
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, TokenError,
 };
@@ -1043,6 +1043,18 @@ pub mod pallet {
 			frame_system::Pallet::<T>::providers(who) > 0
 		}
 
+		/// Returns `true` if `who` has at least one provider reference.
+		///
+		/// A provider reference means something, somewhere, still needs this account to exist,
+		/// so an account with one is never dusted regardless of free balance (see
+		/// `try_mutate_account`), and a deposit into it is never treated as creating a new
+		/// account (see `fungible::Unbalanced::can_deposit` and `increase_balance`). This also
+		/// covers an account with something on hold or frozen, since either already keeps a
+		/// provider reference alive.
+		pub(crate) fn has_provider(who: &T::AccountId) -> bool {
+			frame_system::Pallet::<T>::providers(who) > 0
+		}
+
 		/// Mutate an account to some new value, or delete it entirely with `None`. Will enforce
 		/// `ExistentialDeposit` law, annulling the account as needed. This will do nothing if the
 		/// result of `f` is an `Err`.
@@ -1120,14 +1132,10 @@ pub mod pallet {
 				// Evaluates `maybe_dust`, which is `Some` containing the dust to be dropped, iff
 				// some dust should be dropped.
 				//
-				// A provider reference means something, somewhere, still needs this account to
-				// exist, so it is never dusted while one remains, regardless of free balance.
-				// Reserves and freezes already keep a provider ref alive via `does_consume`
-				// above, so checking providers here, rather than `!does_consume` directly, also
-				// covers a provider taken for an unrelated reason (e.g. another pallet).
+				// See `has_provider`: checking it here, rather than `!does_consume` directly,
+				// also covers a provider taken for an unrelated reason (e.g. another pallet).
 				let ed = Self::ed();
-				let has_provider = frame_system::Pallet::<T>::providers(who) > 0;
-				let maybe_dust = if account.free < ed && !has_provider {
+				let maybe_dust = if account.free < ed && !Self::has_provider(who) {
 					if account.free.is_zero() {
 						None
 					} else {
