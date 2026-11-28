@@ -328,7 +328,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>:
-		frame_system::Config
+		frame_system::Config<RuntimeEvent: From<Event<Self, I>>>
 		+ pallet_treasury::Config<
 			I,
 			Currency: fungible::Inspect<Self::AccountId, Balance = BalanceOf<Self, I>>,
@@ -374,16 +374,15 @@ pub mod pallet {
 		#[pallet::constant]
 		type DataDepositPerByte: Get<BalanceOf<Self, I>>;
 
-		/// The overarching event type.
-		#[allow(deprecated)]
-		type RuntimeEvent: From<Event<Self, I>>
-			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
 		/// Maximum acceptable reason length.
 		///
 		/// Benchmarks depend on this value, be sure to update weights file when changing this value
 		#[pallet::constant]
 		type MaximumReasonLength: Get<u32>;
+
+		/// Bounds the [`BountyApprovals`] queue.
+		#[pallet::constant]
+		type MaxApprovals: Get<u32>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -488,7 +487,6 @@ pub mod pallet {
 
 	/// Bounty indices that have been approved but not yet funded.
 	#[pallet::storage]
-	#[allow(deprecated)]
 	pub type BountyApprovals<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<BountyIndex, T::MaxApprovals>, ValueQuery>;
 
