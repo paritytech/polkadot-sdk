@@ -443,6 +443,19 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				T::Currency::unreserve(&delegate, deposited);
 			}
 
+			// Keep `CollectionDetails.attributes` in sync with the attributes we
+			// just drained. Without this the counter stays inflated and the
+			// derived destroy witness no longer matches `Attribute` storage, so
+			// the collection can't be destroyed with a correct witness (see the
+			// `BadWitness` check in `do_destroy_collection`).
+			if !attributes.is_zero() {
+				Collection::<T, I>::try_mutate(collection, |maybe_details| -> DispatchResult {
+					let details = maybe_details.as_mut().ok_or(Error::<T, I>::UnknownCollection)?;
+					details.attributes.saturating_reduce(attributes);
+					Ok(())
+				})?;
+			}
+
 			Self::deposit_event(Event::ItemAttributesApprovalRemoved {
 				collection,
 				item,

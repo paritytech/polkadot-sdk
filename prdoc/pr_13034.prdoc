@@ -1,0 +1,16 @@
+title: Decrement the nfts attribute counter when cancelling an attribute approval
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      cancel_item_attributes_approval removed a delegate's attributes from storage
+      but left CollectionDetails.attributes unchanged, so the counter grew above the
+      real number of stored attributes. The destroy witness is built from that
+      counter and destroy_collection requires it to match exactly, so a collection
+      that had a cancelled approval could no longer be destroyed with a correctly
+      computed witness. It now decrements the counter by the number of attributes it
+      drained, the same way clear_attribute does.
+
+crates:
+  - name: pallet-nfts
+    bump: patch
