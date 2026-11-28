@@ -1076,6 +1076,11 @@ pub mod pallet {
 		/// block's buffer is drained by then, and a log arriving after the drain is not buffered,
 		/// its event standing with no receipt. `on_initialize` and `on_idle` run before any
 		/// `on_finalize` and are safe.
+		///
+		/// # Warning
+		///
+		/// Off-chain tooling may assume a log at address X is to be treated as emitted by code
+		/// at X. This method must not be used in a way that breaks this assumption.
 		pub fn emit_contract_log_outside_frame(
 			contract: H160,
 			topics: ContractLogTopics,
