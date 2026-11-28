@@ -19,7 +19,7 @@ mod sourced;
 
 use hyper::{http::StatusCode, Request, Response};
 use prometheus::{core::Collector, Encoder, TextEncoder};
-use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 pub use prometheus::{
 	self,
@@ -83,13 +83,48 @@ async fn request_metrics(
 	}
 }
 
+/// `EAFNOSUPPORT`. `std::io::ErrorKind` maps this to `Uncategorized`, so compare the OS code.
+fn address_family_unsupported(err: &std::io::Error) -> bool {
+	let code = if cfg!(any(target_os = "linux", target_os = "android")) {
+		97
+	} else if cfg!(unix) {
+		47
+	} else {
+		return false;
+	};
+	err.raw_os_error() == Some(code)
+}
+
+/// When `[::]` cannot be bound because IPv6 is disabled, listen on `0.0.0.0` instead.
+fn prometheus_bind_fallback(addr: SocketAddr, err: &std::io::Error) -> Option<SocketAddr> {
+	if addr.ip() != IpAddr::V6(Ipv6Addr::UNSPECIFIED) || !address_family_unsupported(err) {
+		return None;
+	}
+	Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), addr.port()))
+}
+
 /// Initializes the metrics context, and starts an HTTP server
 /// to serve metrics.
 pub async fn init_prometheus(prometheus_addr: SocketAddr, registry: Registry) -> Result<(), Error> {
-	let listener = tokio::net::TcpListener::bind(&prometheus_addr).await.map_err(|e| {
-		log::error!(target: "prometheus", "Error binding to '{prometheus_addr:?}': {e:?}");
-		Error::PortInUse(prometheus_addr)
-	})?;
+	let listener = match tokio::net::TcpListener::bind(&prometheus_addr).await {
+		Ok(listener) => listener,
+		Err(e) => match prometheus_bind_fallback(prometheus_addr, &e) {
+			Some(fallback) => {
+				log::warn!(
+					target: "prometheus",
+					"IPv6 is unavailable ({e}); binding Prometheus to {fallback} instead of {prometheus_addr}"
+				);
+				tokio::net::TcpListener::bind(fallback).await.map_err(|err| {
+					log::error!(target: "prometheus", "Error binding to '{fallback:?}': {err:?}");
+					Error::PortInUse(fallback)
+				})?
+			},
+			None => {
+				log::error!(target: "prometheus", "Error binding to '{prometheus_addr:?}': {e:?}");
+				return Err(Error::PortInUse(prometheus_addr));
+			},
+		},
+	};
 
 	init_prometheus_with_listener(listener, registry).await
 }
@@ -139,6 +174,28 @@ mod tests {
 	use hyper_util::{client::legacy::Client, rt::TokioExecutor};
 
 	const METRIC_NAME: &str = "test_test_metric_name_test_test";
+
+	#[cfg(unix)]
+	#[test]
+	fn falls_back_to_ipv4_when_unspecified_ipv6_is_unsupported() {
+		let addr = SocketAddr::from((Ipv6Addr::UNSPECIFIED, 9615));
+		let code = if cfg!(any(target_os = "linux", target_os = "android")) { 97 } else { 47 };
+		let err = std::io::Error::from_raw_os_error(code);
+		assert_eq!(
+			prometheus_bind_fallback(addr, &err),
+			Some(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 9615))),
+		);
+
+		let specific = SocketAddr::from((Ipv6Addr::LOCALHOST, 9615));
+		assert_eq!(prometheus_bind_fallback(specific, &err), None);
+	}
+
+	#[test]
+	fn does_not_fall_back_on_other_bind_errors() {
+		let addr = SocketAddr::from((Ipv6Addr::UNSPECIFIED, 9615));
+		let err = std::io::Error::from_raw_os_error(1);
+		assert_eq!(prometheus_bind_fallback(addr, &err), None);
+	}
 
 	#[tokio::test]
 	async fn prometheus_works() {
