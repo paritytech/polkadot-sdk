@@ -15,10 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// # Multi-Block Migrations Module
-
-/// Migrations from the old `ContractInfoOf` to the new `AccountInfoOf` storage
-pub mod v1;
+//! Multi-block migrations of this pallet.
 
 /// Migrations from the old `CodeInfoOf` to the new `CodeInfoOf` storage
 pub mod v2;

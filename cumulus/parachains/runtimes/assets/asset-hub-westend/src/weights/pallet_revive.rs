@@ -2706,20 +2706,6 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
 	}
-	/// Storage: UNKNOWN KEY `0x735f040a5d490f1107ad9c56f5ca00d2060e99e5378e562537cf3bc983e17b91` (r:2 w:1)
-	/// Proof: UNKNOWN KEY `0x735f040a5d490f1107ad9c56f5ca00d2060e99e5378e562537cf3bc983e17b91` (r:2 w:1)
-	/// Storage: `Revive::AccountInfoOf` (r:0 w:1)
-	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `MaxEncodedLen`)
-	fn v1_migration_step() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `136`
-		//  Estimated: `6076`
-		// Minimum execution time: 12_951_000 picoseconds.
-		Weight::from_parts(14_205_000, 0)
-			.saturating_add(Weight::from_parts(0, 6076))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(2))
-	}
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Revive::CodeInfoOf` (r:2 w:1)

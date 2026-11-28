@@ -1,0 +1,32 @@
+title: 'pallet-revive: remove migration v1'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Removes the multi-block migration `pallet_revive::migrations::v1`, which moved
+    `ContractInfoOf` into `AccountInfoOf`, together with its weight function
+    `WeightInfo::v1_migration_step` and the `v1_migration_step` benchmark.
+
+    Migration v1 reads and writes `AccountInfoOf` through the pallet's live storage and value
+    declarations, so it changes meaning whenever those types change. Making it self-contained,
+    as the other migrations will be, is a larger change for v1 than for the rest, and no runtime
+    in this repository or in the fellowship runtimes lists it any more, so it is removed instead.
+
+    Required changes, in this order:
+
+    1. Check that migration v1 has completed on the chain: the pallet's `ContractInfoOf` storage
+       prefix holds no keys. The prefix is `twox_128` of the pallet's name in the runtime followed
+       by `twox_128("ContractInfoOf")`. For a pallet named `Revive` it is
+       `0x735f040a5d490f1107ad9c56f5ca00d2060e99e5378e562537cf3bc983e17b91`. This release has no
+       code that moves remaining `ContractInfoOf` entries.
+    2. Remove `pallet_revive::migrations::v1::Migration<Runtime>` from the
+       `pallet_migrations::Config::Migrations` tuple if it is still listed.
+    3. Delete `v1_migration_step` from your own `pallet_revive::WeightInfo` implementation, for
+       example a generated `weights/pallet_revive.rs`. The trait no longer has this method, so the
+       implementation does not compile until it is removed.
+
+    Runtimes that use neither `v1_migration_step` nor `migrations::v1` need no code change.
+crates:
+- name: pallet-revive
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: patch

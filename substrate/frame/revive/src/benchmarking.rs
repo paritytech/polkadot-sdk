@@ -7070,28 +7070,6 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn v1_migration_step() {
-		use crate::migrations::v1;
-		let addr = H160::from([1u8; 20]);
-		let contract_info = ContractInfo::new(&addr, 1u32.into(), Default::default()).unwrap();
-
-		v1::old::ContractInfoOf::<T>::insert(addr, contract_info.clone());
-		let mut meter = WeightMeter::new();
-		assert_eq!(AccountInfo::<T>::load_contract(&addr), None);
-
-		#[block]
-		{
-			v1::Migration::<T>::step(None, &mut meter).unwrap();
-		}
-
-		assert_eq!(v1::old::ContractInfoOf::<T>::get(&addr), None);
-		assert_eq!(AccountInfo::<T>::load_contract(&addr).unwrap(), contract_info);
-
-		// uses twice the weight once for migration and then for checking if there is another key.
-		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v1_migration_step() * 2);
-	}
-
-	#[benchmark]
 	fn v2_migration_step() {
 		use crate::migrations::v2;
 		let code_hash = H256::from([0; 32]);
