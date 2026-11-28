@@ -15,6 +15,28 @@ If you just wish to run a Polkadot node without compiling it yourself, you may e
   download all the `worker` binaries and put them in the same directory as `polkadot`), or
 - install Polkadot from one of our package repositories.
 
+### Verifying a downloaded binary
+
+Every released binary is published with a `.asc` signature and a `.sha256` checksum.
+
+```bash
+# Import the Parity release key
+gpg --recv-keys --keyserver hkps://keyserver.ubuntu.com 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE
+
+sha256sum -c polkadot.sha256
+gpg --verify polkadot.asc polkadot
+```
+
+Node binaries and the deb and RPM packages additionally carry a build attestation, which ties the artifact to the
+commit and workflow run that produced it:
+
+```bash
+gh attestation verify polkadot --repo paritytech/polkadot-sdk
+```
+
+Runtimes are not attested: they are reproducible, so anyone can rebuild them from the commit and compare, and
+governance verifies the hash on-chain.
+
 ### Debian-based (Debian, Ubuntu)
 
 Currently supports Debian 10 (Buster) and Ubuntu 20.04 (Focal), and derivatives. Run the following
