@@ -29,6 +29,10 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 
+[dev-dependencies]
+pallet-revive-fixtures = { workspace = true }
+test-case = { workspace = true }
+
 [features]
 default = ["std"]
 std = [
@@ -38,6 +42,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
+	"pallet-revive-fixtures/std",
 	"pallet-revive/std",
 	"pallet-timestamp/std",
 	"pallet-vesting/std",

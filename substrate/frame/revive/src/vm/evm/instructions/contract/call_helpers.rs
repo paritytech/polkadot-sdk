@@ -16,10 +16,11 @@
 // limitations under the License.
 
 use crate::{
-	Pallet, RuntimeCosts,
+	RuntimeCosts,
+	access_list::CallItems,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	vm::{
-		Ext,
+		Ext, charge_call_transfer,
 		evm::{Interpreter, interpreter::Halt, util::as_usize_or_halt},
 	},
 };
@@ -65,7 +66,7 @@ pub fn charge_call_gas<'a, E: Ext>(
 ) -> ControlFlow<Halt, ()> {
 	let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 
-	match precompile {
+	match &precompile {
 		Some(precompile) => {
 			// Base cost depending on contract info
 			interpreter.ext.frame_meter_mut().charge_or_halt(
@@ -83,12 +84,9 @@ pub fn charge_call_gas<'a, E: Ext>(
 				.charge_or_halt(RuntimeCosts::PrecompileDecode(input_len as u32))?;
 		},
 		None => {
-			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported
-			interpreter.ext.charge_or_halt(if scheme.is_delegate_call() {
-				RuntimeCosts::DelegateCallBase
-			} else {
-				RuntimeCosts::CallBase
-			})?;
+			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported.
+			let warmth = interpreter.ext.warm(CallItems::new(callee, scheme.is_delegate_call()));
+			interpreter.ext.charge_or_halt(RuntimeCosts::CallBase(warmth))?;
 
 			interpreter
 				.ext
@@ -96,13 +94,12 @@ pub fn charge_call_gas<'a, E: Ext>(
 				.charge_or_halt(RuntimeCosts::CopyFromContract(input_len as u32))?;
 		},
 	};
+
 	if !value.is_zero() {
-		interpreter
-			.ext
-			.frame_meter_mut()
-			.charge_or_halt(RuntimeCosts::CallTransferSurcharge {
-				dust_transfer: Pallet::<E::T>::has_dust(value),
-			})?;
+		if let Err(err) = charge_call_transfer(interpreter.ext, callee, value, precompile.is_some())
+		{
+			return ControlFlow::Break(Halt::Err(err));
+		}
 	}
 
 	ControlFlow::Continue(())
