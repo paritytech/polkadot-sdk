@@ -196,6 +196,19 @@ fn reset_members_works() {
 }
 
 #[test]
+fn reset_members_rejects_duplicate_accounts() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 20));
+		assert_noop!(
+			Membership::reset_members(RuntimeOrigin::signed(4), vec![40, 10, 40]),
+			Error::<Test>::AlreadyMember
+		);
+		assert_eq!(MEMBERS.with(|m| m.borrow().clone()), vec![10, 20, 30]);
+		assert_eq!(PRIME.with(|m| *m.borrow()), Some(20));
+	});
+}
+
+#[test]
 #[should_panic(expected = "Members cannot contain duplicate accounts.")]
 fn genesis_build_panics_with_duplicate_members() {
 	pallet_membership::GenesisConfig::<Test> {
