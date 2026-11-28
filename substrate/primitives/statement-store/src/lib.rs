@@ -157,6 +157,7 @@ pub const MAX_ANY_TOPICS: usize = 128;
 /// (or a depleted one) cannot store statements.
 #[derive(
 	Clone,
+	Copy,
 	Default,
 	PartialEq,
 	Eq,
@@ -228,11 +229,15 @@ pub fn increase_allowance_by(account_id: impl AsRef<[u8]>, by: StatementAllowanc
 }
 
 /// Decrease the statement allowance by the given amount.
+///
+/// Each axis saturates at zero independently. The entry is removed only once both axes reach
+/// zero; a depleted remainder is kept, so increases and decreases from several sources compose
+/// in any order.
 pub fn decrease_allowance_by(account_id: impl AsRef<[u8]>, by: StatementAllowance) {
 	let key = statement_allowance_key(account_id);
 	let mut allowance: StatementAllowance = frame_support::storage::unhashed::get_or_default(&key);
 	allowance = allowance.saturating_sub(by);
-	if allowance.is_depleted() {
+	if allowance == StatementAllowance::default() {
 		frame_support::storage::unhashed::kill(&key);
 	} else {
 		frame_support::storage::unhashed::put(&key, &allowance);
@@ -867,13 +872,68 @@ impl Statement {
 #[cfg(test)]
 mod test {
 	use crate::{
-		hash_encoded, Field, Proof, SignatureVerificationResult, Statement, Topic, MAX_TOPICS,
+		decrease_allowance_by, get_allowance, hash_encoded, increase_allowance_by,
+		statement_allowance_key, Field, Proof, SignatureVerificationResult, Statement,
+		StatementAllowance, Topic, MAX_TOPICS,
 	};
 	use codec::{Decode, Encode, MaxEncodedLen};
 	use core::str::FromStr;
 	use scale_info::{MetaType, TypeInfo};
 	use sp_application_crypto::Pair;
 	use sp_core::sr25519;
+
+	const ACCOUNT: [u8; 32] = [7; 32];
+
+	#[test]
+	fn decrease_removes_entry_only_when_both_axes_reach_zero() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let theirs = StatementAllowance::new(0, 50);
+			increase_allowance_by(ACCOUNT, theirs);
+			increase_allowance_by(ACCOUNT, StatementAllowance::new(10, 100));
+
+			decrease_allowance_by(ACCOUNT, StatementAllowance::new(10, 100));
+			assert_eq!(get_allowance(ACCOUNT), theirs);
+
+			decrease_allowance_by(ACCOUNT, StatementAllowance::new(1, 100));
+			assert!(!frame_support::storage::unhashed::exists(&statement_allowance_key(ACCOUNT)));
+		});
+	}
+
+	#[test]
+	fn decrease_keeps_a_remainder_with_zero_size() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let theirs = StatementAllowance::new(5, 0);
+			increase_allowance_by(ACCOUNT, theirs);
+			increase_allowance_by(ACCOUNT, StatementAllowance::new(10, 100));
+
+			decrease_allowance_by(ACCOUNT, StatementAllowance::new(10, 100));
+			assert_eq!(get_allowance(ACCOUNT), theirs);
+		});
+	}
+
+	#[test]
+	fn revoking_before_granting_gives_the_same_allowance_as_granting_first() {
+		let theirs = StatementAllowance::new(0, 50);
+		let granted = StatementAllowance::new(10, 100);
+		let next = StatementAllowance::new(20, 200);
+		let run = |revoke_first: bool| {
+			sp_io::TestExternalities::default().execute_with(|| {
+				increase_allowance_by(ACCOUNT, theirs);
+				increase_allowance_by(ACCOUNT, granted);
+				if revoke_first {
+					decrease_allowance_by(ACCOUNT, granted);
+					increase_allowance_by(ACCOUNT, next);
+				} else {
+					increase_allowance_by(ACCOUNT, next);
+					decrease_allowance_by(ACCOUNT, granted);
+				}
+				get_allowance(ACCOUNT)
+			})
+		};
+
+		assert_eq!(run(true), StatementAllowance::new(20, 250));
+		assert_eq!(run(false), StatementAllowance::new(20, 250));
+	}
 
 	#[test]
 	fn topic_from_str_accepts_either_case_with_optional_prefix() {

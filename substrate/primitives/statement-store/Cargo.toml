@@ -39,6 +39,9 @@ rand = { features = ["small_rng"], optional = true, workspace = true, default-fe
 sha2 = { optional = true, workspace = true, default-features = true }
 x25519-dalek = { optional = true, features = ["static_secrets"], workspace = true }
 
+[dev-dependencies]
+sp-io = { workspace = true, default-features = true }
+
 [features]
 default = ["std"]
 std = [
