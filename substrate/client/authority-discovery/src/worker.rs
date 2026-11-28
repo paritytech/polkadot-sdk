@@ -34,7 +34,6 @@ use std::{
 use futures::{channel::mpsc, future, stream::Fuse, FutureExt, Stream, StreamExt};
 
 use codec::{Decode, Encode};
-use ip_network::IpNetwork;
 use linked_hash_set::LinkedHashSet;
 use sc_network_types::kad::{Key, PeerRecord, Record};
 
@@ -44,8 +43,9 @@ use prost::Message;
 use rand::{seq::SliceRandom, thread_rng};
 
 use sc_network::{
-	config::DEFAULT_KADEMLIA_REPLICATION_FACTOR, event::DhtEvent, multiaddr, KademliaKey,
-	Multiaddr, NetworkDHTProvider, NetworkSigner, NetworkStateInfo,
+	config::DEFAULT_KADEMLIA_REPLICATION_FACTOR, event::DhtEvent, multiaddr,
+	utils::is_global_address, KademliaKey, Multiaddr, NetworkDHTProvider, NetworkSigner,
+	NetworkStateInfo,
 };
 use sc_network_types::{multihash::Code, PeerId};
 use schema::PeerSignature;
@@ -435,17 +435,6 @@ where
 		let local_peer_id = self.network.local_peer_id();
 		let publish_non_global_ips = self.publish_non_global_ips;
 
-		// Checks that the address is global.
-		let address_is_global = |address: &Multiaddr| {
-			address.iter().all(|protocol| match protocol {
-				// The `ip_network` library is used because its `is_global()` method is stable,
-				// while `is_global()` in the standard library currently isn't.
-				multiaddr::Protocol::Ip4(ip) => IpNetwork::from(ip).is_global(),
-				multiaddr::Protocol::Ip6(ip) => IpNetwork::from(ip).is_global(),
-				_ => true,
-			})
-		};
-
 		// Addresses without a port cannot be dialed.
 		let address_has_port = |address: &Multiaddr| {
 			address.iter().any(|protocol| {
@@ -470,7 +459,7 @@ where
 			.listen_addresses()
 			.into_iter()
 			.filter_map(|address| {
-				(address_is_global(&address) && address_has_port(&address))
+				(is_global_address(&address) && address_has_port(&address))
 					.then(|| AddressType::GlobalListenAddress(address).without_p2p(local_peer_id))
 			})
 			.take(MAX_GLOBAL_LISTEN_ADDRESSES)
@@ -484,7 +473,7 @@ where
 			.filter_map(|address| {
 				// Only publish addresses that have a port and are global.
 				(address_has_port(&address) &&
-					(publish_non_global_ips || address_is_global(&address)))
+					(publish_non_global_ips || is_global_address(&address)))
 				.then(|| AddressType::ExternalAddress(address).without_p2p(local_peer_id))
 			})
 			.peekable();

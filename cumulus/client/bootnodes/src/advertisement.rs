@@ -25,7 +25,6 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use futures::{future::Fuse, pin_mut, FutureExt, StreamExt};
-use ip_network::IpNetwork;
 use log::{debug, error, trace, warn};
 use prost::Message;
 use sc_network::{
@@ -34,6 +33,7 @@ use sc_network::{
 	multiaddr::Protocol,
 	request_responses::IncomingRequest,
 	service::traits::NetworkService,
+	utils::is_global_address,
 	KademliaKey, Multiaddr,
 };
 use sp_consensus_babe::{digests::CompatibleDigestItem, Epoch, Randomness};
@@ -324,22 +324,11 @@ impl BootnodeAdvertisement {
 			_ => Some(addr),
 		};
 
-		// Check if the address is global.
-		let is_global = |address: &Multiaddr| {
-			address.iter().all(|protocol| match protocol {
-				// The `ip_network` library is used because its `is_global()` method is stable,
-				// while `is_global()` in the standard library currently isn't.
-				Protocol::Ip4(ip) => IpNetwork::from(ip).is_global(),
-				Protocol::Ip6(ip) => IpNetwork::from(ip).is_global(),
-				_ => true,
-			})
-		};
-
 		// Check if the address is a loopback address.
 		let is_loopback = |address: &Multiaddr| {
 			address.iter().any(|protocol| match protocol {
-				Protocol::Ip4(ip) => IpNetwork::from(ip).is_loopback(),
-				Protocol::Ip6(ip) => IpNetwork::from(ip).is_loopback(),
+				Protocol::Ip4(ip) => ip.is_loopback(),
+				Protocol::Ip6(ip) => ip.is_loopback(),
 				_ => false,
 			})
 		};
@@ -349,25 +338,28 @@ impl BootnodeAdvertisement {
 
 		// 2) global listen addresses
 		let global_listen_addresses =
-			self.parachain_network.listen_addresses().into_iter().filter(is_global);
+			self.parachain_network.listen_addresses().into_iter().filter(is_global_address);
 
 		// 3a) discovered external addresses (global)
-		let global_external_addresses =
-			self.parachain_network.external_addresses().into_iter().filter(is_global);
+		let global_external_addresses = self
+			.parachain_network
+			.external_addresses()
+			.into_iter()
+			.filter(is_global_address);
 
 		// 3b) discovered external addresses (non-global)
 		let non_global_external_addresses = self
 			.parachain_network
 			.external_addresses()
 			.into_iter()
-			.filter(|addr| !is_global(addr));
+			.filter(|addr| !is_global_address(addr));
 
 		// 4) non-global listen addresses
 		let non_global_listen_addresses = self
 			.parachain_network
 			.listen_addresses()
 			.into_iter()
-			.filter(|addr| !is_global(addr) && !is_loopback(addr));
+			.filter(|addr| !is_global_address(addr) && !is_loopback(addr));
 
 		// 5) loopback listen addresses
 		let loopback_listen_addresses =
