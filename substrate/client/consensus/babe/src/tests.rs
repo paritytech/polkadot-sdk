@@ -605,6 +605,96 @@ fn claim_vrf_check() {
 }
 
 // Propose and import a new BABE block on top of the given parent.
+#[test]
+fn primary_claim_of_duplicated_authority_is_verified() {
+	let authority = Sr25519Keyring::Alice;
+	let keystore = create_keystore(authority);
+	let alice: AuthorityId = authority.public().into();
+	let c = (1, 4);
+
+	let epoch: Epoch = sp_consensus_babe::Epoch {
+		start_slot: 0.into(),
+		authorities: vec![
+			(alice.clone(), 1),
+			(Sr25519Keyring::Bob.public().into(), 1),
+			(alice.clone(), 1),
+			(alice.clone(), 1),
+		],
+		randomness: [0; 32],
+		epoch_index: 1,
+		duration: 1000,
+		config: BabeEpochConfiguration { c, allowed_slots: AllowedSlots::PrimarySlots },
+	}
+	.into();
+
+	// The threshold of a single entry, which is what each of Alice's entries had before her
+	// entries were summed.
+	let single_entry_threshold = authorship::calculate_primary_threshold(
+		c,
+		&[
+			(alice.clone(), 1),
+			(Sr25519Keyring::Bob.public().into(), 1),
+			(Sr25519Keyring::Charlie.public().into(), 1),
+			(Sr25519Keyring::Dave.public().into(), 1),
+		],
+		0,
+	);
+	let summed_threshold = authorship::calculate_primary_threshold(c, &epoch.authorities, 0);
+
+	// Find a slot Alice can claim only with the summed weight of her three entries.
+	let slot = (0..epoch.duration)
+		.map(Slot::from)
+		.find(|slot| {
+			let data = make_vrf_sign_data(&epoch.randomness, *slot, epoch.epoch_index);
+			let signature =
+				keystore.sr25519_vrf_sign(BABE, &authority.public(), &data).unwrap().unwrap();
+			let score = authority
+				.public()
+				.make_bytes::<AUTHORING_SCORE_LENGTH>(
+					AUTHORING_SCORE_VRF_CONTEXT,
+					data.as_ref(),
+					&signature.pre_output,
+				)
+				.map(u128::from_le_bytes)
+				.unwrap();
+			single_entry_threshold <= score && score < summed_threshold
+		})
+		.expect("a slot claimable only with the summed weight exists");
+
+	let primary = match claim_slot(slot, &epoch, &keystore).unwrap().0 {
+		PreDigest::Primary(primary) => primary,
+		other => panic!("Unexpected pre-digest variant {:?}", other),
+	};
+	assert_eq!(primary.authority_index, 0);
+
+	// Each of Alice's entries verifies.
+	for authority_index in [0, 2, 3] {
+		let pre_digest =
+			PreDigest::Primary(PrimaryPreDigest { authority_index, ..primary.clone() });
+		let mut header = TestHeader::new(
+			1,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Digest { logs: vec![Item::babe_pre_digest(pre_digest)] },
+		);
+		let signature = keystore
+			.sr25519_sign(BABE, &authority.public(), header.hash().as_ref())
+			.unwrap()
+			.unwrap();
+		header.digest_mut().push(Item::babe_seal(signature.into()));
+
+		let checked = verification::check_header::<TestBlock>(verification::VerificationParams {
+			header,
+			pre_digest: None,
+			slot_now: slot + 1,
+			epoch: &epoch,
+		})
+		.unwrap();
+		assert!(matches!(checked, CheckedHeader::Checked(..)));
+	}
+}
+
 async fn propose_and_import_block(
 	parent: &TestHeader,
 	slot: Option<Slot>,
