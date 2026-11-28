@@ -1,0 +1,27 @@
+title: 'Registrar: relayed para requests'
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      A para with no channel to the registrar parachain can now manage itself through the relay
+      chain. It calls the new `pallet-registrar-relay::relay` with a `ParaRequest` (add or remove
+      lock, deregister, schedule code upgrade, set current head), which is sent on at once as
+      `MessageToParaV1::Relayed`. `pallet-registrar-para` runs it as the new `Origin::RelayedPara`
+      and reports the request and its outcome in `RelayedRequest`.
+
+      `pallet-registrar-relay::Config` gains `RelayOrigin`, the paras that may call `relay`
+      (`EnsureParachain` for any, `NeverEnsureOrigin` to keep it closed until the migration), and
+      `MaxRequestsPerWindow` and `RequestWindow`, which cap the requests one para relays per window.
+      A request the transport refuses fails the call and is not counted.
+
+      `pallet-registrar-para::Config` now requires a `RuntimeOrigin` built from its own `Origin`.
+      `pallet-registrar-relay`'s `WeightInfo` gains `relay(h)`, `pallet-registrar-para`'s gains
+      `receive_relayed(h)`. `MessageToPara` no longer implements `MaxEncodedLen`.
+
+crates:
+  - name: registrar-primitives
+    bump: major
+  - name: pallet-registrar-para
+    bump: major
+  - name: pallet-registrar-relay
+    bump: major

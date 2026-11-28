@@ -23,7 +23,9 @@
 //! ends, and the real `paras_registrar`/`paras` onboarding. That is what this crate is for.
 //!
 //! The two runtimes are wired through `xcm-simulator`, so messages really are encoded, routed and
-//! executed, rather than short-circuited into direct function calls.
+//! executed, rather than short-circuited into direct function calls. A second parachain,
+//! [`ManagedPara`], is a para managed through the registrar, reaching it directly or through the
+//! relay chain.
 
 extern crate alloc;
 
@@ -42,6 +44,9 @@ use sp_runtime::{AccountId32, BuildStorage};
 use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
 
 pub use senders::PARA_ID;
+
+/// The para [`ManagedPara`] runs as: the first id `reserve` hands out.
+pub const MANAGED_PARA_ID: u32 = para::FIRST_PARA_ID;
 
 pub const ALICE: AccountId32 = AccountId32::new([1u8; 32]);
 pub const BOB: AccountId32 = AccountId32::new([2u8; 32]);
@@ -69,7 +74,16 @@ decl_test_parachain! {
 		Runtime = para::Runtime,
 		XcmpMessageHandler = para::MsgQueue,
 		DmpMessageHandler = para::MsgQueue,
-		new_ext = para_ext(),
+		new_ext = para_ext(PARA_ID),
+	}
+}
+
+decl_test_parachain! {
+	pub struct ManagedPara {
+		Runtime = para::Runtime,
+		XcmpMessageHandler = para::MsgQueue,
+		DmpMessageHandler = para::MsgQueue,
+		new_ext = para_ext(MANAGED_PARA_ID),
 	}
 }
 
@@ -90,11 +104,12 @@ decl_test_network! {
 		relay_chain = Relay,
 		parachains = vec![
 			(PARA_ID, RegistrarPara),
+			(MANAGED_PARA_ID, ManagedPara),
 		],
 	}
 }
 
-pub fn para_ext() -> sp_io::TestExternalities {
+pub fn para_ext(para_id: u32) -> sp_io::TestExternalities {
 	use para::{MsgQueue, Runtime, System};
 
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
@@ -108,7 +123,7 @@ pub fn para_ext() -> sp_io::TestExternalities {
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| {
 		System::set_block_number(1);
-		MsgQueue::set_para_id(PARA_ID.into());
+		MsgQueue::set_para_id(para_id.into());
 	});
 	ext
 }
