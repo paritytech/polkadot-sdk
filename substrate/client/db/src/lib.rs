@@ -1802,15 +1802,20 @@ impl<Block: BlockT> Backend<Block> {
 						>,
 					)?;
 					apply_state_commit(&mut transaction, commit);
-					// Restore the state checkpoint without moving the finalized header head.
-					transaction.set(columns::META, meta_keys::FINALIZED_STATE, &lookup_key);
-					meta_updates.push(MetaUpdate {
-						hash,
-						number,
-						is_best: false,
-						is_finalized: false,
-						update_finalized_state: true,
-					});
+
+					// Only advance the state checkpoint; leave the finalized header unchanged.
+					let finalized_state = self.blockchain.meta.read().finalized_state;
+					if finalized_state.is_none_or(|(_, finalized_number)| finalized_number < number)
+					{
+						transaction.set(columns::META, meta_keys::FINALIZED_STATE, &lookup_key);
+						meta_updates.push(MetaUpdate {
+							hash,
+							number,
+							is_best: false,
+							is_finalized: false,
+							update_finalized_state: true,
+						});
+					}
 				}
 
 				// Check if need to finalize. Genesis is always finalized instantly.
@@ -5492,7 +5497,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn restoring_state_survives_restart_and_continues() {
-		let source = Backend::<Block>::new_test(10, 10);
+		let source = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::KeepAll, 0);
 		let backend = Backend::<Block>::new_test(10, 10);
 		let genesis = insert_header(&source, 0, Default::default(), None, Default::default());
 		assert_eq!(
@@ -5505,6 +5510,7 @@ pub(crate) mod tests {
 		for number in 1..=3 {
 			let parent = blocks[number - 1];
 			let hash = insert_header(&source, number as u64, parent, None, Default::default());
+			source.finalize_block(hash, None).unwrap();
 			let header = source.blockchain().header(hash).unwrap().unwrap();
 			let mut op = backend.begin_operation().unwrap();
 			op.set_block_data(header, None, None, NewBlockState::Best, true).unwrap();
@@ -5568,6 +5574,24 @@ pub(crate) mod tests {
 		for parent in &blocks[..3] {
 			assert_eq!(state.storage(parent.as_ref()).unwrap(), Some(parent.as_ref().to_vec()));
 		}
+
+		// Reimporting older finalized state must preserve the source's newer checkpoint.
+		let mut op = source.begin_operation().unwrap();
+		source.begin_state_operation(&mut op, genesis).unwrap();
+		let (_, overlay) = op.old_state.storage_root(
+			[(genesis.as_ref(), Some(genesis.as_ref()))].into_iter(),
+			StateVersion::V1,
+		);
+		op.update_db_storage(overlay).unwrap();
+		let header = source.blockchain().header(blocks[1]).unwrap().unwrap();
+		op.set_block_data(header, None, None, NewBlockState::Normal, true).unwrap();
+		source.commit_operation(op).unwrap();
+		assert_eq!(source.blockchain().info().finalized_state, Some((blocks[3], 3)));
+
+		let db = source.storage.db.clone();
+		drop(source);
+		let source = reopen_backend(db, BlocksPruning::KeepAll);
+		assert_eq!(source.blockchain().info().finalized_state, Some((blocks[3], 3)));
 	}
 
 	#[test]
