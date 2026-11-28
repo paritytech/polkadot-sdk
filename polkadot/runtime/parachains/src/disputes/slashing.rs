@@ -445,11 +445,6 @@ pub mod pallet {
 		PendingSlashes,
 	>;
 
-	/// `ValidatorSetCount` per session.
-	#[pallet::storage]
-	pub(super) type ValidatorSetCounts<T> =
-		StorageMap<_, Twox64Concat, SessionIndex, ValidatorSetCount>;
-
 	#[pallet::error]
 	pub enum Error<T> {
 		/// The key ownership proof is invalid.
