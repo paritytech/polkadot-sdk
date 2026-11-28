@@ -18,7 +18,7 @@
 use crate::{mock::*, *};
 use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
-	instances::Instance1,
+	instances::{Instance1, Instance2},
 	traits::{
 		fungible,
 		fungible::{Inspect as FungibleInspect, NativeOrWithId},
@@ -3392,5 +3392,69 @@ fn per_pool_fee_is_applied_to_swaps() {
 			false,
 		));
 		assert_eq!(balance(user, token_1), with_pool_fee + ed);
+	});
+}
+
+#[test]
+fn mutate_liquidity_create_pool_with_fee_sets_override() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		let pool_id = (token_1.clone(), token_2.clone());
+		let fee = Permill::from_percent(1);
+
+		create_tokens(user, vec![token_2.clone()]);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 1000));
+
+		// A fee above `MaxSwapFee` is rejected.
+		assert_noop!(
+			<AssetConversion as MutateLiquidity<_>>::create_pool_with_fee(
+				&user,
+				token_1.clone(),
+				token_2.clone(),
+				MaxSwapFee::get() + Permill::from_percent(1),
+			),
+			Error::<Test>::FeeTooHigh,
+		);
+
+		assert_ok!(
+			<AssetConversion as MutateLiquidity<_>>::create_pool_with_fee(
+				&user, token_1, token_2, fee,
+			),
+			pool_id.clone(),
+		);
+
+		assert_eq!(PoolFees::<Test>::get(&pool_id), Some(fee));
+		assert_eq!(AssetConversion::pool_fee(&pool_id), fee);
+
+		assert!(events().iter().any(|e| matches!(
+			e,
+			Event::PoolFeeSet { pool_id: p, fee: f } if *p == pool_id && *f == fee
+		)));
+	});
+}
+
+#[test]
+fn mutate_liquidity_create_pool_with_fee_rolls_back_on_failure() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_2 = NativeOrWithId::WithId(2);
+
+		create_tokens(user, vec![token_2.clone()]);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 1000));
+		// With the LP token's id taken, creation fails only after it has written to storage.
+		let lp_token = AssetConversion::get_next_pool_asset_id();
+		assert_ok!(PoolAssets::force_create(RuntimeOrigin::root(), lp_token, user, false, 1));
+
+		assert_noop!(
+			<AssetConversion as MutateLiquidity<_>>::create_pool_with_fee(
+				&user,
+				NativeOrWithId::Native,
+				token_2,
+				Permill::from_percent(1),
+			),
+			pallet_assets::Error::<Test, Instance2>::InUse,
+		);
 	});
 }
