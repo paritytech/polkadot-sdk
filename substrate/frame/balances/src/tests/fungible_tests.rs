@@ -355,9 +355,10 @@ fn mint_below_ed_into_account_with_holds_increases_issuance() {
 }
 
 #[test]
-fn account_credited_below_ed_is_dusted_once_holds_are_gone() {
+fn account_credited_below_ed_survives_once_holds_are_gone_with_a_provider() {
 	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
-		// Given: an account with its whole balance on hold receives a credit below ED.
+		// Given: an account with its whole balance on hold (which, via `hold_whole_balance`,
+		// leaves it with an extra provider reference) receives a credit below ED.
 		hold_whole_balance(1337);
 		assert_eq!(Balances::mint_into(&1337, 3), Ok(3));
 		let issuance = <Balances as Inspect<_>>::total_issuance();
@@ -365,19 +366,16 @@ fn account_credited_below_ed_is_dusted_once_holds_are_gone() {
 		// When: the held balance is burnt, leaving the free balance below ED with nothing held.
 		assert_ok!(Balances::burn_held(&TestId::Foo, &1337, 100, Exact, Force));
 
-		// Then: the free balance is dusted, and the dust leaves the total issuance too.
-		assert_eq!(Balances::free_balance(1337), 0);
-		assert_eq!(<Balances as Inspect<_>>::total_balance(&1337), 0);
-		assert_eq!(<Balances as Inspect<_>>::total_issuance(), issuance - 103);
-		System::assert_has_event(RuntimeEvent::Balances(crate::Event::DustLost {
-			account: 1337,
-			amount: 3,
-		}));
+		// Then: the account survives on its remaining provider reference, regardless of its
+		// free balance being below ED, and nothing is dusted.
+		assert_eq!(Balances::free_balance(1337), 3);
+		assert_eq!(<Balances as Inspect<_>>::total_balance(&1337), 3);
+		assert_eq!(<Balances as Inspect<_>>::total_issuance(), issuance - 100);
 	});
 }
 
 #[test]
-fn account_withdrawn_below_ed_is_dusted_once_holds_are_gone() {
+fn account_withdrawn_below_ed_survives_once_holds_are_gone_with_a_provider() {
 	ExtBuilder::default()
 		.existential_deposit(10)
 		.monied(true)
@@ -394,13 +392,11 @@ fn account_withdrawn_below_ed_is_dusted_once_holds_are_gone() {
 			// When: the held balance is burnt, leaving the free balance below ED with nothing held.
 			assert_ok!(Balances::burn_held(&TestId::Foo, &1337, 50, Exact, Force));
 
-			// Then: the free balance is dusted, and the dust leaves the total issuance too.
-			assert_eq!(<Balances as Inspect<_>>::total_balance(&1337), 0);
-			assert_eq!(<Balances as Inspect<_>>::total_issuance(), issuance - 53);
-			System::assert_has_event(RuntimeEvent::Balances(crate::Event::DustLost {
-				account: 1337,
-				amount: 3,
-			}));
+			// Then: the account survives on its remaining provider reference, and nothing is
+			// dusted.
+			assert_eq!(Balances::free_balance(1337), 3);
+			assert_eq!(<Balances as Inspect<_>>::total_balance(&1337), 3);
+			assert_eq!(<Balances as Inspect<_>>::total_issuance(), issuance - 50);
 		});
 }
 

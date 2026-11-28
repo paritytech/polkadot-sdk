@@ -117,7 +117,7 @@ fn regression_historic_acc_does_not_evaporate_reserve() {
 /// Releasing the last hold from an account dusted below the ED must not leak the
 /// dust from `TotalIssuance` (`set_balance_on_hold` discards `maybe_dust`).
 #[test]
-fn regression_release_hold_below_ed_leaks_issuance() {
+fn release_hold_below_ed_does_not_leak_issuance() {
 	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
 		UseSystem::set(true);
 
@@ -132,10 +132,12 @@ fn regression_release_hold_below_ed_leaks_issuance() {
 		assert_ok!(Balances::transfer_allow_death(Some(alice).into(), bob, 45));
 		assert_eq!(Balances::free_balance(alice), 5);
 
-		// The hold is reduced before free balance is credited, so the intermediate state
-		// (free = 5, reserved = 0) dusts the 5 free units.
+		// The hold is reduced before free balance is credited back, so the account briefly
+		// has free = 5, reserved = 0. The extra provider reference (not the now-cleared hold)
+		// is what keeps it alive through that moment, so the 5 pre-existing free units are not
+		// dusted, and release correctly credits the full amount back.
 		assert_ok!(Balances::release(&TestId::Foo, &alice, 50, Precision::Exact));
-		assert_eq!(Balances::free_balance(alice), 50);
+		assert_eq!(Balances::free_balance(alice), 55);
 
 		ensure_ti_valid();
 	});
