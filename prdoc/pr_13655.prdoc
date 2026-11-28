@@ -1,0 +1,20 @@
+title: 'pallet-revive: keep an unreleased storage deposit refund refundable'
+doc:
+- audience: Runtime Dev
+  description: |-
+    On a runtime using `PGasDeposit`, the native part of a refund for removed contract storage is released only to an account that paid a storage deposit for the contract in native currency, and only up to what it paid. When a different account removes that storage, the backend leaves the native part on the contract's hold, but the contract's recorded storage deposit was already lowered by the full refund. The unreleased amount stayed on hold and could only leave it at contract termination, paid to the terminating origin.
+
+    The amount the hold exceeds the recorded storage deposit by is now paid out with the next storage removal by an account that paid a native deposit for the contract, up to what that account paid, to its free balance. It is not part of the storage deposit the call reports. A lock or freeze on the contract account limits the payment to what it leaves reducible, and the rest is paid with a later removal. Amounts stranded on existing contracts before this change are paid out the same way; no migration is needed.
+
+    The hold also exceeds the recorded deposit after `Origin::Root` removed storage of the contract, because Root is not refunded. That amount cannot be told apart from an unreleased refund and is paid out the same way: to an account that paid a native deposit for the contract, up to what it paid. If the storage Root removed was paid in PGAS, the amount is on the PGAS hold, but the payment is still made from the native hold. The storage that account still has is then covered by the PGAS hold, so the refund for removing it is settled from there: `RefundPercent` of it is credited to the account and the rest is burned. The account can end up with its native deposit back in full and that PGAS credit on top.
+
+    Unchanged: when the contract also holds PGAS, a removal by an account without a native deposit on the contract is settled from the PGAS hold as far as that hold goes, with `RefundPercent` of the amount credited to that account and the rest burned. The native deposit then stays on hold until a removal whose refund the PGAS hold no longer covers, from which point it is paid out as above.
+
+    Runtimes that leave the default `()` deposit backend are not affected: a native refund is released in full or fails, so no refund leaves funds on the hold and nothing is paid out.
+
+    `Deposit` gains the method `refund_excess`, which pays such an amount from a contract's hold. The trait is sealed, so no downstream implementation needs updating.
+crates:
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-fixtures
+  bump: minor
