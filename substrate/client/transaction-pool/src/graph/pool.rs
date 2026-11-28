@@ -613,7 +613,7 @@ mod tests {
 	use futures::executor::block_on;
 	use parking_lot::Mutex;
 	use sc_transaction_pool_api::TransactionStatus;
-	use sp_runtime::transaction_validity::TransactionSource;
+	use sp_runtime::transaction_validity::{TransactionSource, ValidTransaction};
 	use std::{collections::HashMap, time::Instant};
 	use substrate_test_runtime::{AccountId, ExtrinsicBuilder, Transfer, H256};
 	use substrate_test_runtime_client::Sr25519Keyring::{Alice, Bob};
@@ -687,6 +687,53 @@ mod tests {
 				assert_eq!(result_hash.unwrap(), initial_hash);
 			},
 		);
+	}
+
+	#[test]
+	fn resubmit_preserves_order() {
+		// given
+		let (pool, api) = pool();
+		let xts = (0..10)
+			.map(|i| {
+				uxt(Transfer {
+					from: Alice.into(),
+					to: AccountId::from_h256(H256::from_low_u64_be(i)),
+					amount: 5,
+					nonce: i,
+				})
+			})
+			.collect::<Vec<_>>();
+		let validated = || {
+			xts.iter().enumerate().map(|(i, xt)| {
+				let (hash, bytes) = api.hash_and_length(xt);
+				let validity = ValidTransaction {
+					priority: 4,
+					requires: vec![],
+					provides: vec![vec![i as u8]],
+					longevity: 64,
+					propagate: true,
+				};
+				let tx = ValidatedTransaction::valid_at(
+					0,
+					hash,
+					SOURCE,
+					Arc::new(xt.clone()),
+					bytes,
+					validity,
+				);
+				(hash, tx)
+			})
+		};
+		pool.validated_pool().submit(validated().map(|(_, tx)| tx));
+		let initial_hashes = pool.validated_pool().ready().map(|tx| tx.hash).collect::<Vec<_>>();
+		assert_eq!(initial_hashes.len(), xts.len());
+
+		// when
+		pool.resubmit(validated().collect());
+
+		// then
+		let hashes = pool.validated_pool().ready().map(|tx| tx.hash).collect::<Vec<_>>();
+		assert_eq!(hashes, initial_hashes);
 	}
 
 	#[test]
