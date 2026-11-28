@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795813308746,
+  "lastUpdate": 1795906235284,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -271679,6 +271679,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2449950606,
             "range": "± 21212972",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "9a78998a6d5c52deb36e9238151f818fe155f5c5",
+          "message": "pallet-revive: remove migration v1 (#14004)\n\npallet-revive: remove migration v1\n\nMigration v1 is not future proof: it reads and writes `AccountInfoOf`\nthrough the pallet's live storage and value declarations, so it changes\nmeaning whenever those types change. The other migrations are being made\nself-contained, each declaring its own storage aliases and value copies;\nfor v1 that is a larger change than it is worth, and no runtime in this\nrepository or in the fellowship runtimes still lists it. Remove it\ninstead.\n\n## Changes\n\n- Delete `migrations/v1.rs` and `pub mod v1` in `migrations.rs`.\n- Remove the `v1_migration_step` benchmark, and\n`WeightInfo::v1_migration_step` from the trait, the generated\n`weights.rs`, and the asset-hub-westend weight file.\n\n## Downstream runtimes\n\nA runtime with its own `pallet_revive::WeightInfo` impl stops compiling\nuntil `v1_migration_step` is deleted from it. Runtimes that list neither\nthe migration nor the weight method need no change. The prdoc lists the\nsteps, including how to confirm v1 has completed before upgrading.\n\n## Validation\n\n- `cargo test -p pallet-revive migrations`\n- `SKIP_WASM_BUILD=1 cargo check -p asset-hub-westend-runtime --features\nruntime-benchmarks`",
+          "timestamp": "2026-11-28T21:13:28Z",
+          "tree_id": "abf33ea58781dbd2dd43401f5305115f206efe38",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9a78998a6d5c52deb36e9238151f818fe155f5c5"
+        },
+        "date": 1795906202464,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4262460,
+            "range": "± 30476",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 316368,
+            "range": "± 1913",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4108746,
+            "range": "± 27829",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 390138,
+            "range": "± 3250",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5046663,
+            "range": "± 31625",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 904893,
+            "range": "± 9902",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10675021,
+            "range": "± 72754",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4895643,
+            "range": "± 43669",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 44115596,
+            "range": "± 511181",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 38741531,
+            "range": "± 754355",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 353575213,
+            "range": "± 3203028",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 293207658,
+            "range": "± 1533514",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2573063932,
+            "range": "± 14517057",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2306514033,
+            "range": "± 21882081",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3528030,
+            "range": "± 34470",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1911387,
+            "range": "± 11130",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3632261,
+            "range": "± 25251",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1986017,
+            "range": "± 9872",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4402631,
+            "range": "± 76639",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2328415,
+            "range": "± 21276",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8339481,
+            "range": "± 129323",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5464246,
+            "range": "± 60599",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 39256331,
+            "range": "± 323768",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37698803,
+            "range": "± 576001",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 328765872,
+            "range": "± 2641128",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 287331457,
+            "range": "± 2043424",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2601939087,
+            "range": "± 24874197",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2315363306,
+            "range": "± 14355302",
             "unit": "ns/iter"
           }
         ]
