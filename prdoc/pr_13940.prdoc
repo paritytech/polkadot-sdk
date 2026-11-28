@@ -1,0 +1,13 @@
+title: 'pallet-psm: credit the caller before debiting on mint and redeem'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    `mint` and `redeem` now credit the caller before they debit it, so that the caller's account
+    stays alive for the whole call.
+
+    The amounts, fees and the `Minted` and `Redeemed` events are unchanged.
+
+crates:
+- name: pallet-psm
+  bump: patch
