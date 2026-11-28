@@ -105,6 +105,7 @@ pub mod system_parachain {
 	parameter_types! {
 		pub AssetHubParaId: ParaId = ASSET_HUB_ID.into();
 		pub PeopleParaId: ParaId = PEOPLE_ID.into();
+		pub BulletinParaId: ParaId = BULLETIN_ID.into();
 	}
 
 	/// Network's Asset Hub parachain ID.
@@ -119,6 +120,8 @@ pub mod system_parachain {
 	pub const PEOPLE_ID: u32 = 1004;
 	/// Brokerage parachain ID.
 	pub const BROKER_ID: u32 = 1005;
+	/// Bulletin Chain parachain ID.
+	pub const BULLETIN_ID: u32 = 1010;
 	/// AH-next - temporary AH clone.
 	pub const ASSET_HUB_NEXT_ID: u32 = 1100;
 

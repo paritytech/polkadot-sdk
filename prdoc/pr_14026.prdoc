@@ -1,0 +1,20 @@
+title: 'Westend: Bulletin moves to system parachain 1010'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Bulletin Westend moves from para 2487 to 1010, the system parachain id it has on Polkadot.
+    `BULLETIN_ID` and `BulletinParaId` move to `westend_runtime_constants::system_parachain` and
+    are re-exported from `testnet_parachains_constants::westend::locations`. The value of
+    `testnet_parachains_constants::westend::locations::BULLETIN_ID` changes from 2487 to 1010.
+
+    Asset Hub Westend's system-chain rules now cover Bulletin, so its Bulletin-only exceptions are
+    removed: the WND teleport case `WndFromBulletin` and the barrier entry
+    `ValidatorCollatorChainLocations`. Para 2487 is no longer trusted for WND teleports and no
+    longer gets explicit unpaid execution.
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: testnet-parachains-constants
+  bump: minor
+- name: westend-runtime-constants
+  bump: minor
