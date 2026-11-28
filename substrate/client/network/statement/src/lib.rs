@@ -20,8 +20,8 @@
 //!
 //! This crate implements gossip-based propagation of statements between nodes, layered on the
 //! substrate notifications protocol. The protocol version is negotiated per peer: `statement/2`
-//! (preferred) with `statement/1` as a fallback. A node on the DHT path prefers `statement/3`
-//! and falls back to both.
+//! (preferred) with `statement/1` as a fallback. A node on the DHT path prefers `statement/4`,
+//! then `statement/3`, and falls back to both.
 //!
 //! ## Propagation
 //!
@@ -110,7 +110,8 @@
 //! opt into an affinity.
 //!
 //! With the DHT path enabled, the node speaks `statement/3`, which carries the `statement/2`
-//! messages between two nodes on that path. Every `statement/3` peer sends its affinity filter as
+//! messages between two nodes on that path, or `statement/4`, which adds the messages of set
+//! reconciliation. Every such peer sends its affinity filter as
 //! the first message on connect, and the initial sync waits for the peer's filter, replaying the
 //! statements it matches and those the peer is a DHT routing target for. A full peer that falls
 //! back to `statement/2` or `statement/1` floods instead of routing, so it gets every statement
@@ -195,6 +196,14 @@ pub type Statements = Vec<Statement>;
 
 type StatementBatch = BoundedVec<Statement, ConstU32<{ MAX_STATEMENTS_PER_NOTIFICATION as u32 }>>;
 
+/// The leading bytes of a statement hash, mixed with the salt of its announce.
+type ShortHash = [u8; 8];
+
+type AnnouncedHashes = BoundedVec<ShortHash, ConstU32<{ MAX_ANNOUNCED_HASHES as u32 }>>;
+
+/// One bit per announced hash, the lowest bit of a byte first.
+type WantedBitmap = BoundedVec<u8, ConstU32<{ MAX_ANNOUNCED_HASHES.div_ceil(8) as u32 }>>;
+
 /// The protocol version that was negotiated with a peer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PeerProtocolVersion {
@@ -204,17 +213,20 @@ enum PeerProtocolVersion {
 	V2,
 	/// V3: the V2 messages, between two nodes on the DHT path.
 	V3,
+	/// V4: the V3 messages and the messages of set reconciliation.
+	V4,
 }
 
 impl PeerProtocolVersion {
 	/// The version negotiated on a substream: `negotiated_fallback` names the fallback protocol
-	/// the peer settled for, and without one the peer speaks the main protocol, `statement/3`
+	/// the peer settled for, and without one the peer speaks the main protocol, `statement/4`
 	/// when `dht` is on.
 	fn negotiated(negotiated_fallback: Option<&str>, dht: bool) -> Self {
 		match negotiated_fallback {
 			Some(name) if name.ends_with(STATEMENT_PROTOCOL_V1) => PeerProtocolVersion::V1,
+			Some(name) if name.ends_with(STATEMENT_PROTOCOL_V3) => PeerProtocolVersion::V3,
 			Some(_) => PeerProtocolVersion::V2,
-			None if dht => PeerProtocolVersion::V3,
+			None if dht => PeerProtocolVersion::V4,
 			None => PeerProtocolVersion::V2,
 		}
 	}
@@ -223,7 +235,9 @@ impl PeerProtocolVersion {
 	fn envelope_overhead(&self) -> usize {
 		match self {
 			PeerProtocolVersion::V1 => V1_ENVELOPE_OVERHEAD,
-			PeerProtocolVersion::V2 | PeerProtocolVersion::V3 => V2_ENVELOPE_OVERHEAD,
+			PeerProtocolVersion::V2 | PeerProtocolVersion::V3 | PeerProtocolVersion::V4 => {
+				V2_ENVELOPE_OVERHEAD
+			},
 		}
 	}
 }
@@ -235,6 +249,17 @@ enum StatementMessage {
 	/// Bloom filter bytes representing the topics this peer is interested in.
 	#[codec(index = 1)]
 	ExplicitTopicAffinity(AffinityFilter),
+	/// Short hashes of statements the sender holds for this peer, sent ahead of their bodies.
+	/// The sender mixes `salt` into every hash, and sets `last` on the final announce of a sync.
+	#[codec(index = 2)]
+	Announce { id: u64, salt: u64, last: bool, hashes: AnnouncedHashes },
+	/// The answer to the announce `id`: a set bit asks for the body of the hash at that position.
+	#[codec(index = 3)]
+	Want { id: u64, wanted: WantedBitmap },
+	/// Asks the peer to announce the statements it admitted in the last `window_secs` seconds of
+	/// its own clock, or all of them without a window.
+	#[codec(index = 4)]
+	AnnounceRequest { window_secs: Option<u32> },
 }
 
 /// Codec variant index for `StatementMessage::Statements`, kept in sync with `#[codec(index)]`.
@@ -252,6 +277,19 @@ impl StatementMessage {
 		STATEMENTS_VARIANT_INDEX.encode_to(&mut out);
 		statements.encode_to(&mut out);
 		out
+	}
+
+	/// Decode a notification from a peer that negotiated `version`. Only a `statement/4` peer may
+	/// send the messages of set reconciliation.
+	fn decode_from(version: PeerProtocolVersion, mut notification: &[u8]) -> Option<Self> {
+		match Self::decode(&mut notification).ok()? {
+			Self::Announce { .. } | Self::Want { .. } | Self::AnnounceRequest { .. }
+				if version != PeerProtocolVersion::V4 =>
+			{
+				None
+			},
+			message => Some(message),
+		}
 	}
 }
 
@@ -282,6 +320,8 @@ mod rep {
 }
 
 const LOG_TARGET: &str = "statement-gossip";
+/// V4 statement protocol suffix: the V3 messages and the messages of set reconciliation.
+const STATEMENT_PROTOCOL_V4: &str = "statement/4";
 /// V3 statement protocol suffix: the V2 messages between two nodes on the DHT path, so the
 /// protocol a peer negotiates tells whether it routes or floods.
 const STATEMENT_PROTOCOL_V3: &str = "statement/3";
@@ -310,6 +350,8 @@ const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::fr
 /// Maximum admission-journal entries one initial-sync fetch visits, so that a peer whose
 /// affinity matches nothing cannot make one burst walk the whole journal in the event loop.
 const INITIAL_SYNC_SCAN_LIMIT: usize = 4096;
+/// Most hashes one announce carries.
+const MAX_ANNOUNCED_HASHES: usize = 4096;
 /// Interval for processing pending topic affinity changes from peers.
 const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
 /// Interval between sweeps that evict statement-store peers unseen for the staleness TTL, so the
@@ -603,7 +645,7 @@ impl Metrics {
 }
 
 /// The main protocol name and its fallbacks, most preferred first. Only a node on the DHT path
-/// offers `statement/3`.
+/// offers `statement/4` and `statement/3`.
 fn protocol_names(
 	genesis_hash_hex: &str,
 	fork_id: Option<&str>,
@@ -615,12 +657,25 @@ fn protocol_names(
 	};
 	if dht {
 		(
-			protocol(STATEMENT_PROTOCOL_V3),
-			vec![protocol(STATEMENT_PROTOCOL_V2), protocol(STATEMENT_PROTOCOL_V1)],
+			protocol(STATEMENT_PROTOCOL_V4),
+			vec![
+				protocol(STATEMENT_PROTOCOL_V3),
+				protocol(STATEMENT_PROTOCOL_V2),
+				protocol(STATEMENT_PROTOCOL_V1),
+			],
 		)
 	} else {
 		(protocol(STATEMENT_PROTOCOL_V2), vec![protocol(STATEMENT_PROTOCOL_V1)])
 	}
+}
+
+/// Whether a peer whose identify answer lists `supported` runs the DHT path: it offers the main
+/// protocol `statement/4`, or `statement/3` of the same chain.
+fn lists_dht_protocol(supported: &HashSet<ProtocolName>, main: &ProtocolName) -> bool {
+	supported.contains(main) ||
+		main.strip_suffix(STATEMENT_PROTOCOL_V4).is_some_and(|chain| {
+			supported.contains(format!("{chain}{STATEMENT_PROTOCOL_V3}").as_str())
+		})
 }
 
 /// Prototype for a [`StatementHandler`].
@@ -1298,7 +1353,7 @@ impl Peer {
 		match self.protocol_version {
 			PeerProtocolVersion::V1 => true,
 			PeerProtocolVersion::V2 => !self.is_light,
-			PeerProtocolVersion::V3 => false,
+			PeerProtocolVersion::V3 | PeerProtocolVersion::V4 => false,
 		}
 	}
 
@@ -1323,7 +1378,7 @@ impl Peer {
 	/// Whether this peer is ready to receive statements.
 	///
 	/// Light V2 peers must set their topic affinity before receiving any statements; with the
-	/// DHT path on, every `statement/3` peer must.
+	/// DHT path on, every `statement/3` and `statement/4` peer must.
 	fn can_receive(&self) -> bool {
 		!(self.protocol_version != PeerProtocolVersion::V1 &&
 			self.topic_affinity.is_none() &&
@@ -1548,9 +1603,10 @@ where
 	fn handle_network_event(&mut self, event: Event) {
 		match event {
 			Event::PeersDiscovered(peers) => self.dht.on_peers_discovered(peers),
-			Event::PeerIdentified { peer, supported_protocols } => self
-				.dht
-				.on_peer_identified(peer, supported_protocols.contains(&self.protocol_name)),
+			Event::PeerIdentified { peer, supported_protocols } => self.dht.on_peer_identified(
+				peer,
+				lists_dht_protocol(&supported_protocols, &self.protocol_name),
+			),
 			// The stream is filtered to `PeersDiscovered` and `PeerIdentified`, so no other
 			// variant reaches here.
 			_ => {},
@@ -1963,7 +2019,7 @@ where
 				}
 
 				// Peers awaiting their affinity filter are synced by the pending-affinity tick.
-				// Light peers owe the filter by protocol; full peers owe it only on `statement/3`.
+				// Light peers owe the filter by protocol; full peers owe it from `statement/3` on.
 				// A full `statement/2` peer floods, so with the DHT path on it is served at
 				// once.
 				if dht_enabled() && protocol_version == PeerProtocolVersion::V2 && !is_light {
@@ -2015,7 +2071,7 @@ where
 						target: LOG_TARGET,
 						"{peer}: Ignoring statements while major syncing or offline"
 					);
-					// With the DHT path on, a v3 peer replays on the re-advertised filter; a
+					// With the DHT path on, a v3 or v4 peer replays on the re-advertised filter; a
 					// peer without the DHT path gets no such request and is reconnected once the
 					// sync ends.
 					let from_peer_without_dht =
@@ -2049,9 +2105,12 @@ where
 							}
 						}
 					},
-					PeerProtocolVersion::V2 | PeerProtocolVersion::V3 => {
-						// V2 and V3 peers send StatementMessage enum.
-						if let Ok(message) = StatementMessage::decode(&mut notification.as_ref()) {
+					PeerProtocolVersion::V2 | PeerProtocolVersion::V3 | PeerProtocolVersion::V4 => {
+						// V2 and later peers send StatementMessage enum.
+						if let Some(message) = StatementMessage::decode_from(
+							peer_data.protocol_version,
+							notification.as_ref(),
+						) {
 							match message {
 								StatementMessage::Statements(statements) => {
 									self.on_statements(peer, statements.into_inner());
@@ -2096,6 +2155,22 @@ where
 										}
 										peer_data.pending_topic_affinity = Some(filter);
 									}
+								},
+								StatementMessage::Announce { id, hashes, .. } => {
+									log::trace!(
+										target: LOG_TARGET,
+										"Dropping announce {id} of {} hashes from {peer}",
+										hashes.len(),
+									);
+								},
+								StatementMessage::Want { id, .. } => {
+									log::trace!(target: LOG_TARGET, "Dropping want {id} from {peer}");
+								},
+								StatementMessage::AnnounceRequest { window_secs } => {
+									log::trace!(
+										target: LOG_TARGET,
+										"Dropping announce request for {window_secs:?} seconds from {peer}",
+									);
 								},
 							}
 						} else {
@@ -2641,7 +2716,7 @@ where
 			let send_stmts: Vec<_> = statements.iter().map(|(_, stmt)| stmt).collect();
 			let encoded = match peer_version {
 				PeerProtocolVersion::V1 => send_stmts.encode(),
-				PeerProtocolVersion::V2 | PeerProtocolVersion::V3 => {
+				PeerProtocolVersion::V2 | PeerProtocolVersion::V3 | PeerProtocolVersion::V4 => {
 					StatementMessage::encode_statement_refs(&send_stmts)
 				},
 			};
@@ -3171,7 +3246,7 @@ where
 		let send_stmts: Vec<_> = batch.statements.iter().map(|(_, stmt)| stmt).collect();
 		let encoded = match peer_version {
 			PeerProtocolVersion::V1 => send_stmts.encode(),
-			PeerProtocolVersion::V2 | PeerProtocolVersion::V3 => {
+			PeerProtocolVersion::V2 | PeerProtocolVersion::V3 | PeerProtocolVersion::V4 => {
 				StatementMessage::encode_statement_refs(&send_stmts)
 			},
 		};
@@ -7076,13 +7151,14 @@ mod tests {
 	}
 
 	#[test]
-	fn identify_indexes_only_a_peer_that_lists_the_main_protocol() {
+	fn identify_indexes_only_a_peer_that_lists_a_dht_protocol() {
 		let (mut handler, _statement_store, _network, _notification_service) =
 			build_handler_no_peers();
-		let main: ProtocolName = format!("/aa/{STATEMENT_PROTOCOL_V3}").into();
+		let main: ProtocolName = format!("/aa/{STATEMENT_PROTOCOL_V4}").into();
 		let fallbacks: HashSet<ProtocolName> = HashSet::from([
 			format!("/aa/{STATEMENT_PROTOCOL_V2}").into(),
 			format!("/aa/{STATEMENT_PROTOCOL_V1}").into(),
+			format!("/bb/{STATEMENT_PROTOCOL_V3}").into(),
 		]);
 		handler.protocol_name = main.clone();
 		// A lone node is the replica of the topic at a peer's key until it indexes that peer.
@@ -7102,15 +7178,32 @@ mod tests {
 			peer: remote,
 			supported_protocols: fallbacks.clone(),
 		});
-		assert!(handler.dht.is_replica_for(&[topic]), "a peer without statement/3 is not indexed");
+		assert!(
+			handler.dht.is_replica_for(&[topic]),
+			"a peer without a DHT protocol is not indexed"
+		);
 
-		let mut with_main = fallbacks;
+		let mut with_main = fallbacks.clone();
 		with_main.insert(main);
 		handler.handle_network_event(Event::PeerIdentified {
 			peer: remote,
 			supported_protocols: with_main,
 		});
 		assert!(!handler.dht.is_replica_for(&[topic]));
+
+		handler.handle_network_event(Event::PeerIdentified {
+			peer: remote,
+			supported_protocols: fallbacks.clone(),
+		});
+		assert!(handler.dht.is_replica_for(&[topic]));
+
+		let mut with_v3 = fallbacks;
+		with_v3.insert(format!("/aa/{STATEMENT_PROTOCOL_V3}").into());
+		handler.handle_network_event(Event::PeerIdentified {
+			peer: remote,
+			supported_protocols: with_v3,
+		});
+		assert!(!handler.dht.is_replica_for(&[topic]), "a statement/3 peer runs the DHT path");
 	}
 
 	#[test]
@@ -7120,20 +7213,111 @@ mod tests {
 		for dht in [false, true] {
 			assert_eq!(PeerProtocolVersion::negotiated(Some(&v1), dht), PeerProtocolVersion::V1);
 		}
+		let v3 = format!("/genesis/{STATEMENT_PROTOCOL_V3}");
 		assert_eq!(PeerProtocolVersion::negotiated(Some(&v2), true), PeerProtocolVersion::V2);
-		assert_eq!(PeerProtocolVersion::negotiated(None, true), PeerProtocolVersion::V3);
+		assert_eq!(PeerProtocolVersion::negotiated(Some(&v3), true), PeerProtocolVersion::V3);
+		assert_eq!(PeerProtocolVersion::negotiated(None, true), PeerProtocolVersion::V4);
 		assert_eq!(PeerProtocolVersion::negotiated(None, false), PeerProtocolVersion::V2);
 	}
 
 	#[test]
-	fn only_a_node_on_the_dht_path_offers_statement_3() {
+	fn only_a_node_on_the_dht_path_offers_statement_3_and_4() {
 		let (main, fallbacks) = protocol_names("aa", None, false);
 		assert_eq!(main, "/aa/statement/2");
 		assert_eq!(fallbacks, vec!["/aa/statement/1"]);
 
 		let (main, fallbacks) = protocol_names("aa", Some("fork"), true);
-		assert_eq!(main, "/aa/fork/statement/3");
-		assert_eq!(fallbacks, vec!["/aa/fork/statement/2", "/aa/fork/statement/1"]);
+		assert_eq!(main, "/aa/fork/statement/4");
+		assert_eq!(
+			fallbacks,
+			vec!["/aa/fork/statement/3", "/aa/fork/statement/2", "/aa/fork/statement/1"]
+		);
+	}
+
+	#[test]
+	fn reconciliation_messages_encoding_snapshot() {
+		let announce = StatementMessage::Announce {
+			id: 1,
+			salt: 2,
+			last: true,
+			hashes: vec![[0xAA; 8]].try_into().unwrap(),
+		};
+		let mut expected = vec![2, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 4];
+		expected.extend([0xAA; 8]);
+		assert_eq!(announce.encode(), expected);
+
+		let want = StatementMessage::Want { id: 1, wanted: vec![0b101].try_into().unwrap() };
+		assert_eq!(want.encode(), vec![3, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0b101]);
+
+		let request = |window_secs| StatementMessage::AnnounceRequest { window_secs }.encode();
+		assert_eq!(request(Some(300)), vec![4, 1, 0x2C, 1, 0, 0]);
+		assert_eq!(request(None), vec![4, 0]);
+	}
+
+	#[tokio::test]
+	async fn only_a_v4_peer_sends_the_reconciliation_messages_without_a_report() {
+		let (mut handler, _statement_store, network, notification_service) =
+			build_handler_no_peers();
+		let peer_id = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		let announce = StatementMessage::Announce {
+			id: 1,
+			salt: 0,
+			last: false,
+			hashes: vec![[1; 8]].try_into().unwrap(),
+		};
+		let request = StatementMessage::AnnounceRequest { window_secs: Some(60) };
+		let want = StatementMessage::Want { id: 1, wanted: vec![1].try_into().unwrap() };
+		let messages = [announce.encode(), want.encode(), request.encode()];
+
+		handler.peers.get_mut(&peer_id).unwrap().protocol_version = PeerProtocolVersion::V4;
+		for message in messages.clone() {
+			handler
+				.handle_notification_event(NotificationEvent::NotificationReceived {
+					peer: peer_id,
+					notification: message.into(),
+				})
+				.await;
+		}
+		assert!(network.get_reports().is_empty());
+		assert!(notification_service.get_sent_notifications().is_empty());
+
+		for version in [PeerProtocolVersion::V2, PeerProtocolVersion::V3] {
+			handler.peers.get_mut(&peer_id).unwrap().protocol_version = version;
+			for message in messages.clone() {
+				handler
+					.handle_notification_event(NotificationEvent::NotificationReceived {
+						peer: peer_id,
+						notification: message.into(),
+					})
+					.await;
+			}
+		}
+		assert_eq!(network.get_reports().len(), 6);
+	}
+
+	#[test]
+	fn an_announce_over_the_hash_limit_fails_to_decode() {
+		let announce = |hashes: usize| {
+			let mut bytes = vec![2];
+			bytes.extend([0; 17]);
+			Compact(hashes as u32).encode_to(&mut bytes);
+			bytes.extend(vec![0; hashes * 8]);
+			bytes
+		};
+		let decode =
+			|bytes: Vec<u8>| StatementMessage::decode_from(PeerProtocolVersion::V4, &bytes);
+
+		assert!(decode(announce(MAX_ANNOUNCED_HASHES)).is_some());
+		assert!(decode(announce(MAX_ANNOUNCED_HASHES + 1)).is_none());
 	}
 
 	#[test]
@@ -7148,8 +7332,10 @@ mod tests {
 		assert!(!peer.without_dht(), "a light v2 peer is served by its filter");
 
 		peer.is_light = false;
-		peer.protocol_version = PeerProtocolVersion::V3;
-		assert!(!peer.without_dht());
+		for version in [PeerProtocolVersion::V3, PeerProtocolVersion::V4] {
+			peer.protocol_version = version;
+			assert!(!peer.without_dht());
+		}
 	}
 
 	async fn send_affinity(
