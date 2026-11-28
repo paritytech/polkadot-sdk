@@ -1,0 +1,18 @@
+title: 'pallet-recovery: fix try_state check 5b for zero security deposit'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Check 5b in `do_try_state` previously required a nonzero `SecurityDeposit` hold
+    unconditionally. `MigrateV0ToV1` deliberately stores zero when it cannot hold the
+    deposit for the rescuer; `cancel_attempt` and `approve_attempt` release via
+    `Precision::BestEffort`, so that state is consistent.
+
+    The check now compares the hold against the stored deposit instead of against zero.
+    A zero stored deposit with zero hold passes. A nonzero stored deposit with a shortfall
+    still fails. This unblocks `try-runtime` checks against Asset Hub Kusama, where nine
+    of fourteen `Attempt` entries were inserted by the migration with a zero deposit.
+
+crates:
+- name: pallet-recovery
+  bump: patch
