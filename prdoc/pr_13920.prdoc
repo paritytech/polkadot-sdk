@@ -1,0 +1,11 @@
+title: 'Snowbridge: V1 inbound queue fee-fronting liveness tests'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds tests for Snowbridge V1 inbound queue fee fronting: a message is rejected without state
+    changes when neither the relayer nor the Asset Hub sovereign can cover the fee, and a failed
+    below-existential-deposit reimbursement does not stall the channel. Tests only, no functional
+    changes.
+crates:
+- name: snowbridge-pallet-inbound-queue
+  bump: none
