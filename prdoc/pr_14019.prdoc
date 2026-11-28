@@ -1,0 +1,38 @@
+title: 'pallet-multi-asset-bounties: multiple assets per bounty'
+doc:
+  - audience: Runtime User
+    description: |
+      A bounty can now hold a basket of up to `MaxAssetsPerBounty` assets, and each child bounty
+      can take any subset of its parent's basket. The new calls `fund_bounty_with_assets`,
+      `fund_child_bounty_with_assets` and `increase_asset_value` take the basket or name the
+      asset. `fund_bounty`, `fund_child_bounty` and `increase_value` keep their signatures and
+      call indices but are deprecated: `fund_bounty` funds a basket of one asset, and the other
+      two fail with `AmbiguousAsset` on a bounty holding more than one asset. Funding is
+      all-or-nothing. On payout and refund, an asset whose payment is rejected is marked
+      `Failed` and can be retried with `retry_payment`, while the other assets are still paid.
+      The call reverts only if every asset is rejected. `close_bounty` now accepts a bounty in
+      `Funding` and refunds only the assets that arrived. `check_status` and `retry_payment`
+      return `Ok` for payments still in flight instead of an error.
+      Events about a single asset now carry `asset_kind`: `BountyFundingProcessed`,
+      `BountyRefundProcessed`, `BountyValueIncreased`, `Paid` and `PaymentFailed`.
+      `PaymentFailed`'s `payment_id` is now an `Option`, `None` when the payment was rejected
+      inside the call. UIs and indexers read a bounty's assets by iterating `BountyAssets` with
+      the bounty index as prefix, and a child bounty's by iterating `ChildBountyAssets` with
+      `(parent, child)`.
+  - audience: Runtime Dev
+    description: |
+      New `Config` item `MaxAssetsPerBounty`. It must never be lowered below the size of an
+      existing basket. Most `WeightInfo` functions now take the basket size, and three are added
+      for the new calls, so runtime weight files must be regenerated. Storage moves to a
+      per-asset layout (`BountyAssets`, `ChildBountyAssets`, `ChildValuePerParentAsset`), so
+      runtimes with the pallet must run `migration::MigrateV1ToV2`, which turns every existing
+      bounty and child bounty into a one-asset basket. `Bounty`, `ChildBounty` and
+      `BountyStatus` lose generic parameters, and `get_bounty_details` returns a different
+      tuple.
+crates:
+  - name: pallet-multi-asset-bounties
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major
+  - name: kitchensink-runtime
+    bump: major

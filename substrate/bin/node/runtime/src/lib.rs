@@ -1430,6 +1430,7 @@ parameter_types! {
 	pub const CuratorDepositFromValueMultiplier: Permill = Permill::from_percent(10);
 	pub const CuratorHoldReason: RuntimeHoldReason =
 		RuntimeHoldReason::MultiAssetBounties(pallet_multi_asset_bounties::HoldReason::CuratorDeposit);
+	pub const MaxAssetsPerBounty: u32 = 5;
 }
 
 impl pallet_multi_asset_bounties::Config for Runtime {
@@ -1445,6 +1446,7 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	type BountyValueMinimum = BountyValueMinimum;
 	type ChildBountyValueMinimum = ChildBountyValueMinimum;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
+	type MaxAssetsPerBounty = MaxAssetsPerBounty;
 	type WeightInfo = pallet_multi_asset_bounties::weights::SubstrateWeight<Runtime>;
 	type FundingSource = pallet_multi_asset_bounties::PalletIdAsFundingSource<
 		TreasuryPalletId,
