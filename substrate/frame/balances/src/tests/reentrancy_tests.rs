@@ -21,14 +21,12 @@ use super::*;
 use frame_support::traits::{
 	tokens::{
 		Fortitude::Force,
-		Precision::{BestEffort, Exact},
+		Precision::BestEffort,
 		Preservation::{Expendable, Protect},
 	},
-	InspectLockableCurrency, LockableCurrency, WithdrawReasons,
+	InspectLockableCurrency,
 };
-use fungible::{Balanced, InspectFreeze, InspectHold, Mutate, MutateFreeze, MutateHold};
-
-const OUTER_LOCK_ID: LockIdentifier = *b"OUTER___";
+use fungible::{Balanced, InspectFreeze, InspectHold, Mutate};
 
 #[test]
 fn reentrant_dust_handler_hold_is_not_overwritten() {
@@ -39,11 +37,13 @@ fn reentrant_dust_handler_hold_is_not_overwritten() {
 		.build_and_execute_with(|| {
 			Balances::set_balance(&alice, 100);
 			TotalIssuance::<Test>::put(100);
-			let _ = System::inc_providers(&alice);
-			assert_ok!(Balances::hold(&TestId::Foo, &alice, 50));
-			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(alice), 2, 45));
 
-			assert_ok!(Balances::release(&TestId::Foo, &alice, 50, Exact));
+			// Dropping free below ED with no provider left to keep the account alive reaps it
+			// and reports the whole balance as dust. The dust handler reentrantly mints back
+			// into the now-dead account and holds part of it, within this same call; that
+			// reentrant hold must survive whatever bookkeeping the outer operation does
+			// afterward.
+			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(alice), 2, 95));
 
 			assert_eq!(Balances::balance_on_hold(&TestId::Bar, &alice), 7);
 			assert_eq!(Balances::total_balance_on_hold(&alice), 7);
@@ -60,14 +60,13 @@ fn reentrant_dust_handler_freeze_is_not_overwritten() {
 		.build_and_execute_with(|| {
 			Balances::set_balance(&alice, 100);
 			TotalIssuance::<Test>::put(100);
-			let _ = System::inc_providers(&alice);
-			assert_ok!(Balances::set_freeze(&TestId::Foo, &alice, 30));
 
-			let credit =
-				<Balances as fungible::Balanced<_>>::withdraw(&alice, 95, Exact, Expendable, Force)
-					.unwrap();
-			drop(credit);
-			assert_ok!(Balances::thaw(&TestId::Foo, &alice));
+			// Dropping free below ED with no provider left to keep the account alive reaps it
+			// and reports the whole balance as dust. The dust handler reentrantly mints back
+			// into the now-dead account and freezes part of it, within this same call; that
+			// reentrant freeze must survive whatever bookkeeping the outer operation does
+			// afterward.
+			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(alice), 2, 95));
 
 			assert_eq!(Balances::balance_frozen(&TestId::Bar, &alice), 7);
 			assert_eq!(get_test_account_data(alice).frozen, 7);
@@ -84,11 +83,13 @@ fn reentrant_dust_handler_lock_is_not_overwritten() {
 		.build_and_execute_with(|| {
 			Balances::set_balance(&alice, 100);
 			TotalIssuance::<Test>::put(100);
-			let _ = System::inc_providers(&alice);
-			Balances::set_lock(OUTER_LOCK_ID, &alice, 5, WithdrawReasons::all());
-			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(alice), 2, 93));
 
-			Balances::remove_lock(OUTER_LOCK_ID, &alice);
+			// Dropping free below ED with no provider left to keep the account alive reaps it
+			// and reports the whole balance as dust. The dust handler reentrantly mints back
+			// into the now-dead account and locks part of it, within this same call; that
+			// reentrant lock must survive whatever bookkeeping the outer operation does
+			// afterward.
+			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(alice), 2, 95));
 
 			assert_eq!(
 				<Balances as InspectLockableCurrency<_>>::balance_locked(REENTRANT_LOCK_ID, &alice),

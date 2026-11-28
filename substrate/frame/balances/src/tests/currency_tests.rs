@@ -431,12 +431,20 @@ fn reserved_balance_should_prevent_reclaim_count() {
 
 			assert!(Balances::slash_reserved(&2, 256 * 19 + 1).1.is_zero()); // account 2 gets slashed
 
-			// "reserve" account reduced to 255 (below ED) so account no longer consuming
+			// Free balance (255) is below ED, but the extra provider reference keeps the
+			// account alive regardless, so it is not dusted here.
+			assert_eq!(Balances::free_balance(2), 255);
+
+			// Forcing that extra provider away directly through `System`, bypassing
+			// `pallet-balances`, reaps the `frame_system` side (nonce, providers). With
+			// `UseSystem`, that is also where `pallet-balances`'s own balance lives, so it gets
+			// wiped along with it; with its own separate storage, that balance is left
+			// untouched, since the call never goes through `pallet-balances` at all.
 			assert_ok!(System::dec_providers(&2));
 			assert_eq!(System::providers(&2), 0);
-			// account deleted
+			// account deleted, frame_system-side
 			assert_eq!(System::account_nonce(&2), 0); // nonce zero
-			assert_eq!(Balances::total_balance(&2), 0);
+			assert_eq!(Balances::total_balance(&2), if UseSystem::get() { 0 } else { 255 });
 
 			// account 4 tries to take index 1 again for account 6.
 			assert_ok!(Balances::transfer_allow_death(Some(4).into(), 6, 256 * 1 + 0x69));

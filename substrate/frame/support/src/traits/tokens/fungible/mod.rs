@@ -186,7 +186,8 @@ pub use imbalance::{Credit, Debt, HandleImbalanceDrop, Imbalance};
 pub use item_of::ItemOf;
 pub use lifetime::Create;
 pub use regular::{
-	Balanced, DecreaseIssuance, Dust, IncreaseIssuance, Inspect, Mutate, Unbalanced,
+	saturating_add_capped, Balanced, DecreaseIssuance, Dust, IncreaseIssuance, Inspect, Mutate,
+	Unbalanced,
 };
 use sp_arithmetic::traits::Zero;
 use sp_core::Get;

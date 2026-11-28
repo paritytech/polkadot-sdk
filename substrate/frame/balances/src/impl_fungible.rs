@@ -20,6 +20,7 @@ use super::*;
 use frame_support::traits::{
 	tokens::{
 		Fortitude,
+		Precision::{self, BestEffort, Exact},
 		Preservation::{self, Preserve, Protect},
 		Provenance::{self, Minted},
 	},
@@ -87,7 +88,10 @@ impl<T: Config<I>, I: 'static> fungible::Inspect<T::AccountId> for Pallet<T, I> 
 		let account = Self::account(who);
 		let new_free = match account.free.checked_add(&amount) {
 			None => return DepositConsequence::Overflow,
-			Some(x) if x < T::ExistentialDeposit::get() => return DepositConsequence::BelowMinimum,
+			// See `has_provider`.
+			Some(x) if x < T::ExistentialDeposit::get() && !Self::has_provider(who) => {
+				return DepositConsequence::BelowMinimum
+			},
 			Some(x) => x,
 		};
 
@@ -170,6 +174,39 @@ impl<T: Config<I>, I: 'static> fungible::Unbalanced<T::AccountId> for Pallet<T, 
 		})?;
 		result?;
 		Ok(maybe_dust)
+	}
+
+	fn increase_balance(
+		who: &T::AccountId,
+		amount: Self::Balance,
+		precision: Precision,
+	) -> Result<Self::Balance, DispatchError> {
+		let account = Self::account(who);
+		let new_free = match precision {
+			// Already capped so that adding `account.reserved` to it can't overflow.
+			BestEffort => fungible::saturating_add_capped(account.free, amount, account.reserved),
+			Exact => {
+				let new_free =
+					account.free.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
+				new_free.checked_add(&account.reserved).ok_or(ArithmeticError::Overflow)?;
+				new_free
+			},
+		};
+
+		// See `has_provider`.
+		if new_free < T::ExistentialDeposit::get() && !Self::has_provider(who) {
+			return match precision {
+				BestEffort => Ok(Zero::zero()),
+				Exact => Err(TokenError::BelowMinimum.into()),
+			};
+		}
+		if new_free == account.free {
+			return Ok(Zero::zero());
+		}
+		if let Some(dust) = Self::write_balance(who, new_free)? {
+			Self::handle_dust(fungible::Dust(dust));
+		}
+		Ok(new_free.saturating_sub(account.free))
 	}
 
 	fn set_total_issuance(amount: Self::Balance) {
@@ -281,7 +318,7 @@ impl<T: Config<I>, I: 'static> fungible::InspectHold<T::AccountId> for Pallet<T,
 			.map_or_else(Zero::zero, |x| x.amount)
 	}
 	fn hold_available(reason: &Self::Reason, who: &T::AccountId) -> bool {
-		if frame_system::Pallet::<T>::providers(who) == 0 {
+		if !Self::has_provider(who) {
 			return false;
 		}
 		let holds = Holds::<T, I>::get(who);
@@ -322,6 +359,8 @@ impl<T: Config<I>, I: 'static> fungible::UnbalancedHold<T::AccountId> for Pallet
 			new_account.reserved.checked_sub(&delta).ok_or(ArithmeticError::Underflow)?
 		};
 
+		// Releasing the last hold of an account whose free balance is below ED dusts it,
+		// unless a provider reference (see `try_mutate_account`) keeps it alive.
 		let (result, maybe_dust) =
 			Self::try_mutate_account(who, false, |a, _| -> DispatchResult {
 				*a = new_account;

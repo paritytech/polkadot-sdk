@@ -254,6 +254,8 @@ impl OnUnbalanced<CreditOf<Test, ()>> for DustTrap {
 					.expect("reentrant hold should succeed");
 			},
 			Some(ReentrantDustAction::Freeze(account)) => {
+				<Balances as fungible::Mutate<_>>::mint_into(&account, 20)
+					.expect("reentrant mint should succeed");
 				<Balances as fungible::MutateFreeze<_>>::set_freeze(&TestId::Bar, &account, 7)
 					.expect("reentrant freeze should succeed");
 			},
