@@ -1,0 +1,15 @@
+title: 'fix(sc-service): reject chain_id path traversal in config_dir'
+doc:
+- audience: Node Operator
+  description: |-
+    Reject `chain_id` values that contain path separators or relative path components
+    when resolving `BasePath::config_dir`, preventing node data from being written
+    outside `base_path/chains/`. Invalid chain IDs now trigger a panic instead of
+    silently redirecting the database path.
+- audience: Node Dev
+  description: |-
+    Adds `is_chain_id_path_safe` to validate that a chain ID is a single path segment.
+    `BasePath::config_dir` asserts this invariant before joining paths.
+crates:
+- name: sc-service
+  bump: patch
