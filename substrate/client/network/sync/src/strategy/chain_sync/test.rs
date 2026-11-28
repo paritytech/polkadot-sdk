@@ -231,7 +231,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data(#[case] restarts: usize
 
 	// Restart without draining actions between calls to exercise queued replacements.
 	for _ in 0..restarts {
-		sync.restart();
+		sync.restart(false);
 	}
 
 	// which should make us cancel and send out again block requests to the first two peers
@@ -258,8 +258,82 @@ fn restart_doesnt_affect_peers_downloading_finality_data(#[case] restarts: usize
 
 	// Set common block to something that we don't have (e.g. failed import)
 	sync.peers.get_mut(&peer_id3).unwrap().common_number = 100;
-	sync.restart();
+	sync.restart(false);
 	assert_eq!(sync.peers.get(&peer_id3).unwrap().common_number, 50);
+}
+
+#[test]
+fn queued_fork_response_survives_import_errors() {
+	let client = Arc::new(TestClientBuilder::new().build());
+	let canonical = (0..3).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
+	let source = TestClientBuilder::new().build();
+	for block in &canonical {
+		block_on(source.import(BlockOrigin::Own, block.clone()))
+			.expect("canonical blocks have their parents");
+	}
+	let parent = build_block(&source, Some(canonical[0].hash()), true);
+	let target = build_block(&source, Some(parent.hash()), false);
+	let missing_parent = build_block(&source, None, false);
+	let unrelated = build_block(&source, Some(missing_parent.hash()), false);
+	let best = canonical.last().expect("three canonical blocks were built");
+	let download_peer = PeerId::random();
+	let announcing_peer = PeerId::random();
+	let mut sync = new_test_sync(client.clone());
+	sync.add_peer(download_peer, best.hash(), *best.header().number());
+	sync.add_peer(announcing_peer, best.hash(), *best.header().number());
+	let announce = BlockAnnounce {
+		header: target.header().clone(),
+		state: Some(BlockState::Normal),
+		data: Some(Vec::new()),
+	};
+	let _ = sync.on_validated_block_announce(false, download_peer, &announce);
+	let request = get_block_request(&mut sync, FromBlock::Hash(target.hash()), 3, &download_peer);
+
+	// The other peer queues the tip without its parent, then an unrelated import fails.
+	for block in [&unrelated, &target] {
+		sync.on_block_data(&announcing_peer, None, create_block_response(vec![block.clone()]))
+			.expect("announced block is valid");
+	}
+	assert!(sync.queue_blocks.contains(&target.hash()));
+	assert!(!sync.fork_targets.contains_key(&target.hash()));
+	assert_eq!(sync.best_queued_number, *unrelated.header().number());
+	let _ = sync.take_actions();
+	sync.on_blocks_processed(0, 1, vec![(Err(BlockImportError::UnknownParent), unrelated.hash())]);
+	assert_eq!(sync.best_queued_number, client.info().best_number);
+	assert!(sync.take_actions().next().is_none(), "the pending request must not be cancelled");
+	assert!(sync.block_requests().is_empty(), "no replacement request is needed");
+
+	// Retry the unrelated block. A delayed error for the previously queued tip must
+	// leave this new progress alone; failing the retry itself must still restart sync.
+	sync.on_block_data(&announcing_peer, None, create_block_response(vec![unrelated.clone()]))
+		.expect("retry is valid");
+	let _ = sync.take_actions();
+	sync.on_blocks_processed(0, 1, vec![(Err(BlockImportError::UnknownParent), target.hash())]);
+	assert_eq!(sync.best_queued_number, *unrelated.header().number());
+	let _ = sync.on_validated_block_announce(false, download_peer, &announce);
+	assert!(sync.take_actions().next().is_none());
+	assert!(sync.block_requests().is_empty());
+
+	sync.on_blocks_processed(0, 1, vec![(Err(BlockImportError::UnknownParent), unrelated.hash())]);
+	assert_eq!(sync.best_queued_number, client.info().best_number);
+	let _ = sync.on_validated_block_announce(false, download_peer, &announce);
+	assert!(sync.take_actions().next().is_none());
+	assert!(sync.block_requests().is_empty());
+
+	// The original response still supplies the missing ancestry in import order.
+	let response =
+		create_block_response(vec![target.clone(), parent.clone(), canonical[0].clone()]);
+	sync.on_block_data(&download_peer, Some(request), response)
+		.expect("original response is accepted");
+	let SyncingAction::ImportBlocks { blocks, .. } =
+		sync.take_actions().next().expect("ancestry is queued for import")
+	else {
+		panic!("expected the retained ancestry");
+	};
+	assert_eq!(
+		blocks.iter().map(|block| block.hash).collect::<Vec<_>>(),
+		vec![canonical[0].hash(), parent.hash(), target.hash()],
+	);
 }
 
 /// Send a block announcement for the given `header`.
@@ -1006,7 +1080,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 	let _ = sync.take_actions();
 
 	// restart sync
-	sync.restart();
+	sync.restart(false);
 	let actions = sync.take_actions().collect::<Vec<_>>();
 	for action in actions.iter() {
 		match action {
@@ -1832,7 +1906,10 @@ fn ancestry_search_preserves_pending_fork_download() {
 	let fork_hash = Hash::random();
 	sync.set_sync_fork_request(vec![peer], &fork_hash, 2);
 	get_block_request(&mut sync, FromBlock::Hash(fork_hash), 2, &peer);
-	assert_eq!(sync.peers[&peer].state, PeerSyncState::DownloadingStale(fork_hash));
+	assert_eq!(
+		sync.peers[&peer].state,
+		PeerSyncState::DownloadingStale { hash: fork_hash, number: 2 }
+	);
 
 	let mut header = blocks[2].header().clone();
 	header.set_parent_hash(Hash::random());
@@ -1869,7 +1946,7 @@ fn restart_drops_gap_sync_when_database_reports_no_gap() {
 	sync.peers.get_mut(&peer).unwrap().state = PeerSyncState::DownloadingGap(7);
 	assert!(sync.status().warp_sync.is_some());
 
-	sync.restart();
+	sync.restart(false);
 
 	assert!(sync.gap_sync.is_none());
 	assert!(sync.status().warp_sync.is_none());
