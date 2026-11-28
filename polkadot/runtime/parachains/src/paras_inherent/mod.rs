@@ -1161,7 +1161,40 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 		&allowed_scheduling_parents,
 	);
 
+	// Drop a candidate whose `Requires` miss the provides windows, with its descendants. Last, so
+	// only candidates that pass every other filter cost the window reads.
+	retain_candidates::<T, _, _>(&mut backed_candidates_with_core, |_, (candidate, _)| {
+		check_speculative_messaging::<T>(candidate)
+	});
+
 	backed_candidates_with_core
+}
+
+/// Whether to keep a candidate: every root its `Requires` names must be in the stored provides
+/// windows (inclusion tier).
+fn check_speculative_messaging<T: crate::inclusion::Config>(
+	candidate: &BackedCandidate<T::Hash>,
+) -> bool {
+	let Ok(signals) = candidate.candidate().commitments.ump_signals() else {
+		return false;
+	};
+
+	let Some(requires) = signals.requires() else {
+		return true;
+	};
+	let Err((source, root)) = crate::inclusion::Pallet::<T>::requires_satisfied(requires) else {
+		return true;
+	};
+
+	log::debug!(
+			target: LOG_TARGET,
+			"Dropping candidate {:?} for para {:?}: requires root {:?} not in source {:?}'s provides window.",
+			candidate.candidate().hash(),
+			candidate.descriptor().para_id(),
+			root,
+			source,
+	);
+	false
 }
 
 fn count_backed_candidates<B>(backed_candidates: &BTreeMap<ParaId, Vec<B>>) -> usize {

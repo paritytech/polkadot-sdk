@@ -1985,7 +1985,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(16)]
+	#[api_version(17)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -2182,6 +2182,10 @@ sp_api::impl_runtime_apis! {
 			relay_parent: Hash,
 		) -> Option<polkadot_primitives::vstaging::RelayParentInfo<Hash, BlockNumber>> {
 			parachains_staging_runtime_api_impl::ancestor_relay_parent_info::<Runtime>(session_index, relay_parent)
+		}
+
+		fn newest_included_provides(para_id: ParaId) -> Option<polkadot_primitives::StreamsRoot> {
+			parachains_staging_runtime_api_impl::newest_included_provides::<Runtime>(para_id)
 		}
 	}
 

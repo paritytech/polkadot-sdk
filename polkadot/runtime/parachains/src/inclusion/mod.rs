@@ -48,8 +48,8 @@ use polkadot_primitives::{
 	BackedCandidate, CandidateCommitments, CandidateDescriptorV2 as CandidateDescriptor,
 	CandidateHash, CandidateReceiptV2 as CandidateReceipt,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, GroupIndex, HeadData,
-	Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId,
-	ValidatorIndex, ValidityAttestation,
+	Id as ParaId, RequiresSet, SignedAvailabilityBitfields, SigningContext, StreamsRoot,
+	UpwardMessage, ValidatorId, ValidatorIndex, ValidityAttestation,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
@@ -66,22 +66,31 @@ pub mod migration;
 
 pub trait WeightInfo {
 	/// Weight for `enact_candidate` extrinsic given the number of sent messages
-	/// (ump, hrmp) and whether there is a new code for a runtime upgrade.
+	/// (ump, hrmp), whether there is a new code for a runtime upgrade, and whether the candidate
+	/// records a `Provides` root.
 	///
 	/// NOTE: due to a shortcoming of the current benchmarking framework,
-	/// we use `u32` for the code upgrade, even though it is a `bool`.
-	fn enact_candidate(u: u32, h: u32, c: u32) -> Weight;
+	/// we use `u32` for the code upgrade and `Provides` flags, even though they are `bool`s.
+	fn enact_candidate(u: u32, h: u32, c: u32, p: u32) -> Weight;
+	/// Weight of matching a `Requires` set of `r` entries against the provides windows.
+	fn requires_satisfied(r: u32) -> Weight;
 }
 
 pub struct TestWeightInfo;
 impl WeightInfo for TestWeightInfo {
-	fn enact_candidate(_u: u32, _h: u32, _c: u32) -> Weight {
+	fn enact_candidate(_u: u32, _h: u32, _c: u32, _p: u32) -> Weight {
+		Weight::zero()
+	}
+	fn requires_satisfied(_r: u32) -> Weight {
 		Weight::zero()
 	}
 }
 
 impl WeightInfo for () {
-	fn enact_candidate(_u: u32, _h: u32, _c: u32) -> Weight {
+	fn enact_candidate(_u: u32, _h: u32, _c: u32, _p: u32) -> Weight {
+		Weight::zero()
+	}
+	fn requires_satisfied(_r: u32) -> Weight {
 		Weight::zero()
 	}
 }
@@ -148,6 +157,12 @@ impl<H, N> CandidatePendingAvailability<H, N> {
 	/// Get the candidate commitments.
 	pub(crate) fn candidate_commitments(&self) -> &CandidateCommitments {
 		&self.commitments
+	}
+
+	/// Mutable access to the candidate commitments, for tests that add UMP signals.
+	#[cfg(all(test, not(feature = "runtime-benchmarks")))]
+	pub(crate) fn candidate_commitments_mut(&mut self) -> &mut CandidateCommitments {
+		&mut self.commitments
 	}
 
 	/// Get the candidate's relay parent's number.
@@ -359,11 +374,28 @@ pub mod pallet {
 		VecDeque<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>>,
 	>;
 
+	/// Per-sender window of recently committed `StreamsRoot`s for speculative messaging, newest
+	/// last, at most [`MAX_PROVIDES_WINDOW_SIZE`]. A receiver's `Requires` matches a root in it.
+	/// Dropped when the sender offboards.
+	/// After `force_set_current_head`, roots from the old chain still match while in the window.
+	#[pallet::storage]
+	pub(crate) type RecentProvides<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		ParaId,
+		BoundedVec<StreamsRoot, ConstU32<MAX_PROVIDES_WINDOW_SIZE>>,
+		ValueQuery,
+	>;
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {}
 }
 
 const LOG_TARGET: &str = "runtime::inclusion";
+
+/// A sender adds at most one root per core per relay block. To retain its newest root from receiver
+/// authoring to the `Requires` check, the window must exceed `max_sender_cores * delay_in_blocks`.
+pub const MAX_PROVIDES_WINDOW_SIZE: u32 = 128;
 
 /// The reason that a candidate's outputs were rejected for.
 #[derive(Debug)]
@@ -473,6 +505,10 @@ impl<T: Config> Pallet<T> {
 		for _ in PendingAvailability::<T>::drain() {}
 
 		Self::cleanup_outgoing_ump_dispatch_queues(outgoing_paras);
+
+		for outgoing_para in outgoing_paras {
+			RecentProvides::<T>::remove(outgoing_para);
+		}
 	}
 
 	pub(crate) fn cleanup_outgoing_ump_dispatch_queues(outgoing: &[ParaId]) {
@@ -580,16 +616,7 @@ impl<T: Config> Pallet<T> {
 								commitments: candidate.commitments,
 							};
 
-							let has_runtime_upgrade =
-								receipt.commitments.new_validation_code.as_ref().map_or(0, |_| 1);
-							let u = receipt.commitments.upward_messages.len() as u32;
-							let h = receipt.commitments.horizontal_messages.len() as u32;
-							let enact_weight = <T as Config>::WeightInfo::enact_candidate(
-								u,
-								h,
-								has_runtime_upgrade,
-							);
-							Self::enact_candidate(
+							let enact_weight = Self::enact_candidate(
 								candidate.relay_parent_number,
 								receipt,
 								candidate.backers,
@@ -851,10 +878,18 @@ impl<T: Config> Pallet<T> {
 		availability_votes: BitVec<u8, BitOrderLsb0>,
 		core_index: CoreIndex,
 		backing_group: GroupIndex,
-	) {
+	) -> Weight {
 		let plain = receipt.to_plain();
 		let commitments = receipt.commitments;
 		let config = configuration::ActiveConfig::<T>::get();
+
+		let (upward_messages, provides) = Self::upward_message_weight_inputs(&commitments);
+		let weight = <T as Config>::WeightInfo::enact_candidate(
+			upward_messages,
+			commitments.horizontal_messages.len() as u32,
+			commitments.new_validation_code.is_some() as u32,
+			provides.is_some() as u32,
+		);
 
 		T::RewardValidators::reward_backing(
 			backers
@@ -903,6 +938,10 @@ impl<T: Config> Pallet<T> {
 			commitments.horizontal_messages,
 		);
 
+		if let Some(root) = provides {
+			Self::record_provides(receipt.descriptor.para_id(), root);
+		}
+
 		Self::deposit_event(Event::<T>::CandidateIncluded(
 			plain,
 			commitments.head_data.clone(),
@@ -915,6 +954,48 @@ impl<T: Config> Pallet<T> {
 			commitments.head_data,
 			relay_parent_number,
 		);
+
+		weight
+	}
+
+	fn upward_message_weight_inputs(
+		commitments: &CandidateCommitments,
+	) -> (u32, Option<StreamsRoot>) {
+		let messages = skip_ump_signals(commitments.upward_messages.iter()).count() as u32;
+		let provides =
+			commitments.ump_signals().ok().and_then(|signals| signals.provides().copied());
+		(messages, provides)
+	}
+
+	/// Whether `root` is present in `source`'s provides window.
+	fn provides_contains(source: ParaId, root: &StreamsRoot) -> bool {
+		RecentProvides::<T>::get(source).iter().rev().any(|committed| committed == root)
+	}
+
+	/// The newest entry of `source`'s provides window: its latest `StreamsRoot` committed in an
+	/// included candidate, if any.
+	pub(crate) fn newest_provides(source: ParaId) -> Option<StreamsRoot> {
+		RecentProvides::<T>::get(source).last().copied()
+	}
+
+	/// Whether every `(source, root)` of `requires` is in that source's window; `Err` names the
+	/// first miss.
+	pub(crate) fn requires_satisfied(requires: &RequiresSet) -> Result<(), (ParaId, StreamsRoot)> {
+		for (source, expected) in requires.iter() {
+			if !Self::provides_contains(*source, expected) {
+				return Err((*source, *expected));
+			}
+		}
+		Ok(())
+	}
+
+	/// Push a sender's `StreamsRoot` into its window, dropping the oldest when full.
+	pub(crate) fn record_provides(source: ParaId, root: StreamsRoot) {
+		log::debug!(target: LOG_TARGET, "Recording provides root {root:?} of para {source:?}");
+		RecentProvides::<T>::mutate(source, |window| {
+			// Appending at `len` never fails.
+			let _evicted = window.force_insert_keep_right(window.len(), root);
+		});
 	}
 
 	pub(crate) fn relay_dispatch_queue_size(para_id: ParaId) -> (u32, u32) {
