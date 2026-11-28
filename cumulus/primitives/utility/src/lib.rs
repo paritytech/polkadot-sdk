@@ -203,6 +203,10 @@ impl<
 				Err(_) => return Err((payment, XcmError::Overflow)),
 			};
 
+		if required_amount == 0 {
+			return Ok(payment);
+		}
+
 		// Convert to the same kind of asset, with the required fungible balance
 		let required = used.id.into_asset(required_amount.into());
 

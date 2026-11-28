@@ -286,6 +286,9 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 		let quote = self.quote_weight(weight, id, context).ok()?;
 		// Subtract refunded weight.
 		self.0 -= weight;
+		if quote.fun == Fungible(0) {
+			return None;
+		}
 		// Refund equivalent assets in holding from trader to caller.
 		let refunded = self.1.saturating_take(quote.into());
 		if refunded.is_empty() {
@@ -316,7 +319,7 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 		let amount = (units_per_second * (weight.ref_time() as u128) /
 			(WEIGHT_REF_TIME_PER_SECOND as u128)) +
 			(units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128));
-		Ok((id, amount).into())
+		Ok(Asset { id, fun: Fungible(amount) })
 	}
 }
 
@@ -370,6 +373,9 @@ where
 	) -> Result<AssetsInHolding, (AssetsInHolding, XcmError)> {
 		tracing::trace!(target: "xcm::weight", ?weight, ?payment, ?context, "UsingComponents::buy_weight");
 		let amount = WeightToFee::weight_to_fee(&weight);
+		if amount.is_zero() {
+			return Ok(payment);
+		}
 		let Ok(u128_amount): Result<u128, _> = TryInto::<u128>::try_into(amount) else {
 			tracing::debug!(target: "xcm::weight", ?amount, "Weight fee could not be converted");
 			return Err((payment, XcmError::Overflow));

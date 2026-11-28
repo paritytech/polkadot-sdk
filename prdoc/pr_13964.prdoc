@@ -1,0 +1,17 @@
+title: 'xcm: taking a zero amount from holding takes nothing'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Taking a zero amount from `AssetsInHolding` now returns nothing instead of a 0 entry.
+
+    This fixes `FixedRateOfFungible::refund_weight` for refunds worth less than one unit: it
+    panicked in debug builds and put a 0 entry into holding in release builds. It now also returns
+    `None` itself when the refund is 0. `UsingComponents` and `TakeFirstAssetTrader` return the
+    payment untouched on a 0 fee.
+crates:
+- name: staging-xcm-executor
+  bump: patch
+- name: staging-xcm-builder
+  bump: patch
+- name: cumulus-primitives-utility
+  bump: patch

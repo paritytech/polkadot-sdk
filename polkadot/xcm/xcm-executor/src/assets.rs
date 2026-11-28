@@ -423,7 +423,7 @@ impl AssetsInHolding {
 							if remove {
 								self.fungible.remove(&id);
 							}
-							if let Some(balance) = balance {
+							if let Some(balance) = balance.filter(|balance| balance.amount() > 0) {
 								let other = Self::new_from_fungible_credit(id, balance);
 								taken.subsume_assets(other);
 							}
@@ -900,6 +900,30 @@ mod tests {
 		let taken = assets1.saturating_take(assets2.into());
 		let taken_vec: Vec<_> = taken.assets_iter().collect();
 		assert_eq!(taken_vec, vec![CF(300), CNF(40)]);
+	}
+
+	#[test]
+	fn take_zero_fungible_works() {
+		// Built directly, as `From<u128>` debug-asserts a non-zero amount.
+		let zero_here = Asset { id: Here.into(), fun: Fungible(0) };
+		let zero_parent = Asset { id: Parent.into(), fun: Fungible(0) };
+		let mut assets = test_assets();
+
+		// A zero amount of a held asset takes nothing and leaves holding as it was.
+		let taken = assets.saturating_take(vec![zero_here.clone()].into());
+		assert!(taken.is_empty());
+		let taken = assets.try_take(vec![zero_here.clone()].into()).unwrap();
+		assert!(taken.is_empty());
+		assert_eq!(assets.len(), 2);
+		// Next to another asset, only that asset is taken.
+		let taken = assets.try_take(vec![zero_here, CNF(40)].into()).unwrap();
+		assert_eq!(taken.assets_iter().collect::<Vec<_>>(), vec![CNF(40)]);
+		assert_eq!(assets.assets_iter().collect::<Vec<_>>(), vec![CF(300)]);
+
+		// A zero amount of an asset not held takes nothing.
+		let taken = assets.saturating_take(vec![zero_parent].into());
+		assert!(taken.is_empty());
+		assert_eq!(assets.assets_iter().collect::<Vec<_>>(), vec![CF(300)]);
 	}
 
 	#[test]

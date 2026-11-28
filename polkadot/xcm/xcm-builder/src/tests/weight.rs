@@ -65,6 +65,43 @@ fn fixed_rate_of_fungible_should_work() {
 }
 
 #[test]
+fn fixed_rate_of_fungible_should_not_refund_less_than_one_unit() {
+	parameter_types! {
+		// One unit buys 1_000_000 ps of ref time or 1 MB / 1_000 of proof size.
+		pub static WeightPrice: (AssetId, u128, u128) = (Here.into(), 1_000_000, 1_000);
+	}
+
+	let mut trader = FixedRateOfFungible::<WeightPrice, ()>::new();
+	let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+
+	assert_eq!(
+		trader.buy_weight(
+			Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, WEIGHT_PROOF_SIZE_PER_MB),
+			asset_to_holding(fungible_multi_asset(Here.into(), 1_001_000)),
+			&ctx,
+		),
+		Ok(assets_to_holding(vec![])),
+	);
+	// Worth less than one unit, so nothing is refunded.
+	assert_eq!(trader.refund_weight(Weight::from_parts(999_999, 0), &ctx), None);
+	assert_eq!(trader.refund_weight(Weight::from_parts(0, 1_048), &ctx), None);
+	// Worth exactly one unit.
+	assert_eq!(
+		trader.refund_weight(Weight::from_parts(1_000_000, 0), &ctx),
+		Some(asset_to_holding(fungible_multi_asset(Here.into(), 1))),
+	);
+	assert_eq!(
+		trader.refund_weight(Weight::from_parts(0, 1_049), &ctx),
+		Some(asset_to_holding(fungible_multi_asset(Here.into(), 1))),
+	);
+	// A quote can be 0.
+	assert_eq!(
+		trader.quote_weight(Weight::from_parts(1, 0), Here.into(), &ctx),
+		Ok(Asset { id: Here.into(), fun: Fungible(0) }),
+	);
+}
+
+#[test]
 fn errors_should_return_unused_weight() {
 	// we'll let them have message execution for free.
 	AllowUnpaidFrom::set(vec![Here.into()]);
