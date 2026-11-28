@@ -1,0 +1,12 @@
+title: 'sc-client-db: do not re-cache header metadata of removed blocks'
+doc:
+- audience: Node Dev
+  description: |-
+    `HeaderMetadataCache` now keeps a bounded list of removed hashes. `BlockchainDb::header_metadata`
+    skips caching metadata on a cache miss when the header was removed after it was read, so a header
+    removed concurrently by `remove_leaf_block` is never re-cached.
+crates:
+- name: sc-client-db
+  bump: patch
+- name: sp-blockchain
+  bump: minor
