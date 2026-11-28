@@ -1,0 +1,36 @@
+title: 'points-converter: limit the units a chain can credit per era and service'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-staking-async-points-converter` now credits at most `UnitsPerEraLimit` units of a
+    service per era to each reporting chain. Governance sets the limit per chain and service with
+    the new `set_units_per_era_limit` call, from `PointsOrigin`. Without a stored value the new
+    config item `DefaultUnitsPerEraLimit` applies, and `MaxUnitsPerEraLimit` bounds what governance
+    can set. A limit of zero stops crediting for that chain and service. `CreditedUnits` holds what
+    a chain was credited in the active era.
+
+    Each service has its own unit, so `DefaultUnitsPerEraLimit`, `MaxUnitsPerEraLimit` and the
+    existing `MaxPointsPerService` give a value per service: they are `Convert<ServiceKind, u32>`.
+    `MaxPointsPerService` changes from `Get<u32>` and is no longer a metadata constant.
+
+    Each count is first clamped to `MaxBlocksPerEntry`. When a report asks for more than what is
+    left of the limit, every entry is cut by the same ratio, rounded down. Units that are not
+    credited are dropped and reported in the new `UnitsOverLimit` event. `BlocksCredited` and
+    `BlocksIgnored` are renamed to `UnitsCredited` and `UnitsIgnored` and gain a `service` field.
+    `UnitsCredited` is emitted only when points reach staking and counts the credited units. A
+    report that arrives without an active era now emits `UnitsIgnored`.
+
+    Asset Hub Westend sets `MaxBlocksPerEntry` to the most blocks a system chain can author in
+    one expected era at its block processing velocity. For collation, `DefaultUnitsPerEraLimit` is
+    twice that and `MaxUnitsPerEraLimit` four times the default.
+    No migration is needed: the new storage items are empty on a running chain and their defaults
+    apply.
+crates:
+- name: sp-staking
+  bump: major
+- name: pallet-staking-async
+  bump: minor
+- name: pallet-staking-async-points-converter
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: minor

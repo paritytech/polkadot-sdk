@@ -1441,6 +1441,17 @@ impl<T: Config> sp_staking::RewardPoints<T::AccountId> for Pallet<T> {
 	fn weight(entries: u32) -> Weight {
 		T::WeightInfo::reward_service_points(entries)
 	}
+
+	fn active_era() -> Option<EraIndex> {
+		ActiveEra::<T>::get().map(|active| active.index)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_active_era() {
+		if ActiveEra::<T>::get().is_none() {
+			ActiveEra::<T>::put(crate::ActiveEraInfo { index: 1, start: Some(0) });
+		}
+	}
 }
 
 impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {

@@ -1269,10 +1269,11 @@ impl pallet_validator_set_announcer::Config for Runtime {
 }
 
 parameter_types! {
-	/// Twice the blocks a system chain can author in an expected era duration.
-	pub const MaxBlocksPerEntry: u32 = (2 *
-		testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS /
-		(RELAY_CHAIN_SLOT_DURATION_MILLIS / BLOCK_PROCESSING_VELOCITY) as u64) as u32;
+	/// The most blocks a system chain can author in an expected era duration, at the block
+	/// processing velocity of this chain.
+	pub const MaxBlocksPerEntry: u32 =
+		(testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS /
+			(RELAY_CHAIN_SLOT_DURATION_MILLIS / BLOCK_PROCESSING_VELOCITY) as u64) as u32;
 	/// The sibling system chains that run `pallet-validator-collators` and report their authored
 	/// blocks here.
 	pub ValidatorCollatorChains: Vec<ParaId> = vec![
@@ -1281,15 +1282,60 @@ parameter_types! {
 	];
 }
 
+/// The largest points per unit of each service.
+pub struct MaxPointsPerService;
+impl sp_runtime::traits::Convert<sp_staking::ServiceKind, u32> for MaxPointsPerService {
+	fn convert(service: sp_staking::ServiceKind) -> u32 {
+		match service {
+			// A relay chain block earns its author 20 points. A system chain block is meant to earn
+			// a similar amount, and 1000 leaves governance room above it while an era's total stays
+			// far from saturating.
+			sp_staking::ServiceKind::Collation => 1_000,
+			// Not converted here, the relay chain issues these points itself.
+			sp_staking::ServiceKind::RelayConsensus => 0,
+		}
+	}
+}
+
+/// The units of each service credited to a chain per era while governance stored no limit.
+pub struct DefaultUnitsPerEraLimit;
+impl sp_runtime::traits::Convert<sp_staking::ServiceKind, u32> for DefaultUnitsPerEraLimit {
+	fn convert(service: sp_staking::ServiceKind) -> u32 {
+		match service {
+			// Twice `MaxBlocksPerEntry`. Blocks reach the era active when their report arrives,
+			// so an era can also receive up to one era of blocks reported late. A chain at a
+			// higher velocity can have blocks left uncredited until governance raises its limit
+			// with `set_units_per_era_limit`.
+			sp_staking::ServiceKind::Collation => 2 * MaxBlocksPerEntry::get(),
+			// Not converted here, the relay chain issues these points itself.
+			sp_staking::ServiceKind::RelayConsensus => 0,
+		}
+	}
+}
+
+/// The highest per-era limit of each service governance can set.
+pub struct MaxUnitsPerEraLimit;
+impl sp_runtime::traits::Convert<sp_staking::ServiceKind, u32> for MaxUnitsPerEraLimit {
+	fn convert(service: sp_staking::ServiceKind) -> u32 {
+		match service {
+			// Four times the default. Room above it for a chain that authors more blocks per era
+			// than the default assumes, or for an era that lasts longer than expected.
+			sp_staking::ServiceKind::Collation => 4 * DefaultUnitsPerEraLimit::convert(service),
+			// Not converted here, the relay chain issues these points itself.
+			sp_staking::ServiceKind::RelayConsensus => 0,
+		}
+	}
+}
+
 impl pallet_staking_async_points_converter::Config for Runtime {
 	type Source = ParaId;
 	type ReportOrigin = staking::EnsureReportingSiblings<ValidatorCollatorChains>;
 	type PointsOrigin = CollatorSelectionUpdateOrigin;
 	type RewardPoints = Staking;
-	// A relay chain block earns a fixed number of points. The cap leaves governance room above the
-	// per-unit value that matches it, while an era's total stays far from saturating.
-	type MaxPointsPerService = ConstU32<1_000>;
+	type MaxPointsPerService = MaxPointsPerService;
 	type MaxBlocksPerEntry = MaxBlocksPerEntry;
+	type DefaultUnitsPerEraLimit = DefaultUnitsPerEraLimit;
+	type MaxUnitsPerEraLimit = MaxUnitsPerEraLimit;
 	type WeightInfo = weights::pallet_staking_async_points_converter::WeightInfo<Runtime>;
 }
 

@@ -589,12 +589,21 @@ impl pallet_validator_collators::ReportAuthoredBlocks<AccountId> for CreditBlock
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful_report(blocks: &[(AccountId, u32)]) {
-		// Weight this chain's blocks and expose every account in an active era, so that the
-		// credit reaches staking and accrues every entry.
+		// Weight this chain's blocks, restore the default limit, reset the blocks credited this
+		// era, and expose every account in an active era, so that the credit reaches staking and
+		// accrues every entry.
 		pallet_staking_async_points_converter::PointsPerService::<Runtime>::insert(
 			ParachainInfo::parachain_id(),
 			sp_staking::ServiceKind::Collation,
 			1,
+		);
+		pallet_staking_async_points_converter::UnitsPerEraLimit::<Runtime>::remove(
+			ParachainInfo::parachain_id(),
+			sp_staking::ServiceKind::Collation,
+		);
+		pallet_staking_async_points_converter::CreditedUnits::<Runtime>::remove(
+			ParachainInfo::parachain_id(),
+			sp_staking::ServiceKind::Collation,
 		);
 		let era = pallet_staking_async::ActiveEra::<Runtime>::get()
 			.map(|active| active.index)

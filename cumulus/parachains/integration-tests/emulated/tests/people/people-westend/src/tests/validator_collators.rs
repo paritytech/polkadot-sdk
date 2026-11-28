@@ -362,7 +362,11 @@ fn people_reports_authored_blocks_to_asset_hub() {
 			AssetHubWestend,
 			vec![
 				RuntimeEvent::StakingPointsConverter(
-					pallet_staking_async_points_converter::Event::BlocksCredited { source, blocks: 4 }
+					pallet_staking_async_points_converter::Event::UnitsCredited {
+						source,
+						service: ServiceKind::Collation,
+						units: 4
+					}
 				) => { source: *source == people, },
 				RuntimeEvent::Staking(
 					pallet_staking_async::Event::ServicePointsCredited {
@@ -421,6 +425,7 @@ fn people_full_report_fits_the_message_queue_of_asset_hub() {
 		<people_westend_runtime::Runtime as pallet_validator_collators::Config>::MaxValidators;
 	let max_entries = <MaxEntries as frame_support::traits::Get<u32>>::get();
 	let message = asset_hub_westend_runtime::StakingPointsConverter::report_authored_blocks_weight(
+		max_entries,
 		max_entries,
 	);
 	// WHEN Asset Hub processes it from its message queue
