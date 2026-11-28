@@ -20,12 +20,12 @@ use crate::{
 		aura::{AuraIdT, AuraRuntimeApi},
 		rpc::{BuildParachainRpcExtensions, BuildRpcExtensions},
 		spec::{
-			BaseNodeSpec, BuildImportQueue, ClientBlockImport, DynNodeSpec, InitBlockImport,
-			NodeSpec, StartConsensus,
+			build_wasm_executor, BaseNodeSpec, BuildImportQueue, ClientBlockImport, DynNodeSpec,
+			InitBlockImport, NodeSpec, StartConsensus,
 		},
 		types::{
-			AccountId, Balance, Hash, Nonce, ParachainBackend, ParachainBlockImport,
-			ParachainClient,
+			AccountId, Balance, Hash, NodeExecutor, Nonce, ParachainBackend, ParachainBlockImport,
+			ParachainClient, ParachainExecutor,
 		},
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
@@ -184,10 +184,15 @@ where
 		sc_consensus::BlockImport<Block, Error = sp_consensus::Error> + 'static,
 {
 	type Block = Block;
+	type Executor = ParachainExecutor;
 	type RuntimeApi = RuntimeApi;
 	type BuildImportQueue =
 		BuildRelayToAuraImportQueue<Block, RuntimeApi, AuraId, InitBlockImport::BlockImport>;
 	type InitBlockImport = InitBlockImport;
+
+	fn build_executor(config: &Configuration) -> ParachainExecutor {
+		build_wasm_executor(config)
+	}
 }
 
 impl<Block, RuntimeApi, AuraId, StartConsensus, InitBlockImport> NodeSpec
@@ -778,7 +783,7 @@ where
 
 		let wait_client = client.clone();
 		let fut = async move {
-			wait_for_aura::<Block, RuntimeApi, AuraId>(wait_client).await;
+			wait_for_aura::<Block, RuntimeApi, AuraId, _>(wait_client).await;
 			// We have a separate function only to be able to use `docify::export` on this
 			// piece of code.
 			Self::launch_slot_based_collator(params);
@@ -822,10 +827,10 @@ where
 /// Wait for the Aura runtime API to appear on chain.
 /// This is useful for chains that started out without Aura. Components that
 /// are depending on Aura functionality will wait until Aura appears in the runtime.
-pub(crate) async fn wait_for_aura<Block: BlockT, RuntimeApi, AuraId>(
-	client: Arc<ParachainClient<Block, RuntimeApi>>,
+pub(crate) async fn wait_for_aura<Block: BlockT, RuntimeApi, AuraId, Executor: NodeExecutor>(
+	client: Arc<ParachainClient<Block, RuntimeApi, Executor>>,
 ) where
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi, Executor>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT + Sync,
 {

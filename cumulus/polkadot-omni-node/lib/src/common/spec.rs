@@ -22,8 +22,8 @@ use crate::{
 		rpc::BuildRpcExtensions,
 		statement_store::{build_statement_store, new_statement_handler_proto},
 		types::{
-			ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
-			ParachainService,
+			NodeExecutor, ParachainBackend, ParachainBlockImport, ParachainClient,
+			ParachainExecutor, ParachainService,
 		},
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
@@ -80,10 +80,11 @@ pub(crate) trait BuildImportQueue<
 	Block: BlockT,
 	RuntimeApi,
 	BlockImport: sc_consensus::BlockImport<Block>,
+	Executor = ParachainExecutor,
 >
 {
 	fn build_import_queue(
-		client: Arc<ParachainClient<Block, RuntimeApi>>,
+		client: Arc<ParachainClient<Block, RuntimeApi, Executor>>,
 		block_import: ParachainBlockImport<Block, BlockImport>,
 		config: &Configuration,
 		telemetry_handle: Option<TelemetryHandle>,
@@ -131,7 +132,23 @@ fn warn_if_slow_hardware(hwbench: &sc_sysinfo::HwBench) {
 	}
 }
 
-pub(crate) trait InitBlockImport<Block: BlockT, RuntimeApi> {
+/// Build the wasm executor of a (non-JAM) parachain node.
+pub(crate) fn build_wasm_executor(config: &Configuration) -> ParachainExecutor {
+	let heap_pages = config
+		.executor
+		.default_heap_pages
+		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h as _ });
+
+	ParachainExecutor::builder()
+		.with_execution_method(config.executor.wasm_method)
+		.with_max_runtime_instances(config.executor.max_runtime_instances)
+		.with_runtime_cache_size(config.executor.runtime_cache_size)
+		.with_onchain_heap_alloc_strategy(heap_pages)
+		.with_offchain_heap_alloc_strategy(heap_pages)
+		.build()
+}
+
+pub(crate) trait InitBlockImport<Block: BlockT, RuntimeApi, Executor = ParachainExecutor> {
 	type BlockImport: sc_consensus::BlockImport<Block, Error = sp_consensus::Error>
 		+ Clone
 		+ Send
@@ -141,11 +158,11 @@ pub(crate) trait InitBlockImport<Block: BlockT, RuntimeApi> {
 	/// Build the path-specific outer block import on top of the supplied
 	/// `StorageChainBlockImport`.
 	fn init_block_import(
-		client: Arc<ParachainClient<Block, RuntimeApi>>,
+		client: Arc<ParachainClient<Block, RuntimeApi, Executor>>,
 		storage_chain_block_import: StorageChainBlockImport<
 			Block,
-			Arc<ParachainClient<Block, RuntimeApi>>,
-			ParachainClient<Block, RuntimeApi>,
+			Arc<ParachainClient<Block, RuntimeApi, Executor>>,
+			ParachainClient<Block, RuntimeApi, Executor>,
 		>,
 	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)>;
 }
@@ -179,22 +196,33 @@ where
 pub(crate) trait BaseNodeSpec {
 	type Block: NodeBlock;
 
+	/// The executor running the runtime.
+	type Executor: NodeExecutor;
+
 	type RuntimeApi: ConstructNodeRuntimeApi<
 		Self::Block,
-		ParachainClient<Self::Block, Self::RuntimeApi>,
+		ParachainClient<Self::Block, Self::RuntimeApi, Self::Executor>,
 	>;
 
 	type BuildImportQueue: BuildImportQueue<
 		Self::Block,
 		Self::RuntimeApi,
-		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+		<Self::InitBlockImport as InitBlockImport<
+			Self::Block,
+			Self::RuntimeApi,
+			Self::Executor,
+		>>::BlockImport,
+		Self::Executor,
 	>;
 
-	type InitBlockImport: self::InitBlockImport<Self::Block, Self::RuntimeApi>;
+	type InitBlockImport: self::InitBlockImport<Self::Block, Self::RuntimeApi, Self::Executor>;
+
+	/// Build the executor running the runtime.
+	fn build_executor(config: &Configuration) -> Self::Executor;
 
 	/// Retrieves parachain id.
 	fn parachain_id(
-		client: &ParachainClient<Self::Block, Self::RuntimeApi>,
+		client: &ParachainClient<Self::Block, Self::RuntimeApi, Self::Executor>,
 		parachain_config: &Configuration,
 	) -> Option<ParaId> {
 		let best_hash = client.chain_info().best_hash;
@@ -242,10 +270,19 @@ pub(crate) trait BaseNodeSpec {
 		ParachainService<
 			Self::Block,
 			Self::RuntimeApi,
-			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
-			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImportAuxiliaryData
-		>
-	>{
+			<Self::InitBlockImport as InitBlockImport<
+				Self::Block,
+				Self::RuntimeApi,
+				Self::Executor,
+			>>::BlockImport,
+			<Self::InitBlockImport as InitBlockImport<
+				Self::Block,
+				Self::RuntimeApi,
+				Self::Executor,
+			>>::BlockImportAuxiliaryData,
+			Self::Executor,
+		>,
+	> {
 		let telemetry = config
 			.telemetry_endpoints
 			.clone()
@@ -257,18 +294,7 @@ pub(crate) trait BaseNodeSpec {
 			})
 			.transpose()?;
 
-		let heap_pages =
-			config.executor.default_heap_pages.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| {
-				HeapAllocStrategy::Static { extra_pages: h as _ }
-			});
-
-		let executor = sc_executor::WasmExecutor::<ParachainHostFunctions>::builder()
-			.with_execution_method(config.executor.wasm_method)
-			.with_max_runtime_instances(config.executor.max_runtime_instances)
-			.with_runtime_cache_size(config.executor.runtime_cache_size)
-			.with_onchain_heap_alloc_strategy(heap_pages)
-			.with_offchain_heap_alloc_strategy(heap_pages)
-			.build();
+		let executor = Self::build_executor(config);
 
 		let (client, backend, keystore_container, task_manager) =
 			sc_service::new_full_parts_record_import::<Self::Block, Self::RuntimeApi, _>(
@@ -338,7 +364,7 @@ pub(crate) trait BaseNodeSpec {
 	}
 }
 
-pub(crate) trait NodeSpec: BaseNodeSpec {
+pub(crate) trait NodeSpec: BaseNodeSpec<Executor = ParachainExecutor> {
 	type BuildRpcExtensions: BuildRpcExtensions<
 		ParachainClient<Self::Block, Self::RuntimeApi>,
 		ParachainBackend<Self::Block>,

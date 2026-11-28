@@ -19,7 +19,7 @@
 use crate::{
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
-		types::ParachainClient,
+		types::JamClient,
 		ConstructNodeRuntimeApi, NodeBlock,
 	},
 	nodes::jam::{
@@ -156,14 +156,14 @@ where
 /// that case is decided here. The para slot is passed as the API's slot; the JAM hook compares it
 /// with the Aura slot of the last anchor.
 pub(crate) fn can_build_upon<Block, RuntimeApi, AuraId>(
-	para_client: &Arc<ParachainClient<Block, RuntimeApi>>,
+	para_client: &Arc<JamClient<Block, RuntimeApi>>,
 	parent_hash: Block::Hash,
 	included_hash: Block::Hash,
 	para_slot: Slot,
 ) -> Result<bool, String>
 where
 	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, JamClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT + Sync,
 {

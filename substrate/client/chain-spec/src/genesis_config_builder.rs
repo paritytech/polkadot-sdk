@@ -31,17 +31,25 @@ pub use sp_genesis_builder::{DEV_RUNTIME_PRESET, LOCAL_TESTNET_RUNTIME_PRESET};
 use sp_state_machine::BasicExternalities;
 use std::borrow::Cow;
 
+/// The executor running the runtime, chosen by the kind of the runtime blob.
+enum Executor<EHF: HostFunctions> {
+	Wasm(WasmExecutor<(sp_io::SubstrateHostFunctions, EHF)>),
+	/// A JAM PolkaVM runtime; it only gets the `sp_io` JAM host calls.
+	Pvm(sc_pvm_executor::PvmExecutor<sp_io::jam::HostFunctions>),
+}
+
 /// A utility that facilitates calling the GenesisBuilder API from the runtime wasm code blob.
 ///
 /// `EHF` type allows to specify the extended host function required for building runtime's genesis
-/// config. The type will be combined with default `sp_io::SubstrateHostFunctions`.
+/// config. The type will be combined with default `sp_io::SubstrateHostFunctions`. It is not
+/// used for a JAM PolkaVM runtime.
 pub struct GenesisConfigBuilderRuntimeCaller<'a, EHF = ()>
 where
 	EHF: HostFunctions,
 {
 	code: Cow<'a, [u8]>,
 	code_hash: Vec<u8>,
-	executor: WasmExecutor<(sp_io::SubstrateHostFunctions, EHF)>,
+	executor: Executor<EHF>,
 }
 
 impl<'a, EHF> FetchRuntimeCode for GenesisConfigBuilderRuntimeCaller<'a, EHF>
@@ -64,22 +72,29 @@ where
 		GenesisConfigBuilderRuntimeCaller {
 			code: code.into(),
 			code_hash: sp_crypto_hashing::blake2_256(code).to_vec(),
-			executor: WasmExecutor::<(sp_io::SubstrateHostFunctions, EHF)>::builder()
-				.with_allow_missing_host_functions(true)
-				.build(),
+			executor: if code.starts_with(b"PVM\0") {
+				Executor::Pvm(Default::default())
+			} else {
+				Executor::Wasm(
+					WasmExecutor::<(sp_io::SubstrateHostFunctions, EHF)>::builder()
+						.with_allow_missing_host_functions(true)
+						.build(),
+				)
+			},
 		}
 	}
 
 	fn call(&self, ext: &mut dyn Externalities, method: &str, data: &[u8]) -> Result<Vec<u8>> {
-		self.executor
-			.call(
-				ext,
-				&RuntimeCode { heap_pages: None, code_fetcher: self, hash: self.code_hash.clone() },
-				method,
-				data,
-				CallContext::Offchain,
-			)
-			.0
+		let runtime_code =
+			RuntimeCode { heap_pages: None, code_fetcher: self, hash: self.code_hash.clone() };
+		match &self.executor {
+			Executor::Wasm(executor) => {
+				executor.call(ext, &runtime_code, method, data, CallContext::Offchain).0
+			},
+			Executor::Pvm(executor) => {
+				executor.call(ext, &runtime_code, method, data, CallContext::Offchain).0
+			},
+		}
 	}
 
 	/// Returns a json representation of the default `RuntimeGenesisConfig` provided by the

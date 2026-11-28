@@ -95,7 +95,7 @@ mod tests;
 
 use crate::{
 	common::{
-		types::{ParachainBackend, ParachainClient},
+		types::{JamClient, ParachainBackend},
 		ConstructNodeRuntimeApi, NodeBlock,
 	},
 	nodes::jam::{
@@ -118,7 +118,7 @@ use polkadot_primitives::Id as ParaId;
 use std::{collections::HashMap, sync::Arc};
 
 pub(crate) struct CollationTaskParams<Block: NodeBlock, RuntimeApi, Jam> {
-	pub para_client: Arc<ParachainClient<Block, RuntimeApi>>,
+	pub para_client: Arc<JamClient<Block, RuntimeApi>>,
 	pub para_backend: Arc<ParachainBackend<Block>>,
 	pub jam: Arc<Jam>,
 	pub para_id: ParaId,
@@ -140,7 +140,7 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 	params: CollationTaskParams<Block, RuntimeApi, Jam>,
 ) where
 	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, JamClient<Block, RuntimeApi>>,
 	Jam: JamChainSource + JamStateSource + JamWorkPackageSubmission + 'static,
 {
 	let CollationTaskParams {

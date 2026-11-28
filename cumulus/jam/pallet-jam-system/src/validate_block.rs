@@ -74,6 +74,7 @@ use crate::{
 use alloc::vec::Vec;
 use codec::Encode;
 use core::marker::PhantomData;
+use cumulus_jam_io as host;
 use cumulus_jam_primitives::RefineError;
 use cumulus_jam_state_reader::{JamProofFinalizer, JamProofReader, JAM_PROOF_KEY};
 use cumulus_pallet_parachain_system::validate_block::{
@@ -298,25 +299,4 @@ fn build_jam_seed<B: BlockT>(lookup_anchor: [u8; 32], blocks: &[B::LazyBlock]) -
 	});
 
 	blake2_128(&bytes_to_hash)
-}
-
-/// Child host calls of the Parachain Service's Refine (spec §4.3).
-///
-/// None of these are declared here: the parachain-service-native wrappers (indices 200-203) and
-/// the JAM `fetch` surface (work package, refine context, work-item extrinsics) are re-exported
-/// from `parachain_service_core::host` / `parachain_service_core::refine`, so this runtime and
-/// the node drive the exact same ABI definitions instead of per-runtime copies of the raw
-/// `fetch` import.
-pub mod host {
-	// The parachain-service host functions (indices 200-203) are defined once, in
-	// `parachain_service_core::host`, so the two guests cannot drift apart on the ABI.
-	pub use parachain_service_core::host::{
-		report_error, request_code_upgrade, set_head, set_parent_head_hash, solicit,
-	};
-	// The fetch-based JAM helpers (`Fetch::RefineContext`, `workitems[a].extrinsics[b]`, …) are the
-	// same ones the service's own refine entry point drives from; re-exported through
-	// `parachain_service_core::refine` rather than re-declared. `refine_context` decodes the
-	// real type instead of reading a field at a hardcoded offset, so an upstream field
-	// reordering is a decode failure instead of silently wrong randomness.
-	pub use parachain_service_core::refine::{extrinsic, refine_context};
 }

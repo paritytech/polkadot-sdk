@@ -82,6 +82,7 @@ members = [
 	"cumulus/jam/aura-primitives",
 	"cumulus/jam/client-authorizer",
 	"cumulus/jam/interface",
+	"cumulus/jam/io",
 	"cumulus/jam/pallet-aura-jam",
 	"cumulus/jam/pallet-jam-coretime",
 	"cumulus/jam/pallet-jam-system",
@@ -292,7 +293,6 @@ members = [
 	"substrate/client/db",
 	"substrate/client/executor",
 	"substrate/client/executor/common",
-	"substrate/client/executor/polkavm",
 	"substrate/client/executor/runtime-test",
 	"substrate/client/executor/wasmtime",
 	"substrate/client/hop",
@@ -313,6 +313,7 @@ members = [
 	"substrate/client/network/types",
 	"substrate/client/offchain",
 	"substrate/client/proposer-metrics",
+	"substrate/client/pvm-executor",
 	"substrate/client/rpc",
 	"substrate/client/rpc-api",
 	"substrate/client/rpc-servers",
@@ -810,6 +811,7 @@ cumulus-client-resubmission-store = { path = "cumulus/client/resubmission-store"
 cumulus-client-service = { path = "cumulus/client/service", default-features = false }
 cumulus-jam-aura-primitives = { path = "cumulus/jam/aura-primitives", default-features = false }
 cumulus-jam-interface = { path = "cumulus/jam/interface", default-features = false }
+cumulus-jam-io = { path = "cumulus/jam/io", default-features = false }
 cumulus-jam-primitives = { path = "cumulus/jam/primitives", default-features = false }
 cumulus-jam-rpc-interface = { path = "cumulus/jam/rpc-interface", default-features = false }
 cumulus-jam-state-reader = { path = "cumulus/jam/state-reader", default-features = false }
@@ -1317,7 +1319,6 @@ sc-consensus-pow = { path = "substrate/client/consensus/pow", default-features =
 sc-consensus-slots = { path = "substrate/client/consensus/slots", default-features = false }
 sc-executor = { path = "substrate/client/executor", default-features = false }
 sc-executor-common = { path = "substrate/client/executor/common", default-features = false }
-sc-executor-polkavm = { path = "substrate/client/executor/polkavm", default-features = false }
 sc-executor-wasmtime = { path = "substrate/client/executor/wasmtime", default-features = false }
 sc-hop = { path = "substrate/client/hop", default-features = false }
 sc-informant = { path = "substrate/client/informant", default-features = false }
@@ -1335,6 +1336,7 @@ sc-network-transactions = { path = "substrate/client/network/transactions", defa
 sc-network-types = { path = "substrate/client/network/types", default-features = false }
 sc-offchain = { path = "substrate/client/offchain", default-features = false }
 sc-proposer-metrics = { path = "substrate/client/proposer-metrics", default-features = false }
+sc-pvm-executor = { path = "substrate/client/pvm-executor", default-features = false }
 sc-rpc = { path = "substrate/client/rpc", default-features = false }
 sc-rpc-api = { path = "substrate/client/rpc-api", default-features = false }
 sc-rpc-server = { path = "substrate/client/rpc-servers", default-features = false }

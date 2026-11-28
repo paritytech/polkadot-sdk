@@ -20,7 +20,7 @@ use crate::{
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
 		spec::BuildImportQueue,
-		types::{ParachainBlockImport, ParachainClient},
+		types::{JamClient, JamExecutor, ParachainBlockImport},
 		ConstructNodeRuntimeApi, NodeBlock,
 	},
 	nodes::jam::authorizer::{AuraPublic, RuntimeApiAuthorities, RuntimeAuthorities},
@@ -153,17 +153,17 @@ pub(crate) struct BuildJamImportQueue<Block, RuntimeApi, AuraId>(
 );
 
 impl<Block: NodeBlock, RuntimeApi, AuraId, BlockImport>
-	BuildImportQueue<Block, RuntimeApi, BlockImport>
+	BuildImportQueue<Block, RuntimeApi, BlockImport, JamExecutor>
 	for BuildJamImportQueue<Block, RuntimeApi, AuraId>
 where
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, JamClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT + Sync,
 	BlockImport:
 		sc_consensus::BlockImport<Block, Error = sp_consensus::Error> + Send + Sync + 'static,
 {
 	fn build_import_queue(
-		client: Arc<ParachainClient<Block, RuntimeApi>>,
+		client: Arc<JamClient<Block, RuntimeApi>>,
 		block_import: ParachainBlockImport<Block, BlockImport>,
 		config: &Configuration,
 		telemetry_handle: Option<TelemetryHandle>,

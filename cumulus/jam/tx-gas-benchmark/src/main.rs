@@ -43,14 +43,9 @@ fn main() -> ExitCode {
 }
 
 fn run(cli: Cli) -> Result<(), String> {
-	// Block building runs the runtime through the node's executor, which only runs PolkaVM
-	// runtimes when asked to. The interpreter needs no userfaultfd. The refine run below uses its
-	// own polkavm and is not affected by these.
-	for (key, value) in [
-		("SUBSTRATE_ENABLE_POLKAVM", "1"),
-		("POLKAVM_BACKEND", "interpreter"),
-		("POLKAVM_ALLOW_INSECURE", "1"),
-	] {
+	// Block building runs the runtime through the node's executor. The interpreter needs no
+	// userfaultfd. The refine run below uses its own polkavm and is not affected by these.
+	for (key, value) in [("POLKAVM_BACKEND", "interpreter"), ("POLKAVM_ALLOW_INSECURE", "1")] {
 		if std::env::var_os(key).is_none() {
 			std::env::set_var(key, value);
 		}

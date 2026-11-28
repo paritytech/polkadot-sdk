@@ -25,6 +25,7 @@ sc-chain-spec-derive = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
+sc-pvm-executor = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }

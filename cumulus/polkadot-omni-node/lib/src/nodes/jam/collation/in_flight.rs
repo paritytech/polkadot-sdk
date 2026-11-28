@@ -18,7 +18,7 @@
 //! goes out.
 
 use crate::{
-	common::{types::ParachainClient, ConstructNodeRuntimeApi, NodeBlock},
+	common::{types::JamClient, ConstructNodeRuntimeApi, NodeBlock},
 	nodes::jam::{
 		collation::{
 			manager::Manager,
@@ -296,7 +296,7 @@ pub(crate) fn forget_package<Block: BlockT<Hash = DbHash>, C: AuxStore>(
 impl<Block, RuntimeApi, Jam> Manager<Block, RuntimeApi, Jam>
 where
 	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, JamClient<Block, RuntimeApi>>,
 	Jam: JamChainSource + JamStateSource + JamWorkPackageSubmission + 'static,
 {
 	/// Hand every package [`due_for_sending`] releases at the current tip to `submit()`.

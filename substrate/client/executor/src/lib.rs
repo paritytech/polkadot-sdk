@@ -49,18 +49,9 @@ pub use wasm_runtime::{read_embedded_version, WasmExecutionMethod};
 pub use sc_executor_common::{
 	error,
 	wasm_runtime::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_PAGES, DEFAULT_HEAP_ALLOC_STRATEGY},
+	RuntimeVersionOf,
 };
 pub use sc_executor_wasmtime::InstantiationStrategy as WasmtimeInstantiationStrategy;
-
-/// Extracts the runtime version of a given runtime code.
-pub trait RuntimeVersionOf {
-	/// Extract [`RuntimeVersion`] of the given `runtime_code`.
-	fn runtime_version(
-		&self,
-		ext: &mut dyn Externalities,
-		runtime_code: &sp_core::traits::RuntimeCode,
-	) -> error::Result<RuntimeVersion>;
-}
 
 #[cfg(test)]
 mod tests {

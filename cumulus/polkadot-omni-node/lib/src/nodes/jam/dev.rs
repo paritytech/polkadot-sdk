@@ -32,7 +32,7 @@ use crate::{
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
 		spec::BaseNodeSpec,
-		types::{AccountId, Balance, Nonce, ParachainClient},
+		types::{AccountId, Balance, JamClient, Nonce},
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
 };
@@ -229,7 +229,7 @@ pub(crate) fn start_dev_node<Block, RuntimeApi, AuraId>(
 ) -> sc_service::error::Result<TaskManager>
 where
 	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, JamClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,

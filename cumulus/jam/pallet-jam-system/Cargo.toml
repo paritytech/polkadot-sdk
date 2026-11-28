@@ -27,6 +27,7 @@ sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 
 # Cumulus
+cumulus-jam-io = { workspace = true }
 cumulus-jam-state-reader = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
 cumulus-primitives-core = { workspace = true }
@@ -51,6 +52,7 @@ cumulus-jam-primitives = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"codec/std",
+	"cumulus-jam-io/std",
 	"cumulus-jam-state-reader/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-primitives-core/std",

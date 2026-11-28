@@ -21,6 +21,7 @@
 #[cfg(feature = "std")]
 use sp_externalities::ExternalitiesExt;
 
+#[cfg(not(all(jam, substrate_runtime)))]
 use sp_runtime_interface::runtime_interface;
 
 #[cfg(feature = "std")]
@@ -32,16 +33,59 @@ pub const PROOF_RECORDING_DISABLED: u64 = u64::MAX;
 ///
 /// Should return the current storage proof size if [`ProofSizeExt`] is registered. Otherwise, needs
 /// to return u64::MAX.
+#[cfg(not(all(jam, substrate_runtime)))]
 #[runtime_interface]
 pub trait StorageProofSize {
 	/// Returns the current storage proof size.
-	#[polkavm_index(341)]
 	fn storage_proof_size(&mut self) -> u64 {
 		let para = match self.extension::<ProofSizeExt>() {
 			Some(e) => e.storage_proof_size(),
 			None => return PROOF_RECORDING_DISABLED,
 		};
 		para
+	}
+}
+
+/// The JAM runtime side of [`StorageProofSize`]: the same API, backed by the JAM host call.
+#[cfg(all(jam, substrate_runtime))]
+pub mod storage_proof_size {
+	fn host_call() -> u64 {
+		// SAFETY: The host call has no arguments.
+		unsafe { crate::jam::ext_storage_proof_size() }
+	}
+
+	/// Exchangeable implementation of [`storage_proof_size`].
+	#[allow(non_upper_case_globals)]
+	pub static host_storage_proof_size: sp_runtime_interface::wasm::ExchangeableFunction<
+		fn() -> u64,
+	> = sp_runtime_interface::wasm::ExchangeableFunction::new(host_call);
+
+	/// Returns the current storage proof size.
+	pub fn storage_proof_size() -> u64 {
+		host_storage_proof_size.get()()
+	}
+}
+
+/// The JAM host call of [`storage_proof_size::storage_proof_size`].
+#[cfg(any(jam, feature = "std"))]
+pub mod jam {
+	#[cfg(not(substrate_runtime))]
+	use sp_jam_runtime_interface::FunctionContext;
+
+	sp_jam_runtime_interface::host_calls! {
+		/// Returns the current storage proof size, or
+		/// [`PROOF_RECORDING_DISABLED`](crate::PROOF_RECORDING_DISABLED) without a
+		/// `ProofSizeExt`.
+		#[index = 341]
+		pub fn ext_storage_proof_size(ctx: &mut dyn FunctionContext) -> u64 {
+			use sp_externalities::ExternalitiesExt;
+
+			Ok(sp_externalities::with_externalities(|mut ext| {
+				ext.extension::<super::ProofSizeExt>().map(|e| e.storage_proof_size())
+			})
+			.flatten()
+			.unwrap_or(crate::PROOF_RECORDING_DISABLED))
+		}
 	}
 }
 

@@ -19,7 +19,7 @@
 use crate::{
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
-		types::{ParachainBackend, ParachainClient},
+		types::{JamClient, ParachainBackend},
 		ConstructNodeRuntimeApi, NodeBlock,
 	},
 	nodes::jam::{
@@ -76,7 +76,7 @@ type ChosenParent<Block> = (
 /// Everything the builder holds across ticks: the node handles a tick works with, and the
 /// [`BuilderState`] it carries from one tick to the next.
 pub(crate) struct BuilderContext<Block: NodeBlock, RuntimeApi, BI, PF, Jam> {
-	pub(crate) para_client: Arc<ParachainClient<Block, RuntimeApi>>,
+	pub(crate) para_client: Arc<JamClient<Block, RuntimeApi>>,
 	pub(crate) para_backend: Arc<ParachainBackend<Block>>,
 	pub(crate) block_import: BI,
 	pub(crate) proposer_factory: PF,
@@ -92,7 +92,7 @@ pub(crate) struct BuilderContext<Block: NodeBlock, RuntimeApi, BI, PF, Jam> {
 impl<Block, RuntimeApi, BI, PF, Jam> BuilderContext<Block, RuntimeApi, BI, PF, Jam>
 where
 	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, JamClient<Block, RuntimeApi>>,
 	BI: BlockImport<Block> + Send + Sync,
 	PF: Environment<Block>,
 	Jam: JamChainSource + JamStateSource + 'static,

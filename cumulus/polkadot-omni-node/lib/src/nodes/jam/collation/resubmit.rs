@@ -17,7 +17,7 @@
 //! Resubmission rounds: lost blocks rebuilt into new work packages.
 
 use crate::{
-	common::{types::ParachainClient, ConstructNodeRuntimeApi, NodeBlock},
+	common::{types::JamClient, ConstructNodeRuntimeApi, NodeBlock},
 	nodes::jam::{
 		chain::anchor::{read_anchor, AnchorReads},
 		collation::{
@@ -133,7 +133,7 @@ pub(crate) fn resubmission_package<Block: BlockT>(
 impl<Block, RuntimeApi, Jam> Manager<Block, RuntimeApi, Jam>
 where
 	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, JamClient<Block, RuntimeApi>>,
 	Jam: JamChainSource + JamStateSource + JamWorkPackageSubmission + 'static,
 {
 	/// Check the resubmission predicate and, when it fires, run a resubmission round.

@@ -18,7 +18,7 @@
 
 use crate::{
 	common::{
-		types::{ParachainBackend, ParachainClient},
+		types::{JamClient, ParachainBackend},
 		ConstructNodeRuntimeApi, NodeBlock,
 	},
 	nodes::jam::LOG_TARGET,
@@ -35,7 +35,7 @@ use std::sync::Arc;
 /// API) needs the bytes before the node can resolve the marker. A no-op for a block whose `:code`
 /// is real code, and for a marker whose blob is already cached.
 pub(crate) async fn ensure_code_blob_at<Block, RuntimeApi, Jam>(
-	para_client: &Arc<ParachainClient<Block, RuntimeApi>>,
+	para_client: &Arc<JamClient<Block, RuntimeApi>>,
 	para_backend: &ParachainBackend<Block>,
 	jam: &Jam,
 	service_id: ServiceId,
@@ -43,7 +43,7 @@ pub(crate) async fn ensure_code_blob_at<Block, RuntimeApi, Jam>(
 	anchor: HeaderHash,
 ) where
 	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, JamClient<Block, RuntimeApi>>,
 	Jam: JamStateSource,
 {
 	let key = sp_core::storage::StorageKey(sp_core::storage::well_known_keys::CODE.to_vec());

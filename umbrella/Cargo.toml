@@ -990,7 +990,6 @@ node = [
 	"sc-consensus-slots",
 	"sc-executor",
 	"sc-executor-common",
-	"sc-executor-polkavm",
 	"sc-executor-wasmtime",
 	"sc-hop",
 	"sc-informant",
@@ -1007,6 +1006,7 @@ node = [
 	"sc-network-types",
 	"sc-offchain",
 	"sc-proposer-metrics",
+	"sc-pvm-executor",
 	"sc-rpc",
 	"sc-rpc-api",
 	"sc-rpc-server",
@@ -2762,11 +2762,6 @@ default-features = false
 optional = true
 path = "../substrate/client/executor/common"
 
-[dependencies.sc-executor-polkavm]
-default-features = false
-optional = true
-path = "../substrate/client/executor/polkavm"
-
 [dependencies.sc-executor-wasmtime]
 default-features = false
 optional = true
@@ -2846,6 +2841,11 @@ path = "../substrate/client/offchain"
 default-features = false
 optional = true
 path = "../substrate/client/proposer-metrics"
+
+[dependencies.sc-pvm-executor]
+default-features = false
+optional = true
+path = "../substrate/client/pvm-executor"
 
 [dependencies.sc-rpc]
 default-features = false

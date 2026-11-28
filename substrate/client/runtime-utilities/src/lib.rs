@@ -24,22 +24,23 @@
 
 use codec::{Decode, Encode};
 use error::{Error, Result};
-use sc_executor::WasmExecutor;
 use sp_core::{
 	traits::{CallContext, CodeExecutor, FetchRuntimeCode, RuntimeCode},
 	OpaqueMetadata,
 };
 use sp_state_machine::BasicExternalities;
-use sp_wasm_interface::HostFunctions;
 use std::borrow::Cow;
 
 pub mod error;
 
 /// Fetches the latest metadata from the given runtime blob.
-pub fn fetch_latest_metadata_from_code_blob<HF: HostFunctions>(
-	executor: &WasmExecutor<HF>,
+pub fn fetch_latest_metadata_from_code_blob<E>(
+	executor: &E,
 	code_bytes: Cow<[u8]>,
-) -> Result<OpaqueMetadata> {
+) -> Result<OpaqueMetadata>
+where
+	E: CodeExecutor<Error = sc_executor_common::error::Error>,
+{
 	let runtime_caller = RuntimeCaller::new(executor, code_bytes);
 	let version_result = runtime_caller.call("Metadata_metadata_versions", ());
 
@@ -92,14 +93,17 @@ impl<'a> BasicCodeFetcher<'a> {
 }
 
 /// Simple utility that is used to call into the runtime.
-pub struct RuntimeCaller<'a, 'b, HF: HostFunctions> {
-	executor: &'b WasmExecutor<HF>,
+pub struct RuntimeCaller<'a, 'b, E> {
+	executor: &'b E,
 	code_fetcher: BasicCodeFetcher<'a>,
 }
 
-impl<'a, 'b, HF: HostFunctions> RuntimeCaller<'a, 'b, HF> {
+impl<'a, 'b, E> RuntimeCaller<'a, 'b, E>
+where
+	E: CodeExecutor<Error = sc_executor_common::error::Error>,
+{
 	/// Instantiate a new runtime caller.
-	pub fn new(executor: &'b WasmExecutor<HF>, code_bytes: Cow<'a, [u8]>) -> Self {
+	pub fn new(executor: &'b E, code_bytes: Cow<'a, [u8]>) -> Self {
 		Self { executor, code_fetcher: BasicCodeFetcher::new(code_bytes) }
 	}
 

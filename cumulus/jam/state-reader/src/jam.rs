@@ -38,15 +38,8 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use sp_runtime_interface::{
-	pass_by::{PassFatPointerAndRead, PassFatPointerAndReadWrite},
-	runtime_interface,
-};
 
 use crate::StateKey;
-
-#[cfg(feature = "std")]
-use sp_externalities::ExternalitiesExt;
 
 /// Key under which the JAM state read-proof lives in the additional-data map.
 ///
@@ -95,40 +88,53 @@ sp_externalities::decl_extension! {
 	pub struct JamStateExt(alloc::boxed::Box<dyn JamStateReader>);
 }
 
-/// Runtime interface for reading JAM chain state into a block's additional data.
-///
-/// `jam_state_read` **panics** when [`JamStateExt`] is not registered — the read is
-/// consensus-critical (its proof feeds the additional-data digest), so a missing extension must
-/// fail loudly rather than silently diverge.
-#[runtime_interface]
-pub trait JamStateHost {
-	/// Read the JAM state item at the 31-byte `key`, writing the value into `value_out` and
-	/// returning its full length, or `-1` when the key is (provably) absent.
-	///
-	/// Runtime-side-allocation compatible: the runtime owns `value_out`; this host function never
-	/// allocates guest memory. Prefer the [`jam_state::jam_state_read`] wrapper, which
-	/// reconstructs an `Option<Vec<u8>>` (resizing its buffer if the value is larger than
-	/// `value_out`). On build the value is read live and its proof collected; on validation/import
-	/// it is read back from — and verified against — the carried proof and the trusted state root.
-	///
-	/// # Panics
-	///
-	/// If [`JamStateExt`] is not registered in the externalities.
-	#[polkavm_index(344)]
-	fn jam_state_read_into(
-		&mut self,
-		key: PassFatPointerAndRead<&[u8]>,
-		value_out: PassFatPointerAndReadWrite<&mut [u8]>,
-	) -> i64 {
-		let key: &StateKey = key.try_into().expect("a JAM state key is 31 bytes; qed");
-		let value = self
-			.extension::<JamStateExt>()
-			.expect(
-				"JamStateExt extension not registered; \
-				 this host function is consensus-critical and cannot silently diverge",
-			)
-			.0
-			.read(key);
+/// Reading JAM chain state: [`jam_state::jam_state_read`] plus the exchangeable
+/// `jam_state::host_jam_state_read_into` (runtime builds only) that `validate_block` replaces to
+/// serve reads from the carried proof.
+#[cfg(any(jam, feature = "std"))]
+pub mod jam_state {
+	use alloc::vec::Vec;
+
+	#[cfg(not(substrate_runtime))]
+	use sp_jam_runtime_interface::FunctionContext;
+
+	sp_jam_runtime_interface::host_calls! {
+		/// Read the JAM state item at the 31-byte `key`, writing the value into `value_out` and
+		/// returning its full length, or `-1` when the key is (provably) absent.
+		///
+		/// # Panics
+		///
+		/// If [`JamStateExt`](super::JamStateExt) is not registered in the externalities.
+		#[index = 344]
+		pub fn ext_jam_state_read_into(
+			ctx: &mut dyn FunctionContext,
+			key: *const u8,
+			key_len: u64,
+			value_out: *mut u8,
+			value_out_len: u64,
+		) -> i64 {
+			let key = ctx.read_memory(key, key_len)?;
+			ctx.with_buffer(value_out, value_out_len, |value_out| node_read_into(&key, value_out))
+		}
+	}
+
+	/// Node logic of [`jam_state_read_into`].
+	#[cfg(not(substrate_runtime))]
+	fn node_read_into(key: &[u8], value_out: &mut [u8]) -> i64 {
+		use sp_externalities::ExternalitiesExt;
+
+		let key: &crate::StateKey = key.try_into().expect("a JAM state key is 31 bytes; qed");
+		let value = sp_externalities::with_externalities(|mut ext| {
+			ext.extension::<super::JamStateExt>()
+				.expect(
+					"JamStateExt extension not registered; \
+					 this host function is consensus-critical and cannot silently diverge",
+				)
+				.0
+				.read(key)
+		})
+		.expect("`jam_state_read_into` called outside of an Externalities-provided environment.");
+
 		match value {
 			Some(v) => {
 				let n = core::cmp::min(v.len(), value_out.len());
@@ -138,15 +144,45 @@ pub trait JamStateHost {
 			None => -1,
 		}
 	}
-}
 
-/// Reading JAM chain state: [`jam_state::jam_state_read`] plus the exchangeable
-/// `jam_state::host_jam_state_read_into` (runtime builds only) that `validate_block` replaces to
-/// serve reads from the carried proof.
-pub mod jam_state {
-	use alloc::vec::Vec;
+	#[cfg(substrate_runtime)]
+	fn host_call(key: &[u8], value_out: &mut [u8]) -> i64 {
+		// SAFETY: The pointers and lengths come from live slices.
+		unsafe {
+			ext_jam_state_read_into(
+				key.as_ptr(),
+				key.len() as u64,
+				value_out.as_mut_ptr(),
+				value_out.len() as u64,
+			)
+		}
+	}
 
-	pub use super::jam_state_host::*;
+	/// Exchangeable implementation of [`jam_state_read_into`]; `validate_block` replaces it to
+	/// serve reads from the carried proof.
+	#[cfg(substrate_runtime)]
+	#[allow(non_upper_case_globals)]
+	pub static host_jam_state_read_into: sp_runtime_interface::wasm::ExchangeableFunction<
+		fn(&[u8], &mut [u8]) -> i64,
+	> = sp_runtime_interface::wasm::ExchangeableFunction::new(host_call);
+
+	/// Read the JAM state item at the 31-byte `key`, writing the value into `value_out` and
+	/// returning its full length, or `-1` when the key is (provably) absent.
+	///
+	/// Runtime-side-allocation compatible: the runtime owns `value_out`; the host never allocates
+	/// guest memory. Prefer [`jam_state_read`], which reconstructs an `Option<Vec<u8>>`. On build
+	/// the value is read live and its proof collected; on validation/import it is read back from
+	/// — and verified against — the carried proof and the trusted state root.
+	///
+	/// # Panics
+	///
+	/// If [`JamStateExt`](super::JamStateExt) is not registered.
+	pub fn jam_state_read_into(key: &[u8], value_out: &mut [u8]) -> i64 {
+		#[cfg(substrate_runtime)]
+		return host_jam_state_read_into.get()(key, value_out);
+		#[cfg(not(substrate_runtime))]
+		return node_read_into(key, value_out);
+	}
 
 	/// Read `key` from the JAM chain state, returning its value or `None` when (provably) absent.
 	///

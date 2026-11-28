@@ -38,7 +38,9 @@
 //! | 320-327 | `default_child_storage::{read, set, clear, storage_kill, exists, clear_prefix, root, next_key}` | yes |
 //! | 328-337 | `crypto::{ed25519_generate, ed25519_public_keys, ed25519_sign, sr25519_generate, sr25519_public_keys, sr25519_sign, ecdsa_generate, ecdsa_public_keys, ecdsa_sign, ecdsa_sign_prehashed}` | yes |
 //! | 340 | `input::read` | yes |
-//! | 341-344 | reserved, owned outside sp-io (proof size, additional data, jam state read) | - |
+//! | 341 | owned outside sp-io: `cumulus_primitives_proof_size_hostfunction::jam::ext_storage_proof_size` | yes |
+//! | 343 | owned outside sp-io: `sp_additional_data::jam::ext_additional_data_finalize_into` | yes |
+//! | 344 | owned outside sp-io: `cumulus_jam_state_reader::jam_state::ext_jam_state_read_into` | yes |
 //! | 345-346 | `offchain_index::{set, clear}` | yes |
 //! | 347-348 | `transaction_index::{index, renew}` | yes |
 //! | 350-367 | `offchain::{is_validator, submit_transaction, network_peer_id, timestamp, sleep_until, random_seed, local_storage_set, local_storage_clear, local_storage_compare_and_set, local_storage_read, http_request_start, http_request_add_header, http_request_write_body, http_response_wait, http_response_header_name, http_response_header_value, http_response_read_body, set_authorized_nodes}` | yes |

@@ -252,26 +252,6 @@ fn get_trait_methods(trait_def: &ItemTrait) -> impl Iterator<Item = &TraitItemFn
 	})
 }
 
-/// Is this an attribute consumed by this macro, i.e. one that must not be re-emitted onto the
-/// generated items?
-pub fn is_internal_attr(attr: &syn::Attribute) -> bool {
-	attr.path().is_ident("version") || attr.path().is_ident("polkavm_index")
-}
-
-/// Returns the PolkaVM host-call index declared as `#[polkavm_index(N)]`, if present.
-///
-/// JAM dispatches host calls by number, and the PolkaVM linker rejects a program that mixes
-/// indexed with unindexed imports. The index therefore applies only to JAM builds (`--cfg jam`),
-/// where every function the runtime imports must carry an index agreed with the host; other riscv
-/// builds import the function unindexed.
-pub fn get_item_polkavm_index(item: &TraitItemFn) -> Result<Option<u32>> {
-	item.attrs
-		.iter()
-		.find(|attr| attr.path().is_ident("polkavm_index"))
-		.map(|attr| attr.parse_args::<LitInt>()?.base10_parse())
-		.transpose()
-}
-
 /// The version attribute that can be found above a runtime interface function.
 ///
 /// Supports the following formats:

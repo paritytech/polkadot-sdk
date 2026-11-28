@@ -35,6 +35,7 @@ codec = { optional = true, workspace = true, default-features = true }
 frame-metadata = { features = ["current", "unstable"], optional = true, workspace = true, default-features = true }
 merkleized-metadata = { optional = true, workspace = true }
 sc-executor = { optional = true, workspace = true, default-features = true }
+sc-pvm-executor = { optional = true, workspace = true, default-features = true }
 shlex = { workspace = true }
 sp-core = { optional = true, workspace = true, default-features = true }
 sp-io = { optional = true, workspace = true, default-features = true }
@@ -55,6 +56,7 @@ metadata-hash = [
 	"frame-metadata",
 	"merkleized-metadata",
 	"sc-executor",
+	"sc-pvm-executor",
 	"sp-core",
 	"sp-io",
 	"sp-tracing",

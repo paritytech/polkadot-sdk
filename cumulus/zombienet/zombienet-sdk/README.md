@@ -103,10 +103,12 @@ The process environment of the `cargo test` line is part of the run, not decorat
   same string as in the runtime build, leading space included, so the two builds share one
   fingerprint.
 - `ZOMBIE_PROVIDER=native`: the default provider (docker) cannot run a JAM network.
-- `SUBSTRATE_ENABLE_POLKAVM=1`, `POLKAVM_BACKEND=interpreter` and `POLKAVM_ALLOW_INSECURE=1`:
-  zombienet converts each para's chain spec to raw by invoking the collator binary itself, and that
-  invocation inherits this process's environment rather than the per-node one the harness sets;
-  without them it rejects the PolkaVM runtime blob.
+- `POLKAVM_BACKEND=interpreter` and `POLKAVM_ALLOW_INSECURE=1`: zombienet converts each para's
+  chain spec to raw by invoking the collator binary itself, and that invocation inherits this
+  process's environment rather than the per-node one the harness sets; without them PolkaVM
+  cannot start without its Linux sandbox.
+- `SUBSTRATE_ENABLE_POLKAVM=1`: zombienet-sdk builds each chain spec in-process with the published
+  `sc-executor`, which only loads a PolkaVM runtime blob with this set.
 - `--test-threads 1`: every test spawns the same six-validator network plus its collators, and two
   at once would make the six-second slot budget unrealistic.
 

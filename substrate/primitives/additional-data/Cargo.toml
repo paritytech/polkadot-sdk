@@ -15,6 +15,7 @@ workspace = true
 codec = { workspace = true }
 sp-crypto-hashing = { workspace = true }
 sp-externalities = { workspace = true }
+sp-jam-runtime-interface = { workspace = true }
 sp-runtime-interface = { workspace = true }
 
 [dev-dependencies]
@@ -28,5 +29,6 @@ std = [
 	"codec/std",
 	"sp-crypto-hashing/std",
 	"sp-externalities/std",
+	"sp-jam-runtime-interface/std",
 	"sp-runtime-interface/std",
 ]

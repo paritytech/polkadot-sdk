@@ -19,7 +19,10 @@
 #![warn(missing_docs)]
 
 use crate::common::{
-	types::{AccountId, Balance, Nonce, ParachainBackend, ParachainClient},
+	types::{
+		AccountId, Balance, NodeExecutor, Nonce, ParachainBackend, ParachainClient,
+		ParachainExecutor,
+	},
 	ConstructNodeRuntimeApi,
 };
 use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
@@ -48,26 +51,36 @@ pub(crate) trait BuildRpcExtensions<Client, Backend, Pool, StatementStore> {
 	) -> sc_service::error::Result<RpcExtension>;
 }
 
-pub(crate) struct BuildParachainRpcExtensions<Block, RuntimeApi>(PhantomData<(Block, RuntimeApi)>);
+pub(crate) struct BuildParachainRpcExtensions<Block, RuntimeApi, Executor = ParachainExecutor>(
+	PhantomData<(Block, RuntimeApi, Executor)>,
+);
 
-impl<Block: BlockT, RuntimeApi>
+impl<Block: BlockT, RuntimeApi, Executor: NodeExecutor>
 	BuildRpcExtensions<
-		ParachainClient<Block, RuntimeApi>,
+		ParachainClient<Block, RuntimeApi, Executor>,
 		ParachainBackend<Block>,
-		sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
+		sc_transaction_pool::TransactionPoolHandle<
+			Block,
+			ParachainClient<Block, RuntimeApi, Executor>,
+		>,
 		sc_statement_store::Store,
-	> for BuildParachainRpcExtensions<Block, RuntimeApi>
+	> for BuildParachainRpcExtensions<Block, RuntimeApi, Executor>
 where
-	RuntimeApi:
-		ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>> + Send + Sync + 'static,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi, Executor>>
+		+ Send
+		+ Sync
+		+ 'static,
 	RuntimeApi::RuntimeApi: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 {
 	fn build_rpc_extensions(
-		client: Arc<ParachainClient<Block, RuntimeApi>>,
+		client: Arc<ParachainClient<Block, RuntimeApi, Executor>>,
 		backend: Arc<ParachainBackend<Block>>,
 		pool: Arc<
-			sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
+			sc_transaction_pool::TransactionPoolHandle<
+				Block,
+				ParachainClient<Block, RuntimeApi, Executor>,
+			>,
 		>,
 		statement_store: Option<Arc<sc_statement_store::Store>>,
 		hop_pool: Option<Arc<sc_hop::HopDataPool>>,

@@ -27,10 +27,10 @@ polkavm = { version = "0.36.0" }
 
 parachain-service-core = { workspace = true, default-features = true, features = ["std"] }
 
-cumulus-client-service = { workspace = true, default-features = true }
 cumulus-jam-state-reader = { workspace = true, default-features = true }
 cumulus-pallet-weight-reclaim = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
+cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
 frame-metadata-hash-extension = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
@@ -40,8 +40,7 @@ sc-block-builder = { workspace = true, default-features = true }
 sc-chain-spec = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
-sc-executor = { workspace = true, default-features = true }
-sc-executor-polkavm = { workspace = true, default-features = true }
+sc-pvm-executor = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = false }
 sp-additional-data = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
@@ -52,8 +51,8 @@ sp-core = { workspace = true, default-features = true }
 sp-externalities = { workspace = true, default-features = true }
 sp-genesis-builder = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-sp-statement-store = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }

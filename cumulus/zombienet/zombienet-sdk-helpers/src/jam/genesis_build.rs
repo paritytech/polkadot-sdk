@@ -183,16 +183,9 @@ pub fn parameters_for_cores(cores: u16) -> anyhow::Result<serde_json::Value> {
 
 /// PolkaVM cannot use its recompiler's Linux sandbox here (no userfaultfd), and the native
 /// provider clears the environment before spawning, so every collator and tool needs these
-/// explicitly. `SUBSTRATE_ENABLE_POLKAVM` turns on the PolkaVM executor, which both a chain spec
-/// built from a PolkaVM runtime blob and the collators — whose `:code` is that same blob — need
-/// to construct the runtime at all. JAM nodes get [`jam_node_env`] instead.
+/// explicitly. JAM nodes get [`jam_node_env`] instead.
 pub fn polkavm_env() -> Vec<(&'static str, &'static str)> {
-	vec![
-		("POLKAVM_BACKEND", "interpreter"),
-		("POLKAVM_ALLOW_INSECURE", "1"),
-		("SUBSTRATE_ENABLE_POLKAVM", "1"),
-		("RUST_LOG", "debug"),
-	]
+	vec![("POLKAVM_BACKEND", "interpreter"), ("POLKAVM_ALLOW_INSECURE", "1"), ("RUST_LOG", "debug")]
 }
 
 /// The environment of a JAM node. Its refine runs the parachain service, and on the interpreter

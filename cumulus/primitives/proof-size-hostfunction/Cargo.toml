@@ -13,6 +13,7 @@ workspace = true
 
 [dependencies]
 sp-externalities = { workspace = true }
+sp-jam-runtime-interface = { workspace = true }
 sp-runtime-interface = { workspace = true }
 sp-trie = { workspace = true }
 
@@ -25,6 +26,7 @@ sp-state-machine = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"sp-externalities/std",
+	"sp-jam-runtime-interface/std",
 	"sp-runtime-interface/std",
 	"sp-trie/std",
 ]

@@ -52,7 +52,7 @@ pub fn install_overrides() -> impl Sized {
 		cumulus_jam_state_reader::jam_state::host_jam_state_read_into
 			.replace_implementation(host_jam_state_read_into),
 		// Upward messages go straight to the Parachain Service.
-		cumulus_jam_state_reader::jam_upward::host_send_upward_message
+		cumulus_jam_io::host_send_upward_message
 			.replace_implementation(parachain_service_core::host::send_upward_message),
 	)
 }

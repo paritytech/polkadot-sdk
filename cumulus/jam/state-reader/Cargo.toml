@@ -31,11 +31,9 @@ codec = { workspace = true }
 # while the std feature gates its std side. Wired the same way omni-node-lib pulls it, except
 # feature-driven instead of hard-coded to std.
 parachain-service-core = { workspace = true }
-
-[target.'cfg(jam)'.dependencies]
-# The JAM (PolkaVM) side of `jam_upward` declares its typed host call (index 342) directly: its
-# exchangeable takes `(MessageId, &UpwardMessage)`, which `#[runtime_interface]` cannot express.
+# The JAM host call `jam_state_read_into` (index 344).
 sp-jam-runtime-interface = { workspace = true }
+
 
 [dev-dependencies]
 # Tests run only on the host (std); enabling sp-state-machine/std keeps its own
@@ -49,5 +47,6 @@ std = [
 	"parachain-service-core/std",
 	"sp-additional-data/std",
 	"sp-externalities/std",
+	"sp-jam-runtime-interface/std",
 	"sp-runtime-interface/std",
 ]

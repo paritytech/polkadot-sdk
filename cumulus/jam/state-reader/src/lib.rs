@@ -37,7 +37,6 @@
 extern crate alloc;
 
 pub mod jam;
-pub mod upward;
 
 /// A 31-octet JAM state key. A `[u8; 31]` newtype-free alias, identical to
 /// `parachain_service_core::StateKey` (which is gated off the wasm family, where this crate is
@@ -51,10 +50,11 @@ pub mod jam_proof;
 // `JAM_PROOF_KEY`, and import (the omni-node) and refine (`jam_validate_block`) recompute the
 // digest with the same finalizer.
 pub mod jam_proof_finalizer;
+#[cfg(any(jam, feature = "std"))]
+pub use jam::jam_state;
 #[cfg(feature = "std")]
 pub use jam::JamStateExt;
-pub use jam::{jam_state, JamStateReader, JAM_PROOF_KEY};
+pub use jam::{JamStateReader, JAM_PROOF_KEY};
 #[cfg(any(jam, not(substrate_runtime)))]
 pub use jam_proof::JamProofReader;
 pub use jam_proof_finalizer::JamProofFinalizer;
-pub use upward::jam_upward;

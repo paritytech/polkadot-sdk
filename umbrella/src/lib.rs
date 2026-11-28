@@ -1153,9 +1153,6 @@ pub use sc_executor;
 #[cfg(feature = "sc-executor-common")]
 pub use sc_executor_common;
 
-/// PolkaVM executor for Substrate.
-#[cfg(feature = "sc-executor-polkavm")]
-pub use sc_executor_polkavm;
 
 /// Defines a `WasmRuntime` that uses the Wasmtime JIT to execute.
 #[cfg(feature = "sc-executor-wasmtime")]
@@ -1220,6 +1217,10 @@ pub use sc_offchain;
 /// Basic metrics for block production.
 #[cfg(feature = "sc-proposer-metrics")]
 pub use sc_proposer_metrics;
+
+/// Executor for JAM PolkaVM runtime blobs.
+#[cfg(feature = "sc-pvm-executor")]
+pub use sc_pvm_executor;
 
 /// Substrate Client RPC.
 #[cfg(feature = "sc-rpc")]

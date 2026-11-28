@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-cumulus-jam-state-reader = { workspace = true }
+cumulus-jam-io = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
@@ -35,7 +35,7 @@ sp-io = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"codec/std",
-	"cumulus-jam-state-reader/std",
+	"cumulus-jam-io/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",

@@ -50,9 +50,11 @@ pub fn generate_metadata_hash(wasm: &Path, extra_info: MetadataExtraInfo) -> [u8
 
 	let wasm = std::fs::read(wasm).expect("Wasm file was just created and should be readable.");
 
-	let executor = WasmExecutor::<HostFunctions>::builder()
+	let is_pvm = wasm.starts_with(b"PVM\0");
+	let wasm_executor = WasmExecutor::<HostFunctions>::builder()
 		.with_allow_missing_host_functions(true)
 		.build();
+	let pvm_executor = sc_pvm_executor::PvmExecutor::<sp_io::jam::HostFunctions>::default();
 
 	let runtime_code = RuntimeCode {
 		code_fetcher: &WrappedRuntimeCode(wasm.into()),
@@ -61,15 +63,21 @@ pub fn generate_metadata_hash(wasm: &Path, extra_info: MetadataExtraInfo) -> [u8
 		hash: vec![1, 2, 3],
 	};
 
-	let metadata = executor
-		.call(
-			&mut sp_io::TestExternalities::default().ext(),
-			&runtime_code,
-			"Metadata_metadata_at_version",
-			&15u32.encode(),
-			CallContext::Offchain,
-		)
-		.0
+	let call = |method: &str, data: &[u8]| {
+		let mut ext = sp_io::TestExternalities::default();
+		let mut ext = ext.ext();
+		if is_pvm {
+			pvm_executor
+				.call(&mut ext, &runtime_code, method, data, CallContext::Offchain)
+				.0
+		} else {
+			wasm_executor
+				.call(&mut ext, &runtime_code, method, data, CallContext::Offchain)
+				.0
+		}
+	};
+
+	let metadata = call("Metadata_metadata_at_version", &15u32.encode())
 		.expect("`Metadata::metadata_at_version` should exist.");
 
 	let metadata = Option::<Vec<u8>>::decode(&mut &metadata[..])
@@ -81,16 +89,7 @@ pub fn generate_metadata_hash(wasm: &Path, extra_info: MetadataExtraInfo) -> [u8
 		.expect("Invalid encoded metadata?")
 		.1;
 
-	let runtime_version = executor
-		.call(
-			&mut sp_io::TestExternalities::default().ext(),
-			&runtime_code,
-			"Core_version",
-			&[],
-			CallContext::Offchain,
-		)
-		.0
-		.expect("`Core_version` should exist.");
+	let runtime_version = call("Core_version", &[]).expect("`Core_version` should exist.");
 	let runtime_version = sp_version::RuntimeVersion::decode(&mut &runtime_version[..])
 		.expect("Invalid `RuntimeVersion` encoding");
 

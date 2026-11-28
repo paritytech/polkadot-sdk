@@ -124,7 +124,7 @@ fn function_no_std_impl(
 		quote! {}
 	};
 
-	let attrs = method.attrs.iter().filter(|a| !crate::utils::is_internal_attr(a));
+	let attrs = method.attrs.iter().filter(|a| !a.path().is_ident("version"));
 
 	let cfg_wasm_only = if is_wasm_only {
 		quote! { #[cfg(substrate_runtime)] }
@@ -152,7 +152,7 @@ fn function_std_latest_impl(method: &TraitItemFn, latest_version: u32) -> Result
 	let args = get_function_arguments(&method.sig).map(pat_ty_to_host_inner).map(FnArg::Typed);
 	let arg_names = get_function_argument_names(&method.sig).collect::<Vec<_>>();
 	let return_value = host_inner_return_ty(&method.sig.output);
-	let attrs = method.attrs.iter().filter(|a| !crate::utils::is_internal_attr(a));
+	let attrs = method.attrs.iter().filter(|a| !a.path().is_ident("version"));
 	let latest_function_name =
 		create_function_ident_with_version(&method.sig.ident, latest_version);
 
@@ -196,7 +196,7 @@ fn function_std_impl(
 			.take(1),
 		);
 	let return_value = host_inner_return_ty(&method.sig.output);
-	let attrs = method.attrs.iter().filter(|a| !crate::utils::is_internal_attr(a));
+	let attrs = method.attrs.iter().filter(|a| !a.path().is_ident("version"));
 	// Don't make the function public accessible when this is a wasm only interface.
 	let call_to_trait = generate_call_to_trait(trait_name, method, version, is_wasm_only);
 	let call_to_trait = if !tracing {

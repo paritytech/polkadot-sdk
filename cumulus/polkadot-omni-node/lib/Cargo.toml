@@ -71,13 +71,13 @@ sc-consensus = { workspace = true, default-features = true }
 sc-consensus-manual-seal = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
 sc-executor-common = { workspace = true, default-features = true }
-sc-executor-polkavm = { workspace = true, default-features = false }
 sc-hop = { workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sc-network-statement = { workspace = true, default-features = true }
 sc-network-sync = { workspace = true, default-features = true }
 sc-offchain = { workspace = true, default-features = true }
+sc-pvm-executor = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-rpc-spec-v2 = { workspace = true, default-features = true }
 sc-runtime-utilities = { workspace = true, default-features = true }
@@ -105,6 +105,7 @@ sp-externalities = { workspace = true, default-features = true }
 sp-genesis-builder = { workspace = true }
 sp-hop = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-offchain = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
@@ -144,6 +145,7 @@ cumulus-jam-primitives = { workspace = true, features = ["std"] }
 cumulus-jam-state-reader = { workspace = true, features = ["std"] }
 cumulus-primitives-aura = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
+cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 futures-timer = { workspace = true }
 sc-consensus-aura = { workspace = true }

@@ -20,7 +20,7 @@
 use crate::{
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
-		types::ParachainClient,
+		types::JamClient,
 		ConstructNodeRuntimeApi, NodeBlock,
 	},
 	nodes::jam::LOG_TARGET,
@@ -77,7 +77,7 @@ pub(crate) trait RuntimeAuthorities<Block: BlockT, AuraId: AuraIdT>: Send + Sync
 
 /// [`RuntimeAuthorities`] backed by the parachain client's runtime API.
 pub(crate) struct RuntimeApiAuthorities<Block: BlockT, RuntimeApi, AuraId> {
-	client: Arc<ParachainClient<Block, RuntimeApi>>,
+	client: Arc<JamClient<Block, RuntimeApi>>,
 	_phantom: PhantomData<AuraId>,
 }
 
@@ -85,7 +85,7 @@ impl<Block, RuntimeApi, AuraId> RuntimeApiAuthorities<Block, RuntimeApi, AuraId>
 where
 	Block: NodeBlock,
 {
-	pub(crate) fn new(client: Arc<ParachainClient<Block, RuntimeApi>>) -> Self {
+	pub(crate) fn new(client: Arc<JamClient<Block, RuntimeApi>>) -> Self {
 		Self { client, _phantom: PhantomData }
 	}
 }
@@ -94,7 +94,7 @@ impl<Block, RuntimeApi, AuraId> RuntimeAuthorities<Block, AuraId>
 	for RuntimeApiAuthorities<Block, RuntimeApi, AuraId>
 where
 	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, JamClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT + Sync,
 {

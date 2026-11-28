@@ -26,6 +26,12 @@ pub mod runtime_blob;
 pub mod util;
 pub mod wasm_runtime;
 
-pub(crate) fn is_polkavm_enabled() -> bool {
-	std::env::var_os("SUBSTRATE_ENABLE_POLKAVM").map_or(false, |value| value == "1")
+/// Extracts the runtime version of a given runtime code.
+pub trait RuntimeVersionOf {
+	/// Extract [`RuntimeVersion`](sp_version::RuntimeVersion) of the given `runtime_code`.
+	fn runtime_version(
+		&self,
+		ext: &mut dyn sp_externalities::Externalities,
+		runtime_code: &sp_core::traits::RuntimeCode,
+	) -> error::Result<sp_version::RuntimeVersion>;
 }

@@ -28,7 +28,7 @@ use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::in_mem;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
-use sc_executor::WasmExecutor;
+use sc_pvm_executor::PvmExecutor;
 use sc_service::{client::Client, ClientConfig, GenesisBlockBuilder, LocalCallExecutor};
 use sp_additional_data::{hash_value, AdditionalData, AdditionalDataExt, AdditionalDataFinalizer};
 use sp_api::{ProofRecorder, ProvideRuntimeApi};
@@ -47,22 +47,15 @@ use sp_runtime::{
 use sp_trie::proof_size_extension::ProofSizeExt;
 use std::sync::Arc;
 
-/// The host functions the omni-node executes parachain runtimes with
-/// (`polkadot-omni-node-lib`'s `ParachainHostFunctions`).
+/// The host calls the omni-node executes JAM parachain runtimes with
+/// (`polkadot-omni-node-lib`'s `JamHostFunctions`).
 type HostFunctions = (
-	cumulus_client_service::ParachainHostFunctions,
-	sp_statement_store::runtime_api::HostFunctions,
+	sp_io::jam::HostFunctions,
+	cumulus_primitives_proof_size_hostfunction::jam::HostFunctions,
+	sp_additional_data::jam::HostFunctions,
 	cumulus_jam_state_reader::jam_state::HostFunctions,
-	cumulus_jam_state_reader::jam_upward::HostFunctions,
 );
-/// The same set without `sp_io`'s, which the genesis config builder adds itself.
-type ExtraHostFunctions = (
-	cumulus_client_service::storage_proof_size::HostFunctions,
-	sp_statement_store::runtime_api::HostFunctions,
-	cumulus_jam_state_reader::jam_state::HostFunctions,
-	cumulus_jam_state_reader::jam_upward::HostFunctions,
-);
-type Executor = WasmExecutor<HostFunctions>;
+type Executor = PvmExecutor<HostFunctions>;
 type Backend = in_mem::Backend<Block>;
 type ParaClient = Client<Backend, LocalCallExecutor<Block, Backend, Executor>, Block, RuntimeApi>;
 
@@ -105,12 +98,11 @@ pub struct Chain {
 impl Chain {
 	/// Start a chain from the runtime's development preset, its blocks authored by Alice.
 	pub fn new(runtime: &[u8]) -> Result<Self, String> {
-		let mut storage =
-			sc_chain_spec::GenesisConfigBuilderRuntimeCaller::<ExtraHostFunctions>::new(runtime)
-				.get_storage_for_named_preset(Some(&PRESET.to_string()))?;
+		let mut storage = sc_chain_spec::GenesisConfigBuilderRuntimeCaller::<()>::new(runtime)
+			.get_storage_for_named_preset(Some(&PRESET.to_string()))?;
 		storage.top.insert(CODE.to_vec(), runtime.to_vec());
 
-		let executor = Executor::builder().with_allow_missing_host_functions(true).build();
+		let executor = Executor::default();
 		let backend = Arc::new(Backend::new());
 		let genesis_block_builder =
 			GenesisBlockBuilder::new_with_storage(storage, true, backend.clone(), executor.clone())

@@ -52,6 +52,7 @@ extern crate alloc;
 use alloc::{boxed::Box, collections::btree_map::BTreeMap, string::String, sync::Arc, vec::Vec};
 use codec::Encode;
 use sp_crypto_hashing::blake2_256;
+#[cfg(not(all(jam, substrate_runtime)))]
 use sp_runtime_interface::{pass_by::PassFatPointerAndReadWrite, runtime_interface};
 
 #[cfg(feature = "std")]
@@ -161,6 +162,7 @@ impl core::fmt::Debug for CreateAdditionalDataExtensions {
 ///
 /// `finalize` runs from generic block finalization on every block and returns `None` when no
 /// [`AdditionalDataExt`] is registered (nothing was recorded).
+#[cfg(not(all(jam, substrate_runtime)))]
 #[runtime_interface]
 pub trait AdditionalDataHost {
 	/// Finalize this block's additional data, writing the 32-byte digest hash into `hash_out` and
@@ -169,7 +171,6 @@ pub trait AdditionalDataHost {
 	/// A missing extension is treated as "nothing recorded": this runs on every block — including
 	/// blocks and test contexts that never produced additional data — so it must not panic on a
 	/// missing extension.
-	#[polkavm_index(343)]
 	fn finalize_into(&mut self, hash_out: PassFatPointerAndReadWrite<&mut [u8]>) -> u32 {
 		match self.extension::<AdditionalDataExt>().and_then(|ext| ext.finalize()) {
 			Some(h) => {
@@ -184,12 +185,77 @@ pub trait AdditionalDataHost {
 /// Committing a block's additional data: [`additional_data::finalize`] plus the exchangeable
 /// `additional_data::host_finalize_into` that `validate_block` replaces.
 pub mod additional_data {
+	#[cfg(not(all(jam, substrate_runtime)))]
 	pub use super::additional_data_host::*;
+	#[cfg(all(jam, substrate_runtime))]
+	pub use jam_runtime::*;
+
+	/// The JAM runtime side of [`AdditionalDataHost`](super::AdditionalDataHost), backed by the
+	/// JAM host call.
+	#[cfg(all(jam, substrate_runtime))]
+	mod jam_runtime {
+		fn host_call(hash_out: &mut [u8]) -> u32 {
+			// SAFETY: The pointer and length come from a live slice.
+			unsafe {
+				crate::jam::ext_additional_data_finalize_into(
+					hash_out.as_mut_ptr(),
+					hash_out.len() as u64,
+				)
+			}
+		}
+
+		/// Exchangeable implementation of [`finalize_into`].
+		#[allow(non_upper_case_globals)]
+		pub static host_finalize_into: sp_runtime_interface::wasm::ExchangeableFunction<
+			fn(&mut [u8]) -> u32,
+		> = sp_runtime_interface::wasm::ExchangeableFunction::new(host_call);
+
+		/// Finalize this block's additional data, writing the 32-byte digest hash into
+		/// `hash_out` and returning `1`, or `0` when there is nothing to commit.
+		pub fn finalize_into(hash_out: &mut [u8]) -> u32 {
+			host_finalize_into.get()(hash_out)
+		}
+	}
 
 	/// Finalize and return the folded digest of everything recorded this block, or `None` when
 	/// nothing was recorded. Idempotent.
 	pub fn finalize() -> Option<[u8; 32]> {
 		let mut out = [0u8; 32];
 		(finalize_into(&mut out[..]) == 1).then_some(out)
+	}
+}
+
+/// The JAM host call of [`additional_data::finalize_into`].
+#[cfg(any(jam, feature = "std"))]
+pub mod jam {
+	#[cfg(not(substrate_runtime))]
+	use sp_jam_runtime_interface::FunctionContext;
+
+	sp_jam_runtime_interface::host_calls! {
+		/// Finalize this block's additional data, writing the 32-byte digest hash into
+		/// `hash_out` and returning `1`, or `0` when there is nothing to commit.
+		#[index = 343]
+		pub fn ext_additional_data_finalize_into(
+			ctx: &mut dyn FunctionContext,
+			hash_out: *mut u8,
+			hash_out_len: u64,
+		) -> u32 {
+			use sp_externalities::ExternalitiesExt;
+
+			let hash = sp_externalities::with_externalities(|mut ext| {
+				ext.extension::<super::AdditionalDataExt>().and_then(|ext| ext.finalize())
+			})
+			.flatten();
+
+			match hash {
+				Some(hash) => ctx.with_buffer(hash_out, hash_out_len, |out| {
+					out.get_mut(..32)
+						.ok_or_else(|| alloc::string::String::from("`hash_out` is too small"))?
+						.copy_from_slice(&hash);
+					Ok(1)
+				})?,
+				None => Ok(0),
+			}
+		}
 	}
 }

@@ -18,7 +18,7 @@
 
 use crate::{
 	common::{
-		types::{ParachainBackend, ParachainClient},
+		types::{JamClient, ParachainBackend},
 		ConstructNodeRuntimeApi, NodeBlock,
 	},
 	nodes::jam::{
@@ -49,7 +49,7 @@ use sp_runtime::traits::{HashingFor, Header as HeaderT};
 use std::{collections::HashMap, sync::Arc};
 
 pub(crate) struct Manager<Block: NodeBlock, RuntimeApi, Jam> {
-	pub(crate) para_client: Arc<ParachainClient<Block, RuntimeApi>>,
+	pub(crate) para_client: Arc<JamClient<Block, RuntimeApi>>,
 	pub(crate) para_backend: Arc<ParachainBackend<Block>>,
 	pub(crate) jam: Arc<Jam>,
 	/// The para's AURA authorizers by anchor slot: what every package here runs under, and what
@@ -63,7 +63,7 @@ pub(crate) struct Manager<Block: NodeBlock, RuntimeApi, Jam> {
 	pub(crate) announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	/// Which work package this node submitted for which block. Signing is non-deterministic, so
 	/// a package's hash can only be remembered, never recomputed — not even by its author.
-	pub(crate) hash_ledger: WpHashLedger<ParachainClient<Block, RuntimeApi>>,
+	pub(crate) hash_ledger: WpHashLedger<JamClient<Block, RuntimeApi>>,
 	pub(crate) packages: InFlightPackages<Block>,
 	/// Where every block this collator authored is recorded, so its PoV can be rebuilt later.
 	pub(crate) block_povs: BlockPovs<Block>,
@@ -93,7 +93,7 @@ pub(crate) struct Manager<Block: NodeBlock, RuntimeApi, Jam> {
 impl<Block, RuntimeApi, Jam> Manager<Block, RuntimeApi, Jam>
 where
 	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, JamClient<Block, RuntimeApi>>,
 	Jam: JamChainSource + JamStateSource + JamWorkPackageSubmission + 'static,
 {
 	/// Resolve an offchain-code marker at `block`; see [`code::ensure_code_blob_at`].

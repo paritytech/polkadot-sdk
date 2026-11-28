@@ -306,7 +306,7 @@ impl<T: Config> Pallet<T> {
 		// under the message id it was sent with, so the id is the core it assigns.
 		let message_id = MessageId::from(u64::from(core));
 		#[cfg(not(test))]
-		cumulus_jam_state_reader::upward::send_upward_message(message_id, &message);
+		cumulus_jam_io::send_upward_message(message_id, &message);
 		#[cfg(test)]
 		mock::record_upward_message(message_id, message);
 	}

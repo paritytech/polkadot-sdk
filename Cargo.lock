@@ -5280,6 +5280,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-jam-io"
+version = "0.1.0"
+dependencies = [
+ "parachain-service-core",
+ "sp-runtime-interface 24.0.0",
+]
+
+[[package]]
 name = "cumulus-jam-primitives"
 version = "0.1.0"
 dependencies = [
@@ -5326,10 +5334,10 @@ name = "cumulus-jam-tx-gas-benchmark"
 version = "0.1.0"
 dependencies = [
  "clap",
- "cumulus-client-service",
  "cumulus-jam-state-reader",
  "cumulus-pallet-weight-reclaim",
  "cumulus-primitives-core",
+ "cumulus-primitives-proof-size-hostfunction",
  "frame-metadata-hash-extension",
  "frame-system",
  "futures",
@@ -5346,8 +5354,7 @@ dependencies = [
  "sc-chain-spec 28.0.0",
  "sc-client-api 28.0.0",
  "sc-consensus",
- "sc-executor 0.32.0",
- "sc-executor-polkavm 0.29.0",
+ "sc-pvm-executor",
  "sc-service",
  "schnorrkel 0.11.5",
  "sp-additional-data",
@@ -5359,9 +5366,9 @@ dependencies = [
  "sp-externalities 0.25.0",
  "sp-genesis-builder 0.8.0",
  "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
  "sp-keyring",
  "sp-runtime 31.0.1",
- "sp-statement-store",
  "sp-timestamp",
  "sp-trie 29.0.0",
 ]
@@ -5397,6 +5404,7 @@ dependencies = [
 name = "cumulus-pallet-jam-system"
 version = "0.1.0"
 dependencies = [
+ "cumulus-jam-io",
  "cumulus-jam-primitives",
  "cumulus-jam-state-reader",
  "cumulus-pallet-parachain-system",
@@ -5646,6 +5654,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-externalities 0.25.0",
  "sp-io 30.0.0",
+ "sp-jam-runtime-interface",
  "sp-runtime-interface 24.0.0",
  "sp-state-machine 0.35.0",
  "sp-trie 29.0.0",
@@ -5833,7 +5842,6 @@ name = "cumulus-test-client"
 version = "0.1.0"
 dependencies = [
  "cumulus-client-consensus-common",
- "cumulus-jam-state-reader",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-weight-reclaim",
  "cumulus-primitives-core",
@@ -14045,7 +14053,7 @@ dependencies = [
 name = "pallet-jam-coretime"
 version = "0.1.0"
 dependencies = [
- "cumulus-jam-state-reader",
+ "cumulus-jam-io",
  "frame-support",
  "frame-system",
  "log",
@@ -17738,6 +17746,7 @@ dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-proof-size-hostfunction",
  "cumulus-relay-chain-interface",
  "cumulus-test-runtime",
  "docify",
@@ -17776,13 +17785,13 @@ dependencies = [
  "sc-consensus-manual-seal",
  "sc-executor 0.32.0",
  "sc-executor-common 0.29.0",
- "sc-executor-polkavm 0.29.0",
  "sc-hop",
  "sc-keystore",
  "sc-network 0.34.0",
  "sc-network-statement",
  "sc-network-sync",
  "sc-offchain",
+ "sc-pvm-executor",
  "sc-rpc",
  "sc-rpc-spec-v2",
  "sc-runtime-utilities",
@@ -17814,6 +17823,7 @@ dependencies = [
  "sp-genesis-builder 0.8.0",
  "sp-hop",
  "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
  "sp-keystore 0.34.0",
  "sp-offchain",
  "sp-runtime 31.0.1",
@@ -18413,7 +18423,6 @@ dependencies = [
  "sc-consensus-slots",
  "sc-executor 0.32.0",
  "sc-executor-common 0.29.0",
- "sc-executor-polkavm 0.29.0",
  "sc-executor-wasmtime 0.29.0",
  "sc-hop",
  "sc-informant",
@@ -18430,6 +18439,7 @@ dependencies = [
  "sc-network-types 0.10.0",
  "sc-offchain",
  "sc-proposer-metrics",
+ "sc-pvm-executor",
  "sc-rpc",
  "sc-rpc-api",
  "sc-rpc-server",
@@ -21743,6 +21753,7 @@ dependencies = [
  "sc-client-api 28.0.0",
  "sc-executor 0.32.0",
  "sc-network 0.34.0",
+ "sc-pvm-executor",
  "sc-telemetry 15.0.0",
  "serde",
  "serde_json",
@@ -22322,7 +22333,6 @@ dependencies = [
  "parking_lot 0.12.3",
  "paste",
  "sc-executor-common 0.29.0",
- "sc-executor-polkavm 0.29.0",
  "sc-executor-wasmtime 0.29.0",
  "sc-runtime-test",
  "sc-tracing",
@@ -22360,7 +22370,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "sc-executor-common 0.47.0",
- "sc-executor-polkavm 0.44.0",
+ "sc-executor-polkavm",
  "sc-executor-wasmtime 0.47.0",
  "schnellru",
  "sp-api 43.0.0",
@@ -22379,9 +22389,11 @@ dependencies = [
 name = "sc-executor-common"
 version = "0.29.0"
 dependencies = [
- "polkavm 0.35.0",
  "sc-allocator 23.0.0",
+ "sp-core 28.0.0",
+ "sp-externalities 0.25.0",
  "sp-maybe-compressed-blob 11.0.0",
+ "sp-version 29.0.0",
  "sp-wasm-interface 20.0.0",
  "thiserror 1.0.65",
  "wasm-instrument",
@@ -22399,20 +22411,6 @@ dependencies = [
  "sp-wasm-interface 27.0.0",
  "thiserror 1.0.65",
  "wasm-instrument",
-]
-
-[[package]]
-name = "sc-executor-polkavm"
-version = "0.29.0"
-dependencies = [
- "log",
- "polkavm 0.35.0",
- "sc-executor-common 0.29.0",
- "sp-externalities 0.25.0",
- "sp-jam-runtime-interface",
- "sp-runtime-interface 24.0.0",
- "sp-state-machine 0.35.0",
- "sp-wasm-interface 20.0.0",
 ]
 
 [[package]]
@@ -22979,6 +22977,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "sc-pvm-executor"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "parity-scale-codec",
+ "parking_lot 0.12.3",
+ "polkavm 0.35.0",
+ "sc-executor-common 0.29.0",
+ "schnellru",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
+ "sp-externalities 0.25.0",
+ "sp-io 30.0.0",
+ "sp-jam-runtime-interface",
+ "sp-panic-handler 13.0.0",
+ "sp-state-machine 0.35.0",
+ "sp-tracing 16.0.0",
+ "sp-version 29.0.0",
+]
+
+[[package]]
 name = "sc-rpc"
 version = "29.0.0"
 dependencies = [
@@ -23146,7 +23165,6 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-state-machine 0.35.0",
  "sp-version 29.0.0",
- "sp-wasm-interface 20.0.0",
  "subxt 0.50.2",
  "thiserror 1.0.65",
 ]
@@ -25470,6 +25488,7 @@ dependencies = [
  "sp-crypto-hashing 0.1.0",
  "sp-externalities 0.25.0",
  "sp-io 30.0.0",
+ "sp-jam-runtime-interface",
  "sp-runtime 31.0.1",
  "sp-runtime-interface 24.0.0",
 ]
@@ -28023,6 +28042,7 @@ dependencies = [
  "parity-wasm",
  "polkavm-linker",
  "sc-executor 0.32.0",
+ "sc-pvm-executor",
  "shlex",
  "sp-core 28.0.0",
  "sp-io 30.0.0",

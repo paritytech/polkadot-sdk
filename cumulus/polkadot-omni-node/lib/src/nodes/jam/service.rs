@@ -27,7 +27,8 @@ use crate::{
 		rpc::{BuildParachainRpcExtensions, BuildRpcExtensions},
 		spec::{BaseNodeSpec, DynNodeSpec, InitBlockImport},
 		types::{
-			AccountId, Balance, Nonce, ParachainBackend, ParachainBlockImport, ParachainClient,
+			AccountId, Balance, JamClient, JamExecutor, Nonce, ParachainBackend,
+			ParachainBlockImport,
 		},
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
@@ -79,12 +80,8 @@ pub(crate) fn is_jam_chain_spec(chain_spec: &dyn sc_service::ChainSpec) -> bool 
 /// the carried JAM state proof registered.
 type JamClientBlockImport<Block, RuntimeApi> = JamBlockImport<
 	Block,
-	StorageChainBlockImport<
-		Block,
-		Arc<ParachainClient<Block, RuntimeApi>>,
-		ParachainClient<Block, RuntimeApi>,
-	>,
-	ParachainClient<Block, RuntimeApi>,
+	StorageChainBlockImport<Block, Arc<JamClient<Block, RuntimeApi>>, JamClient<Block, RuntimeApi>>,
+	JamClient<Block, RuntimeApi>,
 >;
 
 /// The block import the builder authors through: the import queue's, so an authored block takes
@@ -93,8 +90,8 @@ type BuilderBlockImport<Block, RuntimeApi> =
 	ParachainBlockImport<Block, JamClientBlockImport<Block, RuntimeApi>>;
 
 type ProposerFactory<Block, RuntimeApi> = sc_basic_authorship::ProposerFactory<
-	TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
-	ParachainClient<Block, RuntimeApi>,
+	TransactionPoolHandle<Block, JamClient<Block, RuntimeApi>>,
+	JamClient<Block, RuntimeApi>,
 >;
 
 type AnnounceBlock<Block> =
@@ -103,9 +100,9 @@ type AnnounceBlock<Block> =
 /// What the builder and collation tasks start from.
 struct CollatorParams<Block: NodeBlock, RuntimeApi>
 where
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, JamClient<Block, RuntimeApi>>,
 {
-	client: Arc<ParachainClient<Block, RuntimeApi>>,
+	client: Arc<JamClient<Block, RuntimeApi>>,
 	para_backend: Arc<ParachainBackend<Block>>,
 	jam: Arc<JamRpcInterface>,
 	service_id: jam_interface::ServiceId,
@@ -123,20 +120,20 @@ where
 /// builder import through it, and hands the PoV store and `:code` resolver it fills to the node.
 pub(crate) struct InitJamBlockImport;
 
-impl<Block, RuntimeApi> InitBlockImport<Block, RuntimeApi> for InitJamBlockImport
+impl<Block, RuntimeApi> InitBlockImport<Block, RuntimeApi, JamExecutor> for InitJamBlockImport
 where
 	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, JamClient<Block, RuntimeApi>>,
 {
 	type BlockImport = JamClientBlockImport<Block, RuntimeApi>;
 	type BlockImportAuxiliaryData = JamImportShared<Block>;
 
 	fn init_block_import(
-		client: Arc<ParachainClient<Block, RuntimeApi>>,
+		client: Arc<JamClient<Block, RuntimeApi>>,
 		storage_chain_block_import: StorageChainBlockImport<
 			Block,
-			Arc<ParachainClient<Block, RuntimeApi>>,
-			ParachainClient<Block, RuntimeApi>,
+			Arc<JamClient<Block, RuntimeApi>>,
+			JamClient<Block, RuntimeApi>,
 		>,
 	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
 		let shared = JamImportShared {
@@ -160,20 +157,27 @@ impl<Block, RuntimeApi, AuraId> Default for JamNode<Block, RuntimeApi, AuraId> {
 impl<Block, RuntimeApi, AuraId> BaseNodeSpec for JamNode<Block, RuntimeApi, AuraId>
 where
 	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, JamClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT + Sync,
 {
 	type Block = Block;
+	type Executor = JamExecutor;
 	type RuntimeApi = RuntimeApi;
 	type BuildImportQueue = BuildJamImportQueue<Block, RuntimeApi, AuraId>;
 	type InitBlockImport = InitJamBlockImport;
+
+	fn build_executor(config: &Configuration) -> JamExecutor {
+		JamExecutor::builder()
+			.with_runtime_cache_size(config.executor.runtime_cache_size)
+			.build()
+	}
 }
 
 impl<Block, RuntimeApi, AuraId> DynNodeSpec for JamNode<Block, RuntimeApi, AuraId>
 where
 	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, JamClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
@@ -215,21 +219,21 @@ where
 
 /// The RPC extensions of a JAM node: no statement store, no HOP.
 pub(crate) fn rpc_extensions_builder<Block, RuntimeApi>(
-	client: Arc<ParachainClient<Block, RuntimeApi>>,
+	client: Arc<JamClient<Block, RuntimeApi>>,
 	backend: Arc<ParachainBackend<Block>>,
-	transaction_pool: Arc<TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>>,
+	transaction_pool: Arc<TransactionPoolHandle<Block, JamClient<Block, RuntimeApi>>>,
 	spawn_handle: Arc<sc_service::SpawnTaskHandle>,
 ) -> Box<
 	dyn Fn(sc_rpc::SubscriptionTaskExecutor) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error>,
 >
 where
 	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, JamClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 {
 	Box::new(move |_| {
-		BuildParachainRpcExtensions::<Block, RuntimeApi>::build_rpc_extensions(
+		BuildParachainRpcExtensions::<Block, RuntimeApi, JamExecutor>::build_rpc_extensions(
 			client.clone(),
 			backend.clone(),
 			transaction_pool.clone(),
@@ -260,7 +264,7 @@ pub(crate) fn spawn_storage_monitor(
 impl<Block, RuntimeApi, AuraId> JamNode<Block, RuntimeApi, AuraId>
 where
 	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, JamClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
@@ -510,7 +514,7 @@ where
 	/// Follow the para's best and finalized heads as JAM accumulates them, through
 	/// `run_parachain_consensus` with streams built from the service's per-para state.
 	async fn spawn_head_following(
-		client: &Arc<ParachainClient<Block, RuntimeApi>>,
+		client: &Arc<JamClient<Block, RuntimeApi>>,
 		jam: &Arc<JamRpcInterface>,
 		jam_params: &JamNodeParams,
 		para_id: ParaId,
@@ -551,7 +555,7 @@ where
 
 	/// Work-package recovery: randomised bundle fetch from the JAM DA layer.
 	async fn spawn_recovery(
-		client: &Arc<ParachainClient<Block, RuntimeApi>>,
+		client: &Arc<JamClient<Block, RuntimeApi>>,
 		jam: &Arc<JamRpcInterface>,
 		jam_params: &JamNodeParams,
 		para_id: ParaId,
@@ -645,7 +649,7 @@ where
 		let package_params =
 			jam::package::read_package_params(&*jam, para_id.into(), service_id).await;
 
-		wait_for_aura::<Block, RuntimeApi, AuraId>(client.clone()).await;
+		wait_for_aura::<Block, RuntimeApi, AuraId, _>(client.clone()).await;
 		let (message_sender, message_receiver) = futures::channel::mpsc::channel(4);
 		let hold = jam::AuthoringHold::new();
 		spawn_essential.spawn_essential(

@@ -32,20 +32,49 @@ pub type Block<BlockNumber> = generic::Block<Header<BlockNumber>, UncheckedExtri
 pub type ParachainHostFunctions = (
 	cumulus_client_service::ParachainHostFunctions,
 	sp_statement_store::runtime_api::HostFunctions,
-	cumulus_jam_state_reader::jam_state::HostFunctions,
-	cumulus_jam_state_reader::jam_upward::HostFunctions,
 );
 #[cfg(feature = "runtime-benchmarks")]
 pub type ParachainHostFunctions = (
 	cumulus_client_service::ParachainHostFunctions,
 	sp_statement_store::runtime_api::HostFunctions,
-	cumulus_jam_state_reader::jam_state::HostFunctions,
-	cumulus_jam_state_reader::jam_upward::HostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 
-pub type ParachainClient<Block, RuntimeApi> =
-	TFullClient<Block, RuntimeApi, WasmExecutor<ParachainHostFunctions>>;
+/// The executor of a (non-JAM) parachain node.
+pub type ParachainExecutor = WasmExecutor<ParachainHostFunctions>;
+
+/// The host calls a JAM parachain runtime gets.
+pub type JamHostFunctions = (
+	sp_io::jam::HostFunctions,
+	cumulus_primitives_proof_size_hostfunction::jam::HostFunctions,
+	sp_additional_data::jam::HostFunctions,
+	cumulus_jam_state_reader::jam_state::HostFunctions,
+);
+
+/// The executor of a JAM parachain node.
+pub type JamExecutor = sc_pvm_executor::PvmExecutor<JamHostFunctions>;
+
+/// An executor the parachain client can run.
+pub trait NodeExecutor:
+	sp_core::traits::CodeExecutor + sc_executor::RuntimeVersionOf + Clone + Send + Sync + 'static
+{
+}
+
+impl<T> NodeExecutor for T where
+	T: sp_core::traits::CodeExecutor
+		+ sc_executor::RuntimeVersionOf
+		+ Clone
+		+ Send
+		+ Sync
+		+ 'static
+{
+}
+
+pub type ParachainClient<Block, RuntimeApi, Executor = ParachainExecutor> =
+	TFullClient<Block, RuntimeApi, Executor>;
+
+/// The client of a JAM parachain node.
+pub type JamClient<Block, RuntimeApi> = ParachainClient<Block, RuntimeApi, JamExecutor>;
 
 pub type ParachainBackend<Block> = TFullBackend<Block>;
 
@@ -53,17 +82,18 @@ pub type ParachainBlockImport<Block, BI> =
 	TParachainBlockImport<Block, BI, ParachainBackend<Block>>;
 
 /// Assembly of PartialComponents (enough to run chain ops subcommands)
-pub type ParachainService<Block, RuntimeApi, BI, BIExtraReturnValue> = PartialComponents<
-	ParachainClient<Block, RuntimeApi>,
-	ParachainBackend<Block>,
-	(),
-	DefaultImportQueue<Block>,
-	TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
-	(
-		ParachainBlockImport<Block, BI>,
-		Option<Telemetry>,
-		Option<TelemetryWorkerHandle>,
-		BIExtraReturnValue,
-		sc_storage_chain_sync::BitswapHandleSlot,
-	),
->;
+pub type ParachainService<Block, RuntimeApi, BI, BIExtraReturnValue, Executor = ParachainExecutor> =
+	PartialComponents<
+		ParachainClient<Block, RuntimeApi, Executor>,
+		ParachainBackend<Block>,
+		(),
+		DefaultImportQueue<Block>,
+		TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi, Executor>>,
+		(
+			ParachainBlockImport<Block, BI>,
+			Option<Telemetry>,
+			Option<TelemetryWorkerHandle>,
+			BIExtraReturnValue,
+			sc_storage_chain_sync::BitswapHandleSlot,
+		),
+	>;

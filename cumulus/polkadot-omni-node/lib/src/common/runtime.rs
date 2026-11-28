@@ -16,6 +16,7 @@
 
 //! Runtime parameters.
 
+use crate::common::types::JamExecutor;
 use codec::{Decode, Encode};
 use cumulus_client_service::ParachainHostFunctions;
 use frame_metadata::RuntimeMetadataPrefixed;
@@ -271,13 +272,15 @@ impl MetadataInspector {
 			.top
 			.remove(sp_storage::well_known_keys::CODE)
 			.ok_or("chain spec genesis does not contain code")?;
-		let executor = WasmExecutor::<ParachainHostFunctions>::builder()
-			.with_allow_missing_host_functions(true)
-			.build();
-		let opaque_metadata = fetch_latest_metadata_from_code_blob(
-			&executor,
-			sp_runtime::Cow::Borrowed(code_bytes.as_slice()),
-		)
+		let code = sp_runtime::Cow::Borrowed(code_bytes.as_slice());
+		let opaque_metadata = if code_bytes.starts_with(b"PVM\0") {
+			fetch_latest_metadata_from_code_blob(&JamExecutor::default(), code)
+		} else {
+			let executor = WasmExecutor::<ParachainHostFunctions>::builder()
+				.with_allow_missing_host_functions(true)
+				.build();
+			fetch_latest_metadata_from_code_blob(&executor, code)
+		}
 		.map_err(|err| err.to_string())?;
 
 		let mut encoded = (*opaque_metadata).as_slice();

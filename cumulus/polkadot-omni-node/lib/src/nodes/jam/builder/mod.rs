@@ -61,7 +61,7 @@ pub(crate) mod turn;
 use crate::{
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
-		types::{ParachainBackend, ParachainClient},
+		types::{JamClient, ParachainBackend},
 		ConstructNodeRuntimeApi, NodeBlock,
 	},
 	nodes::jam::{
@@ -89,7 +89,7 @@ use sp_timestamp::Timestamp;
 use std::{collections::VecDeque, sync::Arc};
 
 pub(crate) struct BuilderTaskParams<Block: NodeBlock, RuntimeApi, BI, PF, Jam> {
-	pub para_client: Arc<ParachainClient<Block, RuntimeApi>>,
+	pub para_client: Arc<JamClient<Block, RuntimeApi>>,
 	/// Needed for the block tree alone: picking a parent means walking the children of the
 	/// accumulated head, and `children` lives on the backend's blockchain, not on the client.
 	pub para_backend: Arc<ParachainBackend<Block>>,
@@ -114,7 +114,7 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 	params: BuilderTaskParams<Block, RuntimeApi, BI, PF, Jam>,
 ) where
 	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, JamClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT + Sync,
 	BI: BlockImport<Block> + Send + Sync,

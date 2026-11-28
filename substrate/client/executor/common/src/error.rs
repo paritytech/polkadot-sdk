@@ -150,33 +150,6 @@ pub enum WasmError {
 	Other(String),
 }
 
-impl From<polkavm::program::ProgramParseError> for WasmError {
-	fn from(error: polkavm::program::ProgramParseError) -> Self {
-		WasmError::Other(error.to_string())
-	}
-}
-
-impl From<polkavm::Error> for WasmError {
-	fn from(error: polkavm::Error) -> Self {
-		WasmError::Other(error.to_string())
-	}
-}
-
-impl From<polkavm::CompileError> for WasmError {
-	fn from(error: polkavm::CompileError) -> Self {
-		match error {
-			polkavm::CompileError::ValidationFailed(msg) => WasmError::InvalidModule(msg),
-			polkavm::CompileError::Error(err) => WasmError::Other(err.to_string()),
-		}
-	}
-}
-
-impl From<polkavm::Error> for Error {
-	fn from(error: polkavm::Error) -> Self {
-		Error::Other(error.to_string())
-	}
-}
-
 /// An error message with an attached backtrace.
 #[derive(Debug)]
 pub struct MessageWithBacktrace {

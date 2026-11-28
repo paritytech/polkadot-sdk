@@ -71,7 +71,7 @@ async fn dev_node_on_polkavm_blob_rotates_keys_and_authors_blocks() -> Result<()
 	);
 
 	// The node itself. No override is passed: the only runtime it can execute is the PolkaVM
-	// blob the spec embeds, enabled by the SUBSTRATE_ENABLE_POLKAVM=1 in the environment.
+	// blob the spec embeds.
 	let base_path = work_dir.join("alice");
 	let p2p_port = free_port()?;
 	let rpc_port = free_port()?;
@@ -146,7 +146,7 @@ async fn dev_node_on_polkavm_blob_rotates_keys_and_authors_blocks() -> Result<()
 	);
 	log::info!(
 		"node's on-chain :code is the PolkaVM blob (PVM\\0, {} bytes) — the PVM executor is what \
-		 runs it (SUBSTRATE_ENABLE_POLKAVM=1 is in the environment)",
+		 runs it",
 		on_chain_code.len()
 	);
 	// Evidence artifacts for the gate record. These write the on-chain code, the rotateKeys
@@ -206,7 +206,7 @@ async fn dev_node_on_polkavm_blob_rotates_keys_and_authors_blocks() -> Result<()
 		"explicit trap",
 		"panicked at",
 		"Trap at",
-		"found a PolkaVM runtime blob; set the 'SUBSTRATE_ENABLE_POLKAVM'",
+		"cannot deserialize module",
 	];
 	for marker in poison {
 		anyhow::ensure!(
