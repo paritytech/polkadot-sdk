@@ -46,6 +46,13 @@ pub trait ProcessTransaction {
 		F: FnOnce() -> Result<(), XcmError>;
 }
 
+/// Non-transactional processing: the closure runs as is and nothing is rolled back on error.
+///
+/// **This is lossy, not merely non-atomic.** When the processor is not transactional, the
+/// executor does not restore its holding and fees registers either, since that would duplicate
+/// whatever the failed instruction already committed to storage. Credits that a failed
+/// instruction took out of holding are therefore dropped, which burns them on a real runtime.
+/// Only use this where instructions cannot fail after their first side effect, such as in tests.
 impl ProcessTransaction for () {
 	const IS_TRANSACTIONAL: bool = false;
 	fn process<F>(f: F) -> Result<(), XcmError>

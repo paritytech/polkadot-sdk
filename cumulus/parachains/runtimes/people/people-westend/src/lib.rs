@@ -178,7 +178,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	authoring_version: 1,
-	spec_version: 1_025_003,
+	spec_version: 1_026_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -436,6 +436,12 @@ pub type CollatorSelectionUpdateOrigin = EitherOfDiverse<
 	EnsureXcm<IsVoiceOfBody<GovernanceLocation, StakingAdminBodyId>>,
 >;
 
+parameter_types! {
+	/// The blocks the chain authors in one Aura slot.
+	pub const BlocksPerAuraSlot: u32 =
+		(SLOT_DURATION / RELAY_CHAIN_SLOT_DURATION_MILLIS as u64) as u32 * BLOCK_PROCESSING_VELOCITY;
+}
+
 impl pallet_collator_selection::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -444,8 +450,12 @@ impl pallet_collator_selection::Config for Runtime {
 	type MaxCandidates = ConstU32<100>;
 	type MinEligibleCollators = ConstU32<4>;
 	type MaxInvulnerables = ConstU32<20>;
-	// should be a multiple of session or things will get inconsistent
-	type KickThreshold = ConstU32<PERIOD>;
+	type KickThreshold = parachains_common::impls::KickThreshold<
+		Runtime,
+		<Runtime as pallet_validator_collators::Config>::MaxValidators,
+		BlocksPerAuraSlot,
+		ConstU32<PERIOD>,
+	>;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
 	type ValidatorRegistration = Session;

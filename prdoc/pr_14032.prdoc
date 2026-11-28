@@ -1,0 +1,11 @@
+title: 'pallet-elections-phragmen: slash kicked members to `Config::KickedMember`'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The deposit slashed from a member removed with `remove_member` and `slash_bond = true` is now
+    handed to `Config::KickedMember`. It was handed to `Config::LoserCandidate` instead, and
+    `KickedMember` was never called. Runtimes that configure different handlers for the two will
+    see these funds arrive at a different destination.
+crates:
+- name: pallet-elections-phragmen
+  bump: patch

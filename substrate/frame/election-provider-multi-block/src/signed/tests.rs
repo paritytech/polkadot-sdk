@@ -94,6 +94,7 @@ mod calls {
 				SubmissionMetadata {
 					claimed_score: score,
 					deposit: 5,
+					base: 5,
 					fee: 1,
 					pages: bounded_vec![false, false, false],
 					reward: 3
@@ -118,6 +119,7 @@ mod calls {
 				SubmissionMetadata {
 					claimed_score: score,
 					deposit: 5,
+					base: 5,
 					fee: 1,
 					pages: bounded_vec![false, false, false],
 					reward: 3
@@ -164,6 +166,7 @@ mod calls {
 				SubmissionMetadata {
 					claimed_score: score,
 					deposit: 5,
+					base: 5,
 					fee: 1,
 					pages: bounded_vec![false, false, false],
 					reward: 3
@@ -181,6 +184,7 @@ mod calls {
 				SubmissionMetadata {
 					claimed_score: score,
 					deposit: 6,
+					base: 5,
 					fee: 2,
 					pages: bounded_vec![true, false, false],
 					reward: 3
@@ -198,6 +202,7 @@ mod calls {
 				SubmissionMetadata {
 					claimed_score: score,
 					deposit: 7,
+					base: 5,
 					fee: 3,
 					pages: bounded_vec![true, true, false],
 					reward: 3
@@ -212,6 +217,7 @@ mod calls {
 				SubmissionMetadata {
 					claimed_score: score,
 					deposit: 6,
+					base: 5,
 					fee: 3,
 					pages: bounded_vec![true, false, false],
 					reward: 3
@@ -469,6 +475,102 @@ mod calls {
 			));
 		});
 	}
+
+	#[test]
+	fn base_deposit_is_determined_at_registration() {
+		ExtBuilder::signed().build_and_execute(|| {
+			// GIVEN a base deposit that grows with the number of queued submitters.
+			SignedDepositBaseIncrease::set(10);
+			roll_to_signed_open();
+			assert_full_snapshot();
+			let paged = mine_full_solution().unwrap();
+
+			// AND 999 registers first, with an empty queue: base deposit 5.
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(999), paged.score));
+			assert_eq!(balances(999), (95, 5));
+
+			// AND 999 keeps only enough free balance for its page deposits (3) and the ED.
+			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(999), 1, 91));
+			assert_eq!(balances(999), (4, 5));
+
+			// AND two other accounts register afterwards, at a higher base deposit.
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(91), score_from(10)));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(92), score_from(20)));
+			assert_eq!(balances(91), (85, 15));
+			assert_eq!(balances(92), (75, 25));
+
+			// WHEN 999 submits all its pages.
+			for (page, solution) in paged.solution_pages.pagify(Pages::get()) {
+				assert_ok!(SignedPallet::submit_page(
+					RuntimeOrigin::signed(999),
+					page,
+					Some(Box::new(solution.clone()))
+				));
+			}
+
+			// THEN all pages are stored, and only the per-page deposit is added to the base it
+			// registered with.
+			assert_eq!(balances(999), (1, 8));
+			assert_eq!(Submissions::<Runtime>::metadata_of(0, 999).unwrap().deposit, 8);
+
+			// WHEN a page is removed, only that page's deposit is released.
+			assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(999), 0, None));
+			assert_eq!(balances(999), (2, 7));
+			assert_eq!(Submissions::<Runtime>::metadata_of(0, 999).unwrap().deposit, 7);
+
+			// WHEN it is stored again, and then replaced, only that page's deposit is held once.
+			let page_0 = paged.solution_pages.pagify(Pages::get()).next().unwrap().1.clone();
+			for _ in 0..2 {
+				assert_ok!(SignedPallet::submit_page(
+					RuntimeOrigin::signed(999),
+					0,
+					Some(Box::new(page_0.clone()))
+				));
+				assert_eq!(balances(999), (1, 8));
+				assert_eq!(Submissions::<Runtime>::metadata_of(0, 999).unwrap().deposit, 8);
+			}
+
+			// WHEN the submission is verified.
+			let fee = Submissions::<Runtime>::metadata_of(0, 999).unwrap().fee;
+			roll_to_signed_validation_open();
+			roll_to_full_verification();
+
+			// THEN it is rewarded, and its full deposit is released.
+			let reward = SignedRewardBase::get() + fee.min(max_fee_refund());
+			assert!(signed_events().contains(&SignedEvent::Rewarded(0, 999, reward)));
+			assert_eq!(balances(999), (9 + reward, 0));
+		});
+	}
+
+	#[test]
+	fn per_page_rate_change_keeps_registration_deposit() {
+		ExtBuilder::signed().build_and_execute(|| {
+			// GIVEN a base deposit that grows with the number of queued submitters.
+			SignedDepositBaseIncrease::set(10);
+			// AND 99 registered with all pages stored: base 5 plus 3 pages at 1.
+			roll_to_signed_open();
+			assert_full_snapshot();
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score_from(100)));
+			for page in 0..3 {
+				assert_ok!(SignedPallet::submit_page(
+					RuntimeOrigin::signed(99),
+					page,
+					Some(Default::default())
+				));
+			}
+			assert_eq!(balances(99), (92, 8));
+
+			// WHEN the per-page deposit changes and 99 removes all its pages.
+			SignedDepositPerPage::set(3);
+			for page in 0..3 {
+				assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(99), page, None));
+			}
+
+			// THEN it still holds the base charged at registration.
+			assert_eq!(Submissions::<Runtime>::metadata_of(0, 99).unwrap().deposit, 5);
+			assert_eq!(balances(99), (95, 5));
+		});
+	}
 }
 
 mod max_fee_refund {
@@ -583,6 +685,7 @@ mod e2e {
 						92,
 						SubmissionMetadata {
 							deposit: 5,
+							base: 5,
 							fee: 1,
 							reward: 3,
 							claimed_score: ElectionScore {
@@ -597,6 +700,7 @@ mod e2e {
 						999,
 						SubmissionMetadata {
 							deposit: 8,
+							base: 5,
 							fee: 4,
 							reward: 3,
 							claimed_score: ElectionScore {
@@ -611,6 +715,7 @@ mod e2e {
 						99,
 						SubmissionMetadata {
 							deposit: 6,
+							base: 5,
 							fee: 2,
 							reward: 3,
 							claimed_score: ElectionScore {
@@ -1305,6 +1410,7 @@ mod invulnerables {
 				SubmissionMetadata {
 					claimed_score: score,
 					deposit: 7,
+					base: 7,
 					// ^^ fixed deposit
 					fee: 1,
 					// ^^ fee accumulates
@@ -1324,6 +1430,7 @@ mod invulnerables {
 				SubmissionMetadata {
 					claimed_score: score,
 					deposit: 7,
+					base: 7,
 					// ^^ deposit still fixed at 7
 					fee: 2,
 					// ^^ fee accumulates
@@ -1351,6 +1458,7 @@ mod invulnerables {
 				SubmissionMetadata {
 					claimed_score: score,
 					deposit: 7,
+					base: 7,
 					// ^^ deposit still fixed at 7 even after submitting all pages
 					fee: 4,
 					// ^^ fee accumulates: register(1) + page0(1) + page1(1) + page2(1) = 4 total
@@ -1595,6 +1703,90 @@ mod invulnerables {
 			assert_eq!(signed_events_since_last_call(), vec![Event::Discarded(0, 99)]);
 			assert_eq!(balances(99), (100 + max_fee_refund(), 0));
 		})
+	}
+
+	#[test]
+	fn invulnerable_status_change_mid_round_only_moves_page_deposit() {
+		ExtBuilder::signed().build_and_execute(|| {
+			// GIVEN a base deposit that grows with the number of queued submitters.
+			roll_to_signed_open();
+			SignedDepositBaseIncrease::set(10);
+			assert_full_snapshot();
+
+			// AND 99 registered as a regular submitter, with one page.
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score_from(100)));
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				0,
+				Some(Default::default())
+			));
+			assert_eq!(balances(99), (94, 6));
+
+			// WHEN it becomes invulnerable and adds then removes pages.
+			make_invulnerable(99);
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				1,
+				Some(Default::default())
+			));
+			assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(99), 0, None));
+
+			// THEN only the base charged at registration is held, with no per-page part.
+			assert_eq!(Submissions::<Runtime>::metadata_of(0, 99).unwrap().deposit, 5);
+			assert_eq!(balances(99), (95, 5));
+
+			// AND bailing settles exactly that deposit of 5: `BailoutGraceRatio` (20%) returns 1,
+			// the other 4 are slashed.
+			assert_ok!(SignedPallet::bail(RuntimeOrigin::signed(99)));
+			assert_eq!(balances(99), (96, 0));
+		});
+	}
+
+	#[test]
+	fn removed_invulnerable_keeps_registration_deposit() {
+		ExtBuilder::signed().build_and_execute(|| {
+			// GIVEN 99 registered as invulnerable, with two pages stored.
+			InvulnerableDeposit::set(3);
+			roll_to_signed_open();
+			assert_full_snapshot();
+			SignedPallet::set_invulnerables(RuntimeOrigin::root(), vec![99]).unwrap();
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score_from(777)));
+			for page in 0..2 {
+				assert_ok!(SignedPallet::submit_page(
+					RuntimeOrigin::signed(99),
+					page,
+					Some(Default::default())
+				));
+			}
+			assert_eq!(balances(99), (97, 3));
+
+			// WHEN it is removed from invulnerables and adds a page.
+			SignedPallet::set_invulnerables(RuntimeOrigin::root(), vec![]).unwrap();
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				2,
+				Some(Default::default())
+			));
+
+			// THEN the per-page deposit of all stored pages is held on top of the base charged at
+			// registration.
+			assert_eq!(Submissions::<Runtime>::metadata_of(0, 99).unwrap().deposit, 6);
+			assert_eq!(balances(99), (94, 6));
+
+			// WHEN it removes all its pages.
+			for page in 0..3 {
+				assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(99), page, None));
+			}
+
+			// THEN it still holds the deposit charged at registration.
+			assert_eq!(Submissions::<Runtime>::metadata_of(0, 99).unwrap().deposit, 3);
+			assert_eq!(balances(99), (97, 3));
+
+			// AND that deposit is slashed when its empty solution fails verification.
+			roll_to_signed_validation_open();
+			roll_to_full_verification();
+			assert!(signed_events().contains(&SignedEvent::Slashed(0, 99, 3)));
+		});
 	}
 
 	#[test]

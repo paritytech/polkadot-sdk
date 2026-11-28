@@ -8,6 +8,9 @@ description = "Common resources for integration testing with xcm-emulator"
 homepage.workspace = true
 repository.workspace = true
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true # test utilities, used as direct dependencies
+
 [lints]
 workspace = true
 

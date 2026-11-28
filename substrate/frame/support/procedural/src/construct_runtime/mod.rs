@@ -212,7 +212,6 @@ pub(crate) mod expand;
 pub(crate) mod parse;
 
 use crate::pallet::parse::helper::two128_str;
-use cfg_expr::Predicate;
 use frame_support_procedural_tools::{
 	generate_access_from_frame_or_crate, generate_crate_access, generate_hidden_includes,
 };
@@ -220,8 +219,7 @@ use itertools::Itertools;
 use parse::{ExplicitRuntimeDeclaration, ImplicitRuntimeDeclaration, Pallet, RuntimeDeclaration};
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::quote;
-use std::{collections::HashSet, str::FromStr};
+use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, Ident, Result};
 
 /// The fixed name of the system pallet.
@@ -365,22 +363,6 @@ fn construct_runtime_final_expansion(
 		));
 	}
 
-	let features = pallets
-		.iter()
-		.filter_map(|decl| {
-			(!decl.cfg_pattern.is_empty()).then(|| {
-				decl.cfg_pattern.iter().flat_map(|attr| {
-					attr.predicates().filter_map(|pred| match pred {
-						Predicate::Feature(feat) => Some(feat),
-						Predicate::Test => Some("test"),
-						_ => None,
-					})
-				})
-			})
-		})
-		.flatten()
-		.collect::<HashSet<_>>();
-
 	let hidden_crate_name = "construct_runtime";
 	let scrate = generate_crate_access(hidden_crate_name, "frame-support");
 	let scrate_decl = generate_hidden_includes(hidden_crate_name, "frame-support");
@@ -395,7 +377,7 @@ fn construct_runtime_final_expansion(
 		expand::expand_outer_enum(&name, &pallets, &scrate, expand::OuterEnumType::Error)?;
 
 	let outer_origin = expand::expand_outer_origin(&name, system_pallet, &pallets, &scrate)?;
-	let all_pallets = decl_all_pallets(&name, pallets.iter(), &features);
+	let all_pallets = decl_all_pallets(&name, &pallets);
 	let pallet_to_index = decl_pallet_runtime_setup(&name, &pallets, &scrate);
 
 	let dispatch = expand::expand_outer_dispatch(&name, system_pallet, &pallets, &scrate);
@@ -503,20 +485,19 @@ fn construct_runtime_final_expansion(
 	Ok(res)
 }
 
-pub(crate) fn decl_all_pallets<'a>(
-	runtime: &'a Ident,
-	pallet_declarations: impl Iterator<Item = &'a Pallet>,
-	features: &HashSet<&str>,
-) -> TokenStream2 {
-	let mut types = TokenStream2::new();
+/// The `cfg` condition under which `pallet` is part of the runtime, `None` if it is not gated.
+///
+/// Multiple `#[cfg]`s on one item are joined by `all()`.
+fn cfg_condition(pallet: &Pallet) -> Option<TokenStream2> {
+	let args = pallet.cfg_pattern.iter().map(|attr| match &attr.meta {
+		syn::Meta::List(list) => &list.tokens,
+		_ => unreachable!("`cfg` attributes are checked to be lists while parsing; qed"),
+	});
+	(!pallet.cfg_pattern.is_empty()).then(|| quote!(all( #(#args),* )))
+}
 
-	// Every feature set to the pallet names that should be included by this feature set.
-	let mut features_to_names = features
-		.iter()
-		.map(|f| *f)
-		.powerset()
-		.map(|feat| (HashSet::from_iter(feat), Vec::new()))
-		.collect::<Vec<(HashSet<_>, Vec<_>)>>();
+pub(crate) fn decl_all_pallets(runtime: &Ident, pallet_declarations: &[Pallet]) -> TokenStream2 {
+	let mut types = TokenStream2::new();
 
 	for pallet_declaration in pallet_declarations {
 		let type_name = &pallet_declaration.name;
@@ -524,94 +505,54 @@ pub(crate) fn decl_all_pallets<'a>(
 		let docs = &pallet_declaration.docs;
 		let mut generics = vec![quote!(#runtime)];
 		generics.extend(pallet_declaration.instance.iter().map(|name| quote!(#pallet::#name)));
-		let mut attrs = Vec::new();
-		for cfg in &pallet_declaration.cfg_pattern {
-			let feat = format!("#[cfg({})]\n", cfg.original());
-			attrs.extend(TokenStream2::from_str(&feat).expect("was parsed successfully; qed"));
-		}
+		let attrs = pallet_declaration.get_attributes();
 		let type_decl = quote!(
 			#( #[doc = #docs] )*
-			#(#attrs)*
+			#attrs
 			pub type #type_name = #pallet::Pallet <#(#generics),*>;
 		);
 		types.extend(type_decl);
-
-		if pallet_declaration.cfg_pattern.is_empty() {
-			for (_, names) in features_to_names.iter_mut() {
-				names.push(&pallet_declaration.name);
-			}
-		} else {
-			for (feature_set, names) in &mut features_to_names {
-				// Rust tidbit: if we have multiple `#[cfg]` feature on the same item, then the
-				// predicates listed in all `#[cfg]` attributes are effectively joined by `and()`,
-				// meaning that all of them must match in order to activate the item
-				let is_feature_active = pallet_declaration.cfg_pattern.iter().all(|expr| {
-					expr.eval(|pred| match pred {
-						Predicate::Feature(f) => feature_set.contains(f),
-						Predicate::Test => feature_set.contains(&"test"),
-						_ => false,
-					})
-				});
-
-				if is_feature_active {
-					names.push(&pallet_declaration.name);
-				}
-			}
-		}
 	}
 
-	// All possible features. This will be used below for the empty feature set.
-	let mut all_features = features_to_names
+	// The textual form identifies equal conditions, the tokens are what gets emitted.
+	let conditions = pallet_declarations
 		.iter()
-		.flat_map(|f| f.0.iter().cloned())
-		.collect::<HashSet<_>>();
-	let attribute_to_names = features_to_names
-		.into_iter()
-		.map(|(mut features, names)| {
-			// If this is the empty feature set, it needs to be changed to negate all available
-			// features. So, we ensure that there is some type declared when all features are not
-			// enabled.
-			if features.is_empty() {
-				let test_cfg = all_features.remove("test").then_some(quote!(test)).into_iter();
-				let features = all_features.iter();
-				let attr = quote!(#[cfg(all( #(not(#test_cfg)),* #(not(feature = #features)),* ))]);
-
-				(attr, names)
-			} else {
-				let test_cfg = features.remove("test").then_some(quote!(test)).into_iter();
-				let disabled_features = all_features.difference(&features);
-				let features = features.iter();
-				let attr = quote!(#[cfg(all( #(#test_cfg,)* #(feature = #features,)* #(not(feature = #disabled_features)),* ))]);
-
-				(attr, names)
-			}
-		})
+		.map(|pallet| cfg_condition(pallet).map(|c| (c.to_string(), c)))
 		.collect::<Vec<_>>();
+	let distinct_conditions =
+		conditions.iter().flatten().unique_by(|(key, _)| key).collect::<Vec<_>>();
 
-	let all_pallets_without_system = attribute_to_names.iter().map(|(attr, names)| {
-		let names = names.iter().filter(|n| **n != SYSTEM_PALLET_NAME);
-		quote! {
-			#attr
-			/// All pallets included in the runtime as a nested tuple of types.
-			/// Excludes the System pallet.
-			pub type AllPalletsWithoutSystem = ( #(#names,)* );
-		}
-	});
+	// Every combination lists each condition, enabled or negated, so exactly one is active.
+	let all_pallets = distinct_conditions.iter().copied().powerset().map(|enabled| {
+		let is_enabled = |key: &String| enabled.iter().any(|(k, _)| k == key);
+		let names = pallet_declarations
+			.iter()
+			.zip(&conditions)
+			.filter(|(_, condition)| condition.as_ref().map_or(true, |(key, _)| is_enabled(key)))
+			.map(|(pallet, _)| &pallet.name)
+			.collect::<Vec<_>>();
+		let names_without_system = names.iter().filter(|n| **n != SYSTEM_PALLET_NAME);
+		let disabled = distinct_conditions.iter().filter(|(key, _)| !is_enabled(key));
+		let disabled = disabled.map(|(_, c)| c);
+		let enabled = enabled.iter().map(|(_, c)| c);
+		let attr = quote!(#[cfg(all( #(#enabled,)* #(not(#disabled),)* ))]);
 
-	let all_pallets_with_system = attribute_to_names.iter().map(|(attr, names)| {
 		quote! {
 			#attr
 			/// All pallets included in the runtime as a nested tuple of types.
 			pub type AllPalletsWithSystem = ( #(#names,)* );
+
+			#attr
+			/// All pallets included in the runtime as a nested tuple of types.
+			/// Excludes the System pallet.
+			pub type AllPalletsWithoutSystem = ( #(#names_without_system,)* );
 		}
 	});
 
 	quote!(
 		#types
 
-		#( #all_pallets_with_system )*
-
-		#( #all_pallets_without_system )*
+		#( #all_pallets )*
 	)
 }
 
@@ -754,17 +695,42 @@ pub(crate) fn decl_static_assertions(
 		}
 	});
 
+	// Each error carries the `cfg`s of both pallets, so it is only raised when both are part of
+	// the current build. Pallets whose `cfg`s exclude each other may thus share an index.
+	let index_conflicts = pallet_decls.iter().enumerate().flat_map(|(i, first)| {
+		pallet_decls[i + 1..]
+			.iter()
+			.filter(move |second| first.index == second.index)
+			.flat_map(move |second| {
+				let msg = format!(
+					"Pallet indices are conflicting: Both pallets {} and {} are at index {}",
+					first.name, second.name, first.index,
+				);
+				let conditions = [first, second].into_iter().filter_map(cfg_condition);
+				let conditions = quote!(#(#conditions),*);
+
+				[first, second].map(|pallet| {
+					quote_spanned!(pallet.name.span() =>
+						#[cfg(all( #conditions ))]
+						::core::compile_error!(#msg);
+					)
+				})
+			})
+	});
+
 	quote! {
 		#(#error_encoded_size_check)*
+
+		#(#index_conflicts)*
 	}
 }
 
 pub(crate) fn check_pallet_number(input: TokenStream2, pallet_num: usize) -> Result<()> {
 	let max_pallet_num = {
-		if cfg!(feature = "tuples-96") {
-			96
-		} else if cfg!(feature = "tuples-128") {
+		if cfg!(feature = "tuples-128") {
 			128
+		} else if cfg!(feature = "tuples-96") {
+			96
 		} else {
 			64
 		}

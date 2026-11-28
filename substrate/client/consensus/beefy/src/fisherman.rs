@@ -19,7 +19,8 @@
 use crate::{error::Error, keystore::BeefyKeystore, round::Rounds, LOG_TARGET};
 use log::{debug, error, warn};
 use sc_client_api::Backend;
-use sp_api::ProvideRuntimeApi;
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_beefy::{
@@ -38,10 +39,11 @@ pub struct ProvedValidator {
 }
 
 /// Helper used to check and report equivocations.
-pub struct Fisherman<B, BE, RuntimeApi, AuthorityId: AuthorityIdBound> {
+pub struct Fisherman<B: Block, BE, RuntimeApi, AuthorityId: AuthorityIdBound> {
 	backend: Arc<BE>,
 	runtime: Arc<RuntimeApi>,
 	key_store: Arc<BeefyKeystore<AuthorityId>>,
+	offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 
 	_phantom: PhantomData<B>,
 }
@@ -56,8 +58,15 @@ where
 		backend: Arc<BE>,
 		runtime: Arc<RuntimeApi>,
 		keystore: Arc<BeefyKeystore<AuthorityId>>,
+		offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 	) -> Self {
-		Self { backend, runtime, key_store: keystore, _phantom: Default::default() }
+		Self {
+			backend,
+			runtime,
+			key_store: keystore,
+			offchain_tx_pool_factory,
+			_phantom: Default::default(),
+		}
 	}
 
 	fn prove_offenders<'a>(
@@ -152,8 +161,11 @@ where
 		// submit equivocation report at **best** block
 		let best_block_hash = self.backend.blockchain().info().best_hash;
 		for ProvedValidator { key_owner_proof, .. } in key_owner_proofs {
-			self.runtime
-				.runtime_api()
+			let mut runtime_api = self.runtime.runtime_api();
+			runtime_api.register_extension(
+				self.offchain_tx_pool_factory.offchain_transaction_pool(best_block_hash),
+			);
+			runtime_api
 				.submit_report_double_voting_unsigned_extrinsic(
 					best_block_hash,
 					proof.clone(),

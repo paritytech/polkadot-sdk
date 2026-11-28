@@ -8,6 +8,9 @@ homepage.workspace = true
 repository.workspace = true
 description = "Bag threshold generation script for pallet-bag-list"
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true # offline tool, used as a direct dependency
+
 [lints]
 workspace = true
 

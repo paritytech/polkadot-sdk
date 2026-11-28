@@ -82,6 +82,7 @@ Validation failures ([`InvalidReason`]) — the statement is malformed or unusab
 - **`noProof`** / **`badProof`** — missing or invalid signature.
 - **`encodingTooLarge`** — the encoded statement exceeds the network size limit.
 - **`alreadyExpired`** — the expiry timestamp is already in the past.
+- **`noTopics`** — the statement carries no topic, so topic-based routing cannot deliver it.
 
 ## Duplicates, retries, and delivery
 

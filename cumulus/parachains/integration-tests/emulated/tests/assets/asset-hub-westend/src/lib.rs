@@ -66,7 +66,7 @@ mod imports {
 			asset_hub_westend_runtime::{
 				self,
 				xcm_config::{
-					self as ahw_xcm_config, DapBufferAccount, WestendLocation as RelayLocation,
+					self as ahw_xcm_config, DapStagingAccount, WestendLocation as RelayLocation,
 					XcmConfig as AssetHubWestendXcmConfig,
 				},
 				AssetConversionOrigin as AssetHubWestendAssetConversionOrigin,

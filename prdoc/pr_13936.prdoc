@@ -1,0 +1,14 @@
+title: 'sp-state-machine: roll back transaction index operations together with storage'
+doc:
+- audience: Node Dev
+  description: |-
+    Index operations requested by the runtime through `transaction_index::index` and
+    `transaction_index::renew` were kept when the storage transaction they were made in was
+    rolled back. A reverted call, for example a `store` inside a failed `batch_all`, still made
+    the node index its data, although the runtime kept no record of it.
+
+    `OverlayedChanges` now drops the index operations of a rolled back transaction, the same way
+    it already drops its storage changes.
+crates:
+- name: sp-state-machine
+  bump: patch

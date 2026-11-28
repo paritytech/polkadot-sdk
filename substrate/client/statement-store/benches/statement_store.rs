@@ -308,7 +308,7 @@ fn setup_store_with_config(
 	.unwrap();
 
 	for i in 0..INITIAL_STATEMENTS {
-		let topics = if i % 10 == 0 { vec![topic(0), topic(1)] } else { vec![] };
+		let topics = if i % 10 == 0 { vec![topic(0), topic(1)] } else { vec![topic(u64::MAX)] };
 		let statement = create_signed_statement(i as u64, &topics, &keypair);
 		assert!(matches!(store.submit(statement, StatementSource::Local), SubmitResult::New));
 	}
@@ -340,7 +340,8 @@ fn empty_store() -> (Store, tempfile::TempDir) {
 fn setup_scaled(keypair: &sp_core::ed25519::Pair, n: usize) -> (Store, tempfile::TempDir) {
 	let (store, temp) = empty_store();
 	for i in 0..n {
-		let topics: Vec<Topic> = if i % 10 == 0 { vec![topic(0), topic(1)] } else { vec![] };
+		let topics: Vec<Topic> =
+			if i % 10 == 0 { vec![topic(0), topic(1)] } else { vec![topic(u64::MAX)] };
 		let statement = create_signed_statement(i as u64, &topics, keypair);
 		assert!(matches!(store.submit(statement, StatementSource::Local), SubmitResult::New));
 	}
@@ -350,7 +351,7 @@ fn setup_scaled(keypair: &sp_core::ed25519::Pair, n: usize) -> (Store, tempfile:
 fn bench_submit(c: &mut Criterion) {
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
 	let statements: Vec<_> = (INITIAL_STATEMENTS..INITIAL_STATEMENTS + TOTAL_OPS)
-		.map(|i| create_signed_statement(i as u64, &[], &keypair))
+		.map(|i| create_signed_statement(i as u64, &[topic(u64::MAX)], &keypair))
 		.collect();
 
 	c.bench_function("submit", |b| {
@@ -385,7 +386,7 @@ fn bench_submit(c: &mut Criterion) {
 /// Marginal cost of the on-disk index writes on the submit hot path. Every submitted statement
 /// writes one `INDEX_BY_DEC_KEY` entry plus one `INDEX_BY_TOPIC` entry per topic, all folded into
 /// the same commit under the `submit_index` write lock. Varying the topic count moves the index
-/// writes per submit from 1 (0 topics) to `MAX_TOPICS + 1`. The plain data is shrunk by one topic's
+/// writes per submit from 2 (1 topic) to `MAX_TOPICS + 1`. The plain data is shrunk by one topic's
 /// worth per topic so the encoded statement size stays ~constant across arms — otherwise a larger
 /// body would confound the measurement — leaving the number of index writes as the only variable.
 /// Signature verification runs off the lock, so under the 64-thread harness throughput is bound by
@@ -396,7 +397,7 @@ fn bench_submit_index_cost(c: &mut Criterion) {
 
 	let mut group = c.benchmark_group("submit_index_cost");
 	group.sample_size(10);
-	for &num_topics in &[0usize, 1, MAX_TOPICS] {
+	for &num_topics in &[1usize, MAX_TOPICS] {
 		let topics: Vec<Topic> = (0..num_topics).map(|t| topic(t as u64)).collect();
 		// Hold the encoded size ~constant: a `Topic` is 32 bytes, so drop 32 data bytes per topic.
 		let data_size = STATEMENT_DATA_SIZE.saturating_sub(num_topics * 32);
@@ -439,7 +440,7 @@ fn bench_submit_index_cost(c: &mut Criterion) {
 	group.finish();
 }
 
-/// A store whose per-account cap is `cap`, pre-filled with `cap` topicless statements at expiry
+/// A store whose per-account cap is `cap`, pre-filled with `cap` statements at expiry
 /// `expiry` so the account is exactly full. A later, higher-expiry statement then evicts one.
 fn capped_store(
 	keypair: &sp_core::ed25519::Pair,
@@ -461,8 +462,13 @@ fn capped_store(
 	)
 	.unwrap();
 	for i in 0..cap {
-		let statement =
-			create_signed_statement_sized(i as u64, &[], STATEMENT_DATA_SIZE, expiry, keypair);
+		let statement = create_signed_statement_sized(
+			i as u64,
+			&[topic(u64::MAX)],
+			STATEMENT_DATA_SIZE,
+			expiry,
+			keypair,
+		);
 		assert!(matches!(store.submit(statement, StatementSource::Local), SubmitResult::New));
 	}
 	(store, temp_dir)
@@ -482,7 +488,7 @@ fn bench_submit_with_eviction(c: &mut Criterion) {
 		.map(|i| {
 			create_signed_statement_sized(
 				EVICTION_CAP as u64 + i as u64,
-				&[],
+				&[topic(u64::MAX)],
 				STATEMENT_DATA_SIZE,
 				high_expiry,
 				&keypair,
@@ -684,7 +690,7 @@ fn bench_subscribe_topic(c: &mut Criterion) {
 fn bench_propagate(c: &mut Criterion) {
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
 	let statements: Vec<Statement> = (0..PROPAGATE_BATCH)
-		.map(|i| create_signed_statement(i as u64, &[], &keypair))
+		.map(|i| create_signed_statement(i as u64, &[topic(u64::MAX)], &keypair))
 		.collect();
 
 	let mut group = c.benchmark_group("propagate");

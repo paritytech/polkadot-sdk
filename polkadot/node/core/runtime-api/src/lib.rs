@@ -329,7 +329,7 @@ where
 					self.requests_cache.session_executor_params(session_index)
 				{
 					self.metrics.on_cached_request();
-					let _ = sender.send(Ok(executor_params.clone()));
+					let _ = sender.send(Ok(Some(executor_params.clone())));
 					None
 				} else {
 					Some(Request::SessionExecutorParams(session_index, sender))

@@ -1,0 +1,33 @@
+title: 'pallet-staking-async: decay the slash reporter reward with the delay of the report'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The reward of the reporter of an offence was a flat `SlashRewardFraction` of the slash,
+    regardless of how late the offence was reported. A runtime can now make this reward decrease
+    with the delay of the report, so that reporting late pays less than reporting early. Reports
+    are still accepted for as long as before, and the decay is off unless the runtime opts in.
+
+    `pallet_staking_async::Config` gains a new item, `SlashRewardDecay`, of the new trait
+    `SlashRewardDecay`. Given the number of eras between the era of an offence and the era in which
+    it was reported, it returns the portion of the reporter reward that is paid. The reward paid is
+    `SlashRewardDecay::reward_portion(elapsed) * SlashRewardFraction` of the slash. The unpaid part
+    goes to `Config::Slash`, like the rest of the slash. The slash itself does not change.
+
+    Available implementations:
+    - `()`: no decay, the full reward is always paid (the previous behaviour, and the default in
+      `config_preludes::TestDefaultConfig`).
+    - `LinearDecay<Window>`: the reward drops linearly from 100% for a report in the era of the
+      offence to 0% for a report `Window` or more eras late.
+    - `HalvingDecay<HalfLife>`: the reward halves for every full `HalfLife` eras of delay.
+
+    No storage changes and no migration are needed: the era of the report was already stored in
+    `OffenceRecord::reported_era`.
+- audience: Runtime User
+  description: |-
+    The reward for reporting a slashable offence can now be configured to decrease the later
+    the offence is reported. Asset Hub Westend keeps the previous behaviour (no decay).
+crates:
+- name: pallet-staking-async
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: minor

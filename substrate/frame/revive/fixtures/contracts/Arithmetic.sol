@@ -129,4 +129,12 @@ contract Arithmetic {
         }
         require(result2 == 0x7f, "SIGNEXTEND positive byte");
     }
+
+    /// Runs EXP. Calls that differ only in `exponent` run the same op-codes, so they differ only
+    /// in the charge of EXP.
+    function exponentiate(uint256 base, uint256 exponent) public pure returns (uint256 result) {
+        assembly {
+            result := exp(base, exponent)
+        }
+    }
 }
