@@ -54,6 +54,8 @@ pub use controller::{
 };
 
 mod forwarder;
+#[cfg(feature = "runtime-benchmarks")]
+pub use forwarder::TeleportForwarderBenchmarkHelper;
 pub use forwarder::TeleportForwarderForAccountId32;
 
 mod fee_handling;

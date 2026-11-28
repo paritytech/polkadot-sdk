@@ -124,6 +124,8 @@ impl Config for Test {
 	type MinTransferAmount = MinTransferAmount;
 	type BlockNumberProvider = MockBlockNumberProvider;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 pub fn new_test_ext(fund_accumulation: bool) -> sp_io::TestExternalities {
