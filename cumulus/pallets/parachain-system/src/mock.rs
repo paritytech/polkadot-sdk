@@ -99,6 +99,7 @@ impl Config for Test {
 	type WeightInfo = ();
 	type RelayParentOffset = MockRelayParentOffset;
 	type SchedulingSignatureVerifier = ();
+	type ConsumptionRecordSource = ();
 }
 
 std::thread_local! {

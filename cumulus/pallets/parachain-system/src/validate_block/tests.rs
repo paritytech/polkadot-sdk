@@ -298,6 +298,30 @@ fn validate_block_works() {
 }
 
 #[test]
+fn validate_block_rejects_v3_without_spec_messaging() {
+	sp_tracing::try_init_simple();
+	let (client, parent_head) = create_test_client();
+	let TestBlockData { block, validation_data } = build_block_with_witness(
+		&client,
+		Vec::new(),
+		parent_head.clone(),
+		Default::default(),
+		Default::default(),
+	);
+	let (blocks, proof, _) = block.into_inner();
+	let pov = ParachainBlockData::new_with_lifts(blocks, proof, None, Default::default());
+	let logs = capture_test_logs!({
+		call_validate_block(parent_head, pov, validation_data.relay_parent_storage_root)
+			.expect_err("V3 requires opt-in even with empty lifts");
+	});
+	assert!(
+		logs.contains("V3 requires speculative messaging to be enabled"),
+		"{}",
+		logs.get_logs()
+	);
+}
+
+#[test]
 fn validate_multiple_blocks_work() {
 	sp_tracing::try_init_simple();
 

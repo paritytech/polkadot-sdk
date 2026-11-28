@@ -33,6 +33,7 @@ pub const REF_TIME_PER_CORE_IN_SECS: u64 = 2;
 
 pub mod parachain_block_data;
 pub mod scheduling;
+pub mod signals;
 
 pub use parachain_block_data::ParachainBlockData;
 pub use polkadot_core_primitives::InboundDownwardMessage;
@@ -45,9 +46,9 @@ pub use polkadot_primitives::{
 	PersistedValidationData,
 };
 pub use scheduling::{
-	SchedulingInfoPayload, SchedulingProof, SchedulingSignals, SignedSchedulingInfo,
-	VerifySchedulingSignature,
+	SchedulingInfoPayload, SchedulingProof, SignedSchedulingInfo, VerifySchedulingSignature,
 };
+pub use signals::bundle_provides;
 pub use sp_runtime::{
 	generic::{Digest, DigestItem},
 	traits::Block as BlockT,

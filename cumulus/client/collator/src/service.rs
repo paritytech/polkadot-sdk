@@ -19,10 +19,11 @@
 //! operations used in parachain consensus/authoring.
 
 use cumulus_primitives_core::{
-	CollationInfo, CollectCollationInfo, ParachainBlockData, SchedulingProof, SchedulingSignals,
+	bundle_provides,
+	signals::{split_at_separator, ump_signal_tail},
+	CollationInfo, CollectCollationInfo, ParachainBlockData, SchedulingProof,
 };
 
-use polkadot_primitives::UMP_SEPARATOR;
 use sc_client_api::BlockBackend;
 use sp_api::{ApiExt, ProvideRuntimeApi, StorageProof};
 use sp_consensus::BlockStatus;
@@ -106,15 +107,6 @@ where
 	RA: ProvideRuntimeApi<Block>,
 	RA::Api: CollectCollationInfo<Block>,
 {
-	/// Split a block's upward messages at the first `UMP_SEPARATOR`, dropping any further
-	/// separators from the signal tail, as `validate_block` does.
-	fn split_at_separator(messages: Vec<Vec<u8>>) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
-		let mut iter = messages.into_iter();
-		let messages = iter.by_ref().take_while(|m| !m.is_empty()).collect();
-		let signals = iter.filter(|m| !m.is_empty()).collect();
-		(messages, signals)
-	}
-
 	/// Create a new instance.
 	pub fn new(
 		block_status: Arc<BS>,
@@ -272,7 +264,7 @@ where
 				.ok()
 				.flatten()?;
 
-			let (messages, signals) = Self::split_at_separator(collation_info.upward_messages);
+			let (messages, signals) = split_at_separator(collation_info.upward_messages);
 
 			upward_messages.extend(messages);
 			upward_message_signals.extend(signals);
@@ -295,10 +287,20 @@ where
 		// Sort by recipient as required by the relay chain rules.
 		horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));
 
-		// Capture the signed scheduling info before `scheduling_proof` is moved; the tail below is
-		// rebuilt from it.
-		let signed_scheduling_info =
-			scheduling_proof.as_ref().and_then(|p| p.signed_scheduling_info.clone());
+		let signed = scheduling_proof
+			.as_ref()
+			.and_then(|proof| proof.signed_scheduling_info.as_ref());
+		let tail = bundle_provides(blocks.iter().map(|block| block.header().digest()))
+			.and_then(|provides| {
+				// TODO(https://github.com/paritytech/polkadot-sdk/issues/12707): Pass the bundle's
+				// records and lifts. Until then, the PVF rejects candidates that consume messages.
+				ump_signal_tail(&upward_message_signals, signed, provides, &[], None)
+			})
+			.map_err(
+				|error| tracing::error!(target: LOG_TARGET, %error, "Invalid candidate signals."),
+			)
+			.ok()?;
+		upward_messages.extend(tail);
 
 		let block_data = ParachainBlockData::<Block>::new(blocks, compact_proof, scheduling_proof);
 
@@ -318,21 +320,6 @@ where
 				block_data?.encode()
 			}),
 		});
-
-		// Emit the scheduling-signal tail. A signed scheduling info (resubmission) replaces the
-		// block's own signals wholesale, via the same `SchedulingSignals::from_scheduling_info` the
-		// PVF applies, so the two can't drift; otherwise the block's signals pass through
-		// unchanged.
-		match signed_scheduling_info {
-			Some(signed_info) => upward_messages
-				.extend(SchedulingSignals::from_scheduling_info(&signed_info).into_ump_messages()),
-			None => {
-				if !upward_message_signals.is_empty() {
-					upward_messages.push(UMP_SEPARATOR);
-					upward_messages.extend(upward_message_signals.into_iter());
-				}
-			},
-		}
 
 		let upward_messages = upward_messages
 			.try_into()
@@ -415,45 +402,5 @@ where
 			proof,
 			scheduling_proof,
 		)
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::CollatorService;
-
-	type Service = CollatorService<
-		cumulus_test_runtime::Block,
-		cumulus_test_client::Client,
-		cumulus_test_client::Client,
-	>;
-
-	#[test]
-	fn split_at_separator_matches_validate_block() {
-		let (a, b, c) = (vec![1u8], vec![2u8], vec![3u8]);
-		// No separator: everything is a message.
-		assert_eq!(
-			Service::split_at_separator(vec![a.clone(), b.clone()]),
-			(vec![a.clone(), b.clone()], vec![])
-		);
-		// Messages before the first separator, signals after it.
-		assert_eq!(
-			Service::split_at_separator(vec![a.clone(), vec![], b.clone(), c.clone()]),
-			(vec![a.clone()], vec![b.clone(), c.clone()]),
-		);
-		// Every further separator is dropped, as `validate_block` drops it, not kept as a signal.
-		assert_eq!(
-			Service::split_at_separator(vec![
-				a.clone(),
-				vec![],
-				b.clone(),
-				vec![],
-				vec![],
-				c.clone()
-			]),
-			(vec![a], vec![b, c]),
-		);
-		// A separator with nothing after it yields no signals.
-		assert_eq!(Service::split_at_separator(vec![vec![]]), (vec![], vec![]));
 	}
 }

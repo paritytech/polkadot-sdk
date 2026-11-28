@@ -67,6 +67,28 @@ pub use streams_root::{
 	TreeError, TreeRootEntry,
 };
 
+/// How `parachain-system` reads a block's consumption record without depending on the messaging
+/// pallet. `()` records nothing and rejects V3 PoVs.
+pub trait ProvideConsumptionRecord {
+	/// Whether the parachain accepts V3 PoVs carrying speculative-messaging lifts.
+	/// If a candidate records consumption, its collator must supply matching lifts in a V3 PoV.
+	/// `validate_block` rejects the candidate if those lifts are missing or invalid.
+	const ENABLED: bool;
+
+	/// The block's consumption record: what the messaging inherent did. The `validate_block`
+	/// wrapper calls it after executing each block of a bundle. It must read only storage the
+	/// block wrote, since the PoV holds no other proof nodes.
+	fn consumption_record() -> ConsumptionRecord;
+}
+
+impl ProvideConsumptionRecord for () {
+	const ENABLED: bool = false;
+
+	fn consumption_record() -> ConsumptionRecord {
+		ConsumptionRecord::default()
+	}
+}
+
 /// The hash function for all of speculative messaging: leaves, MMR merges, stream and
 /// commitment-tree roots. A protocol constant. Changing it is a consensus break, so nothing here
 /// is generic over it.

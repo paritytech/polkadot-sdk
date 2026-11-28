@@ -1,0 +1,44 @@
+title: 'spec-msg: emit Provides and synthesize Requires in PVF'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Emits `UMPSignal::Provides` from SPMS header digests and synthesizes `UMPSignal::Requires` in `validate_block` via `Config::ConsumptionRecordSource` and `ParachainBlockData::V3`.
+    A malformed or duplicate SPMS item in any header invalidates the candidate.
+    Signed overrides replace only the scheduling signals the blocks emitted, in their original order, and reject duplicate scheduling signals.
+    Collators skip candidates whose signals fail validation.
+    Every `cumulus_pallet_parachain_system::Config` must set `ConsumptionRecordSource`. Use `()` to disable V3 PoVs.
+    Upgrade parachain nodes to support V3 PoV recovery before enabling the format.
+    Before the parachain emits either signal, deploy validator nodes that decode `Provides` and `Requires` and the relay runtime that checks `Requires` (#13906), then collators that append `Provides` and supply lifts in V3 PoVs.
+crates:
+- name: cumulus-primitives-core
+  bump: major
+- name: cumulus-primitives-spec-messaging
+  bump: minor
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: cumulus-client-collator
+  bump: minor
+- name: cumulus-pallet-aura-ext
+  bump: patch
+- name: cumulus-pallet-xcmp-queue
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: glutton-westend-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: penpal-runtime
+  bump: minor
+- name: yet-another-parachain-runtime
+  bump: minor

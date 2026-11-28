@@ -20,13 +20,15 @@ use super::{scheduling, trie_cache, trie_recorder, MemoryOptimizedValidationPara
 use alloc::vec::Vec;
 use codec::Encode;
 use cumulus_primitives_core::{
+	bundle_provides,
 	relay_chain::{
 		BlockNumber as RNumber, Hash as RHash, Header as RelayChainHeader, MAX_HEAD_DATA_SIZE,
-		UMP_SEPARATOR,
 	},
-	CumulusDigestItem, ParachainBlockData, PersistedValidationData, SchedulingSignals,
-	SignedSchedulingInfo, VerifySchedulingSignature,
+	signals::{split_at_separator, ump_signal_tail},
+	CumulusDigestItem, ParachainBlockData, PersistedValidationData, SignedSchedulingInfo,
+	VerifySchedulingSignature,
 };
+use cumulus_primitives_spec_messaging::ProvideConsumptionRecord;
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
 	BoundedVec,
@@ -167,13 +169,22 @@ where
 	let mut parent_header =
 		codec::decode_from_bytes::<B::Header>(parachain_head.clone()).expect("Invalid parent head");
 
-	let (blocks, proof) = block_data.into_inner();
+	let (blocks, proof, lifts) = block_data.into_inner();
+	assert!(
+		lifts.is_none() || PSC::ConsumptionRecordSource::ENABLED,
+		"ParachainBlockData::V3 requires speculative messaging to be enabled"
+	);
 
 	verify_blocks_form_chain::<B>(&blocks, &parent_header);
+
+	// Executing each block below checks its header digest against the one the runtime deposits.
+	let provides = bundle_provides(blocks.iter().map(|block| block.header().digest()))
+		.unwrap_or_else(|error| panic!("{error}"));
 
 	let mut processed_downward_messages = 0;
 	let mut upward_messages = BoundedVec::default();
 	let mut upward_message_signals = Vec::<Vec<_>>::new();
+	let mut consumption_records = Vec::new();
 	let mut horizontal_messages = BoundedVec::default();
 	let mut hrmp_watermark = Default::default();
 	let mut head_data = None;
@@ -306,27 +317,13 @@ where
 				new_validation_code =
 					new_validation_code.take().or(crate::NewValidationCode::<PSC>::get());
 
-				let mut found_separator = false;
-				crate::UpwardMessages::<PSC>::get()
-					.into_iter()
-					.filter_map(|m| {
-						// Filter out the `UMP_SEPARATOR` and the `UMPSignals`.
-						if m == UMP_SEPARATOR {
-							found_separator = true;
-							None
-						} else if found_separator {
-							upward_message_signals.push(m);
-							None
-						} else {
-							// No signal or separator
-							Some(m)
-						}
-					})
-					.for_each(|m| {
-						upward_messages.try_push(m).expect(
-							"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
-						)
-					});
+				let (messages, signals) = split_at_separator(crate::UpwardMessages::<PSC>::get());
+				upward_message_signals.extend(signals);
+				for message in messages {
+					upward_messages.try_push(message).expect(
+						"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
+					);
+				}
 
 				processed_downward_messages += crate::ProcessedDownwardMessages::<PSC>::get();
 				horizontal_messages
@@ -335,6 +332,9 @@ where
 						"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
 					);
 				hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
+
+				consumption_records
+					.push(<PSC as crate::Config>::ConsumptionRecordSource::consumption_record());
 
 				if block_index + 1 == num_blocks {
 					head_data = Some(
@@ -365,14 +365,16 @@ where
 		}
 	}
 
-	// A `signed_scheduling_info` overrides the block's emitted signals wholesale — they
-	// are ignored, not merged.
-	let scheduling_tail = match scheduling_override_inputs.as_ref() {
-		Some((signed_info, _)) => SchedulingSignals::from_scheduling_info(signed_info),
-		None => SchedulingSignals::from_block_signals(&upward_message_signals),
-	}
-	.into_ump_messages();
-	for message in scheduling_tail {
+	let tail = ump_signal_tail(
+		&upward_message_signals,
+		scheduling_override_inputs.as_ref().map(|(signed, _)| signed),
+		provides,
+		&consumption_records,
+		lifts.as_ref(),
+	)
+	.unwrap_or_else(|error| panic!("{error}"));
+
+	for message in tail {
 		upward_messages
 			.try_push(message)
 			.expect("UMPSignals does not fit in UMPMessages");

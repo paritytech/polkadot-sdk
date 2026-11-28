@@ -42,6 +42,7 @@ use cumulus_primitives_core::{
 use cumulus_primitives_parachain_inherent::{
 	v0, HashedMessage, MessageQueueChain, ParachainInherentData,
 };
+use cumulus_primitives_spec_messaging::ProvideConsumptionRecord;
 use frame_support::{
 	dispatch::{DispatchClass, DispatchResult},
 	ensure,
@@ -329,6 +330,15 @@ pub mod pallet {
 		///
 		/// The `RelayParentOffset` config continues to define the header chain length.
 		type SchedulingSignatureVerifier: cumulus_primitives_core::VerifySchedulingSignature;
+
+		/// Source of the speculative-messaging consumption records `validate_block` turns into
+		/// `Requires`. `()` if the chain does not participate.
+		///
+		/// Before emitting either signal, deploy validators that decode `Provides` and `Requires`
+		/// and a relay runtime that checks `Requires`. Before emitting SPMS digests, upgrade
+		/// collators to append `Provides`. Before enabling consumption, upgrade parachain nodes to
+		/// recover V3 PoVs and collators to include the required lifts in them.
+		type ConsumptionRecordSource: ProvideConsumptionRecord;
 	}
 
 	#[pallet::hooks]
