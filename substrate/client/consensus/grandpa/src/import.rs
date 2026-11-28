@@ -479,6 +479,8 @@ where
 	) -> Result<ImportResult, ConsensusError> {
 		let hash = block.post_hash();
 		let number = *block.header.number();
+		let enacts_change =
+			find_scheduled_change::<Block>(&block.header).is_some_and(|c| c.delay.is_zero());
 		// Force imported state finality.
 		block.finalized = true;
 		let import_result = (&*self.inner).import_block(block).await;
@@ -499,7 +501,7 @@ where
 					set_id,
 					fork_tree::ForkTree::new(),
 					Vec::new(),
-					AuthoritySetChanges::empty(),
+					AuthoritySetChanges::after_state_import(enacts_change, set_id, number),
 				)
 				.ok_or_else(|| ConsensusError::ClientImport("Invalid authority list".into()))?;
 				*self.authority_set.inner_locked() = authority_set.clone();

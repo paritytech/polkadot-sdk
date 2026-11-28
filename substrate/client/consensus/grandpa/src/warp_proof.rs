@@ -27,7 +27,7 @@ use sc_client_api::Backend as ClientBackend;
 use sc_network_sync::strategy::warp::{
 	EncodedProof, VerificationResult, Verifier, WarpSyncProvider,
 };
-use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
+use sp_blockchain::{Backend as BlockchainBackend, BlockGapType, HeaderBackend};
 use sp_consensus_grandpa::{AuthorityList, SetId, GRANDPA_ENGINE_ID};
 use sp_runtime::{
 	generic::BlockId,
@@ -111,6 +111,14 @@ impl<Block: BlockT> WarpSyncProof<Block> {
 			return Err(Error::InvalidRequest(
 				"Start block is not in the finalized chain".to_string(),
 			));
+		}
+
+		// The authority set changes of blocks in a header gap are not known until gap sync
+		// imports them, so a proof across the gap would silently skip them.
+		if let Some(gap) = blockchain.info().block_gap {
+			if gap.gap_type == BlockGapType::MissingHeaderAndBody && begin_number < gap.end {
+				return Err(Error::MissingData);
+			}
 		}
 
 		let mut proofs = Vec::new();
@@ -515,5 +523,42 @@ mod tests {
 
 		assert_eq!(new_set_id, current_set_id);
 		assert_eq!(new_authorities, expected_authorities);
+	}
+
+	#[test]
+	fn proof_across_a_header_gap_is_refused() {
+		use sc_client_api::backend::{Backend, BlockImportOperation, NewBlockState};
+		use sp_runtime::traits::Header as _;
+
+		let builder = TestClientBuilder::new();
+		let backend = builder.backend();
+		let client = Arc::new(builder.build());
+		let genesis_hash = client.hash(0).unwrap().unwrap();
+
+		// A finalized block whose parent is missing leaves a header gap, like the target block of
+		// a warp sync does.
+		let header = substrate_test_runtime_client::runtime::Header::new(
+			5,
+			Default::default(),
+			Default::default(),
+			[1; 32].into(),
+			Default::default(),
+		);
+		let mut op = backend.begin_operation().unwrap();
+		op.set_block_data(header.clone(), Some(Vec::new()), None, NewBlockState::Final, true)
+			.unwrap();
+		backend.commit_operation(op).unwrap();
+		let gap = client.info().block_gap.unwrap();
+		assert_eq!((gap.start, gap.end), (1, 4));
+
+		// The authority set changes inside the gap are not known yet.
+		let set_changes = AuthoritySetChanges::empty();
+		assert!(matches!(
+			WarpSyncProof::generate(&*backend, genesis_hash, &set_changes),
+			Err(super::Error::MissingData)
+		));
+
+		// A proof that starts above the gap does not depend on it.
+		assert!(WarpSyncProof::generate(&*backend, header.hash(), &set_changes).is_ok());
 	}
 }
