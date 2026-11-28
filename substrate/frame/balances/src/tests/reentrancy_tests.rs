@@ -26,7 +26,7 @@ use frame_support::traits::{
 	},
 	InspectLockableCurrency,
 };
-use fungible::{Balanced, Inspect, InspectFreeze, InspectHold, Mutate};
+use fungible::{Balanced, InspectFreeze, InspectHold, Mutate};
 
 #[test]
 fn reentrant_dust_handler_hold_is_not_overwritten() {
