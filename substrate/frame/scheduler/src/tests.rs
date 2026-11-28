@@ -181,6 +181,38 @@ fn periodic_scheduling_works() {
 }
 
 #[test]
+fn retry_with_zero_period_is_scheduled_for_the_next_block() {
+	new_test_ext().execute_with(|| {
+		// task fails until block 5 is reached
+		Threshold::<Test>::put((5, 100));
+		// task 42 at #4
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(4),
+			None,
+			127,
+			root(),
+			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+				i: 42,
+				weight: Weight::from_parts(10, 0)
+			}))
+			.unwrap()
+		));
+		// retry 3 times without waiting
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 3, 0));
+		System::run_to_block::<AllPalletsWithSystem>(4);
+		assert!(logger::log().is_empty());
+		assert!(Agenda::<Test>::get(4).is_empty());
+		// the retry is placed into the next agenda, not into the one being serviced
+		assert!(Agenda::<Test>::get(5)[0].is_some());
+		assert_eq!(Retries::<Test>::get((5, 0)).map(|r| r.remaining), Some(2));
+		assert_eq!(Retries::<Test>::iter().count(), 1);
+		System::run_to_block::<AllPalletsWithSystem>(5);
+		assert_eq!(logger::log(), vec![(root(), 42u32)]);
+		assert_eq!(Retries::<Test>::iter().count(), 0);
+	});
+}
+
+#[test]
 fn retry_scheduling_works() {
 	new_test_ext().execute_with(|| {
 		// task fails until block 8 is reached
