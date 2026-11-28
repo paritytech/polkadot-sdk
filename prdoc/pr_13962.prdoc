@@ -1,0 +1,9 @@
+title: 'rpc-v2: `chainHead` use `RuntimeUpgraded` digest to determine if the runtime
+  changed'
+doc:
+- audience: Node Dev
+  description: |-
+    Before we were comparing the `spec_version` of the block against the parent block. Using the `RuntimeUpgraded` digest was exactly introduced for this reason, so we can directly use it here.
+crates:
+- name: sc-rpc-spec-v2
+  bump: patch
