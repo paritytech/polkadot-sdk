@@ -64,6 +64,10 @@
 //! requests per [`Config::RequestWindow`], which bounds what it can push into the parachain's
 //! queue.
 //!
+//! ## Reports
+//!
+//! A refused report is retried from [`FailedReports`] in `on_poll`, and dropped once that is full.
+//!
 //! ## Code upgrades
 //!
 //! [`Pallet::apply_authorized_code_upgrade`] splits the same way, but the authorization does lapse
@@ -84,7 +88,7 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	traits::{EnsureOrigin, Get},
-	weights::Weight,
+	weights::{Weight, WeightMeter},
 	BoundedVec,
 };
 pub use pallet::*;
@@ -181,6 +185,50 @@ pub struct PendingCodeUpgrade<BlockNumber> {
 	pub expire_at: BlockNumber,
 }
 
+/// A report to the parachain, as [`FailedReports`] stores it.
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, MaxEncodedLen, Debug)]
+pub struct Report {
+	pub para_id: ParaId,
+	pub message_id: u64,
+	pub kind: ReportKind,
+}
+
+/// Which [`MessageToParaV1`] response a [`Report`] becomes, with its outcome.
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, MaxEncodedLen, Debug)]
+pub enum ReportKind {
+	Register(Outcome),
+	Cancel(Outcome),
+	Deregister(Outcome),
+	CodeUpgrade(Result<u32, FailureReason>),
+	CodeUpgradeScheduled,
+	SetHead(Outcome),
+}
+
+impl From<Report> for MessageToPara {
+	fn from(Report { para_id, message_id, kind }: Report) -> Self {
+		MessageToPara::V1(match kind {
+			ReportKind::Register(outcome) => {
+				MessageToParaV1::RegisterResponse { para_id, message_id, outcome }
+			},
+			ReportKind::Cancel(outcome) => {
+				MessageToParaV1::CancelResponse { para_id, message_id, outcome }
+			},
+			ReportKind::Deregister(outcome) => {
+				MessageToParaV1::DeregisterResponse { para_id, message_id, outcome }
+			},
+			ReportKind::CodeUpgrade(outcome) => {
+				MessageToParaV1::CodeUpgradeResponse { para_id, message_id, outcome }
+			},
+			ReportKind::CodeUpgradeScheduled => {
+				MessageToParaV1::CodeUpgradeScheduled { para_id, message_id }
+			},
+			ReportKind::SetHead(outcome) => {
+				MessageToParaV1::SetHeadResponse { para_id, message_id, outcome }
+			},
+		})
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -242,6 +290,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type RequestWindow: Get<BlockNumberFor<Self>>;
 
+		/// How many reports the transport refused may wait to be retried.
+		#[pallet::constant]
+		type MaxFailedReports: Get<u32>;
+
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -270,6 +322,14 @@ pub mod pallet {
 	pub type RequestWindows<T: Config> =
 		StorageMap<_, Blake2_128Concat, ParaId, (BlockNumberFor<T>, u32)>;
 
+	/// Reports the transport refused, oldest first, retried in `on_poll`.
+	///
+	/// Later reports, first-head notes and relayed requests wait behind them, so none overtakes
+	/// another.
+	#[pallet::storage]
+	pub type FailedReports<T: Config> =
+		StorageValue<_, BoundedVec<Report, T::MaxFailedReports>, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -294,8 +354,12 @@ pub mod pallet {
 		CodeUpgradeRejected { para_id: ParaId, message_id: u64, reason: FailureReason },
 		/// An authorized code upgrade was scheduled.
 		CodeUpgradeApplied { para_id: ParaId, message_id: u64 },
-		/// A report could not be sent back to the parachain.
+		/// A report could not be sent nor kept for a retry, and was dropped.
 		ReportFailed { para_id: ParaId, message_id: u64 },
+		/// The transport refused a report, kept in [`FailedReports`] to be retried.
+		ReportDeferred { para_id: ParaId, message_id: u64 },
+		/// A report from [`FailedReports`] was sent.
+		ReportSent { para_id: ParaId, message_id: u64 },
 		/// The parachain was told that a para produced its first head.
 		HeadNoted { para_id: ParaId },
 		/// A para's first head could not be reported to the parachain.
@@ -328,10 +392,17 @@ pub mod pallet {
 		CannotUpgradeCode,
 		/// The para relayed all the requests it may in its current window.
 		TooManyRequests,
-		/// The transport refused the message.
+		/// The transport refused the message, or reports are waiting to be retried.
 		SendFailed,
 		/// The head data is larger than this pallet will relay.
 		HeadDataTooLarge,
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_poll(_: BlockNumberFor<T>, meter: &mut WeightMeter) {
+			Self::retry_failed_reports(meter);
+		}
 	}
 
 	#[pallet::call]
@@ -427,7 +498,7 @@ pub mod pallet {
 			PendingRegistrations::<T>::remove(para_id);
 
 			let message_id = pending.message_id;
-			Self::report_registration(para_id, message_id, Ok(()));
+			Self::report(para_id, message_id, ReportKind::Register(Ok(())));
 			Self::deposit_event(Event::Registered {
 				para_id,
 				message_id,
@@ -459,7 +530,7 @@ pub mod pallet {
 			PendingCodeUpgrades::<T>::remove(para_id);
 
 			let message_id = pending.message_id;
-			Self::report_code_upgrade_scheduled(para_id, message_id);
+			Self::report(para_id, message_id, ReportKind::CodeUpgradeScheduled);
 			Self::deposit_event(Event::CodeUpgradeApplied { para_id, message_id });
 			Ok(Pays::No.into())
 		}
@@ -482,6 +553,8 @@ pub mod pallet {
 				);
 			}
 
+			// The parachain rejects a request from a para whose registration report is still held.
+			ensure!(Self::failed_reports_is_empty(), Error::<T>::SendFailed);
 			Self::count_request(para_id)?;
 			T::SendToPara::send(MessageToPara::V1(MessageToParaV1::Relayed { para_id, request }))
 				.map_err(|()| Error::<T>::SendFailed)?;
@@ -583,7 +656,7 @@ pub mod pallet {
 
 		/// Turn a request away and tell the parachain to release the deposit.
 		fn reject(para_id: ParaId, message_id: u64, reason: FailureReason) {
-			Self::report_registration(para_id, message_id, Err(reason.clone()));
+			Self::report(para_id, message_id, ReportKind::Register(Err(reason.clone())));
 			Self::deposit_event(Event::RegistrationRejected { para_id, message_id, reason });
 		}
 
@@ -595,17 +668,17 @@ pub mod pallet {
 			PendingRegistrations::<T>::remove(para_id);
 
 			if T::Registrar::is_registered(para_id) {
-				Self::report_cancellation(
+				Self::report(
 					para_id,
 					message_id,
-					Err(FailureReason::AlreadyRegistered),
+					ReportKind::Cancel(Err(FailureReason::AlreadyRegistered)),
 				);
 				return Self::deposit_event(Event::CancellationRefused { para_id, message_id });
 			}
 
 			AwaitingFirstHead::<T>::remove(para_id);
 
-			Self::report_cancellation(para_id, message_id, Ok(()));
+			Self::report(para_id, message_id, ReportKind::Cancel(Ok(())));
 			Self::deposit_event(Event::AuthorizationCancelled { para_id, message_id });
 		}
 
@@ -689,24 +762,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Tell the parachain how a registration ended.
-		fn report_registration(para_id: ParaId, message_id: u64, outcome: Outcome) {
-			Self::report(
-				para_id,
-				message_id,
-				MessageToParaV1::RegisterResponse { para_id, message_id, outcome },
-			);
-		}
-
-		/// Tell the parachain what became of its cancellation.
-		fn report_cancellation(para_id: ParaId, message_id: u64, outcome: Outcome) {
-			Self::report(
-				para_id,
-				message_id,
-				MessageToParaV1::CancelResponse { para_id, message_id, outcome },
-			);
-		}
-
 		/// Drop `para_id` at the parachain's request.
 		///
 		/// A para already gone is confirmed rather than refused, so a retried request settles.
@@ -716,10 +771,10 @@ pub mod pallet {
 					target: LOG_TARGET,
 					"registry refused to drop para {para_id}: {e:?}",
 				);
-				Self::report_deregistration(
+				Self::report(
 					para_id,
 					message_id,
-					Err(FailureReason::NotDeregisterable),
+					ReportKind::Deregister(Err(FailureReason::NotDeregisterable)),
 				);
 				return Self::deposit_event(Event::DeregistrationRejected { para_id, message_id });
 			}
@@ -728,7 +783,7 @@ pub mod pallet {
 			// Nothing prunes it, and not every registry refuses an offboarding para.
 			PendingCodeUpgrades::<T>::remove(para_id);
 			RequestWindows::<T>::remove(para_id);
-			Self::report_deregistration(para_id, message_id, Ok(()));
+			Self::report(para_id, message_id, ReportKind::Deregister(Ok(())));
 			Self::deposit_event(Event::Deregistered { para_id, message_id });
 		}
 
@@ -753,7 +808,7 @@ pub mod pallet {
 			};
 
 			if let Some(reason) = reason {
-				Self::report_code_upgrade(para_id, message_id, Err(reason.clone()));
+				Self::report(para_id, message_id, ReportKind::CodeUpgrade(Err(reason.clone())));
 				return Self::deposit_event(Event::CodeUpgradeRejected {
 					para_id,
 					message_id,
@@ -768,7 +823,11 @@ pub mod pallet {
 				PendingCodeUpgrade { message_id, code_hash, code_len, expire_at },
 			);
 
-			Self::report_code_upgrade(para_id, message_id, Ok(expire_at.saturated_into()));
+			Self::report(
+				para_id,
+				message_id,
+				ReportKind::CodeUpgrade(Ok(expire_at.saturated_into())),
+			);
 			Self::deposit_event(Event::CodeUpgradePending {
 				para_id,
 				message_id,
@@ -791,67 +850,69 @@ pub mod pallet {
 				None
 			};
 			if let Some(reason) = reason {
-				Self::report_set_head(para_id, message_id, Err(reason.clone()));
+				Self::report(para_id, message_id, ReportKind::SetHead(Err(reason.clone())));
 				Self::deposit_event(Event::HeadUpdateRejected { para_id, message_id, reason });
 				return;
 			}
 
 			T::Registrar::set_current_head(para_id, head);
-			Self::report_set_head(para_id, message_id, Ok(()));
+			Self::report(para_id, message_id, ReportKind::SetHead(Ok(())));
 			Self::deposit_event(Event::HeadUpdated { para_id, message_id });
 		}
 
-		/// Tell the parachain how a deregistration ended.
-		fn report_deregistration(para_id: ParaId, message_id: u64, outcome: Outcome) {
-			Self::report(
-				para_id,
-				message_id,
-				MessageToParaV1::DeregisterResponse { para_id, message_id, outcome },
-			);
-		}
-
-		/// Tell the parachain whether the upgrade was authorized, and until when.
-		fn report_code_upgrade(
-			para_id: ParaId,
-			message_id: u64,
-			outcome: Result<u32, FailureReason>,
-		) {
-			Self::report(
-				para_id,
-				message_id,
-				MessageToParaV1::CodeUpgradeResponse { para_id, message_id, outcome },
-			);
-		}
-
-		/// Tell the parachain that the uploaded code is now scheduled.
-		fn report_code_upgrade_scheduled(para_id: ParaId, message_id: u64) {
-			Self::report(
-				para_id,
-				message_id,
-				MessageToParaV1::CodeUpgradeScheduled { para_id, message_id },
-			);
-		}
-
-		/// Tell the parachain whether the head was set.
-		fn report_set_head(para_id: ParaId, message_id: u64, outcome: Outcome) {
-			Self::report(
-				para_id,
-				message_id,
-				MessageToParaV1::SetHeadResponse { para_id, message_id, outcome },
-			);
-		}
-
-		/// Hand a report to the transport.
+		/// Send a report, or keep it in [`FailedReports`] behind those already waiting there.
 		///
-		/// A failure is only logged and evented: callers have committed relay-chain state that must
-		/// not unwind because a report bounced.
-		fn report(para_id: ParaId, message_id: u64, message: MessageToParaV1) {
-			if T::SendToPara::send(MessageToPara::V1(message)).is_err() {
-				log::error!(
-					target: LOG_TARGET,
-					"failed to report the outcome for para {para_id} back to the parachain",
-				);
-				Self::deposit_event(Event::ReportFailed { para_id, message_id });
+		/// Never fails: callers have committed relay-chain state that must not unwind because a
+		/// report bounced.
+		fn report(para_id: ParaId, message_id: u64, kind: ReportKind) {
+			let report = Report { para_id, message_id, kind };
+			if Self::failed_reports_is_empty() && T::SendToPara::send(report.clone().into()).is_ok()
+			{
+				return;
+			}
+			if FailedReports::<T>::try_append(report).is_ok() {
+				Self::deposit_event(Event::ReportDeferred { para_id, message_id });
+				return;
+			}
+			log::error!(
+				target: LOG_TARGET,
+				"no room for failed reports, dropped the report for para {para_id}",
+			);
+			Self::deposit_event(Event::ReportFailed { para_id, message_id });
+		}
+
+		/// Whether no report waits in [`FailedReports`].
+		pub(crate) fn failed_reports_is_empty() -> bool {
+			FailedReports::<T>::decode_len().unwrap_or_default() == 0
+		}
+
+		/// Retry the reports in [`FailedReports`], oldest first, until `meter` has no room for the
+		/// next one or the transport refuses it.
+		pub(crate) fn retry_failed_reports(meter: &mut WeightMeter) {
+			if meter.try_consume(T::WeightInfo::retry_failed_reports(0)).is_err() {
+				return;
+			}
+
+			let mut reports = FailedReports::<T>::get();
+			let mut sent = 0u32;
+			for report in reports.iter() {
+				let weight = T::WeightInfo::retry_failed_reports(sent + 1)
+					.saturating_sub(T::WeightInfo::retry_failed_reports(sent));
+				if meter.try_consume(weight).is_err() ||
+					T::SendToPara::send(report.clone().into()).is_err()
+				{
+					break;
+				}
+				Self::deposit_event(Event::ReportSent {
+					para_id: report.para_id,
+					message_id: report.message_id,
+				});
+				sent += 1;
+			}
+
+			if sent > 0 {
+				reports.drain(..sent as usize);
+				FailedReports::<T>::put(reports);
 			}
 		}
 	}
@@ -860,7 +921,8 @@ pub mod pallet {
 /// Tells the parachain the first time a para produces a head, so it can lock the para.
 ///
 /// The caller is a hook that cannot fail, so a send failure is only logged and evented. Nothing is
-/// recorded in that case, so the next head retries.
+/// recorded in that case, so the next head retries. It also waits while [`FailedReports`] is not
+/// empty: the parachain ignores a note for a para whose registration report has not arrived.
 impl<T: Config> OnNewHead for Pallet<T> {
 	fn on_new_head(id: Id, _head: &HeadData) -> Weight {
 		let para_id: ParaId = id.into();
@@ -868,7 +930,8 @@ impl<T: Config> OnNewHead for Pallet<T> {
 			return T::WeightInfo::on_new_head_already_noted();
 		}
 
-		if T::SendToPara::send(MessageToPara::V1(MessageToParaV1::HeadNoted { para_id })).is_err() {
+		let note = MessageToPara::V1(MessageToParaV1::HeadNoted { para_id });
+		if !Self::failed_reports_is_empty() || T::SendToPara::send(note).is_err() {
 			log::error!(
 				target: LOG_TARGET,
 				"failed to tell the parachain about a new head for para {para_id}",

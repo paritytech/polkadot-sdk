@@ -33,6 +33,7 @@ pub type AccountId = u64;
 pub const ALICE: AccountId = 1;
 pub const PARA_A: ParaId = 2000;
 pub const PARA_B: ParaId = 2001;
+pub const PARA_C: ParaId = 2002;
 
 pub const MIN_CODE_SIZE: u32 = 9;
 pub const MAX_CODE_SIZE: u32 = 1_000;
@@ -41,6 +42,7 @@ pub const MAX_PENDING: u32 = 2;
 pub const CODE_UPGRADE_VALID_PERIOD: u32 = 100;
 pub const MAX_REQUESTS_PER_WINDOW: u32 = 2;
 pub const REQUEST_WINDOW: u32 = 10;
+pub const MAX_FAILED_REPORTS: u32 = 2;
 
 #[frame_support::runtime]
 mod test_runtime {
@@ -220,6 +222,7 @@ impl pallet_registrar_relay::Config for Test {
 	type RelayOrigin = pallet_registrar_relay::EnsureParachain<RuntimeOrigin>;
 	type MaxRequestsPerWindow = ConstU32<MAX_REQUESTS_PER_WINDOW>;
 	type RequestWindow = ConstU32<REQUEST_WINDOW>;
+	type MaxFailedReports = ConstU32<MAX_FAILED_REPORTS>;
 	type WeightInfo = ();
 }
 

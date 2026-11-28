@@ -18,7 +18,7 @@
 //! Tests for `pallet-registrar-relay`.
 
 use crate::{mock::*, AwaitingFirstHead, Error, Event, PendingCodeUpgrades, PendingRegistrations};
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, traits::OnPoll, weights::WeightMeter};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, ParaId,
 	ParachainRegistrar,
@@ -28,6 +28,14 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionSource},
 	DispatchError,
 };
+
+fn poll_with(meter: &mut WeightMeter) {
+	Registrar::on_poll(System::block_number(), meter);
+}
+
+fn poll() {
+	poll_with(&mut WeightMeter::new());
+}
 
 fn head(len: usize) -> Vec<u8> {
 	vec![7u8; len]
@@ -764,6 +772,8 @@ mod receive_set_current_head {
 
 mod reporting {
 	use super::*;
+	use crate::{weights::WeightInfo, FailedReports};
+	use polkadot_runtime_parachains::paras::OnNewHead;
 
 	#[test]
 	fn a_bounced_report_does_not_undo_the_deregistration() {
@@ -773,12 +783,12 @@ mod reporting {
 
 			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
 
-			// The para is gone here regardless; the parachain retries and is confirmed then.
 			assert!(!MockRegistrar::is_registered(PARA_A));
+			assert_eq!(FailedReports::<Test>::get().len(), 1);
 			assert_eq!(
 				registrar_events(),
 				vec![
-					Event::ReportFailed { para_id: PARA_A, message_id: DEREGISTER_ID },
+					Event::ReportDeferred { para_id: PARA_A, message_id: DEREGISTER_ID },
 					Event::Deregistered { para_id: PARA_A, message_id: DEREGISTER_ID },
 				]
 			);
@@ -798,15 +808,127 @@ mod reporting {
 				blob
 			));
 
-			// The relay chain's own state is correct and stays that way; the parachain is simply
-			// told nothing, and the failure is surfaced.
 			assert_eq!(Onboarded::get().len(), 1);
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
+			assert_eq!(FailedReports::<Test>::get().len(), 1);
 			assert_eq!(
 				registrar_events(),
 				vec![
-					Event::ReportFailed { para_id: PARA_A, message_id: MSG_ID },
+					Event::ReportDeferred { para_id: PARA_A, message_id: MSG_ID },
 					Event::Registered { para_id: PARA_A, message_id: MSG_ID, manager: ALICE },
+				]
+			);
+		});
+	}
+
+	#[test]
+	fn a_deferred_report_is_sent_once_the_transport_recovers() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
+			SendFails::set(true);
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+			let _ = registrar_events();
+
+			poll();
+			assert!(take_sent().is_empty());
+			assert_eq!(FailedReports::<Test>::get().len(), 1);
+
+			SendFails::set(false);
+			poll();
+			assert_eq!(take_sent(), vec![deregister_report(PARA_A, Ok(()))]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::ReportSent { para_id: PARA_A, message_id: DEREGISTER_ID }]
+			);
+			assert!(FailedReports::<Test>::get().is_empty());
+		});
+	}
+
+	#[test]
+	fn a_report_waits_behind_deferred_ones() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
+			onboard(PARA_B);
+			SendFails::set(true);
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+			SendFails::set(false);
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_B)));
+			assert!(take_sent().is_empty());
+			assert!(registrar_events()
+				.contains(&Event::ReportDeferred { para_id: PARA_B, message_id: DEREGISTER_ID }));
+
+			poll();
+			assert_eq!(
+				take_sent(),
+				vec![deregister_report(PARA_A, Ok(())), deregister_report(PARA_B, Ok(()))]
+			);
+		});
+	}
+
+	#[test]
+	fn a_report_with_no_room_left_is_dropped() {
+		new_test_ext().execute_with(|| {
+			SendFails::set(true);
+			for para_id in [PARA_A, PARA_B, PARA_C] {
+				assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(para_id)));
+			}
+
+			assert_eq!(FailedReports::<Test>::get().len(), MAX_FAILED_REPORTS as usize);
+			assert!(registrar_events()
+				.contains(&Event::ReportFailed { para_id: PARA_C, message_id: CANCEL_ID }));
+
+			SendFails::set(false);
+			poll();
+			assert_eq!(
+				take_sent(),
+				vec![cancel_report(PARA_A, Ok(())), cancel_report(PARA_B, Ok(()))]
+			);
+		});
+	}
+
+	#[test]
+	fn a_retry_stops_when_the_meter_runs_out() {
+		new_test_ext().execute_with(|| {
+			SendFails::set(true);
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_A)));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_B)));
+			SendFails::set(false);
+
+			let one = <() as WeightInfo>::retry_failed_reports(1);
+			poll_with(&mut WeightMeter::with_limit(one - 1.into()));
+			assert!(take_sent().is_empty());
+
+			poll_with(&mut WeightMeter::with_limit(one));
+			assert_eq!(take_sent(), vec![cancel_report(PARA_A, Ok(()))]);
+			assert_eq!(FailedReports::<Test>::get().len(), 1);
+		});
+	}
+
+	#[test]
+	fn a_head_note_waits_behind_deferred_reports() {
+		new_test_ext().execute_with(|| {
+			let blob = request(PARA_A, 20, 300);
+			SendFails::set(true);
+			assert_ok!(Registrar::apply_authorized_code(
+				frame_system::RawOrigin::Authorized.into(),
+				PARA_A,
+				blob
+			));
+			SendFails::set(false);
+
+			// The parachain ignores a note for a para it does not know is registered yet.
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+			assert!(take_sent().is_empty());
+			assert!(AwaitingFirstHead::<Test>::contains_key(PARA_A));
+
+			poll();
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+			assert_eq!(
+				take_sent(),
+				vec![
+					success_report(PARA_A),
+					MessageToPara::V1(MessageToParaV1::HeadNoted { para_id: PARA_A }),
 				]
 			);
 		});
@@ -971,7 +1093,7 @@ mod receive_authorize_code_upgrade {
 
 			assert!(PendingCodeUpgrades::<Test>::contains_key(PARA_A));
 			assert!(registrar_events().iter().any(
-				|e| matches!(e, Event::ReportFailed { message_id, .. } if *message_id == UPGRADE_ID)
+				|e| matches!(e, Event::ReportDeferred { message_id, .. } if *message_id == UPGRADE_ID)
 			));
 		});
 	}
@@ -1441,6 +1563,24 @@ mod relay {
 			SendFails::set(true);
 
 			assert_noop!(relay(PARA_A, ParaRequestV1::AddLock), Error::<Test>::SendFailed);
+		});
+	}
+
+	#[test]
+	fn a_request_waits_behind_deferred_reports() {
+		new_test_ext().execute_with(|| {
+			SendFails::set(true);
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_A)));
+			SendFails::set(false);
+
+			assert_noop!(relay(PARA_A, ParaRequestV1::AddLock), Error::<Test>::SendFailed);
+
+			poll();
+			assert_ok!(relay(PARA_A, ParaRequestV1::AddLock));
+			assert_eq!(
+				take_sent(),
+				vec![cancel_report(PARA_A, Ok(())), relayed(PARA_A, ParaRequestV1::AddLock)]
+			);
 		});
 	}
 
