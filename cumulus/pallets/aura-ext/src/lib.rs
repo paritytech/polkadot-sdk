@@ -118,6 +118,17 @@ pub mod pallet {
 	}
 }
 
+impl<T: Config> Pallet<T> {
+	/// The slot of the relay parent of the current block, as read from the relay chain state
+	/// proof. `None` before the first block that processed a proof.
+	///
+	/// Set by [`FixedVelocityConsensusHook`] while `set_validation_data` runs, so only read after
+	/// that inherent within a block.
+	pub fn relay_slot() -> Option<Slot> {
+		RelaySlotInfo::<T>::get().map(|(slot, _)| slot)
+	}
+}
+
 /// The block executor used when validating a PoV at the relay chain.
 ///
 /// When executing the block it will verify the block seal to ensure that the correct author created
