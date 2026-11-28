@@ -28,6 +28,7 @@ use frame_support::{
 	StorageNoopGuard,
 };
 use sp_runtime::{bounded_vec, TokenError};
+use std::panic::catch_unwind;
 
 /// Returns one `Inline`, `Lookup` and `Legacy` item each with different data and hash.
 pub fn make_bounded_values() -> (
@@ -114,6 +115,34 @@ fn user_unnote_preimage_works() {
 		assert!(!Preimage::have_preimage(&h));
 		assert_eq!(Preimage::get_preimage(&h), None);
 	});
+}
+
+#[test]
+fn unnote_preserves_preimage_and_deposit_if_release_fails() {
+	for requested in [false, true] {
+		new_test_ext().execute_with(|| {
+			let hash = hashed([1]);
+			assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(2), vec![1]));
+			if requested {
+				assert_ok!(Preimage::request_preimage(RuntimeOrigin::signed(1), hash));
+			}
+
+			FailDepositRelease::set(true);
+			assert_noop!(
+				Preimage::unnote_preimage(RuntimeOrigin::signed(2), hash),
+				DEPOSIT_RELEASE_ERROR
+			);
+			assert_storage_noop!({
+				let result = catch_unwind(|| <Preimage as StorePreimage>::unnote(&hash));
+				assert_eq!(result.is_err(), cfg!(debug_assertions));
+			});
+
+			FailDepositRelease::set(false);
+			assert_ok!(Preimage::unnote_preimage(RuntimeOrigin::signed(2), hash));
+			assert_eq!(Balances::balance_on_hold(&PreimageHoldReason::get(), &2), 0);
+			assert_eq!(Preimage::get_preimage(&hash), requested.then(|| vec![1]));
+		});
+	}
 }
 
 #[test]

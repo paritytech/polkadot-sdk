@@ -50,6 +50,7 @@ use frame_support::{
 	dispatch::Pays,
 	ensure,
 	pallet_prelude::Get,
+	storage::with_storage_layer,
 	traits::{
 		Consideration, Currency, Defensive, FetchResult, Footprint, PreimageProvider,
 		PreimageRecipient, QueryPreimage, ReservableCurrency, StorePreimage,
@@ -409,7 +410,7 @@ impl<T: Config> Pallet<T> {
 		match RequestStatusFor::<T>::get(hash).ok_or(Error::<T>::NotNoted)? {
 			RequestStatus::Requested { maybe_ticket: Some((owner, ticket)), count, maybe_len } => {
 				ensure!(maybe_check_owner.map_or(true, |c| c == owner), Error::<T>::NotAuthorized);
-				let _ = ticket.drop(&owner);
+				ticket.drop(&owner)?;
 				RequestStatusFor::<T>::insert(
 					hash,
 					RequestStatus::Requested { maybe_ticket: None, count, maybe_len },
@@ -422,7 +423,7 @@ impl<T: Config> Pallet<T> {
 			},
 			RequestStatus::Unrequested { ticket: (owner, ticket), len } => {
 				ensure!(maybe_check_owner.map_or(true, |c| c == owner), Error::<T>::NotAuthorized);
-				let _ = ticket.drop(&owner);
+				ticket.drop(&owner)?;
 				RequestStatusFor::<T>::remove(hash);
 
 				Self::remove(hash, len);
@@ -584,8 +585,12 @@ impl<T: Config> StorePreimage for Pallet<T> {
 	}
 
 	fn unnote(hash: &T::Hash) {
-		// Should never fail if authorization check is skipped.
-		let res = Self::do_unnote_preimage(hash, None);
-		debug_assert!(res.is_ok(), "unnote_preimage failed - request outstanding?");
+		// Unlike the dispatchable, this trait method cannot return a deposit release error.
+		// Roll back any storage changes on failure so the deposit can still be released later.
+		let result = with_storage_layer(|| Self::do_unnote_preimage(hash, None));
+		debug_assert!(result.is_ok(), "Could not unnote preimage {hash:?}: {result:?}");
+		if let Err(error) = result {
+			log::warn!(target: "runtime::preimage", "Could not unnote preimage {hash:?}: {error:?}");
+		}
 	}
 }
