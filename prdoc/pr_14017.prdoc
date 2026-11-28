@@ -1,0 +1,26 @@
+title: "pallet-bounties: charge the asset sweep in `reclaim_bounty_funds` and `close_bounty`"
+doc:
+  - audience: Runtime Dev
+    description: |
+      `reclaim_bounty_funds` and `close_bounty` empty a bounty account through
+      `Config::TransferAllAssets`, but neither declared any weight for it.
+
+      `TransferAllFungibles` walks its asset list twice and can read a balance and run a
+      transfer on each visit, so its real cost grows with the number of assets the runtime
+      configures. The declared weight stayed at the figure benchmarked against a runtime that
+      sweeps a single native balance, which left the declared database accesses and proof size
+      several times under the real ones on a runtime with more than one relevant asset.
+      `reclaim_bounty_funds` is permissionless and free when it moves anything, so the gap was
+      reachable by anyone.
+
+      `TransferAllAssets` gains a `max_weight` method stating the worst-case cost of one sweep,
+      priced with the host runtime's database weight. Both calls add it to the weight they
+      declare, and `close_bounty` also includes it in the actual weight it reports for the
+      active path.
+
+      Runtimes that implement `TransferAllAssets` themselves must now implement `max_weight`
+      too. The three implementations shipped with the pallet already do.
+
+crates:
+  - name: pallet-bounties
+    bump: major
