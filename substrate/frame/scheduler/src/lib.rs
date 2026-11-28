@@ -276,6 +276,17 @@ pub mod pallet {
 			+ From<system::Call<Self>>;
 
 		/// The maximum weight that may be scheduled per block for any dispatchables.
+		///
+		/// Tasks are serviced in `on_initialize` with the remaining block weight, capped at this
+		/// value. A due task whose service does not fit is postponed, and its agenda is serviced
+		/// again in a later block. Setting it to zero pauses the scheduler. A task whose call is
+		/// heavier than the weight the scheduler has when that task is the first one serviced in a
+		/// block is removed with [`Event::PermanentlyOverweight`].
+		///
+		/// It should cover servicing a lookup of [`StorePreimage::MAX_LENGTH`] as the first task of
+		/// a full agenda, so that every task that can be fetched fits a block. It should also leave
+		/// enough of the maximum block weight for the work done before the scheduler runs, so that
+		/// a block can give the scheduler all of it.
 		#[pallet::constant]
 		type MaximumWeight: Get<Weight>;
 
@@ -390,14 +401,16 @@ pub mod pallet {
 		},
 		/// Cancel a retry configuration for some task.
 		RetryCancelled { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
-		/// The call for the provided hash was not found so the task has been aborted.
+		/// The call for the provided hash was not found so the task has been aborted and removed
+		/// from its agenda.
 		CallUnavailable { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 		/// The given task was unable to be renewed since the agenda is full at that block.
 		PeriodicFailed { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 		/// The given task was unable to be retried since the agenda is full at that block or there
 		/// was not enough weight to reschedule it.
 		RetryFailed { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
-		/// The given task can never be executed since it is overweight.
+		/// The given task can never be executed since it is overweight. It has been removed from
+		/// its agenda.
 		PermanentlyOverweight { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 		/// Agenda is incomplete from `when`.
 		AgendaIncomplete { when: BlockNumberFor<T> },
@@ -1231,7 +1244,8 @@ impl<T: Config> Pallet<T> {
 }
 
 enum ServiceTaskError {
-	/// Could not be executed due to missing preimage.
+	/// Aborted because the preimage is missing or the call is permanently overweight. The task
+	/// is removed from its agenda.
 	Unavailable,
 	/// Could not be executed due to weight limitations.
 	Overweight,
@@ -1298,11 +1312,40 @@ impl<T: Config> Pallet<T> {
 
 		// Items which we know can be executed and have postponed for execution in a later block.
 		let mut postponed = (ordered.len() as u32).saturating_sub(max);
-		// Items which we don't know can ever be executed.
-		let mut dropped = 0;
 
 		for (agenda_index, _) in ordered.into_iter().take(max as usize) {
 			let Some(task) = agenda[agenda_index as usize].take() else { continue };
+			let unfetchable = matches!(
+				task.call,
+				Bounded::Lookup { len, .. } if len as usize > T::Preimages::MAX_LENGTH
+			);
+			if unfetchable {
+				// No preimage is this long, so the call can never be fetched. The task is removed
+				// for the weight of its cleanup; `service_task_fetched(0)` covers dropping the
+				// preimage request.
+				let cleanup = T::WeightInfo::service_task(
+					Some(0),
+					task.maybe_id.is_some(),
+					task.maybe_periodic.is_some(),
+				)
+				.saturating_add(T::DbWeight::get().writes(1));
+				if weight.try_consume(cleanup).is_err() {
+					postponed += 1;
+					agenda[agenda_index as usize] = Some(task);
+					break;
+				}
+				is_first = false;
+				if let Some(ref id) = task.maybe_id {
+					Lookup::<T>::remove(id);
+				}
+				T::Preimages::drop(&task.call);
+				Retries::<T>::remove((when, agenda_index));
+				Self::deposit_event(Event::CallUnavailable {
+					task: (when, agenda_index),
+					id: task.maybe_id,
+				});
+				continue;
+			}
 			let base_weight = T::WeightInfo::service_task(
 				task.call.lookup_len().map(|x| x as usize),
 				task.maybe_id.is_some(),
@@ -1314,22 +1357,23 @@ impl<T: Config> Pallet<T> {
 				break;
 			}
 			let result = Self::service_task(weight, now, when, agenda_index, is_first, task);
+			// `is_first` only holds while no task has consumed weight.
+			is_first = false;
 			agenda[agenda_index as usize] = match result {
-				Err((Unavailable, slot)) => {
-					dropped += 1;
-					slot
+				Err((Unavailable, _)) => {
+					// Aborted tasks are not kept in the agenda, nor is their retry configuration.
+					let _ = weight.try_consume(T::DbWeight::get().writes(1));
+					Retries::<T>::remove((when, agenda_index));
+					None
 				},
 				Err((Overweight, slot)) => {
 					postponed += 1;
 					slot
 				},
-				Ok(()) => {
-					is_first = false;
-					None
-				},
+				Ok(()) => None,
 			};
 		}
-		if postponed > 0 || dropped > 0 {
+		if agenda.iter().any(Option::is_some) {
 			Agenda::<T>::insert(when, agenda);
 		} else {
 			Agenda::<T>::remove(when);
