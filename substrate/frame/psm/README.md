@@ -122,9 +122,19 @@ identify the PSM instance being configured.
 
 ### Privilege Levels
 
-Each PSM instance stores two admin origins, both set to the creator on `create_psm`
-and reassignable by the `full_admin`. An incoming origin is matched against them to
-resolve a privilege level:
+Each PSM instance stores two admin roles, set on `create_psm` and reassignable by the
+`full_admin`. Each role is an `AdminOrigin`:
+
+- `AssetOwner`: the signed origin of whoever owns the internal asset at the time of the
+  call. The role moves with the asset when its owner changes. Nobody holds it while the
+  asset has no owner; if the asset id is recreated, the new owner holds it.
+- `Origin(origin)`: one fixed origin, such as a governance track or an account. It stays
+  with that origin when the internal asset changes owner.
+
+To have a role follow the asset owner, pass `AdminOrigin::AssetOwner` to `create_psm`,
+`set_full_admin` or `set_emergency_admin`.
+
+An incoming origin is matched against the two roles to resolve a privilege level:
 
 - **Full** (the `full_admin`): can modify all parameters, approve/remove externals,
   reassign either admin, and remove the instance

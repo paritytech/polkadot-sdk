@@ -23,8 +23,8 @@ use alloc::boxed::Box;
 use frame_benchmarking::v2::*;
 use frame_support::traits::{
 	fungibles::{
-		metadata::Inspect as FungiblesMetadataInspect, Create as FungiblesCreate,
-		Inspect as FungiblesInspect, Mutate as FungiblesMutate,
+		metadata::Inspect as FungiblesMetadataInspect, roles::Inspect as FungiblesRolesInspect,
+		Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 	},
 	Consideration, EnsureOriginWithArg, Get,
 };
@@ -40,7 +40,8 @@ const EXTERNAL_ASSET_OFFSET: u32 = 100;
 const BENCH_MIN_SWAP: u32 = 1_000;
 
 /// Ensure the benchmarked internal asset exists and a PSM record is installed for
-/// it. Returns `(internal_asset_id, internal_decimals)`.
+/// it, with both admin roles [`AdminOrigin::AssetOwner`]. Returns
+/// `(internal_asset_id, internal_decimals)`.
 fn ensure_internal_setup<T: Config>() -> (T::AssetId, u8)
 where
 	T::Fungibles: FungiblesCreate<T::AccountId>,
@@ -60,12 +61,11 @@ where
 		{
 			T::Consideration::ensure_successful(&depositor, Psm::<T>::psm_creation_footprint());
 		}
-		let root_origin: T::PalletsOrigin = RawOrigin::Root.into();
 		Psm::<T>::create_psm(
 			origin,
 			internal_id.clone(),
-			Box::new(root_origin.clone()),
-			Box::new(root_origin),
+			Box::new(AdminOrigin::AssetOwner),
+			Box::new(AdminOrigin::AssetOwner),
 			admin,
 			BalanceOf::<T>::from(u32::MAX).saturating_mul(1_000_000u32.into()),
 			BalanceOf::<T>::from(BENCH_MIN_SWAP),
@@ -75,6 +75,18 @@ where
 		frame_system::Pallet::<T>::inc_providers(&Psm::<T>::psm_account(&internal_id));
 	}
 	(internal_id, internal_decimals)
+}
+
+/// The signed origin of the internal asset's owner.
+///
+/// It holds the [`AdminOrigin::AssetOwner`] roles that [`ensure_internal_setup`] installs. That
+/// is the most expensive admin check, because it reads the asset owner.
+fn owner_origin<T: Config>(
+	internal_id: &T::AssetId,
+) -> Result<RawOrigin<T::AccountId>, BenchmarkError> {
+	T::Fungibles::owner(internal_id.clone())
+		.map(RawOrigin::Signed)
+		.ok_or(BenchmarkError::Stop("the internal asset has no owner"))
 }
 
 /// Set up `n` external assets ready for PSM benchmarks. Returns
@@ -212,8 +224,10 @@ mod benchmarks {
 		let (internal_id, asset_id) = setup_assets::<T>(1);
 		let new_fee = Permill::from_percent(2);
 
+		let origin = owner_origin::<T>(&internal_id)?;
+
 		#[extrinsic_call]
-		_(RawOrigin::Root, internal_id.clone(), asset_id.clone(), new_fee);
+		_(origin, internal_id.clone(), asset_id.clone(), new_fee);
 
 		assert_eq!(crate::MintingFee::<T>::get(&internal_id, &asset_id), new_fee);
 		Ok(())
@@ -224,8 +238,10 @@ mod benchmarks {
 		let (internal_id, asset_id) = setup_assets::<T>(1);
 		let new_fee = Permill::from_percent(2);
 
+		let origin = owner_origin::<T>(&internal_id)?;
+
 		#[extrinsic_call]
-		_(RawOrigin::Root, internal_id.clone(), asset_id.clone(), new_fee);
+		_(origin, internal_id.clone(), asset_id.clone(), new_fee);
 
 		assert_eq!(crate::RedemptionFee::<T>::get(&internal_id, &asset_id), new_fee);
 		Ok(())
@@ -236,8 +252,10 @@ mod benchmarks {
 		let (internal_id, _) = ensure_internal_setup::<T>();
 		let new_value = BalanceOf::<T>::from(123u32);
 
+		let origin = owner_origin::<T>(&internal_id)?;
+
 		#[extrinsic_call]
-		_(RawOrigin::Root, internal_id.clone(), new_value);
+		_(origin, internal_id.clone(), new_value);
 
 		assert_eq!(crate::Psm::<T>::get(&internal_id).unwrap().max_debt, new_value);
 		Ok(())
@@ -248,8 +266,10 @@ mod benchmarks {
 		let (internal_id, asset_id) = setup_assets::<T>(1);
 		let new_status = CircuitBreakerLevel::MintingDisabled;
 
+		let origin = owner_origin::<T>(&internal_id)?;
+
 		#[extrinsic_call]
-		_(RawOrigin::Root, internal_id.clone(), asset_id.clone(), new_status);
+		_(origin, internal_id.clone(), asset_id.clone(), new_status);
 
 		assert_eq!(
 			crate::ExternalAssets::<T>::get(&internal_id, &asset_id).map(|e| e.status),
@@ -263,8 +283,10 @@ mod benchmarks {
 		let (internal_id, asset_id) = setup_assets::<T>(1);
 		let new_weight = Permill::from_percent(50);
 
+		let origin = owner_origin::<T>(&internal_id)?;
+
 		#[extrinsic_call]
-		_(RawOrigin::Root, internal_id.clone(), asset_id.clone(), new_weight);
+		_(origin, internal_id.clone(), asset_id.clone(), new_weight);
 
 		assert_eq!(crate::AssetCeilingWeight::<T>::get(&internal_id, &asset_id), new_weight);
 		Ok(())
@@ -282,8 +304,10 @@ mod benchmarks {
 		let _ = T::Fungibles::create(new_asset_id.clone(), caller.clone(), false, 1u32.into());
 		T::BenchmarkHelper::create_asset(new_asset_id.clone(), &caller, internal_decimals);
 
+		let origin = owner_origin::<T>(&internal_id)?;
+
 		#[extrinsic_call]
-		_(RawOrigin::Root, internal_id.clone(), new_asset_id.clone());
+		_(origin, internal_id.clone(), new_asset_id.clone());
 
 		assert!(crate::ExternalAssets::<T>::contains_key(&internal_id, &new_asset_id));
 		Ok(())
@@ -294,8 +318,10 @@ mod benchmarks {
 		let (internal_id, asset_id) = setup_assets::<T>(1);
 		crate::PsmDebt::<T>::remove(&internal_id, &asset_id);
 
+		let origin = owner_origin::<T>(&internal_id)?;
+
 		#[extrinsic_call]
-		_(RawOrigin::Root, internal_id.clone(), asset_id.clone());
+		_(origin, internal_id.clone(), asset_id.clone());
 
 		assert!(!crate::ExternalAssets::<T>::contains_key(&internal_id, &asset_id));
 		Ok(())
@@ -322,8 +348,9 @@ mod benchmarks {
 			T::Consideration::ensure_successful(who, Psm::<T>::psm_creation_footprint());
 		}
 
-		let admin: T::PalletsOrigin =
-			maybe_depositor.map(RawOrigin::Signed).unwrap_or(RawOrigin::Root).into();
+		let admin = AdminOrigin::Origin(
+			maybe_depositor.map(RawOrigin::Signed).unwrap_or(RawOrigin::Root).into(),
+		);
 		let max_debt = BalanceOf::<T>::from(u32::MAX);
 		let min_swap = BalanceOf::<T>::from(BENCH_MIN_SWAP);
 
@@ -344,12 +371,13 @@ mod benchmarks {
 
 	#[benchmark]
 	fn remove_psm() -> Result<(), BenchmarkError> {
-		// `ensure_internal_setup` installs a PSM with `Root` as full admin, no externals and
-		// no debt: exactly the preconditions for removal.
+		// `ensure_internal_setup` installs a PSM with no externals and no debt: exactly the
+		// preconditions for removal.
 		let (internal_id, _) = ensure_internal_setup::<T>();
+		let origin = owner_origin::<T>(&internal_id)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, internal_id.clone());
+		_(origin, internal_id.clone());
 
 		assert!(!crate::Psm::<T>::contains_key(&internal_id));
 		Ok(())
@@ -358,10 +386,11 @@ mod benchmarks {
 	#[benchmark]
 	fn set_full_admin() -> Result<(), BenchmarkError> {
 		let (internal_id, _) = ensure_internal_setup::<T>();
-		let new_admin: T::PalletsOrigin = RawOrigin::Signed(whitelisted_caller()).into();
+		let new_admin = AdminOrigin::Origin(RawOrigin::Signed(whitelisted_caller()).into());
+		let origin = owner_origin::<T>(&internal_id)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, internal_id.clone(), Box::new(new_admin.clone()));
+		_(origin, internal_id.clone(), Box::new(new_admin.clone()));
 
 		assert_eq!(crate::PsmAdmin::<T>::get(&internal_id).unwrap().full_admin, new_admin);
 		Ok(())
@@ -370,10 +399,11 @@ mod benchmarks {
 	#[benchmark]
 	fn set_emergency_admin() -> Result<(), BenchmarkError> {
 		let (internal_id, _) = ensure_internal_setup::<T>();
-		let new_admin: T::PalletsOrigin = RawOrigin::Signed(whitelisted_caller()).into();
+		let new_admin = AdminOrigin::Origin(RawOrigin::Signed(whitelisted_caller()).into());
+		let origin = owner_origin::<T>(&internal_id)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, internal_id.clone(), Box::new(new_admin.clone()));
+		_(origin, internal_id.clone(), Box::new(new_admin.clone()));
 
 		assert_eq!(crate::PsmAdmin::<T>::get(&internal_id).unwrap().emergency_admin, new_admin);
 		Ok(())

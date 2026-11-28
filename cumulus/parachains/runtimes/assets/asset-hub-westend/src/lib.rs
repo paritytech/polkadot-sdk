@@ -179,7 +179,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_version: 1_026_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 16,
+	transaction_version: 17,
 	system_version: 1,
 };
 
@@ -1996,6 +1996,8 @@ pub type Migrations = (
 	pallet_election_provider_multi_block::signed::migrations::v1::MigrateV0ToV1<Runtime>,
 	// Moves `MaxCollators` to `CollatorDraw` and draws the collators again under the default cap.
 	pallet_validator_collators::migrations::v1::MigrateV0ToV1<Runtime>,
+	// Turns PSM admin roles held by the internal asset's owner into `AdminOrigin::AssetOwner`.
+	pallet_psm::migrations::v1::MigrateV0ToV1<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.

@@ -198,8 +198,8 @@ where
 	pallet_psm::PsmAdmin::<Runtime>::insert(
 		&internal_asset_id,
 		pallet_psm::PsmAdminInfo::<Runtime> {
-			full_admin: root_origin.clone(),
-			emergency_admin: root_origin,
+			full_admin: pallet_psm::AdminOrigin::Origin(root_origin.clone()),
+			emergency_admin: pallet_psm::AdminOrigin::Origin(root_origin),
 			deposit: None,
 		},
 	);

@@ -17,8 +17,8 @@
 
 use super::mock::*;
 use crate::{
-	AssetCeilingWeight, CircuitBreakerLevel, Error, Event, ExternalAssets, MintingFee, PsmDebt,
-	PsmManagerLevel, RedemptionFee,
+	AdminOrigin, AssetCeilingWeight, CircuitBreakerLevel, Error, Event, ExternalAssets, MintingFee,
+	PsmDebt, PsmManagerLevel, RedemptionFee,
 };
 use codec::{Decode, Encode};
 use frame_support::{assert_noop, assert_ok, hypothetically};
@@ -3839,6 +3839,10 @@ mod admin {
 		frame_system::RawOrigin::<AccountId>::None.into()
 	}
 
+	fn fixed(origin: OriginCaller) -> AdminOrigin<OriginCaller> {
+		AdminOrigin::Origin(origin)
+	}
+
 	#[test]
 	fn create_psm_works() {
 		new_test_ext().execute_with(|| {
@@ -3848,8 +3852,8 @@ mod admin {
 			assert_ok!(Psm::create_psm(
 				RuntimeOrigin::signed(ALICE),
 				NEW_INTERNAL,
-				Box::new(signed_origin(ALICE)),
-				Box::new(signed_origin(ALICE)),
+				Box::new(fixed(signed_origin(ALICE))),
+				Box::new(fixed(signed_origin(ALICE))),
 				INSURANCE_FUND,
 				DEFAULT_MAX_DEBT,
 				DEFAULT_MIN_SWAP,
@@ -3865,16 +3869,16 @@ mod admin {
 			// Admin record: the signer is both admins and paid the creation deposit (holds are
 			// accounted within `reserved`).
 			let admin = crate::PsmAdmin::<Test>::get(NEW_INTERNAL).expect("admin record");
-			assert_eq!(admin.full_admin, signed_origin(ALICE));
-			assert_eq!(admin.emergency_admin, signed_origin(ALICE));
+			assert_eq!(admin.full_admin, fixed(signed_origin(ALICE)));
+			assert_eq!(admin.emergency_admin, fixed(signed_origin(ALICE)));
 			assert!(matches!(admin.deposit, Some((ALICE, _))));
 			assert!(Balances::reserved_balance(&ALICE) > reserved_before);
 
 			System::assert_has_event(
 				Event::<Test>::PsmCreated {
 					internal_asset: NEW_INTERNAL,
-					full_admin: Box::new(signed_origin(ALICE)),
-					emergency_admin: Box::new(signed_origin(ALICE)),
+					full_admin: Box::new(fixed(signed_origin(ALICE))),
+					emergency_admin: Box::new(fixed(signed_origin(ALICE))),
 					fee_destination: INSURANCE_FUND,
 					max_debt: DEFAULT_MAX_DEBT,
 				}
@@ -3893,8 +3897,8 @@ mod admin {
 				Psm::create_psm(
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
-					Box::new(signed_origin(ALICE)),
-					Box::new(signed_origin(ALICE)),
+					Box::new(fixed(signed_origin(ALICE))),
+					Box::new(fixed(signed_origin(ALICE))),
 					INSURANCE_FUND,
 					DEFAULT_MAX_DEBT,
 					DEFAULT_MIN_SWAP,
@@ -3911,8 +3915,8 @@ mod admin {
 				Psm::create_psm(
 					RuntimeOrigin::root(),
 					4242u32,
-					Box::new(signed_origin(ALICE)),
-					Box::new(signed_origin(ALICE)),
+					Box::new(fixed(signed_origin(ALICE))),
+					Box::new(fixed(signed_origin(ALICE))),
 					INSURANCE_FUND,
 					DEFAULT_MAX_DEBT,
 					DEFAULT_MIN_SWAP,
@@ -3931,8 +3935,8 @@ mod admin {
 			assert_ok!(Psm::create_psm(
 				RuntimeOrigin::root(),
 				NEW_INTERNAL,
-				Box::new(root_origin()),
-				Box::new(root_origin()),
+				Box::new(fixed(root_origin())),
+				Box::new(fixed(root_origin())),
 				INSURANCE_FUND,
 				DEFAULT_MAX_DEBT,
 				DEFAULT_MIN_SWAP,
@@ -3953,8 +3957,8 @@ mod admin {
 				Psm::create_psm(
 					RuntimeOrigin::signed(ALICE),
 					NEW_INTERNAL,
-					Box::new(signed_origin(ALICE)),
-					Box::new(signed_origin(ALICE)),
+					Box::new(fixed(signed_origin(ALICE))),
+					Box::new(fixed(signed_origin(ALICE))),
 					INSURANCE_FUND,
 					DEFAULT_MAX_DEBT,
 					0,
@@ -4005,8 +4009,8 @@ mod admin {
 				Psm::create_psm(
 					RuntimeOrigin::signed(POOR),
 					NEW_INTERNAL,
-					Box::new(signed_origin(POOR)),
-					Box::new(signed_origin(POOR)),
+					Box::new(fixed(signed_origin(POOR))),
+					Box::new(fixed(signed_origin(POOR))),
 					INSURANCE_FUND,
 					DEFAULT_MAX_DEBT,
 					DEFAULT_MIN_SWAP,
@@ -4029,8 +4033,8 @@ mod admin {
 			assert_ok!(Psm::create_psm(
 				RuntimeOrigin::signed(ALICE),
 				NEW_INTERNAL,
-				Box::new(signed_origin(ALICE)),
-				Box::new(signed_origin(ALICE)),
+				Box::new(fixed(signed_origin(ALICE))),
+				Box::new(fixed(signed_origin(ALICE))),
 				INSURANCE_FUND,
 				DEFAULT_MAX_DEBT,
 				DEFAULT_MIN_SWAP,
@@ -4055,8 +4059,8 @@ mod admin {
 			assert_ok!(Psm::create_psm(
 				RuntimeOrigin::signed(ALICE),
 				NEW_INTERNAL,
-				Box::new(signed_origin(ALICE)),
-				Box::new(signed_origin(ALICE)),
+				Box::new(fixed(signed_origin(ALICE))),
+				Box::new(fixed(signed_origin(ALICE))),
 				INSURANCE_FUND,
 				DEFAULT_MAX_DEBT,
 				DEFAULT_MIN_SWAP,
@@ -4086,8 +4090,8 @@ mod admin {
 			assert_ok!(Psm::create_psm(
 				RuntimeOrigin::signed(ALICE),
 				NEW_INTERNAL,
-				Box::new(signed_origin(ALICE)),
-				Box::new(signed_origin(ALICE)),
+				Box::new(fixed(signed_origin(ALICE))),
+				Box::new(fixed(signed_origin(ALICE))),
 				fee_destination.clone(),
 				DEFAULT_MAX_DEBT,
 				DEFAULT_MIN_SWAP,
@@ -4114,8 +4118,8 @@ mod admin {
 			assert_ok!(Psm::create_psm(
 				RuntimeOrigin::signed(ALICE),
 				NEW_INTERNAL,
-				Box::new(signed_origin(ALICE)),
-				Box::new(signed_origin(ALICE)),
+				Box::new(fixed(signed_origin(ALICE))),
+				Box::new(fixed(signed_origin(ALICE))),
 				INSURANCE_FUND,
 				DEFAULT_MAX_DEBT,
 				DEFAULT_MIN_SWAP,
@@ -4125,7 +4129,7 @@ mod admin {
 			assert_ok!(Psm::set_full_admin(
 				RuntimeOrigin::signed(ALICE),
 				NEW_INTERNAL,
-				Box::new(root_origin()),
+				Box::new(fixed(root_origin())),
 			));
 			assert_ok!(Psm::remove_psm(RuntimeOrigin::root(), NEW_INTERNAL));
 
@@ -4152,8 +4156,8 @@ mod admin {
 			assert_ok!(Psm::create_psm(
 				RuntimeOrigin::signed(ALICE),
 				NEW_INTERNAL,
-				Box::new(signed_origin(ALICE)),
-				Box::new(signed_origin(ALICE)),
+				Box::new(fixed(signed_origin(ALICE))),
+				Box::new(fixed(signed_origin(ALICE))),
 				INSURANCE_FUND,
 				DEFAULT_MAX_DEBT,
 				DEFAULT_MIN_SWAP,
@@ -4190,18 +4194,18 @@ mod admin {
 			assert_ok!(Psm::set_full_admin(
 				RuntimeOrigin::root(),
 				INTERNAL_ASSET_ID,
-				Box::new(signed_origin(ALICE)),
+				Box::new(fixed(signed_origin(ALICE))),
 			));
 
 			assert_eq!(
 				crate::PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap().full_admin,
-				signed_origin(ALICE)
+				fixed(signed_origin(ALICE))
 			);
 			System::assert_has_event(
 				Event::<Test>::FullAdminChanged {
 					internal_asset: INTERNAL_ASSET_ID,
-					old_admin: Box::new(root_origin()),
-					new_admin: Box::new(signed_origin(ALICE)),
+					old_admin: Box::new(fixed(root_origin())),
+					new_admin: Box::new(fixed(signed_origin(ALICE))),
 				}
 				.into(),
 			);
@@ -4233,7 +4237,7 @@ mod admin {
 				Psm::set_full_admin(
 					RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
 					INTERNAL_ASSET_ID,
-					Box::new(signed_origin(BOB)),
+					Box::new(fixed(signed_origin(BOB))),
 				),
 				Error::<Test>::InsufficientPrivilege
 			);
@@ -4242,13 +4246,13 @@ mod admin {
 				Psm::set_full_admin(
 					RuntimeOrigin::signed(BOB),
 					INTERNAL_ASSET_ID,
-					Box::new(signed_origin(BOB)),
+					Box::new(fixed(signed_origin(BOB))),
 				),
 				DispatchError::BadOrigin
 			);
 			assert_eq!(
 				crate::PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap().full_admin,
-				root_origin()
+				fixed(root_origin())
 			);
 		});
 	}
@@ -4259,18 +4263,18 @@ mod admin {
 			assert_ok!(Psm::set_emergency_admin(
 				RuntimeOrigin::root(),
 				INTERNAL_ASSET_ID,
-				Box::new(signed_origin(BOB)),
+				Box::new(fixed(signed_origin(BOB))),
 			));
 
 			assert_eq!(
 				crate::PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap().emergency_admin,
-				signed_origin(BOB)
+				fixed(signed_origin(BOB))
 			);
 			System::assert_has_event(
 				Event::<Test>::EmergencyAdminChanged {
 					internal_asset: INTERNAL_ASSET_ID,
-					old_admin: Box::new(signed_origin(EMERGENCY_ACCOUNT)),
-					new_admin: Box::new(signed_origin(BOB)),
+					old_admin: Box::new(fixed(signed_origin(EMERGENCY_ACCOUNT))),
+					new_admin: Box::new(fixed(signed_origin(BOB))),
 				}
 				.into(),
 			);
@@ -4302,7 +4306,7 @@ mod admin {
 				Psm::set_emergency_admin(
 					RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
 					INTERNAL_ASSET_ID,
-					Box::new(signed_origin(BOB)),
+					Box::new(fixed(signed_origin(BOB))),
 				),
 				Error::<Test>::InsufficientPrivilege
 			);
@@ -4311,13 +4315,13 @@ mod admin {
 				Psm::set_emergency_admin(
 					RuntimeOrigin::signed(BOB),
 					INTERNAL_ASSET_ID,
-					Box::new(signed_origin(BOB)),
+					Box::new(fixed(signed_origin(BOB))),
 				),
 				DispatchError::BadOrigin
 			);
 			assert_eq!(
 				crate::PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap().emergency_admin,
-				signed_origin(EMERGENCY_ACCOUNT)
+				fixed(signed_origin(EMERGENCY_ACCOUNT))
 			);
 		});
 	}
@@ -4330,8 +4334,8 @@ mod admin {
 				Psm::create_psm(
 					RuntimeOrigin::signed(ALICE),
 					NEW_INTERNAL,
-					Box::new(none_origin()),
-					Box::new(signed_origin(ALICE)),
+					Box::new(fixed(none_origin())),
+					Box::new(fixed(signed_origin(ALICE))),
 					INSURANCE_FUND,
 					DEFAULT_MAX_DEBT,
 					DEFAULT_MIN_SWAP,
@@ -4342,8 +4346,8 @@ mod admin {
 				Psm::create_psm(
 					RuntimeOrigin::signed(ALICE),
 					NEW_INTERNAL,
-					Box::new(signed_origin(ALICE)),
-					Box::new(none_origin()),
+					Box::new(fixed(signed_origin(ALICE))),
+					Box::new(fixed(none_origin())),
 					INSURANCE_FUND,
 					DEFAULT_MAX_DEBT,
 					DEFAULT_MIN_SWAP,
@@ -4362,7 +4366,7 @@ mod admin {
 				Psm::set_full_admin(
 					RuntimeOrigin::root(),
 					INTERNAL_ASSET_ID,
-					Box::new(none_origin()),
+					Box::new(fixed(none_origin())),
 				),
 				Error::<Test>::InvalidAdminOrigin
 			);
@@ -4370,13 +4374,13 @@ mod admin {
 				Psm::set_emergency_admin(
 					RuntimeOrigin::root(),
 					INTERNAL_ASSET_ID,
-					Box::new(none_origin()),
+					Box::new(fixed(none_origin())),
 				),
 				Error::<Test>::InvalidAdminOrigin
 			);
 			let admin = crate::PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap();
-			assert_eq!(admin.full_admin, root_origin());
-			assert_eq!(admin.emergency_admin, signed_origin(EMERGENCY_ACCOUNT));
+			assert_eq!(admin.full_admin, fixed(root_origin()));
+			assert_eq!(admin.emergency_admin, fixed(signed_origin(EMERGENCY_ACCOUNT)));
 		});
 	}
 
@@ -4386,8 +4390,8 @@ mod admin {
 			// Bypass the setters to model a `None` admin stored before they rejected it.
 			crate::PsmAdmin::<Test>::mutate(INTERNAL_ASSET_ID, |maybe| {
 				let admin = maybe.as_mut().expect("PSM installed by the mock");
-				admin.full_admin = none_origin();
-				admin.emergency_admin = none_origin();
+				admin.full_admin = fixed(none_origin());
+				admin.emergency_admin = fixed(none_origin());
 			});
 			let fee_before = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
 
@@ -4405,6 +4409,210 @@ mod admin {
 				DispatchError::BadOrigin
 			);
 			assert_eq!(MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID), fee_before);
+		});
+	}
+
+	/// Create a PSM on `NEW_INTERNAL`, owned by ALICE, with the given roles.
+	fn create_owned_psm(full: AdminOrigin<OriginCaller>, emergency: AdminOrigin<OriginCaller>) {
+		assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
+		assert_ok!(Psm::create_psm(
+			RuntimeOrigin::signed(ALICE),
+			NEW_INTERNAL,
+			Box::new(full),
+			Box::new(emergency),
+			INSURANCE_FUND,
+			DEFAULT_MAX_DEBT,
+			DEFAULT_MIN_SWAP,
+		));
+	}
+
+	/// Whether `origin` passes a `Full`-only check on `NEW_INTERNAL`.
+	fn is_full(origin: RuntimeOrigin) -> bool {
+		hypothetically!(Psm::set_max_debt(origin, NEW_INTERNAL, 1).is_ok())
+	}
+
+	#[test]
+	fn asset_owner_role_follows_transfer_ownership() {
+		new_test_ext().execute_with(|| {
+			create_owned_psm(AdminOrigin::AssetOwner, AdminOrigin::AssetOwner);
+			assert!(is_full(RuntimeOrigin::signed(ALICE)));
+
+			assert_ok!(Assets::transfer_ownership(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, BOB));
+			assert_ok!(Assets::set_team(RuntimeOrigin::signed(BOB), NEW_INTERNAL, BOB, BOB, BOB));
+
+			// The previous owner holds no admin role.
+			let alice = || RuntimeOrigin::signed(ALICE);
+			assert_noop!(Psm::set_max_debt(alice(), NEW_INTERNAL, 1), DispatchError::BadOrigin);
+			assert_noop!(
+				Psm::add_external_asset(alice(), NEW_INTERNAL, USDC_ASSET_ID),
+				DispatchError::BadOrigin
+			);
+			assert_noop!(
+				Psm::set_full_admin(alice(), NEW_INTERNAL, Box::new(fixed(signed_origin(ALICE)))),
+				DispatchError::BadOrigin
+			);
+			assert_noop!(Psm::remove_psm(alice(), NEW_INTERNAL), DispatchError::BadOrigin);
+
+			// The stored roles did not change; only their resolution did.
+			let admin = crate::PsmAdmin::<Test>::get(NEW_INTERNAL).unwrap();
+			assert_eq!(admin.full_admin, AdminOrigin::AssetOwner);
+			assert_eq!(admin.emergency_admin, AdminOrigin::AssetOwner);
+
+			// The new owner administers the PSM and can remove it.
+			let bob = || RuntimeOrigin::signed(BOB);
+			assert!(is_full(bob()));
+			assert_ok!(Psm::add_external_asset(bob(), NEW_INTERNAL, USDC_ASSET_ID));
+			assert_ok!(Psm::set_asset_ceiling_weight(
+				bob(),
+				NEW_INTERNAL,
+				USDC_ASSET_ID,
+				Permill::from_percent(100),
+			));
+			assert_ok!(Psm::remove_external_asset(bob(), NEW_INTERNAL, USDC_ASSET_ID));
+			assert_ok!(Psm::remove_psm(bob(), NEW_INTERNAL));
+			assert!(!crate::Psm::<Test>::contains_key(NEW_INTERNAL));
+		});
+	}
+
+	#[test]
+	fn asset_owner_role_follows_force_asset_status_and_reset_team() {
+		use frame_support::traits::fungibles::roles::ResetTeam;
+		new_test_ext().execute_with(|| {
+			create_owned_psm(AdminOrigin::AssetOwner, AdminOrigin::AssetOwner);
+
+			assert_ok!(Assets::force_asset_status(
+				RuntimeOrigin::root(),
+				NEW_INTERNAL,
+				BOB,
+				BOB,
+				BOB,
+				BOB,
+				1,
+				false,
+				false,
+			));
+			assert!(is_full(RuntimeOrigin::signed(BOB)));
+			assert!(!is_full(RuntimeOrigin::signed(ALICE)));
+
+			assert_ok!(<Assets as ResetTeam<AccountId>>::reset_team(
+				NEW_INTERNAL,
+				CHARLIE,
+				CHARLIE,
+				CHARLIE,
+				CHARLIE,
+			));
+			assert!(is_full(RuntimeOrigin::signed(CHARLIE)));
+			assert!(!is_full(RuntimeOrigin::signed(BOB)));
+		});
+	}
+
+	#[test]
+	fn fixed_origin_of_owner_stays_after_transfer() {
+		new_test_ext().execute_with(|| {
+			create_owned_psm(fixed(signed_origin(ALICE)), AdminOrigin::AssetOwner);
+
+			assert_ok!(Assets::transfer_ownership(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, BOB));
+
+			// ALICE keeps the full role; BOB, the new owner, gets only the emergency role.
+			assert!(is_full(RuntimeOrigin::signed(ALICE)));
+			assert_noop!(
+				Psm::set_max_debt(RuntimeOrigin::signed(BOB), NEW_INTERNAL, 1),
+				Error::<Test>::InsufficientPrivilege
+			);
+		});
+	}
+
+	#[test]
+	fn asset_owner_role_has_no_holder_without_an_owner() {
+		new_test_ext().execute_with(|| {
+			create_owned_psm(AdminOrigin::AssetOwner, fixed(root_origin()));
+
+			assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(ALICE), NEW_INTERNAL));
+			assert_ok!(Assets::destroy_accounts(RuntimeOrigin::signed(ALICE), NEW_INTERNAL));
+			assert_ok!(Assets::destroy_approvals(RuntimeOrigin::signed(ALICE), NEW_INTERNAL));
+			assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(ALICE), NEW_INTERNAL));
+
+			assert!(!is_full(RuntimeOrigin::signed(ALICE)));
+			// The fixed emergency role still works.
+			assert_noop!(
+				Psm::set_max_debt(RuntimeOrigin::root(), NEW_INTERNAL, 1),
+				Error::<Test>::InsufficientPrivilege
+			);
+
+			// Whoever recreates the asset id owns it and holds the role.
+			assert_ok!(Assets::create(RuntimeOrigin::signed(CHARLIE), NEW_INTERNAL, CHARLIE, 1));
+			assert!(is_full(RuntimeOrigin::signed(CHARLIE)));
+		});
+	}
+
+	#[test]
+	fn asset_owner_role_matches_only_signed_origins() {
+		new_test_ext().execute_with(|| {
+			create_owned_psm(AdminOrigin::AssetOwner, AdminOrigin::AssetOwner);
+			assert_noop!(
+				Psm::set_max_debt(RuntimeOrigin::root(), NEW_INTERNAL, 1),
+				DispatchError::BadOrigin
+			);
+			assert_noop!(
+				Psm::set_max_debt(RuntimeOrigin::none(), NEW_INTERNAL, 1),
+				DispatchError::BadOrigin
+			);
+			assert_noop!(
+				Psm::set_max_debt(RuntimeOrigin::signed(BOB), NEW_INTERNAL, 1),
+				DispatchError::BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn asset_owner_emergency_role_grants_emergency_level() {
+		new_test_ext().execute_with(|| {
+			create_owned_psm(fixed(root_origin()), AdminOrigin::AssetOwner);
+			assert_ok!(Psm::add_external_asset(RuntimeOrigin::root(), NEW_INTERNAL, USDC_ASSET_ID));
+
+			assert_ok!(Psm::set_asset_status(
+				RuntimeOrigin::signed(ALICE),
+				NEW_INTERNAL,
+				USDC_ASSET_ID,
+				CircuitBreakerLevel::MintingDisabled,
+			));
+			assert_noop!(
+				Psm::set_max_debt(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, 1),
+				Error::<Test>::InsufficientPrivilege
+			);
+		});
+	}
+
+	#[test]
+	fn set_admin_to_asset_owner_emits_events() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Psm::set_full_admin(
+				RuntimeOrigin::root(),
+				INTERNAL_ASSET_ID,
+				Box::new(AdminOrigin::AssetOwner),
+			));
+			System::assert_has_event(
+				Event::<Test>::FullAdminChanged {
+					internal_asset: INTERNAL_ASSET_ID,
+					old_admin: Box::new(fixed(root_origin())),
+					new_admin: Box::new(AdminOrigin::AssetOwner),
+				}
+				.into(),
+			);
+			// ALICE owns the mock's internal asset, so she now holds the full role.
+			assert_ok!(Psm::set_emergency_admin(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				Box::new(AdminOrigin::AssetOwner),
+			));
+			System::assert_has_event(
+				Event::<Test>::EmergencyAdminChanged {
+					internal_asset: INTERNAL_ASSET_ID,
+					old_admin: Box::new(fixed(signed_origin(EMERGENCY_ACCOUNT))),
+					new_admin: Box::new(AdminOrigin::AssetOwner),
+				}
+				.into(),
+			);
 		});
 	}
 }
@@ -4886,6 +5094,136 @@ mod generated_tests {
 				debt_before > debt_after,
 				"redeem must reduce debt; before={debt_before} after={debt_after}"
 			);
+		});
+	}
+}
+
+/// The storage version 0 to 1 migration of the admin roles.
+mod migration {
+	use super::*;
+	use crate::{
+		migrations::v1::{v0, MigrateV0ToV1},
+		PsmAdmin,
+	};
+	use frame_support::traits::{GetStorageVersion, OnRuntimeUpgrade, StorageVersion};
+
+	/// A second internal asset id, next to the mock's internal asset owned by ALICE.
+	const OTHER_ASSET: u32 = 60;
+
+	fn signed(who: AccountId) -> OriginCaller {
+		frame_system::RawOrigin::<AccountId>::Signed(who).into()
+	}
+
+	fn root() -> OriginCaller {
+		frame_system::RawOrigin::<AccountId>::Root.into()
+	}
+
+	/// Replace the admin records with storage version 0 entries and return the mock PSM's
+	/// creation deposit.
+	fn install_v0_state() -> Option<(AccountId, <Test as crate::Config>::Consideration)> {
+		let deposit = PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).expect("mock PSM").deposit;
+		v0::PsmAdmin::<Test>::insert(
+			INTERNAL_ASSET_ID,
+			v0::PsmAdminInfo {
+				full_admin: signed(ALICE),
+				emergency_admin: root(),
+				deposit: deposit.clone(),
+			},
+		);
+		v0::PsmAdmin::<Test>::insert(
+			OTHER_ASSET,
+			v0::PsmAdminInfo { full_admin: root(), emergency_admin: signed(BOB), deposit: None },
+		);
+		StorageVersion::new(0).put::<crate::Pallet<Test>>();
+		deposit
+	}
+
+	#[test]
+	fn migrates_every_role_to_a_fixed_origin() {
+		new_test_ext().execute_with(|| {
+			let deposit = install_v0_state();
+
+			let weight = MigrateV0ToV1::<Test>::on_runtime_upgrade();
+
+			assert_eq!(crate::Pallet::<Test>::on_chain_storage_version(), 1);
+			let db = <Test as frame_system::Config>::DbWeight::get();
+			// Two entries; plus the storage version read and write.
+			assert_eq!(weight, db.reads_writes(2 + 1, 2) + db.reads_writes(1, 1));
+
+			let first = PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap();
+			assert_eq!(first.full_admin, AdminOrigin::Origin(signed(ALICE)));
+			assert_eq!(first.emergency_admin, AdminOrigin::Origin(root()));
+			assert_eq!(first.deposit, deposit);
+
+			let other = PsmAdmin::<Test>::get(OTHER_ASSET).unwrap();
+			assert_eq!(other.full_admin, AdminOrigin::Origin(root()));
+			assert_eq!(other.emergency_admin, AdminOrigin::Origin(signed(BOB)));
+			assert_eq!(other.deposit, None);
+
+			// A fixed origin stays with its holder when the internal asset changes owner.
+			assert_ok!(Assets::transfer_ownership(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				CHARLIE
+			));
+			assert_ok!(Psm::set_max_debt(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID, 1));
+			assert_noop!(
+				Psm::set_max_debt(RuntimeOrigin::signed(CHARLIE), INTERNAL_ASSET_ID, 1),
+				DispatchError::BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn migration_does_nothing_at_storage_version_1() {
+		new_test_ext().execute_with(|| {
+			StorageVersion::new(1).put::<crate::Pallet<Test>>();
+			let before = PsmAdmin::<Test>::get(INTERNAL_ASSET_ID);
+
+			let weight = MigrateV0ToV1::<Test>::on_runtime_upgrade();
+
+			let db = <Test as frame_system::Config>::DbWeight::get();
+			assert_eq!(weight, db.reads(1));
+			assert_eq!(PsmAdmin::<Test>::get(INTERNAL_ASSET_ID), before);
+		});
+	}
+
+	#[cfg(feature = "try-runtime")]
+	#[test]
+	fn try_runtime_checks_pass() {
+		new_test_ext().execute_with(|| {
+			install_v0_state();
+			assert_ok!(MigrateV0ToV1::<Test>::try_on_runtime_upgrade(true));
+			assert_eq!(crate::Pallet::<Test>::on_chain_storage_version(), 1);
+		});
+	}
+
+	#[cfg(feature = "try-runtime")]
+	#[test]
+	fn post_upgrade_rejects_a_changed_entry() {
+		use crate::migrations::v1::InnerMigrateV0ToV1;
+		use frame_support::traits::UncheckedOnRuntimeUpgrade;
+
+		// A role must stay `Origin` of its value before the upgrade.
+		new_test_ext().execute_with(|| {
+			install_v0_state();
+			let state = InnerMigrateV0ToV1::<Test>::pre_upgrade().unwrap();
+			InnerMigrateV0ToV1::<Test>::on_runtime_upgrade();
+			PsmAdmin::<Test>::mutate(INTERNAL_ASSET_ID, |admin| {
+				admin.as_mut().unwrap().full_admin = AdminOrigin::AssetOwner;
+			});
+			assert!(InnerMigrateV0ToV1::<Test>::post_upgrade(state).is_err());
+		});
+
+		// The deposit must be unchanged.
+		new_test_ext().execute_with(|| {
+			install_v0_state();
+			let state = InnerMigrateV0ToV1::<Test>::pre_upgrade().unwrap();
+			InnerMigrateV0ToV1::<Test>::on_runtime_upgrade();
+			PsmAdmin::<Test>::mutate(INTERNAL_ASSET_ID, |admin| {
+				admin.as_mut().unwrap().deposit = None;
+			});
+			assert!(InnerMigrateV0ToV1::<Test>::post_upgrade(state).is_err());
 		});
 	}
 }
