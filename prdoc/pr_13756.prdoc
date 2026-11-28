@@ -1,0 +1,53 @@
+title: Keep a refunded asset account frozen or blocked
+
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    `pallet_assets::refund` removed the asset account even when it was frozen or blocked, so the
+    holder could burn their balance, drop the `Frozen` or `Blocked` status together with the
+    entry and receive the asset again afterwards, free to move it. Refunding a frozen or blocked
+    account now burns the balance and returns the deposit or consumer reference as before, but
+    keeps a zero-balance entry that stays frozen or blocked until the admin thaws it, which
+    removes the entry. A holder can therefore still free a consumer reference forced on them by
+    an asset owner, but can no longer lift a freeze or block placed after this change. Such an
+    entry has the new `ExistenceReason::Tombstone` and cannot receive the asset, whatever its
+    status. It still counts in `AssetDetails::accounts`, so the owner cannot raise the minimum
+    balance while it exists, and `thaw` fails with `ContainsHolds` or `ContainsFreezes` while it
+    has a hold or freeze.
+
+    To back this entry with a deposit, `freeze` and `block` now reserve `AssetAccountDeposit`
+    from the freezer when the account's holder can refund it, that is when it exists through a
+    consumer reference or its own deposit. The deposit is recorded in the new `FreezerDeposits`
+    storage item and returned to the account that placed it when the account is thawed or
+    destroyed together with the asset. Freezing or blocking an account that already has a
+    freezer deposit takes no further deposit, and the freezer must hold enough free balance for
+    it. Accounts that exist as `Sufficient` or through a deposit someone else placed cannot be
+    refunded while frozen or blocked and take no freezer deposit.
+
+    Only an account with a freezer deposit is kept on refund, so every kept entry is paid for.
+    Accounts frozen or blocked before this change hold no freezer deposit: refunding one still
+    removes it, as before, until its freezer freezes or blocks it again. To protect such an
+    account, the freezer must repeat the call that gave it its status: `freeze` for a frozen
+    account and `block` for a blocked one, since `freeze` would lift the block. Each call
+    reserves `AssetAccountDeposit`. No migration is needed: `FreezerDeposits` starts empty and
+    `Tombstone` is a new variant.
+
+    `WeightInfo` gains `destroy_blocked_accounts`, which prices `destroy_accounts` for accounts
+    that return a freezer deposit. The `destroy_accounts` call charges it for frozen and blocked
+    accounts and `WeightInfo::destroy_accounts` for the others. Its pre-dispatch weight is
+    the larger of the two for `RemoveItemsLimit` accounts, which is more than before for every
+    asset. Runtimes must check that it still fits their block limits and lower
+    `RemoveItemsLimit` if it does not. Penpal lowers its limit from 1000 to 500 for that
+    reason.
+
+crates:
+- name: pallet-assets
+  bump: major
+- name: pallet-assets-precompiles
+  bump: none
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: penpal-runtime
+  bump: patch

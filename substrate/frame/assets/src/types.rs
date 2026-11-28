@@ -112,6 +112,15 @@ pub enum ExistenceReason<Balance, AccountId> {
 	/// An account with such a reason might not be referenced in `system`.
 	#[codec(index = 4)]
 	DepositFrom(AccountId, Balance),
+	/// The account holder refunded the account while it was frozen or blocked. It is kept only to
+	/// stay frozen or blocked until thawed:
+	/// - it is always `Frozen` or `Blocked` and holds a zero balance;
+	/// - it cannot receive the asset, whatever its status;
+	/// - it holds no consumer reference and no deposit of its holder;
+	/// - its entry is paid for by the freezer's deposit in `FreezerDeposits`;
+	/// - it is removed only by `thaw` or by destroying the asset, which also return that deposit.
+	#[codec(index = 5)]
+	Tombstone,
 }
 
 impl<Balance, AccountId> ExistenceReason<Balance, AccountId>
@@ -156,7 +165,8 @@ fn ensure_bool_decodes_to_liquid_or_frozen() {
 pub enum AccountStatus {
 	/// Asset account can receive and transfer the assets.
 	Liquid,
-	/// Asset account cannot transfer the assets.
+	/// Asset account cannot transfer the assets. It cannot receive them either if it is a
+	/// [`ExistenceReason::Tombstone`].
 	Frozen,
 	/// Asset account cannot receive and transfer the assets.
 	Blocked,
@@ -185,6 +195,20 @@ pub struct AssetAccount<Balance, DepositBalance, Extra, AccountId> {
 	pub reason: ExistenceReason<DepositBalance, AccountId>,
 	/// Additional "sidecar" data, in case some other pallet wants to use this storage item.
 	pub extra: Extra,
+}
+
+impl<Balance, DepositBalance, Extra, AccountId>
+	AssetAccount<Balance, DepositBalance, Extra, AccountId>
+{
+	/// Returns `true` if the account was left behind by refunding it while frozen or blocked.
+	pub fn is_tombstone(&self) -> bool {
+		matches!(self.reason, ExistenceReason::Tombstone)
+	}
+
+	/// Returns `true` if the account's holder can `refund` it.
+	pub fn is_refundable_by_holder(&self) -> bool {
+		matches!(self.reason, ExistenceReason::Consumer | ExistenceReason::DepositHeld(_))
+	}
 }
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, Default, Debug, MaxEncodedLen, TypeInfo)]
