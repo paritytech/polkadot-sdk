@@ -1967,6 +1967,14 @@ pub type Migrations = (
 		Runtime,
 		TrappedBalanceMember,
 	>,
+	// unreleased
+	// Moves back from free to reserved what the holds of a few accounts claim beyond their
+	// reserved balance. Only runs when upgrading from spec version 1_025_005 or earlier.
+	pallet_balances::migration::RebackReserved<
+		Runtime,
+		migrations::UnderBackedAccounts,
+		migrations::RebackReservedUntilSpecVersion,
+	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,

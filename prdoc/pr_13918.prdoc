@@ -1,0 +1,13 @@
+title: 'Recover under-backed reserves on Asset Hub Westend'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Follow-up to #13717. `pallet-balances` adds `Pallet::reserved_shortfall`, a `try_state` check
+    for accounts whose holds and named reserves exceed their reserved balance, and the
+    `migration::RebackReserved` migration, which moves the shortfall of the listed accounts from
+    free to reserved. Asset Hub Westend runs it once for the four affected accounts.
+crates:
+- name: pallet-balances
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
