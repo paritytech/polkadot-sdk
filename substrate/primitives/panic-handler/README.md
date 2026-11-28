@@ -5,6 +5,6 @@ sets up a panic hook that prints a backtrace and invites the user to open an iss
 given URL.
 
 By default, the panic handler aborts the process by calling [`std::process::exit`]. This can
-temporarily be disabled by using an [`AbortGuard`].
+temporarily be disabled by using an [`AbortGuard`] or [`abort_on_unwind`].
 
 License: Apache-2.0

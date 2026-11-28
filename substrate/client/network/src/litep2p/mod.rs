@@ -37,6 +37,7 @@ use crate::{
 			},
 			request_response::{RequestResponseConfig, RequestResponseProtocol},
 		},
+		unwind::UnwindScope,
 	},
 	peer_store::PeerStoreProvider,
 	service::{
@@ -98,6 +99,7 @@ mod ipfs_dht;
 mod peerstore;
 mod service;
 mod shim;
+mod unwind;
 
 /// Litep2p bandwidth sink.
 struct Litep2pBandwidthSink {
@@ -122,11 +124,11 @@ struct Litep2pExecutor {
 
 impl Executor for Litep2pExecutor {
 	fn run(&self, future: Pin<Box<dyn Future<Output = ()> + Send>>) {
-		(self.executor)(future)
+		(self.executor)(Box::pin(UnwindScope(future)))
 	}
 
 	fn run_with_name(&self, _: &'static str, future: Pin<Box<dyn Future<Output = ()> + Send>>) {
-		(self.executor)(future)
+		(self.executor)(Box::pin(UnwindScope(future)))
 	}
 }
 
@@ -1212,7 +1214,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 					}
 				},
-				event = self.litep2p.next_event() => match event {
+				event = UnwindScope(self.litep2p.next_event()) => match event {
 					Some(Litep2pEvent::ConnectionEstablished { peer, endpoint }) => {
 						let direction = match endpoint {
 							Endpoint::Dialer { .. } => "out",

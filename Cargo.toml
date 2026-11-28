@@ -1593,3 +1593,7 @@ twox-hash = { opt-level = 3 }
 wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+# TEMPORARY: litep2p with `str0m` panic containment, remove before merging.
+[patch.crates-io]
+litep2p = { git = "https://github.com/paritytech/litep2p.git", branch = "dm-contain-str0m" }
