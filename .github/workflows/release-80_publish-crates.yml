@@ -182,7 +182,8 @@ jobs:
       - name: Install parity-publish
         run: |
           sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
-          cargo install parity-publish@0.10.17 --locked -q
+          # parity-publish master: 0.10.18 and paritytech/parity-publish#96, which is not released.
+          cargo install --git https://github.com/paritytech/parity-publish --rev 2992ea32bae9194ae786702c62fd613b310cb4b0 --locked -q parity-publish
 
       - name: Run parity-publish plan
         if: inputs.resume_from == 'full'
