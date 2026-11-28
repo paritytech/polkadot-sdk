@@ -325,19 +325,18 @@ fn call_with_flags(
 	Vesting::<Test>::call(&Vesting::<Test>::MATCHER.base_address(), input, &mut ext)
 }
 
-fn assert_guard(
-	case: &GuardTestCase,
-	read_only: bool,
-	delegate: bool,
-	should_reject: bool,
-	expected_error: sp_runtime::DispatchError,
-) {
-	let context = if read_only { "read-only" } else { "delegate call" };
+fn assert_guard(case: &GuardTestCase, read_only: bool, delegate: bool, should_reject: bool) {
+	let context = if delegate { "delegate call" } else { "read-only" };
 	let result = call_with_flags(&case.input, read_only, delegate);
 	if should_reject {
+		let expected = if delegate {
+			pallet_revive::precompiles::DELEGATE_CALL_DENIED
+		} else {
+			pallet_revive::precompiles::STATIC_CALL_DENIED
+		};
 		match result {
-			Err(pallet_revive::precompiles::Error::Error(err)) => {
-				assert_eq!(err.error, expected_error, "{}: wrong error in {context}", case.name);
+			Err(pallet_revive::precompiles::Error::Revert(revert)) => {
+				assert_eq!(revert.reason, expected, "{}: wrong reason in {context}", case.name);
 			},
 			Err(other) => panic!("{}: unexpected error type in {context}: {other:?}", case.name),
 			Ok(_) => panic!("{}: should be rejected in {context}", case.name),
@@ -350,9 +349,8 @@ fn assert_guard(
 #[test]
 fn read_only_guards() {
 	new_test_ext().execute_with(|| {
-		let error = pallet_revive::Error::<Test>::StateChangeDenied.into();
 		for case in guard_test_cases() {
-			assert_guard(&case, true, false, case.reject_read_only, error);
+			assert_guard(&case, true, false, case.reject_read_only);
 		}
 	});
 }
@@ -360,9 +358,61 @@ fn read_only_guards() {
 #[test]
 fn delegate_call_guards() {
 	new_test_ext().execute_with(|| {
-		let error = pallet_revive::Error::<Test>::PrecompileDelegateDenied.into();
 		for case in guard_test_cases() {
-			assert_guard(&case, false, true, case.reject_delegate, error);
+			assert_guard(&case, false, true, case.reject_delegate);
 		}
+	});
+}
+
+#[test]
+fn delegate_reason_wins_over_read_only() {
+	new_test_ext().execute_with(|| {
+		for case in guard_test_cases().into_iter().filter(|c| c.reject_delegate) {
+			match call_with_flags(&case.input, true, true) {
+				Err(pallet_revive::precompiles::Error::Revert(revert)) => assert_eq!(
+					revert.reason,
+					pallet_revive::precompiles::DELEGATE_CALL_DENIED,
+					"{}",
+					case.name,
+				),
+				other => panic!("{}: expected delegate-call revert, got {other:?}", case.name),
+			}
+		}
+	});
+}
+
+#[test]
+fn root_caller_reverts_with_reason() {
+	new_test_ext().execute_with(|| {
+		let mut call_setup = pallet_revive::call_builder::CallSetup::<Test>::default();
+		call_setup.set_origin(pallet_revive::ExecOrigin::Root);
+		let (mut ext, _) = call_setup.ext();
+
+		for input in [
+			IVesting::IVestingCalls::vest(IVesting::vestCall {}),
+			IVesting::IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {}),
+		] {
+			let result =
+				Vesting::<Test>::call(&Vesting::<Test>::MATCHER.base_address(), &input, &mut ext);
+			assert_eq!(
+				result,
+				Err(pallet_revive::precompiles::Error::Revert("root origin is not allowed".into())),
+			);
+		}
+	});
+}
+
+#[test]
+fn vest_without_schedule_reverts_with_reason() {
+	new_test_ext().execute_with(|| {
+		let locked: VestingBalance<Test> = 10_000;
+		CurrencyOf::<Test>::make_free_balance_be(&ALICE, locked * 10);
+
+		let input = IVesting::IVestingCalls::vest(IVesting::vestCall {});
+		let result = bare_call(&input).build_and_unwrap_result();
+		assert_eq!(
+			pallet_revive::evm::decode_revert_reason(&result.data).as_deref(),
+			Some("revert: vest failed: Account is not vesting"),
+		);
 	});
 }

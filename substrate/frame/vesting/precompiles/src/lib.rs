@@ -21,15 +21,19 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
+use codec::Decode;
 use core::{marker::PhantomData, num::NonZero};
-use frame_support::traits::{Get, LockableCurrency, VestingSchedule};
+use frame_support::traits::{Get, LockableCurrency, PalletInfoAccess, VestingSchedule};
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_revive::{
 	Config,
-	precompiles::{AddressMatcher, Error, Ext, H160, Precompile, RuntimeCosts, U256},
+	precompiles::{
+		AddressMatcher, Error, Ext, H160, Precompile, RuntimeCosts, U256, ensure_not_delegate_call,
+		ensure_not_read_only,
+	},
 };
 use pallet_vesting::{VestingInfo, WeightInfo as _};
-use sp_runtime::traits::StaticLookup;
+use sp_runtime::{DispatchError, traits::StaticLookup};
 
 alloy_core::sol!("IVesting.sol");
 
@@ -47,25 +51,54 @@ pub mod mock;
 mod tests;
 
 fn ensure_mutable<T: Config>(env: &impl Ext<T = T>) -> Result<(), Error> {
-	if env.is_read_only() {
-		return Err(pallet_revive::Error::<T>::StateChangeDenied.into());
-	}
-	if env.is_delegate_call() {
-		return Err(pallet_revive::Error::<T>::PrecompileDelegateDenied.into());
-	}
-	Ok(())
+	ensure_not_delegate_call::<T>(env)?;
+	ensure_not_read_only::<T>(env)
 }
 
-fn caller_account_id<T: Config>(
-	env: &impl Ext<T = T>,
-	context: &str,
-) -> Result<T::AccountId, Error> {
-	env.caller()
-		.account_id()
-		.map_err(|e| {
-			Error::Revert(alloc::format!("{context}: caller has no account id: {e:?}").into())
-		})
-		.cloned()
+fn caller_account_id<T: Config>(env: &impl Ext<T = T>) -> Result<T::AccountId, Error> {
+	env.caller().account_id().map_err(Error::try_to_revert::<T>).cloned()
+}
+
+const ERR_UNEXPECTED: &str = "unexpected error";
+
+/// Every pallet failure of a state-changing call is a Solidity revert.
+fn vesting_failure<T: pallet_vesting::Config>(prefix: &str, e: DispatchError) -> Error {
+	Error::Revert(alloc::format!("{prefix}: {}", vesting_dispatch_reason::<T>(e)).into())
+}
+
+fn vesting_dispatch_reason<T: pallet_vesting::Config>(e: DispatchError) -> alloc::string::String {
+	match e {
+		DispatchError::Token(token) => <&'static str>::from(token).into(),
+		DispatchError::Arithmetic(arith) => <&'static str>::from(arith).into(),
+		DispatchError::Other(msg) => msg.into(),
+		DispatchError::Module(module) => match decode_vesting_error::<T>(e) {
+			Some(err) => vesting_pallet_reason(err).into(),
+			None => module.message.unwrap_or(ERR_UNEXPECTED).into(),
+		},
+		_ => ERR_UNEXPECTED.into(),
+	}
+}
+
+fn decode_vesting_error<T: pallet_vesting::Config>(
+	e: DispatchError,
+) -> Option<pallet_vesting::Error<T>> {
+	let DispatchError::Module(module) = e else { return None };
+	let index = <pallet_vesting::Pallet<T> as PalletInfoAccess>::index() as u8;
+	if module.index != index {
+		return None;
+	}
+	pallet_vesting::Error::<T>::decode(&mut &module.error[..]).ok()
+}
+
+fn vesting_pallet_reason<T>(err: pallet_vesting::Error<T>) -> &'static str {
+	use pallet_vesting::Error::*;
+	match err {
+		NotVesting => "Account is not vesting",
+		AtMaxVestingSchedules => "Maximum vesting schedules reached",
+		AmountLow => "Amount too low to create a vesting schedule",
+		ScheduleIndexOutOfBounds => "Vesting schedule index out of bounds",
+		InvalidScheduleParams => "Invalid vesting schedule parameters",
+	}
 }
 
 /// Minimal pallet providing a `Pallet<T>` type for the FRAME benchmarking machinery.
@@ -133,10 +166,10 @@ where
 
 				ensure_mutable::<T>(env)?;
 
-				let account_id = caller_account_id(env, "vest")?;
+				let account_id = caller_account_id(env)?;
 				let origin = frame_system::RawOrigin::Signed(account_id).into();
 				pallet_vesting::Pallet::<T>::vest(origin)
-					.map_err(|e| Error::Revert(alloc::format!("vest failed: {:?}", e).into()))?;
+					.map_err(|e| vesting_failure::<T>("vest failed", e))?;
 				Ok(Vec::new())
 			},
 			IVestingCalls::vestOther(IVesting::vestOtherCall { target }) => {
@@ -156,14 +189,13 @@ where
 
 				ensure_mutable::<T>(env)?;
 
-				let caller_account = caller_account_id(env, "vestOther")?;
+				let caller_account = caller_account_id(env)?;
 				let target_account = env.to_account_id(&H160::from_slice(target.as_slice()));
 				let target_lookup = T::Lookup::unlookup(target_account);
 
 				let origin = frame_system::RawOrigin::Signed(caller_account).into();
-				pallet_vesting::Pallet::<T>::vest_other(origin, target_lookup).map_err(|e| {
-					Error::Revert(alloc::format!("vestOther failed: {:?}", e).into())
-				})?;
+				pallet_vesting::Pallet::<T>::vest_other(origin, target_lookup)
+					.map_err(|e| vesting_failure::<T>("vestOther failed", e))?;
 				Ok(Vec::new())
 			},
 			IVestingCalls::vestedTransfer(IVesting::vestedTransferCall {
@@ -184,7 +216,7 @@ where
 
 				ensure_mutable::<T>(env)?;
 
-				let caller_account = caller_account_id(env, "vestedTransfer")?;
+				let caller_account = caller_account_id(env)?;
 				let target_account = env.to_account_id(&H160::from_slice(target.as_slice()));
 				let target_lookup = T::Lookup::unlookup(target_account);
 
@@ -210,9 +242,7 @@ where
 				let schedule = VestingInfo::new(locked, per_block, starting_block);
 				let origin = frame_system::RawOrigin::Signed(caller_account).into();
 				pallet_vesting::Pallet::<T>::vested_transfer(origin, target_lookup, schedule)
-					.map_err(|e| {
-						Error::Revert(alloc::format!("vestedTransfer failed: {:?}", e).into())
-					})?;
+					.map_err(|e| vesting_failure::<T>("vestedTransfer failed", e))?;
 				Ok(Vec::new())
 			},
 			// View function to query the currently locked (unvested) balance for the caller.
@@ -224,7 +254,7 @@ where
 					<<T as pallet::Config>::WeightInfo as weights::WeightInfo>::vesting_balance(),
 				))?;
 
-				let account_id = caller_account_id(env, "vestingBalance")?;
+				let account_id = caller_account_id(env)?;
 
 				let maybe_locked =
 					<pallet_vesting::Pallet<T> as VestingSchedule<T::AccountId>>::vesting_balance(

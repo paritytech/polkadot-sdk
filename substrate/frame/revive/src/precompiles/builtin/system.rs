@@ -18,7 +18,7 @@
 use crate::{
 	Config, H160,
 	address::AddressMapper,
-	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
+	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext, ensure_not_read_only},
 	vm::RuntimeCosts,
 };
 use alloc::vec::Vec;
@@ -27,6 +27,9 @@ use codec::Encode;
 use core::{marker::PhantomData, num::NonZero};
 use pallet_revive_uapi::precompiles::system::ISystem;
 use sp_core::hexdisplay::AsBytesRef;
+
+/// Reason returned when `terminate` is called with no contract frame to destroy.
+const NO_CONTRACT_TO_TERMINATE: &str = "no contract to terminate";
 
 pub struct System<T>(PhantomData<T>);
 
@@ -43,10 +46,10 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		use ISystem::ISystemCalls;
+		if matches!(input, ISystemCalls::terminate(_)) {
+			ensure_not_read_only::<T>(env)?;
+		}
 		match input {
-			ISystemCalls::terminate(_) if env.is_read_only() => {
-				Err(crate::Error::<T>::StateChangeDenied.into())
-			},
 			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
 				env.frame_meter_mut()
 					.charge_weight_token(RuntimeCosts::HashBlake256(input.len() as u32))?;
@@ -82,7 +85,9 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 			ISystemCalls::ownCodeHash(ISystem::ownCodeHashCall {}) => {
 				env.frame_meter_mut().charge_weight_token(RuntimeCosts::OwnCodeHash)?;
 				let caller = env.caller();
-				let addr = T::AddressMapper::to_address(caller.account_id()?);
+				let addr = T::AddressMapper::to_address(
+					caller.account_id().map_err(Error::try_to_revert::<T>)?,
+				);
 				let output = env.code_hash(&addr.into()).0.abi_encode();
 				Ok(output)
 			},
@@ -103,7 +108,15 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				env.frame_meter_mut()
 					.charge_weight_token(RuntimeCosts::Terminate { code_removed: true })?;
 				let h160 = H160::from_slice(beneficiary.as_slice());
-				env.terminate_caller(&h160).map_err(Error::try_to_revert::<T>)?;
+				env.terminate_caller(&h160).map_err(|e| {
+					// `terminate_caller` returns this when no contract called the precompile, for
+					// example an account calling it directly.
+					if e == crate::Error::<T>::ContractNotFound.into() {
+						Error::Revert(NO_CONTRACT_TO_TERMINATE.into())
+					} else {
+						Error::try_to_revert::<T>(e)
+					}
+				})?;
 				Ok(Vec::new())
 			},
 			ISystemCalls::sr25519Verify(ISystem::sr25519VerifyCall {
@@ -147,6 +160,7 @@ mod tests {
 	use alloy_core::primitives::FixedBytes;
 	use codec::Decode;
 	use frame_support::traits::fungible::Mutate;
+	use sp_runtime::{DispatchError, TokenError};
 
 	#[test]
 	fn test_system_precompile() {
@@ -305,6 +319,78 @@ mod tests {
 				Token::<Test>::weight(&RuntimeCosts::EcdsaToEthAddress),
 				"ecdsa_to_eth_address should charge the expected weight"
 			);
+		});
+	}
+
+	#[test]
+	fn own_code_hash_root_reverts() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			call_setup.set_origin(crate::ExecOrigin::Root);
+			let (mut ext, _) = call_setup.ext();
+
+			let input = ISystem::ISystemCalls::ownCodeHash(ISystem::ownCodeHashCall {});
+			let result =
+				<System<Test>>::call(&<System<Test>>::MATCHER.base_address(), &input, &mut ext);
+			assert_eq!(result, Err(Error::Revert("root origin is not allowed".into())));
+		});
+	}
+
+	#[test]
+	fn ecdsa_to_eth_address_invalid_key_reverts() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let input = ISystem::ISystemCalls::ecdsaToEthAddress(ISystem::ecdsaToEthAddressCall {
+				publicKey: [0u8; 33],
+			});
+			let result =
+				<System<Test>>::call(&<System<Test>>::MATCHER.base_address(), &input, &mut ext);
+			assert_eq!(result, Err(Error::Revert("invalid compressed public key".into())));
+		});
+	}
+
+	#[test]
+	fn terminate_without_contract_reverts() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let input = ISystem::ISystemCalls::terminate(ISystem::terminateCall {
+				beneficiary: [0u8; 20].into(),
+			});
+			let result =
+				<System<Test>>::call(&<System<Test>>::MATCHER.base_address(), &input, &mut ext);
+			assert_eq!(result, Err(Error::Revert("no contract to terminate".into())));
+		});
+	}
+
+	#[test]
+	fn token_error_reverts_with_token_reason() {
+		// `terminate_caller` returns these from the balance transfer. `try_to_revert` is the
+		// mapping that call uses.
+		let frozen = Error::try_to_revert::<Test>(DispatchError::Token(TokenError::Frozen));
+		assert_eq!(frozen, Error::Revert("Funds exist but are frozen".into()));
+
+		let unavailable =
+			Error::try_to_revert::<Test>(DispatchError::Token(TokenError::FundsUnavailable));
+		assert_eq!(unavailable, Error::Revert("Funds are unavailable".into()));
+	}
+
+	#[test]
+	fn terminate_read_only_reverts() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			call_setup.set_read_only(true);
+			let (mut ext, _) = call_setup.ext();
+
+			let input = ISystem::ISystemCalls::terminate(ISystem::terminateCall {
+				beneficiary: [0u8; 20].into(),
+			});
+			let result =
+				<System<Test>>::call(&<System<Test>>::MATCHER.base_address(), &input, &mut ext);
+			assert_eq!(result, Err(Error::Revert(crate::precompiles::STATIC_CALL_DENIED.into(),)),);
 		});
 	}
 }
