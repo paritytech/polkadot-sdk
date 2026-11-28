@@ -1,0 +1,43 @@
+title: Bump trie-db to 0.33.0 and hash-db to 0.17.0
+doc:
+- audience: [Node Operator, Runtime Dev]
+  description: |
+    trie-db 0.33.0 fixes removing a key that is not in the trie but is a strict prefix of a stored
+    key (paritytech/trie#249). trie-db 0.32.0 panicked or deleted the stored key's value; now the
+    removal does nothing. A bug-free runtime cannot do this (FRAME storage never removes such a
+    key), only a removal of raw keys like system.kill_storage by root. Still, it changes the
+    storage root of such a block.
+
+    Sync the chain from genesis with the new node before upgrading; all system chains do.
+
+    Also: hash-db HashDB and PlainDB no longer require Send + Sync (paritytech/trie#214), and
+    TrieDBMut writes the root only in commit (paritytech/trie#250).
+crates:
+- name: sp-trie
+  bump: major
+- name: sp-core
+  bump: major
+- name: sp-api
+  bump: major
+- name: sp-state-machine
+  bump: major
+- name: sp-runtime
+  bump: major
+- name: sc-client-api
+  bump: major
+- name: binary-merkle-tree
+  bump: major
+- name: bp-runtime
+  bump: major
+- name: sc-client-db
+  bump: minor
+- name: cumulus-pallet-parachain-system
+  bump: minor
+- name: substrate-state-trie-migration-rpc
+  bump: minor
+- name: sp-crypto-hashing
+  bump: none
+- name: frame-system
+  bump: none
+- name: cumulus-aura-authorizer-utils
+  bump: minor

@@ -776,7 +776,7 @@ const-hex = { version = "1.10.0", default-features = false }
 coretime-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-westend" }
 coretime-westend-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-westend" }
 cpu-time = { version = "1.0.0" }
-criterion = { version = "0.5.1", default-features = false }
+criterion = { version = "0.8", default-features = false }
 cumulus-aura-authorizer-utils = { path = "cumulus/jam/aura-authorizer-utils", default-features = false }
 cumulus-client-bootnodes = { path = "cumulus/client/bootnodes", default-features = false }
 cumulus-client-cli = { path = "cumulus/client/cli", default-features = false }
@@ -885,7 +885,7 @@ governor = { version = "0.6.0" }
 gum = { path = "polkadot/node/gum", default-features = false, package = "tracing-gum" }
 gum-proc-macro = { path = "polkadot/node/gum/proc-macro", default-features = false, package = "tracing-gum-proc-macro" }
 handlebars = { version = "5.1.0" }
-hash-db = { version = "0.16.0", default-features = false }
+hash-db = { version = "0.17.0", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 hashbrown = "0.15.3"
 hex = { version = "0.4.3", default-features = false }
@@ -944,7 +944,7 @@ log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
-memory-db = { version = "0.34.0", default-features = false }
+memory-db = { version = "0.35.0", default-features = false }
 merkleized-metadata = { version = "0.5.0" }
 merlin = { version = "3.0", default-features = false }
 messages-relay = { path = "bridges/relays/messages" }
@@ -1489,10 +1489,10 @@ tracing-futures = { version = "0.2.4" }
 tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "=0.3.20" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
-trie-bench = { version = "0.42.2" }
-trie-db = { version = "0.32.0", default-features = false }
-trie-root = { version = "0.18.0", default-features = false }
-trie-standardmap = { version = "0.16.0" }
+trie-bench = { version = "0.43.0" }
+trie-db = { version = "0.33.0", default-features = false }
+trie-root = { version = "0.19.0", default-features = false }
+trie-standardmap = { version = "0.17.0" }
 trybuild = { version = "1.0.103" }
 tt-call = { version = "1.0.8" }
 tuplex = { version = "0.1", default-features = false }
