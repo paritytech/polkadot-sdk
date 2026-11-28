@@ -1,0 +1,10 @@
+title: '[pallet-revive] Preserve total issuance in dry-run calls'
+doc:
+- audience: [Node Dev, Runtime User]
+  description: |-
+    `dry_run_eth_transact` no longer includes its temporary fee credit in
+    `Currency::total_issuance()`. Contracts querying native supply during `eth_call` or gas
+    estimation now observe the same issuance as a real transaction. No migration is needed.
+crates:
+- name: pallet-revive
+  bump: patch
