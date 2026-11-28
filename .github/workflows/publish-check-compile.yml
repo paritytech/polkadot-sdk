@@ -39,7 +39,8 @@ jobs:
       - name: install parity-publish
         run: |
           apt-get update && apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
-          cargo install parity-publish@0.10.17 --locked -q
+          # parity-publish master: 0.10.18 and paritytech/parity-publish#96, which is not released.
+          cargo install --git https://github.com/paritytech/parity-publish --rev 2992ea32bae9194ae786702c62fd613b310cb4b0 --locked -q parity-publish
 
       - name: set current PR's prdoc name in a variable
         env:
@@ -81,11 +82,6 @@ jobs:
           if [ -f "prdoc/$CURRENT_PRDOC" ]; then
             parity-publish --color always apply --registry
           fi
-
-      # After a real publish, crates.io dependents of a crate with a semver-compatible bump use
-      # its new version. Patch crates.io with the local crates to get the same dependency graph.
-      - name: use local crates for crates.io dependents
-        run: python3 .github/scripts/patch-local-crates.py .
 
       - name: parity-publish check compile
         run: |
