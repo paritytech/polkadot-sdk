@@ -20,6 +20,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limits.
 #![recursion_limit = "1024"]
+// `frame_support::runtime` generates crate-level code that uses deprecated pallet items.
+#![allow(deprecated)]
 
 extern crate alloc;
 

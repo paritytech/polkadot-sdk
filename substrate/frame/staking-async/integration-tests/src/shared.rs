@@ -61,6 +61,7 @@ pub fn in_rc(f: impl FnMut() -> ()) {
 	})
 }
 
+#[allow(deprecated)]
 pub fn migrate_state() {
 	// NOTE: this is not exhaustive, only migrates the state that is needed for the tests.
 	shared::in_rc(|| {

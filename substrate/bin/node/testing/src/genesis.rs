@@ -33,6 +33,7 @@ pub fn config() -> RuntimeGenesisConfig {
 
 /// Create genesis runtime configuration for tests with some extra
 /// endowed accounts.
+#[allow(deprecated)]
 pub fn config_endowed(extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
 	let mut endowed = vec![
 		(alice(), 111 * DOLLARS),

@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![allow(deprecated)]
+
 use crate::shared;
 use ah_client::OperatingMode;
 use frame::{

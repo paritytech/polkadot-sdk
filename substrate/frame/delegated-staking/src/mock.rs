@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![allow(deprecated)]
+
 use crate::{self as delegated_staking, types::AgentLedgerOuter};
 use frame_support::{
 	assert_ok, derive_impl,

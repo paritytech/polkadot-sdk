@@ -66,6 +66,7 @@ use std::{
 /// Note that this value depends on the current issuance, a quantity known to change over time.
 /// This makes the project of computing a static value suitable for inclusion in a static,
 /// generated file _excitingly unstable_.
+#[allow(deprecated)]
 fn existential_weight<T: pallet_staking::Config>(
 	total_issuance: u128,
 	minimum_balance: u128,
@@ -279,6 +280,7 @@ fn generate_thresholds_inner<T: frame_system::Config>(
 /// Write a thresholds module for a runtime using `pallet_staking`.
 ///
 /// See `generate_thresholds_inner` for parameter documentation.
+#[allow(deprecated)]
 pub fn generate_thresholds<T: pallet_staking::Config>(
 	n_bags: usize,
 	output: &Path,

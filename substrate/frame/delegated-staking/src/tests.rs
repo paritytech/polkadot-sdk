@@ -17,6 +17,8 @@
 
 //! Tests for pallet-delegated-staking.
 
+#![allow(deprecated)]
+
 use super::*;
 use crate::mock::*;
 use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};

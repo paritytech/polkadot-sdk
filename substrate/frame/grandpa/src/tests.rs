@@ -317,6 +317,7 @@ pub fn test_authorities() -> AuthorityList {
 	authorities.into_iter().map(|id| (id.public().into(), 1u64)).collect()
 }
 
+#[allow(deprecated)]
 #[test]
 fn report_equivocation_current_set_works() {
 	let authorities = test_authorities();
